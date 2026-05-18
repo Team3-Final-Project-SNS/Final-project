@@ -24,8 +24,8 @@ public class University {
     @Column(name = "university_name", nullable = false, length = 100) // ERD: 학교명
     private String universityName;
 
-    @Column(name = "email_domain", nullable = false, unique = true, length = 100) // ERD: 이메일 도메인
-    private String emailDomain;
+    @Column(name = "e_domain", nullable = false, unique = true, length = 100) // ERD: 이메일 도메인
+    private String e_Domain;
 
     @Column(name = "is_active", nullable = false) // ERD: 활성 여부
     private boolean isActive;
@@ -37,9 +37,9 @@ public class University {
     private LocalDateTime deactivatedAt;
 
     @Builder
-    private University(String universityName, String emailDomain, boolean isActive) {
+    private University(String universityName, String e_Domain, boolean isActive) {
         this.universityName = universityName;
-        this.emailDomain = emailDomain;
+        this.e_Domain = e_Domain;
         this.isActive = isActive;
     }
 
