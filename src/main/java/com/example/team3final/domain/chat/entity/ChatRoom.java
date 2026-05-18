@@ -5,8 +5,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
 
 import java.time.LocalDateTime;
 
@@ -26,7 +25,6 @@ public class ChatRoom {
     @Column(name = "is_active", nullable = false)
     private boolean isActive;                       // 활성 여부
 
-    @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;                // 생성일
 
