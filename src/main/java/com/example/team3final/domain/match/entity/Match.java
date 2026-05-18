@@ -13,13 +13,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Getter
-@Table(
-        name = "matches", // MySQL/SQL 표준 예약어 회피
-        uniqueConstraints = {
-                // post_id UNIQUE: 동일 게시글에 매칭은 1건만 (선착순 매칭 동시성 1차 방어)
-                @UniqueConstraint(name = "uk_match_post_id", columnNames = "post_id")
-        }
-)
+@Table(name = "matches") // MySQL/SQL 표준 예약어 회피
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Match extends BaseEntity {
 
