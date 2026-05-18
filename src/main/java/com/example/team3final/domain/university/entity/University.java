@@ -20,17 +20,17 @@ public class University extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 100)
+    @Column(name = "university_name", nullable = false, length = 100)
     private String universityName; // 한글 컬럼명 '학교명'을 코드에서는 영문 필드명으로 변환합니다.
 
-    @Column(nullable = false, unique = true, length = 100)
+    @Column(name = "email_domain", nullable = false, unique = true, length = 100)
     private String eDomain; // 학교 이메일 도메인입니다. 예: univ.ac.kr
 
-    @Column(nullable = false)
+    @Column(name = "is_active", nullable = false)
     private boolean isActive; // 회원가입에 사용할 수 있는 활성 학교인지 나타냅니다.
 
     //  '비활성화일' 컬럼.
-    @Column
+    @Column(name = "deactivated_at")
     private LocalDateTime deactivatedAt;
 
     @Builder
