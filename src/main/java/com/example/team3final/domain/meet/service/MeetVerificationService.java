@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class MeetVerificationService {
 
     // GPS검증, 상태 전환, 역할 구분 서비스
@@ -25,7 +26,6 @@ public class MeetVerificationService {
     private static final int EARTH_RADIUS_METERS = 6371000;
 
     // GPS 장소 인증
-    @Transactional
     public PlaceVerificationResponseDto createPlaceVerification(
             Long matchId,
             Long userId,

@@ -1,7 +1,5 @@
 package com.example.team3final.domain.meet.service;
 
-import com.example.team3final.common.exception.ErrorCode;
-import com.example.team3final.common.exception.VerificationException;
 import com.example.team3final.domain.meet.entity.MeetVerification;
 import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +14,7 @@ public class MeetVerificationQueryService {
 
     private final MeetVerificationRepository meetVerificationRepository;
 
+    // matchId 조회
     public MeetVerification getByMatchId(Long matchId) {
         return meetVerificationRepository.findByMatchId(matchId)
                 //TODO Match 에러코드 생성되면 적용
