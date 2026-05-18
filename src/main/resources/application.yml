@@ -1,3 +1,42 @@
 spring:
   application:
     name: Team3-final
+  profiles:
+    # SPRING_PROFILES_ACTIVE 환경변수가 없으면 local 프로파일로 실행합니다.
+    active: ${SPRING_PROFILES_ACTIVE:local}
+  jpa:
+    # Controller 응답 시점에 지연 로딩이 열려 있지 않도록 막아 트랜잭션 경계를 명확히 합니다.
+    open-in-view: false
+#  data:
+#    redis:
+#      # 로컬/배포 환경별 Redis 접속 정보를 환경변수로 교체할 수 있게 둡니다.
+#      host: ${REDIS_HOST:localhost}
+#      port: ${REDIS_PORT:6379}
+
+jwt:
+  # 운영 환경에서는 반드시 JWT_SECRET_KEY 환경변수로 주입해야 합니다.
+  secret-key: ${JWT_SECRET_KEY}
+  # Signup Token 유효 시간: 15분(ms)
+  signup-token-validity-time: 900000
+  # Access Token 유효 시간: 30분(ms)
+  access-token-validity-time: 1800000
+  # Refresh Token 유효 시간: 7일(ms)
+  refresh-token-validity-time: 604800000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # MVP 단계에서는 헬스체크와 기본 정보만 외부에 노출합니다.
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+websocket:
+  # 프론트 로컬 개발 서버와 백엔드 로컬 서버의 WebSocket 접속을 허용합니다.
+  allowed-origins: "http://localhost:3000,http://localhost:8090"
+
+chat:
+  # 채팅방 비활성화 기준 시간입니다. 추후 정책 확정 시 만남 시간 기준으로 변경할 수 있습니다.
+  inactivity-timeout-minutes: 10
