@@ -1,4 +1,116 @@
 package com.example.team3final.domain.post.entity;
 
-public class Post {
+import com.example.team3final.common.entity.BaseEntity;
+import com.example.team3final.domain.post.enums.PostStatus;
+import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+@Entity
+@Getter
+@Table(name = "posts")
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Post extends BaseEntity {
+
+        // 최소 책임비 포인트
+        public static  final int MIN_AUTHOR_DEPOSIT = 200;
+
+        // 책임비 포인트 단위 (100P 단위)
+        public static final int DEPOSIT_UNIT = 100;
+
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        @Column(name = "post_id")
+        private Long id;
+
+        @Column(name = "author_id", nullable = false)
+        private Long authorId;
+
+        // 만남 희망 시간
+        @Column(name = "meet_at", nullable = false)
+        private LocalDateTime meetAt;
+
+        // 만남 장소명 (정문, 후문, 기숙사 등)
+        @Column(name = "place_name", nullable = false, length = 200)
+        private String placeName;
+
+        // 약속 장소 위도 (-90 ~ 90)
+        @Column(name = "place_lat", nullable = false, precision = 10, scale = 7)
+        private BigDecimal placeLat;
+
+        // 약속 장소 경도 (-180 ~ 180)
+        @Column(name = "place_lng", nullable = false, precision = 10, scale = 7)
+        private BigDecimal placeLng;
+
+        // 한마디 (자유 텍스트, 선택)
+        @Column(name = "content", columnDefinition = "TEXT")
+        private String content;
+
+        // 등록자 책임비 포인트 (예치 포인트)
+        @Column(name = "author_deposit", nullable = false)
+        private int authorDeposit;
+
+        @Enumerated(EnumType.STRING)
+        @Column(name = "status", nullable = false, length = 20)
+        private PostStatus status;
+
+        @Builder
+        private Post(Long authorId, LocalDateTime meetAt, String placeName,
+                     BigDecimal placeLat, BigDecimal placeLng, String content,
+                     int authorDeposit) {
+                this.authorId = authorId;
+                this.meetAt = meetAt;
+                this.placeName = placeName;
+                this.placeLat = placeLat;
+                this.placeLng = placeLng;
+                this.content = content;
+                this.authorDeposit = authorDeposit;
+                this.status = PostStatus.OPEN;
+        }
+
+        // ===== 비즈니스 메서드 =====
+
+        // 게시글 수정 (OPEN 상태에서마 가능 - 호출 측에서 상태 검증 후 호출)
+        // authorDeposit 차액 처리는 호출 측(Service)에서 PointTransaction과 함께 처리.
+        public void update(LocalDateTime meetAt, String placeName,
+                           BigDecimal placeLat, BigDecimal placeLng,
+                           String content, Integer authorDeposit) {
+                if (meetAt != null) this.meetAt = meetAt;
+                if (placeName != null) this.placeName = placeName;
+                if (placeLat != null) this.placeLat = placeLat;
+                if (placeLng != null) this.placeLng = placeLng;
+                if (content != null) this.content = content;
+                if (authorDeposit != null) this.authorDeposit = authorDeposit;
+        }
+
+        // 매칭 확정 시 상태 전이
+        public void match() {
+                this.status = PostStatus.MATCHED;
+        }
+
+        // 만남 정상 완료
+        public void complete() {
+                this.status = PostStatus.COMPLETED;
+        }
+
+        // 게시글 취소 (작성자 삭제 / 매칭 취소)
+        public void cancel() {
+                this.status = PostStatus.CANCELLED;
+        }
+
+        // ===== 조회 메서드 =====
+
+        public boolean isOpen() {
+                return this.status == PostStatus.OPEN;
+        }
+
+        // 본인 게시글 여부 검증 (수정/삭제 권한 체크용)
+        public boolean isAuthor(Long userId) {
+                return this.authorId.equals(userId);
+        }
 }
