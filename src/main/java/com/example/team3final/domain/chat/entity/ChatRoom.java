@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "chat_room")
-@EntityListeners(AuditingEntityListener.class)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ChatRoom {
@@ -29,7 +28,7 @@ public class ChatRoom {
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private LocalDateTime createdAt;                // 생성일
 
     @Column(name = "deactivated_at")
     private LocalDateTime deactivatedAt;            // 비활성화 시각
@@ -46,6 +45,12 @@ public class ChatRoom {
         this.isActive = true;       // 생성 시 활성화
         this.authorLeft = false;    // 생성 시 등록자 나가지 않은 상태
         this.applicantLeft = false; // 생성 시 신청자 나가지 않은 상태
+    }
+
+    // Entity가 처음 저장되기 직전에 생성일을 자동으로 기록
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
     }
 
     // 채팅방 비활성화 - 완료/취소/노쇼 시
