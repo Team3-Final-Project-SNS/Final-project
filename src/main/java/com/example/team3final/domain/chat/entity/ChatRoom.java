@@ -74,3 +74,4 @@ public class ChatRoom {
         this.applicantLeft = false;
     }
 }
+
