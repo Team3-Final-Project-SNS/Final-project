@@ -21,7 +21,7 @@ public class ChatRoom {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "match_id", nullable = false, unique = true)
+    @Column(name = "match_id", nullable = false, unique = true, updatable = false)
     private Long matchId;
 
     @Column(name = "is_active", nullable = false)
