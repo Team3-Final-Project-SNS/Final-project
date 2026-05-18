@@ -11,11 +11,11 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class UniversityService {
 
     private final UniversityRepository universityRepository;
 
-    @Transactional(readOnly = true) // 조회 전용 트랜잭션입니다.
     public List<UniversityResponseDto> getUniversities() {
         return universityRepository.findAllByIsActiveTrueOrderByUniversityNameAsc()
                 .stream()
@@ -27,7 +27,7 @@ public class UniversityService {
         return UniversityResponseDto.builder()
                 .universityId(university.getId()) // Entity의 id를 API 응답용 universityId로 변환합니다.
                 .universityName(university.getUniversityName()) // 학교명을 응답에 담습니다.
-                .emailDomain(university.getEmailDomain()) // 이메일 도메인을 응답에 담습니다.
+                .e_Domain(university.getE_Domain()) // 이메일 도메인을 응답에 담습니다.
                 .build();
     }
 }
