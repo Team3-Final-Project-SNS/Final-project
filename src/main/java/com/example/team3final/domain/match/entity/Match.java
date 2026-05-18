@@ -19,7 +19,7 @@ public class Match extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "match_id")
+    @Column(name = "match_id", unique = true, updatable = false)
     private Long id;
 
     // 매칭된 게시글 (1:1, post_id UNIQUE)
