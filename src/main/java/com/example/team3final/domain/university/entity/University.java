@@ -14,31 +14,39 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "universities")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class University extends BaseEntity {
+public class University {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id") // ERD: ID
     private Long id;
 
-    @Column(name = "university_name", nullable = false, length = 100)
-    private String universityName; // 한글 컬럼명 '학교명'을 코드에서는 영문 필드명으로 변환합니다.
+    @Column(name = "university_name", nullable = false, length = 100) // ERD: 학교명
+    private String universityName;
 
-    @Column(name = "email_domain", nullable = false, unique = true, length = 100)
-    private String eDomain; // 학교 이메일 도메인입니다. 예: univ.ac.kr
+    @Column(name = "email_domain", nullable = false, unique = true, length = 100) // ERD: 이메일 도메인
+    private String emailDomain;
 
-    @Column(name = "is_active", nullable = false)
-    private boolean isActive; // 회원가입에 사용할 수 있는 활성 학교인지 나타냅니다.
+    @Column(name = "is_active", nullable = false) // ERD: 활성 여부
+    private boolean isActive;
 
-    //  '비활성화일' 컬럼.
-    @Column(name = "deactivated_at")
+    @Column(name = "created_at", nullable = false, updatable = false) // ERD: 생성일
+    private LocalDateTime createdAt;
+
+    @Column(name = "deactivated_at") // ERD: 비활성화일
     private LocalDateTime deactivatedAt;
 
     @Builder
-    private University(String universityName, String eDomain, boolean isActive, LocalDateTime deactivatedAt) {
+    private University(String universityName, String emailDomain, boolean isActive) {
         this.universityName = universityName;
-        this.eDomain = eDomain;
+        this.emailDomain = emailDomain;
         this.isActive = isActive;
-        this.deactivatedAt = deactivatedAt;
+    }
+
+    // Entity가 처음 저장되기 직전에 생성일을 자동으로 기록합니다.
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
     }
 
     // 학교를 활성화합니다.
