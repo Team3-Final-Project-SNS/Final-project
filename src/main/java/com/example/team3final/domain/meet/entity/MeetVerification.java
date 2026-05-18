@@ -20,7 +20,7 @@ public class MeetVerification {
     private Long id;
 
     // Service - to - Service 방식 -> JPA 연관관계 매핑 없이 ID 값만 보관
-    @Column(name = "match_id", nullable = false, updatable = false)
+    @Column(name = "match_id", nullable = false, updatable = false, unique = true)
     // updatable 한 번 연결된 매칭 ID는 변경 불가
     private Long matchId;
 
