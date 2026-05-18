@@ -1,4 +1,4 @@
-package com.example.team3final.domain.point.enums;
+package com.example.team3final.domain.pointTransaction.enums;
 
 public enum PointTransactionType {
 

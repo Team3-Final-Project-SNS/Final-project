@@ -1,8 +1,7 @@
-package com.example.team3final.domain.point.entity;
+package com.example.team3final.domain.pointTransaction.entity;
 
 
-import com.example.team3final.common.entity.BaseEntity;
-import com.example.team3final.domain.point.enums.PointTransactionType;
+import com.example.team3final.domain.pointTransaction.enums.PointTransactionType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -15,7 +14,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "point_transactions")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Point {
+public class PointTransaction {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -45,7 +44,7 @@ public class Point {
     private LocalDateTime createdAt;
 
     @Builder
-    private Point(
+    private PointTransaction(
             Long userId,
             Long matchId,
             int amount,
