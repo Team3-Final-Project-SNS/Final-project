@@ -21,39 +21,39 @@ public class User extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "email",nullable = false, unique = true)
     private String email; // 검증된 Email
 
-    @Column(nullable = false)
+    @Column(name = "password", nullable = false)
     private String password; // BCrypt로 암호화된 값이 저장
 
-    @Column(nullable = false, length = 50)
+    @Column(name = "name",nullable = false, length = 50)
     private String name; // 실명
 
-    @Column(nullable = false, length = 50)
+    @Column(name = "nickname",nullable = false, length = 50)
     private String nickname; // 게시글에서 사용할 닉네임
 
-    @Column(nullable = false)
+    @Column(name = "university_id",nullable = false)
     private Long universityId; // 검증된 학교 ID
 
-    @Column(nullable = false, length = 100)
+    @Column(name = "major",nullable = false, length = 100)
     private String major; // 학과
 
-    @Column(nullable = false, length = 20)
+    @Column(name = "student_id_number",nullable = false, length = 20)
     private String studentNumber; //학번 입학연도 기준 뒤에 2자리
 
-    @Column(nullable = false)
+    @Column(name = "birth_date",nullable = false)
     private LocalDate birthDate; // 생년
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
+    @Column(name = "gender",nullable = false, length = 10)
     private Gender gender; // 성별
 
-    @Column(nullable = false)
+    @Column(name = "point",nullable = false)
     private int point; // 보유 포인트
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(name = "status",nullable = false, length = 20)
     private UserStatus status; // 유저의 계정 상태
 
     @Builder
