@@ -1,7 +1,7 @@
 package com.example.team3final.domain.auth.service;
 
-import com.example.team3final.domain.auth.dto.OtpRequestDto;
-import com.example.team3final.domain.auth.dto.OtpResponseDto;
+import com.example.team3final.domain.auth.dto.request.OtpRequestDto;
+import com.example.team3final.domain.auth.dto.response.OtpResponseDto;
 
 public interface AuthService {
 

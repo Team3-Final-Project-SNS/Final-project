@@ -1,8 +1,8 @@
 package com.example.team3final.domain.auth.controller;
 
 import com.example.team3final.common.dto.response.ApiResponseDto;
-import com.example.team3final.domain.auth.dto.OtpRequestDto;
-import com.example.team3final.domain.auth.dto.OtpResponseDto;
+import com.example.team3final.domain.auth.dto.request.OtpRequestDto;
+import com.example.team3final.domain.auth.dto.response.OtpResponseDto;
 import com.example.team3final.domain.auth.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
