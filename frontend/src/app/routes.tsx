@@ -9,6 +9,7 @@ import PostCreatePage from "./pages/PostCreatePage";
 import MatchesPage from "./pages/MatchesPage";
 import ChatPage from "./pages/ChatPage";
 import QRVerificationPage from "./pages/QRVerificationPage";
+import PlaceVerificationPage from "./pages/PlaceVerificationPage";
 import NotFoundPage from "./pages/NotFoundPage";
 
 export const router = createBrowserRouter([
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
     Component: Layout,
     children: [
       { index: true, Component: MatchesPage },
+      { path: ":id/place-verification", Component: PlaceVerificationPage },
       { path: ":id/qr", Component: QRVerificationPage },
     ],
   },
