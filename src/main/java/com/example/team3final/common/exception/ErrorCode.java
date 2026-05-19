@@ -17,6 +17,10 @@ public enum ErrorCode {
 
     // User
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_001", "존재하지 않는 유저입니다."),
+    LOGIN_FAIL(HttpStatus.UNAUTHORIZED, "AUTH_301", "이메일 또는 비밀번호가 일치하지 않습니다."),
+    USER_SUSPENDED_OR_WITHDRAWN(HttpStatus.FORBIDDEN, "AUTH_302", "정지 또는 탈퇴된 계정입니다."),
+    INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH_002", "유효하지 않거나 만료된 토큰입니다."),
+    EXPIRED_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH_003", "만료된 토큰입니다."),
 
     // Post
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "POST_001", "존재하지 않는 게시글입니다."),
