@@ -2,9 +2,12 @@ package com.example.team3final.domain.meet.service;
 
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.VerificationException;
+import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.meet.dto.request.PlaceVerificationRequestDto;
+import com.example.team3final.domain.meet.dto.request.QrScanRequestDto;
 import com.example.team3final.domain.meet.dto.response.PlaceVerificationResponseDto;
 import com.example.team3final.domain.meet.dto.response.QrResponseDto;
+import com.example.team3final.domain.meet.dto.response.QrScanResponseDto;
 import com.example.team3final.domain.meet.entity.MeetVerification;
 import com.example.team3final.domain.meet.enums.VerificationStatus;
 import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
@@ -115,6 +118,41 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         meetVerification.issueQrToken(qrToken, expiresAt);
 
         return QrResponseDto.from(matchId, meetVerification);
+    }
+
+    @Override
+    public QrScanResponseDto createQrScan(Long matchId, Long userId, QrScanRequestDto requestDto) {
+        // matchId 조회
+        MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
+                // TODO: Match 에러코드 적용해야 함
+                .orElseThrow( () -> new IllegalArgumentException("Meet Verification Not Found"));
+
+        // 신청자인지 확인
+        // TODO: Match 연결 후 userId == applicantId 비교
+
+        // 장소 인증
+        if (meetVerification.getStatus() != VerificationStatus.VERIFIED) {
+            throw new VerificationException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED);
+        }
+
+        // QR 토큰 만료 여부 체크
+        if (meetVerification.isQrExpired()) {
+            throw new VerificationException(ErrorCode.QR_EXPIRED);
+        }
+
+        // QR 토큰 일치 여부 검증
+        if (!requestDto.getQrToken().equals(meetVerification.getQrToken())) {
+            throw new VerificationException(ErrorCode.SCAN_INVALID_QR_TOKEN);
+        }
+
+        // 만남 인증 완료 처리
+        meetVerification.meetVerifiedDone();
+
+        // TODO: Match 상태 COMPLETED로 변경
+
+        // TODO: 양측 예치 포인트 전액 환급 필요
+
+        return QrScanResponseDto.from(matchId, meetVerification, MatchStatus.COMPLETED, 0);
     }
 
     // 이미 인증 완료된건지 검증하는 로직
