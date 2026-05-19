@@ -40,7 +40,7 @@ public class UniversityServiceImpl implements UniversityService {
         return UniversityResponseDto.builder()
                 .universityId(university.getId())
                 .universityName(university.getUniversityName())
-                .e_Domain(university.getE_Domain())
+                .eDomain(university.getEDomain())
                 .build();
     }
 }

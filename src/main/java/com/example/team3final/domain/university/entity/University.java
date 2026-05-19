@@ -25,7 +25,7 @@ public class University {
     private String universityName;
 
     @Column(name = "e_domain", nullable = false, unique = true, length = 100) // ERD: 이메일 도메인
-    private String e_Domain;
+    private String eDomain;
 
     @Column(name = "is_active", nullable = false) // ERD: 활성 여부
     private boolean isActive;
@@ -39,7 +39,7 @@ public class University {
     @Builder
     private University(String universityName, String e_Domain, boolean isActive) {
         this.universityName = universityName;
-        this.e_Domain = e_Domain;
+        this.eDomain = e_Domain;
         this.isActive = isActive;
     }
 
