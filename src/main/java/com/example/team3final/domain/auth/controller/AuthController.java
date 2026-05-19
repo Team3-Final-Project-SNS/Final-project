@@ -1,19 +1,18 @@
 package com.example.team3final.domain.auth.controller;
 
 import com.example.team3final.common.dto.response.ApiResponseDto;
-import com.example.team3final.domain.auth.dto.request.LoginRequestDto;
-import com.example.team3final.domain.auth.dto.request.OtpRequestDto;
-import com.example.team3final.domain.auth.dto.response.LoginResponseDto;
-import com.example.team3final.domain.auth.dto.response.OtpResponseDto;
+import com.example.team3final.domain.auth.dto.request.*;
+import com.example.team3final.domain.auth.dto.response.*;
 import com.example.team3final.domain.auth.service.AuthService;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Arrays;
 
 @RestController
 @RequiredArgsConstructor
@@ -36,5 +35,27 @@ public class AuthController {
             HttpServletResponse response) {
         // response를 넘기는 이유: Refresh Token 쿠키를 서비스에서 직접 세팅하기 위해
         return ResponseEntity.ok(ApiResponseDto.success(authService.login(request, response)));
+    }
+
+    // 토큰 재발급
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponseDto<TokenResponseDto>> refresh(
+            HttpServletRequest request,
+            HttpServletResponse response) {
+
+        // 쿠키에서 refresh_token 꺼내기
+        String refreshToken = extractRefreshTokenFromCookie(request);
+        return ResponseEntity.ok(ApiResponseDto.success(authService.refresh(refreshToken, response)));
+    }
+
+    // 쿠키 배열에서 refresh_token 값을 찾아 반환하는 헬퍼 메서드
+    private String extractRefreshTokenFromCookie(HttpServletRequest request) {
+        if (request.getCookies() == null) return null;
+
+        return Arrays.stream(request.getCookies())
+                .filter(cookie -> "refresh_token".equals(cookie.getName()))
+                .findFirst()
+                .map(Cookie::getValue)
+                .orElse(null);
     }
 }
