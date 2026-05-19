@@ -5,6 +5,7 @@ import com.example.team3final.common.exception.VerificationException;
 import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.meet.dto.request.PlaceVerificationRequestDto;
 import com.example.team3final.domain.meet.dto.request.QrScanRequestDto;
+import com.example.team3final.domain.meet.dto.response.MeetVerificationResponseDto;
 import com.example.team3final.domain.meet.dto.response.PlaceVerificationResponseDto;
 import com.example.team3final.domain.meet.dto.response.QrResponseDto;
 import com.example.team3final.domain.meet.dto.response.QrScanResponseDto;
@@ -21,6 +22,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class MeetVerificationServiceImpl implements MeetVerificationService {
 
     // GPS검증, 상태 전환, 역할 구분 서비스
@@ -46,6 +48,10 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
                 //TODO: match 에러 코드 생성되면 적용
                 .orElseThrow( () -> new IllegalArgumentException("Meet Verification Not Found"));
+
+        // TODO Match 연결 후 userId == authorId || userId == applicantId 비교
+
+        // TODO Match 연결 후 meetAt 기준 15분 전 ~ 1시간 까지 범위 체크 추가
 
         // 이미 인증 완료된건지 체크
         // TODO: Match 연결 후 userId 기반으로 등록자/신청자 각각 체크로 교체 필요
@@ -78,6 +84,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     }
 
     @Override
+    @Transactional
     public QrResponseDto getMeetQr(Long matchId, Long userId) {
         // matchId 조회
         MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
@@ -121,6 +128,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     }
 
     @Override
+    @Transactional
     public QrScanResponseDto createQrScan(Long matchId, Long userId, QrScanRequestDto requestDto) {
         // matchId 조회
         MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
@@ -130,10 +138,16 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         // 신청자인지 확인
         // TODO: Match 연결 후 userId == applicantId 비교
 
+        // DONE 상태 재스캔 차단
+        if (meetVerification.getStatus() == VerificationStatus.DONE) {
+            throw new VerificationException(ErrorCode.GPS_ALREADY_VERIFIED);
+        }
+
         // 장소 인증
         if (meetVerification.getStatus() != VerificationStatus.VERIFIED) {
             throw new VerificationException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED);
         }
+
 
         // QR 토큰 만료 여부 체크
         if (meetVerification.isQrExpired()) {
@@ -153,6 +167,19 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         // TODO: 양측 예치 포인트 전액 환급 필요
 
         return QrScanResponseDto.from(matchId, meetVerification, MatchStatus.COMPLETED, 0);
+    }
+
+    // QR 인증 상태 조회
+    @Override
+    public MeetVerificationResponseDto getMeetVerification(Long matchId, Long userId) {
+        MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
+                // TODO: Match 에러코드 적용 해야 됨
+                .orElseThrow( () -> new IllegalArgumentException("Meet Verification Not Found"));
+
+        // 매칭 당사자 확인
+        // TODO: Match 도메인 생성되면 userId == authorId || userId == applicantId 비교
+
+        return MeetVerificationResponseDto.from(matchId, meetVerification);
     }
 
     // 이미 인증 완료된건지 검증하는 로직
