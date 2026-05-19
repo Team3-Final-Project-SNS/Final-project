@@ -8,10 +8,12 @@ import com.example.team3final.domain.meet.dto.response.PlaceVerificationResponse
 import com.example.team3final.domain.meet.dto.response.QrResponseDto;
 import com.example.team3final.domain.meet.dto.response.QrScanResponseDto;
 import com.example.team3final.domain.meet.service.MeetVerificationServiceImpl;
+import com.example.team3final.domain.user.service.UserDetailsImpl;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -25,8 +27,10 @@ public class MeetVerificationController {
     @PostMapping("/{matchId}/place-verification")
     public ResponseEntity<ApiResponseDto<PlaceVerificationResponseDto>> createPlaceVerification(
             @PathVariable Long matchId,
-            @RequestHeader Long userId,
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
             @Valid @RequestBody PlaceVerificationRequestDto requestDto) {
+
+        Long userId = userDetails.getUserId();
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponseDto.success(
                 meetVerificationService.createPlaceVerification(matchId, userId, requestDto)));
     }
@@ -35,7 +39,9 @@ public class MeetVerificationController {
     @GetMapping("/{matchId}/qr")
     public ResponseEntity<ApiResponseDto<QrResponseDto>> getMeetQr(
             @PathVariable Long matchId,
-            @RequestHeader Long userId) {
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+
+        Long userId = userDetails.getUserId();
         return ResponseEntity.ok(ApiResponseDto.success(
                 meetVerificationService.getMeetQr(matchId, userId)));
     }
@@ -44,8 +50,10 @@ public class MeetVerificationController {
     @PostMapping("/{matchId}/qr/scan")
     public ResponseEntity<ApiResponseDto<QrScanResponseDto>> createQrScan(
             @PathVariable Long matchId,
-            @RequestHeader Long userId,
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
             @Valid @RequestBody QrScanRequestDto requestDto) {
+
+        Long userId = userDetails.getUserId();
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponseDto.success(
                 meetVerificationService.createQrScan(matchId, userId, requestDto)));
     }
@@ -54,7 +62,9 @@ public class MeetVerificationController {
     @GetMapping("/{matchId}/verification")
     public ResponseEntity<ApiResponseDto<MeetVerificationResponseDto>> getMeetVerification(
             @PathVariable Long matchId,
-            @RequestHeader Long userId) {
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+
+        Long userId = userDetails.getUserId();
         return ResponseEntity.ok(ApiResponseDto.success(
                 meetVerificationService.getMeetVerification(matchId, userId)));
     }

@@ -3,6 +3,7 @@ package com.example.team3final.domain.meet.service;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.VerificationException;
 import com.example.team3final.domain.match.enums.MatchStatus;
+import com.example.team3final.domain.match.service.MatchQueryService;
 import com.example.team3final.domain.meet.dto.request.PlaceVerificationRequestDto;
 import com.example.team3final.domain.meet.dto.request.QrScanRequestDto;
 import com.example.team3final.domain.meet.dto.response.MeetVerificationResponseDto;
@@ -12,6 +13,7 @@ import com.example.team3final.domain.meet.dto.response.QrScanResponseDto;
 import com.example.team3final.domain.meet.entity.MeetVerification;
 import com.example.team3final.domain.meet.enums.VerificationStatus;
 import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
+import com.example.team3final.domain.post.service.PostQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,9 +34,11 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     private static final double PLACE_VERIFICATION_RADIUS_METERS = 60.0;
     // 지구 반지름
     private static final int EARTH_RADIUS_METERS = 6371000;
-
     // QR 토큰 TTL - 장소 인증 완료 시점 + 30분
     private static final long QR_TOKEN_VALIDITY_MINUTES = 30;
+    // 장소 인증 가능 시간 : 만남 시간 15분전 ~ 1시간
+    private static final long VERIFICATION_BEFORE_MINUTES = 15;
+    private static final long VERIFICATION_AFTER_MINUTES = 60;
 
     // GPS 장소 인증
     @Override
