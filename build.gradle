@@ -36,6 +36,14 @@ dependencies {
     // 입력값 유효성 검증을 위한 의존성 (@Email, @NotBlank 등 사용)
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
+    // JWT 토큰 생성/검증 라이브러리
+    // jjwt-api: JWT 관련 인터페이스 정의
+    // jjwt-impl: 실제 구현체 (런타임에만 필요)
+    // jjwt-jackson: JSON 직렬화를 Jackson으로 처리
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.3'
+
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'com.h2database:h2'
     runtimeOnly 'com.mysql:mysql-connector-j'
