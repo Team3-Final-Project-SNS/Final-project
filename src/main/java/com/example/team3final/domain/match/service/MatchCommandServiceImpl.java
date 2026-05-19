@@ -2,11 +2,13 @@ package com.example.team3final.domain.match.service;
 
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.MatchException;
+import com.example.team3final.domain.chat.service.ChatService;
 import com.example.team3final.domain.match.dto.response.CreateMatchResponseDto;
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.repository.MatchRepository;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
+import com.example.team3final.domain.post.service.PostCommandService;
 import com.example.team3final.domain.post.service.PostQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,17 +20,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class MatchCommandServiceImpl implements MatchCommandService{
 
     private final MatchRepository matchRepository;
-
-    // 같은 도메인이 아닌 Post 도메인의 Query 서비스 의존
-    // → 도메인 경계 유지: Match는 PostRepository를 직접 알지 못함, Post Service를 통해서만 접근
+    private final MatchQueryService matchQueryService;
     private final PostQueryService postQueryService;
+    private final PostCommandService postCommandService;
+    private final ChatService chatService;
 
     // TODO: User 도메인 머지 후 활성화
     // private final UserCommandService userCommandService;   // 포인트 차감
     // private final UserQueryService userQueryService;       // 닉네임 조회
     //
-    // TODO: Chat 도메인 머지 후 활성화
-    // private final ChatRoomCommandService chatRoomCommandService;  // 채팅방 자동 생성
 
     @Override
     public CreateMatchResponseDto createMatch(Long postId, Long applicantId) {
@@ -75,12 +75,11 @@ public class MatchCommandServiceImpl implements MatchCommandService{
 
         post.match();
 
-        // TODO: Chat 도메인 머지 후 활성화
-        // Long chatRoomId = chatRoomCommandService.createRoom(
-        //         savedMatch.getId(),
-        //         post.getAuthorId(),
-        //         applicantId
-        // );
+         chatService.createChatRoom(
+                 savedMatch.getId(),
+                 post.getAuthorId(),
+                 applicantId
+         );
 
         Long chatRoomId = null;
 
@@ -98,5 +97,47 @@ public class MatchCommandServiceImpl implements MatchCommandService{
                 applicantNickname,
                 chatRoomId
         );
+    }
+
+    /**
+     * 매칭 완료 처리 (오케스트레이션)
+     *
+     * 호출 시점: 만남 인증(정)이 QR 스캔 성공 처리할 때
+     * 처리 순서:
+     *   1) Match 조회 + 도메인 메서드 호출 (status=COMPLETED, completedAt=now)
+     *   2) Post 상태 → COMPLETED
+     *   3) 채팅방 비활성화 (isActive=false)
+     *   4) [TODO] 포인트 환불
+     */
+    @Override
+    public void completeMatch(Long matchId) {
+        // ===== ① Match 조회 =====
+        // 같은 도메인의 QueryService에 위임 — NotFound 처리 일원화
+        Match match = matchQueryService.getMatchById(matchId);
+
+        // ===== ② Match 상태 변경: → COMPLETED =====
+        // 엔티티의 complete() 메서드가 status + completedAt 둘 다 책임짐
+        // 우리는 호출만 하면 됨 — 상태 전이 규칙이 엔티티 안에 캡슐화돼 있어서
+        match.complete();
+
+        // ===== ③ Post 상태 변경: → COMPLETED =====
+        // Post 도메인의 Service에 위임 — Post 엔티티를 직접 가져오지 않고 도메인 경계 유지
+        // match.getPostId()로 PostId 추출 후 Post 도메인이 자기 일을 함
+        postCommandService.completePost(match.getPostId());
+
+        // ===== ④ 채팅방 비활성화 =====
+        // 명세서 (박 담당자 메모): 완료/취소/노쇼 시 deactivateChatRoom 호출 필수
+        // 안 부르면 채팅방 isActive = true 상태로 남아 나가기 불가
+        chatService.deactivateChatRoom(matchId);
+
+        // ===== ⑤ 포인트 환불 (TODO) =====
+        // 만남 정상 완료 시: 양측 모두 100% 환불
+        // - 등록자: post.authorDeposit 100% 환불 (type=REFUND)
+        // - 신청자: match.applicantDeposit 100% 환불 (type=REFUND)
+        //
+        // TODO: User 도메인 머지 후 활성화
+        // Post post = postQueryService.getPostById(match.getPostId());
+        // userCommandService.refundPoint(post.getAuthorId(), post.getAuthorDeposit(), RefundType.REFUND);
+        // userCommandService.refundPoint(match.getApplicantId(), match.getApplicantDeposit(), RefundType.REFUND);
     }
 }
