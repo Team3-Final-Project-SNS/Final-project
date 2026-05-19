@@ -21,13 +21,8 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("유저를 찾을 수 없습니다: " + email));
 
-        // Spring Security의 UserDetails 구현체로 변환
-        // User.builder()가 아닌 Spring Security의 User.builder()
-        return org.springframework.security.core.userdetails.User.builder()
-                .username(user.getEmail())          // 식별자 = 이메일
-                .password(user.getPassword())       // BCrypt 암호화된 비밀번호
-                .disabled(!user.isActive())         // 정지/탈퇴 계정 비활성화
-                .roles("USER")                      // 권한 (현재는 모두 USER)
-                .build();
+        // 기존 Spring Security 기본 User 대신 커스텀 UserDetailsImpl 반환
+        // → userId를 포함하고 있어서 컨트롤러에서 바로 꺼낼 수 있음
+        return new UserDetailsImpl(user);
     }
 }
