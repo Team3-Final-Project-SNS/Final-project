@@ -194,6 +194,20 @@ public class AuthServiceImpl implements AuthService{
         return new TokenResponseDto(newAccessToken);
     }
 
+    // ===== 1.6 로그아웃 =====
+    @Override
+    public void logout(String refreshToken, HttpServletResponse response) {
+
+        // 1. Refresh Token이 있으면 Redis에서 삭제 (서버측 무효화)
+        if (refreshToken != null && jwtProvider.validateToken(refreshToken)) {
+            String email = jwtProvider.getEmailFromToken(refreshToken);
+            redisTemplate.delete(REFRESH_TOKEN_KEY_PREFIX + email);
+        }
+
+        // 2. 쿠키 만료 처리 (Max-Age=0으로 브라우저가 즉시 삭제하도록)
+        expireRefreshTokenCookie(response);
+    }
+
         // ===== 쿠키 생성 헬퍼 =====
         private void addRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
             Cookie cookie = new Cookie("refresh_token", refreshToken);
@@ -203,4 +217,14 @@ public class AuthServiceImpl implements AuthService{
             cookie.setMaxAge(14 * 24 * 60 * 60); // 14일 (초 단위)
             response.addCookie(cookie);
         }
+
+    // ===== 쿠키 만료 헬퍼 =====
+    private void expireRefreshTokenCookie(HttpServletResponse response) {
+        Cookie cookie = new Cookie("refresh_token", "");
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(0);  // 즉시 만료
+        response.addCookie(cookie);
+    }
 }
