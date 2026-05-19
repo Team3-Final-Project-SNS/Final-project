@@ -44,7 +44,6 @@ public enum ErrorCode {
     CHAT_NOT_PARTICIPANT(HttpStatus.FORBIDDEN, "CHAT_004", "해당 채팅방의 참여자가 아닙니다."),
     CHAT_ROOM_RE_ENTER_FORBIDDEN(HttpStatus.FORBIDDEN, "CHAT_005", "재입장할 수 없는 채팅방입니다.");
 
-
     private final HttpStatus httpStatus;
     private final String code;
     private final String message;
