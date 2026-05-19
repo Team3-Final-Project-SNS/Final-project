@@ -4,7 +4,6 @@ import com.example.team3final.common.config.OtpProperties;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.ServiceException;
 import com.example.team3final.common.jwt.JwtProvider;
-import com.example.team3final.domain.auth.dto.*;
 import com.example.team3final.domain.auth.dto.request.LoginRequestDto;
 import com.example.team3final.domain.auth.dto.request.OtpRequestDto;
 import com.example.team3final.domain.auth.dto.response.LoginResponseDto;
