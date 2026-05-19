@@ -7,6 +7,6 @@ import lombok.Builder;
 public record UniversityResponseDto(
         Long universityId,     // 대학교 ID입니다.
         String universityName, // 대학교 이름입니다.
-        String  e_Domain     // 학교 이메일 도메인입니다.
+        String  eDomain     // 학교 이메일 도메인입니다.
 ) {
 }
