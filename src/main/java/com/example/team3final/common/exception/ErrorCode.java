@@ -18,10 +18,19 @@ public enum ErrorCode {
     // User
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_001", "존재하지 않는 유저입니다."),
 
-    // ===== Post 도메인 =====
+    // Post
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "POST_001", "존재하지 않는 게시글입니다."),
     POST_INVALID_MEET_AT(HttpStatus.BAD_REQUEST, "POST_001", "만남 희망 시간은 현재 이후여야 합니다."),
     POST_INVALID_DEPOSIT(HttpStatus.BAD_REQUEST, "POST_002", "책임비 포인트는 최소 200P 이상, 100P 단위여야 합니다."),
+
+    // Match
+    MATCH_NOT_FOUND(HttpStatus.NOT_FOUND, "MATCH_001", "존재하지 않는 매칭입니다."),
+    MATCH_NOT_PARTICIPANT(HttpStatus.FORBIDDEN, "MATCH_002", "해당 매칭의 당사자가 아닙니다."),
+    MATCH_SELF_APPLY(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_101", "본인 게시글에는 신청할 수 없습니다."),
+    MATCH_ALREADY_MATCHED(HttpStatus.CONFLICT, "MATCH_102", "이미 매칭된 게시글입니다."),
+    MATCH_POST_CLOSED(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_103", "모집이 종료된 게시글입니다."),
+    MATCH_INVALID_STATUS(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_201", "현재 상태의 매칭은 취소할 수 없습니다."),
+    MATCH_AFTER_MEET_TIME(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_202", "약속 시간 이후에는 취소할 수 없습니다."),
 
     // GPS 장소 인증 에러 코드
     GPS_OUT_OF_RANGE(HttpStatus.UNPROCESSABLE_ENTITY, "VERIFY_001", "약속 장소 반경 50m를 벗어났습니다."),
@@ -52,7 +61,8 @@ public enum ErrorCode {
     // PointTransaction
     POINT_TRANSACTION_INVALID_TYPE(HttpStatus.BAD_REQUEST, "POINT_001", "유효하지 않은 포인트 거래 타입입니다."),
     POINT_TRANSACTION_INVALID_PAGE(HttpStatus.BAD_REQUEST, "POINT_002", "페이지 요청 값이 올바르지 않습니다."),
-    POINT_TRANSACTION_NOT_FOUND(HttpStatus.NOT_FOUND, "POINT_003", "포인트 거래 내역이 없습니다.");
+    POINT_TRANSACTION_NOT_FOUND(HttpStatus.NOT_FOUND, "POINT_003", "포인트 거래 내역이 없습니다."),
+    POINT_NOT_ENOUGH(HttpStatus.UNPROCESSABLE_ENTITY, "POINT_004", "보유 포인트가 부족합니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

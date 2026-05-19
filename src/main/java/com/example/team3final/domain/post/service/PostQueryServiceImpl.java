@@ -1,6 +1,8 @@
 package com.example.team3final.domain.post.service;
 
 import com.example.team3final.common.dto.response.PageResponseDto;
+import com.example.team3final.common.exception.ErrorCode;
+import com.example.team3final.common.exception.PostException;
 import com.example.team3final.domain.post.dto.response.GetPostsItemResponseDto;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
@@ -81,5 +83,13 @@ public class PostQueryServiceImpl implements PostQueryService {
         // 5. 공통 PageResponseDto로 래핑
         // 이미 만들어진 공통 응답 포맷 재사용 → content/page/size/totalElements/totalPages/hasNext
         return PageResponseDto.from(dtoPage);
+    }
+
+    @Override
+    public Post getPostById(Long postId) {
+        // 단순 단건 조회 — Match/GPS 도메인이 호출
+        // findById가 Optional 반환 → 없으면 POST_001로 변환
+        return postRepository.findById(postId)
+                .orElseThrow(() -> new PostException(ErrorCode.POST_NOT_FOUND));
     }
 }
