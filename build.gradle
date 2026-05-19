@@ -35,6 +35,8 @@ dependencies {
 
     // 입력값 유효성 검증을 위한 의존성 (@Email, @NotBlank 등 사용)
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+    // AOP 지원 (공통 관심사 분리)
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
 
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'com.h2database:h2'

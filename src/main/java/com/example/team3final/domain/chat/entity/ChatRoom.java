@@ -80,15 +80,5 @@ public class ChatRoom {
     public void applicantLeave() {
         this.applicantLeft = true;
     }
-
-    // 등록자 재입장
-    public void authorReEnter() {
-        this.authorLeft = false;
-    }
-
-    // 신청자 재입장
-    public void applicantReEnter() {
-        this.applicantLeft = false;
-    }
 }
 

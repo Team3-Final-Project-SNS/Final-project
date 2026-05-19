@@ -123,4 +123,29 @@ public class ChatServiceImpl implements ChatService {
 
         return CursorResponseDto.of(content, size, ChatMessageResponseDto::messageId);
     }
+
+    // 채팅방 나가기 - 완료/취소/노쇼 후에만 가능
+    @Transactional
+    @Override
+    public void leaveChatRoom(Long chatRoomId, Long userId) {
+        ChatRoom chatRoom = chatRoomRepository.findById(chatRoomId)
+                .orElseThrow(() -> new ServiceException(ErrorCode.CHAT_ROOM_NOT_FOUND));
+
+        // 활성화된 채팅방은 나가기 불가 (MATCHED 상태)
+        // TODO: 매칭 팀원이 완료/취소/노쇼 처리 시 deactivateChatRoom(matchId) 반드시 호출 필요
+        // 호출하지 않으면 isActive = true 상태가 유지되어 나가기가 불가능함
+        if (chatRoom.isActive()) {
+            throw new ServiceException(ErrorCode.CHAT_ROOM_ACTIVE_CANNOT_LEAVE);
+        }
+
+        // 등록자/신청자 구분 후 나가기 처리
+        if (chatRoom.getAuthorId().equals(userId)) {
+            chatRoom.authorLeave();
+        } else if (chatRoom.getApplicantId().equals(userId)) {
+            chatRoom.applicantLeave();
+        } else {
+            throw new ServiceException(ErrorCode.CHAT_NOT_PARTICIPANT);
+        }
+    }
+
 }
