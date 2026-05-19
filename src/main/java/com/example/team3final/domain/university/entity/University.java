@@ -37,9 +37,9 @@ public class University {
     private LocalDateTime deactivatedAt;
 
     @Builder
-    private University(String universityName, String e_Domain, boolean isActive) {
+    private University(String universityName, String eDomain, boolean isActive) {
         this.universityName = universityName;
-        this.eDomain = e_Domain;
+        this.eDomain = eDomain;
         this.isActive = isActive;
     }
 
