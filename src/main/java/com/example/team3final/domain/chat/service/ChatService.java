@@ -20,4 +20,7 @@ public interface ChatService {
 
     // 메시지 목록 조회 (커서 기반 페이징)
     CursorResponseDto<ChatMessageResponseDto> getChatMessages(Long chatRoomId, Long userId, Long cursorId, int size);
+
+    // 채팅방 나가기 - 완료/취소/노쇼 후에만 가능
+    void leaveChatRoom(Long chatRoomId, Long userId);
 }
