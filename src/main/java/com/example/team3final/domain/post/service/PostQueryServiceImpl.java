@@ -4,6 +4,7 @@ import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.PostException;
 import com.example.team3final.domain.post.dto.response.GetPostsItemResponseDto;
+import com.example.team3final.domain.post.dto.response.PostInfoDto;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.repository.PostRepository;
@@ -91,5 +92,13 @@ public class PostQueryServiceImpl implements PostQueryService {
         // findById가 Optional 반환 → 없으면 POST_001로 변환
         return postRepository.findById(postId)
                 .orElseThrow(() -> new PostException(ErrorCode.POST_NOT_FOUND));
+    }
+
+    @Override
+    public PostInfoDto getPostInfo(Long postId) {
+        // 내부적으로는 getPostById 재사용 → 코드 중복 제거
+        // 엔티티를 조회한 후 DTO로 변환 (필요한 필드만 추림)
+        Post post = getPostById(postId);
+        return PostInfoDto.from(post);
     }
 }
