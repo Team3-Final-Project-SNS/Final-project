@@ -43,4 +43,9 @@ public class UniversityServiceImpl implements UniversityService {
                 .eDomain(university.getEDomain())
                 .build();
     }
+
+    @Override
+    public boolean isRegisteredActiveUniversity(String emailDomain) {
+        return universityRepository.existsByeDomainAndIsActiveTrue(emailDomain);
+    }
 }

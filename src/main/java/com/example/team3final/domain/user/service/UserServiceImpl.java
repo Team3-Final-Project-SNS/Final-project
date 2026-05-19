@@ -26,4 +26,9 @@ public class UserServiceImpl implements UserService {
         // 다른 도메인에서는 User 전체가 아니라 userId만 사용하도록 ID만 반환합니다.
         return user.getId();
     }
+
+    @Override
+    public boolean isEmailAlreadyRegistered(String email) {
+        return userRepository.existsByEmail(email);
+    }
 }

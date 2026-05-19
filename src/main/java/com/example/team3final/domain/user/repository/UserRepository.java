@@ -10,4 +10,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     // 이메일로 User Entity를 조회합니다.
     Optional<User> findByEmail(String email);
+
+    // 회원가입 시 이메일로 사용자가 존재하는지 확인 (중복 가입 방지)
+    boolean existsByEmail(String email);
 }
