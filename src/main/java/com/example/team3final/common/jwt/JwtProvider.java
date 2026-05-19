@@ -58,7 +58,7 @@ public class JwtProvider {
 
         return Jwts.builder()
                 .subject(subject)                  // 토큰 주인 (이메일)
-                .claim("type", tokenType)          // 토큰 타입 구분 (ACCESS/REFRESH/SIGNUP)
+                .claim("type", tokenType)       // 토큰 타입 구분 (ACCESS/REFRESH/SIGNUP)
                 .issuedAt(now)                     // 발급 시각
                 .expiration(expiry)                // 만료 시각
                 .signWith(secretKey)               // 서명 (위조 방지)
