@@ -42,7 +42,16 @@ public enum ErrorCode {
     CHAT_ROOM_ALREADY_EXISTS(HttpStatus.CONFLICT, "CHAT_002", "이미 존재하는 채팅방입니다."),
     CHAT_ROOM_INACTIVE(HttpStatus.FORBIDDEN, "CHAT_003", "비활성화된 채팅방입니다."),
     CHAT_NOT_PARTICIPANT(HttpStatus.FORBIDDEN, "CHAT_004", "해당 채팅방의 참여자가 아닙니다."),
-    CHAT_ROOM_RE_ENTER_FORBIDDEN(HttpStatus.FORBIDDEN, "CHAT_005", "재입장할 수 없는 채팅방입니다.");
+    CHAT_ROOM_RE_ENTER_FORBIDDEN(HttpStatus.FORBIDDEN, "CHAT_005", "재입장할 수 없는 채팅방입니다."),
+
+
+    // University
+    UNIVERSITY_NOT_FOUND(HttpStatus.NOT_FOUND, "UNIVERSITY_001", "조회 가능한 대학 목록이 없습니다."),
+
+    // PointTransaction
+    POINT_TRANSACTION_INVALID_TYPE(HttpStatus.BAD_REQUEST, "POINT_001", "유효하지 않은 포인트 거래 타입입니다."),
+    POINT_TRANSACTION_INVALID_PAGE(HttpStatus.BAD_REQUEST, "POINT_002", "페이지 요청 값이 올바르지 않습니다."),
+    POINT_TRANSACTION_NOT_FOUND(HttpStatus.NOT_FOUND, "POINT_003", "포인트 거래 내역이 없습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;
