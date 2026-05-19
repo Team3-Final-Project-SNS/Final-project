@@ -1,0 +1,67 @@
+import { createBrowserRouter } from "react-router";
+import Layout from "./components/Layout";
+import HomePage from "./pages/HomePage";
+import LoginPage from "./pages/LoginPage";
+import SignupPage from "./pages/SignupPage";
+import PostListPage from "./pages/PostListPage";
+import PostDetailPage from "./pages/PostDetailPage";
+import PostCreatePage from "./pages/PostCreatePage";
+import MatchesPage from "./pages/MatchesPage";
+import ChatPage from "./pages/ChatPage";
+import QRVerificationPage from "./pages/QRVerificationPage";
+import NotFoundPage from "./pages/NotFoundPage";
+
+export const router = createBrowserRouter([
+  {
+    path: "/",
+    Component: HomePage,
+  },
+  {
+    path: "/app",
+    Component: Layout,
+    children: [
+      { path: "posts", Component: PostListPage },
+      { path: "posts/new", Component: PostCreatePage },
+      { path: "posts/:id", Component: PostDetailPage },
+      { path: "matches", Component: MatchesPage },
+      { path: "chat/:roomId", Component: ChatPage },
+      { path: "matches/:id/qr", Component: QRVerificationPage },
+    ],
+  },
+  {
+    path: "/posts",
+    Component: Layout,
+    children: [
+      { index: true, Component: PostListPage },
+      { path: "new", Component: PostCreatePage },
+      { path: ":id", Component: PostDetailPage },
+    ],
+  },
+  {
+    path: "/matches",
+    Component: Layout,
+    children: [
+      { index: true, Component: MatchesPage },
+      { path: ":id/qr", Component: QRVerificationPage },
+    ],
+  },
+  {
+    path: "/chat/:roomId",
+    Component: Layout,
+    children: [
+      { index: true, Component: ChatPage },
+    ],
+  },
+  {
+    path: "/login",
+    Component: LoginPage,
+  },
+  {
+    path: "/signup",
+    Component: SignupPage,
+  },
+  {
+    path: "*",
+    Component: NotFoundPage,
+  },
+]);
