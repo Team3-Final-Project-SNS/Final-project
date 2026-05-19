@@ -59,7 +59,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
         // TODO: Match -> Post의 placeLat, placeLng 조회로 교체 필요
         BigDecimal placeLat = new BigDecimal("37.566500");
-        BigDecimal placeLng = new BigDecimal("122.43200");
+        BigDecimal placeLng = new BigDecimal("126.978000");
 
         // BigDecimal → double 변환: Math 삼각함수가 double만 지원하므로 계산 직전에만 변환
         double distanceMeters = calculateDistance(
