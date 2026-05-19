@@ -3,6 +3,7 @@ package com.example.team3final.domain.meet.controller;
 import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.domain.meet.dto.request.PlaceVerificationRequestDto;
 import com.example.team3final.domain.meet.dto.request.QrScanRequestDto;
+import com.example.team3final.domain.meet.dto.response.MeetVerificationResponseDto;
 import com.example.team3final.domain.meet.dto.response.PlaceVerificationResponseDto;
 import com.example.team3final.domain.meet.dto.response.QrResponseDto;
 import com.example.team3final.domain.meet.dto.response.QrScanResponseDto;
@@ -47,5 +48,14 @@ public class MeetVerificationController {
             @Valid @RequestBody QrScanRequestDto requestDto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponseDto.success(
                 meetVerificationService.createQrScan(matchId, userId, requestDto)));
+    }
+
+    // QR 인증 상태 조회
+    @GetMapping("/{matchId}/verification")
+    public ResponseEntity<ApiResponseDto<MeetVerificationResponseDto>> getMeetVerification(
+            @PathVariable Long matchId,
+            @RequestHeader Long userId) {
+        return ResponseEntity.ok(ApiResponseDto.success(
+                meetVerificationService.getMeetVerification(matchId, userId)));
     }
 }
