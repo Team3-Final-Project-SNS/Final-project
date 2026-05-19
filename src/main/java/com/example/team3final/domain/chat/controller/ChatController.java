@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/chat-rooms")
+@RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class ChatController {
 
@@ -21,7 +21,7 @@ public class ChatController {
 
     // 채팅방 목록 조회
     // TODO: JWT 완성 후 @AuthenticationPrincipal로 userId 추출 예정
-    @GetMapping
+    @GetMapping("chat-rooms")
     public ResponseEntity<ApiResponseDto<List<ChatRoomResponseDto>>> getChatRooms(
             @RequestParam Long userId // 임시: JWT 완성 후 제거 예정
     ) {
