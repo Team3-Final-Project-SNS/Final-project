@@ -12,7 +12,7 @@ public class OtpServiceImpl implements OtpService {
 
     private final JavaMailSender mailSender;
 
-    // 인증번호 발송
+    // 인증번호 이메일 생성
     @Override
     @Async
     public void sendOtp(String to, String otpCode) {
