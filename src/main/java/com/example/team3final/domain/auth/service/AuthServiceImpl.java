@@ -3,14 +3,24 @@ package com.example.team3final.domain.auth.service;
 import com.example.team3final.common.config.OtpProperties;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.ServiceException;
-import com.example.team3final.domain.auth.dto.OtpRequestDto;
-import com.example.team3final.domain.auth.dto.OtpResponseDto;
+import com.example.team3final.common.jwt.JwtProvider;
+import com.example.team3final.domain.auth.dto.request.LoginRequestDto;
+import com.example.team3final.domain.auth.dto.request.OtpRequestDto;
+import com.example.team3final.domain.auth.dto.response.LoginResponseDto;
+import com.example.team3final.domain.auth.dto.response.OtpResponseDto;
 import com.example.team3final.domain.auth.util.OtpGenerator;
 import com.example.team3final.domain.auth.util.OtpRedisKeyUtil;
 import com.example.team3final.domain.university.service.UniversityService;
+import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.service.UserService;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -24,8 +34,12 @@ public class AuthServiceImpl implements AuthService{
     private final UniversityService universityService;
     private final UserService userService;
     private final OtpProperties otpProperties;
-    //
-    // API 명세서 1.1: POST /api/v1/auth/email/otp
+    private final JwtProvider jwtProvider;
+    private final AuthenticationManager authenticationManager;
+
+    private static final String REFRESH_TOKEN_KEY_PREFIX = "refresh:";
+
+    // ======== OTP 발송 ======================
     @Override
     public OtpResponseDto sendEmailOtp(OtpRequestDto request) {
         String email = request.email();
@@ -96,4 +110,52 @@ public class AuthServiceImpl implements AuthService{
         // 10. 응답 반환
         return new OtpResponseDto(otpProperties.getExpireSeconds());
     }
+
+    // ======== 로그인 ======================
+    @Override
+    public LoginResponseDto login(LoginRequestDto request, HttpServletResponse response) {
+
+        try {
+            // Spring Security의 AuthenticationManager를 통해 이메일/비밀번호 검증
+            // 내부적으로 CustomUserDetailsService.loadUserByUsername() 호출 후 비밀번호 비교
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.email(), request.password())
+            );
+        } catch (DisabledException e) {
+            // CustomUserDetailsService에서 disabled=true로 설정된 경우 (정지/탈퇴 계정)
+            throw new ServiceException(ErrorCode.USER_SUSPENDED_OR_WITHDRAWN);
+        } catch (BadCredentialsException e) {
+            // 이메일 또는 비밀번호가 틀린 경우
+            throw new ServiceException(ErrorCode.LOGIN_FAIL);
+        }
+
+        // 인증 성공 → 유저 정보 조회
+        User user = userService.findByEmail(request.email());
+
+        // Access Token 생성
+        String accessToken = jwtProvider.generateAccessToken(user.getEmail());
+
+        // Refresh Token 생성 후 Redis에 저장 (RTR을 위해 서버측 보관)
+        // Key: "refresh:{email}", Value: refreshToken, TTL: 14일
+        String refreshToken = jwtProvider.generateRefreshToken(user.getEmail());
+        redisTemplate.opsForValue().set(
+                REFRESH_TOKEN_KEY_PREFIX + user.getEmail(),
+                refreshToken,
+                Duration.ofMillis(14L * 24 * 60 * 60 * 1000) // 14일
+        );
+
+        // Refresh Token을 HttpOnly 쿠키로 응답에 추가
+        addRefreshTokenCookie(response, refreshToken);
+
+        return new LoginResponseDto(user.getId(), user.getNickname(), accessToken);
+    }
+        // ===== 쿠키 생성 헬퍼 =====
+        private void addRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
+            Cookie cookie = new Cookie("refresh_token", refreshToken);
+            cookie.setHttpOnly(true);       // JavaScript에서 접근 불가 (XSS 방어)
+            cookie.setSecure(true);         // HTTPS에서만 전송
+            cookie.setPath("/");            // 모든 경로에서 쿠키 전송
+            cookie.setMaxAge(14 * 24 * 60 * 60); // 14일 (초 단위)
+            response.addCookie(cookie);
+        }
 }

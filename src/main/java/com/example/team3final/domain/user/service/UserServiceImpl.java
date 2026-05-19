@@ -1,7 +1,5 @@
 package com.example.team3final.domain.user.service;
 
-
-
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.ServiceException;
 import com.example.team3final.domain.user.entity.User;
@@ -11,13 +9,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@Transactional
+@Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
 
     @Override
-    @Transactional(readOnly = true)
     public Long getUserIdByEmail(String email) {
         // 이메일로 User Entity를 조회합니다.
         User user = userRepository.findByEmail(email)
@@ -30,5 +27,11 @@ public class UserServiceImpl implements UserService {
     @Override
     public boolean isEmailAlreadyRegistered(String email) {
         return userRepository.existsByEmail(email);
+    }
+
+    @Override
+    public User findByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ServiceException(ErrorCode.USER_NOT_FOUND));
     }
 }
