@@ -1,14 +1,13 @@
 package com.example.team3final.domain.chat.controller;
 
 import com.example.team3final.common.dto.response.ApiResponseDto;
+import com.example.team3final.common.dto.response.CursorResponseDto;
+import com.example.team3final.domain.chat.dto.response.ChatMessageResponseDto;
 import com.example.team3final.domain.chat.dto.response.ChatRoomResponseDto;
 import com.example.team3final.domain.chat.service.ChatService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -26,6 +25,19 @@ public class ChatController {
             @RequestParam Long userId // 임시: JWT 완성 후 제거 예정
     ) {
         List<ChatRoomResponseDto> response = chatService.getChatRooms(userId);
+        return ResponseEntity.ok(ApiResponseDto.success(response));
+    }
+
+    // 메시지 목록 조회
+    // TODO: JWT 완성 후 @AuthenticationPrincipal로 userId 추출 예정
+    @GetMapping("/chat-rooms/{chatRoomId}/messages")
+    public ResponseEntity<ApiResponseDto<CursorResponseDto<ChatMessageResponseDto>>> getChatMessages(
+            @PathVariable Long chatRoomId,
+            @RequestParam Long userId,                                 // 임시: JWT 완성 후 제거
+            @RequestParam(defaultValue = "9999999999") Long cursorId,  // 첫 요청 시 가장 큰 ID
+            @RequestParam(defaultValue = "20") int size                // 한 번에 가져올 메시지 수
+    ) {
+        CursorResponseDto<ChatMessageResponseDto> response = chatService.getChatMessages(chatRoomId, userId, cursorId, size);
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
 }
