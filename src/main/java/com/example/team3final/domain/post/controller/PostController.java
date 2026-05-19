@@ -1,11 +1,18 @@
 package com.example.team3final.domain.post.controller;
 
 import com.example.team3final.common.dto.response.ApiResponseDto;
+import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.domain.post.dto.request.CreatePostRequestDto;
 import com.example.team3final.domain.post.dto.response.CreatePostResponseDto;
+import com.example.team3final.domain.post.dto.response.GetPostsItemResponseDto;
+import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.service.PostCommandService;
+import com.example.team3final.domain.post.service.PostQueryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 public class PostController {
 
     private final PostCommandService postCommandService;
+    private final PostQueryService postQueryService;
 
     /**
      * 게시글 작성
@@ -43,5 +51,32 @@ public class PostController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponseDto.success(response));
+    }
+
+    /**
+     * 게시글 목록 조회
+     * 명세서: MVP 개발에서 내 역할.md - 4.2 getPosts
+     *
+     * GET /api/v1/posts?status=OPEN&page=0&size=20
+     */
+    @GetMapping
+    public ResponseEntity<ApiResponseDto<PageResponseDto<GetPostsItemResponseDto>>> getPosts(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestParam(defaultValue = "OPEN")PostStatus status, // defaultValue = "OPEN" → 쿼리스트링 누락 시 OPEN 사용 (명세서 기본값)
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size  // size=20 — 누락 시 20, 최대 50
+    ) {
+        int safeSize = Math.min(size, 50);
+
+        Pageable pageable = PageRequest.of(
+                page,
+                safeSize,
+                Sort.by("authorDeposit").descending()
+        );
+
+        PageResponseDto<GetPostsItemResponseDto> response =
+                postQueryService.getPosts(userId, status, pageable);
+
+        return ResponseEntity.ok(ApiResponseDto.success(response));
     }
 }
