@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping("/api/v1/chat-rooms")
 @RequiredArgsConstructor
 public class ChatController {
 
@@ -20,7 +20,7 @@ public class ChatController {
 
     // 채팅방 목록 조회
     // TODO: JWT 완성 후 @AuthenticationPrincipal로 userId 추출 예정
-    @GetMapping("/chat-rooms")
+    @GetMapping
     public ResponseEntity<ApiResponseDto<List<ChatRoomResponseDto>>> getChatRooms(
             @RequestParam Long userId // 임시: JWT 완성 후 제거 예정
     ) {
@@ -30,7 +30,7 @@ public class ChatController {
 
     // 메시지 목록 조회
     // TODO: JWT 완성 후 @AuthenticationPrincipal로 userId 추출 예정
-    @GetMapping("/chat-rooms/{chatRoomId}/messages")
+    @GetMapping("/{chatRoomId}/messages")
     public ResponseEntity<ApiResponseDto<CursorResponseDto<ChatMessageResponseDto>>> getChatMessages(
             @PathVariable Long chatRoomId,
             @RequestParam Long userId,                                 // 임시: JWT 완성 후 제거
@@ -39,5 +39,16 @@ public class ChatController {
     ) {
         CursorResponseDto<ChatMessageResponseDto> response = chatService.getChatMessages(chatRoomId, userId, cursorId, size);
         return ResponseEntity.ok(ApiResponseDto.success(response));
+    }
+
+    // 채팅방 나가기
+    // TODO: JWT 완성 후 @AuthenticationPrincipal로 userId 추출 예정
+    @PatchMapping("/{chatRoomId}/leave")
+    public ResponseEntity<ApiResponseDto<Void>> leaveChatRoom(
+            @PathVariable Long chatRoomId,
+            @RequestParam Long userId // 임시: JWT 완성 후 제거
+    ) {
+        chatService.leaveChatRoom(chatRoomId, userId);
+        return ResponseEntity.ok(ApiResponseDto.successWithNoContent());
     }
 }

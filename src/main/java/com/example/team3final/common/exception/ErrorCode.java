@@ -43,6 +43,7 @@ public enum ErrorCode {
     CHAT_ROOM_INACTIVE(HttpStatus.FORBIDDEN, "CHAT_003", "비활성화된 채팅방입니다."),
     CHAT_NOT_PARTICIPANT(HttpStatus.FORBIDDEN, "CHAT_004", "해당 채팅방의 참여자가 아닙니다."),
     CHAT_ROOM_RE_ENTER_FORBIDDEN(HttpStatus.FORBIDDEN, "CHAT_005", "재입장할 수 없는 채팅방입니다."),
+    CHAT_ROOM_ACTIVE_CANNOT_LEAVE(HttpStatus.FORBIDDEN, "CHAT_006", "진행 중인 채팅방은 나갈 수 없습니다."),
 
 
     // University
