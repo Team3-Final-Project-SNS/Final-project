@@ -1,4 +1,5 @@
 package com.example.team3final.domain.auth.dto;
 
-public class OtpRequestDto {
-}
+public record OtpRequestDto(
+        String email
+) {}

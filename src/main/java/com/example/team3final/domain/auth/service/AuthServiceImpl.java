@@ -1,5 +1,6 @@
 package com.example.team3final.domain.auth.service;
 
+import com.example.team3final.common.config.OtpProperties;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.ServiceException;
 import com.example.team3final.domain.auth.dto.OtpRequestDto;
@@ -27,7 +28,7 @@ public class AuthServiceImpl implements AuthService{
     // API 명세서 1.1: POST /api/v1/auth/email/otp
     @Override
     public OtpResponseDto sendEmailOtp(OtpRequestDto request) {
-        String email = request.getEmail();
+        String email = request.email();
 
         // 1. .ac.kr 도메인 검증
         if (!email.endsWith(".ac.kr")) {
@@ -63,7 +64,7 @@ public class AuthServiceImpl implements AuthService{
         }
 
         // 6. OTP 생성 및 Redis 저장
-        String otpCode = OtpGenerator.generate();
+        String otpCode = OtpGenerator.generator();
         String otpKey = OtpRedisKeyUtil.otpCodeKey(email);
         redisTemplate.opsForValue().set(
                 otpKey,
@@ -90,9 +91,9 @@ public class AuthServiceImpl implements AuthService{
         }
 
         // 9. 이메일 비동기 발송
-        emailService.sendOtp(email, otpCode);
+        otpService.sendOtp(email, otpCode);
 
         // 10. 응답 반환
-        return new EmailOtpResponseDto(otpProperties.getExpireSeconds());
+        return new OtpResponseDto(otpProperties.getExpireSeconds());
     }
 }
