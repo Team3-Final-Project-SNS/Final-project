@@ -1,7 +1,9 @@
 package com.example.team3final.domain.post.service;
 
 import com.example.team3final.common.dto.response.PageResponseDto;
+import com.example.team3final.common.exception.PostException;
 import com.example.team3final.domain.post.dto.response.GetPostsItemResponseDto;
+import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import org.springframework.data.domain.Pageable;
 
@@ -20,4 +22,17 @@ public interface PostQueryService {
             PostStatus status,
             Pageable pageable
     );
+
+    /**
+     * 게시글 단건 조회 — 도메인 간 호출용 (엔티티 반환)
+     *
+     * 사용처:
+     * - 매칭 도메인: createMatch 시 게시글 검증 + 상태 변경 대상
+     * - GPS 인증(정): 약속 장소 위경도 확인
+     *
+     * @param postId 조회할 게시글 ID
+     * @return Post 엔티티
+     * @throws PostException POST_001 — 게시글이 존재하지 않음
+     */
+    Post getPostById(Long postId);
 }
