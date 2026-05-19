@@ -29,17 +29,22 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable) // CSRF 비활성화
+                .headers(headers -> headers
+                        .frameOptions(frameOptions -> frameOptions.disable()) // H2 콘솔 iframe 허용
+                )
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         //인증없이 접근 가능한 엔드포인트
                         .requestMatchers(
-                                "api/v1/auth/email/otp",
+                                "/api/v1/auth/email/otp",
                                 "/api/v1/auth/email/otp/verify",   // OTP 검증
                                 "/api/v1/auth/signup",             // 회원가입
                                 "/api/v1/auth/login",              // 로그인
                                 "/api/v1/auth/refresh",            // 토큰 재발급
-                                "/api/v1/universities"             // 대학 목록 (회원가입 페이지에서 사용)
+                                "/api/v1/universities",            // 대학 목록 (회원가입 페이지에서 사용)
+                                "/ws/**",                           // 웹소켓 경로
+                                "/h2-console/**"
                         ).permitAll()
 
                         // Actuator 헬스체크 허용
