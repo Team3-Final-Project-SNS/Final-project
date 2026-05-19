@@ -21,7 +21,7 @@ public class ChatController {
 
     // 채팅방 목록 조회
     // TODO: JWT 완성 후 @AuthenticationPrincipal로 userId 추출 예정
-    @GetMapping("chat-rooms")
+    @GetMapping("/chat-rooms")
     public ResponseEntity<ApiResponseDto<List<ChatRoomResponseDto>>> getChatRooms(
             @RequestParam Long userId // 임시: JWT 완성 후 제거 예정
     ) {
