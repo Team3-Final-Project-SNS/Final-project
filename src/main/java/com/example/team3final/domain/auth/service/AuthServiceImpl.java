@@ -8,6 +8,7 @@ import com.example.team3final.domain.auth.dto.request.LoginRequestDto;
 import com.example.team3final.domain.auth.dto.request.OtpRequestDto;
 import com.example.team3final.domain.auth.dto.response.LoginResponseDto;
 import com.example.team3final.domain.auth.dto.response.OtpResponseDto;
+import com.example.team3final.domain.auth.dto.response.TokenResponseDto;
 import com.example.team3final.domain.auth.util.OtpGenerator;
 import com.example.team3final.domain.auth.util.OtpRedisKeyUtil;
 import com.example.team3final.domain.university.service.UniversityService;
@@ -149,6 +150,48 @@ public class AuthServiceImpl implements AuthService{
 
         return new LoginResponseDto(user.getId(), user.getNickname(), accessToken);
     }
+
+    // ===== 토큰 재발급 =====
+    @Override
+    public TokenResponseDto refresh(String refreshToken, HttpServletResponse response) {
+
+        // 1. 토큰 형식 및 서명 검증
+        if (!jwtProvider.validateToken(refreshToken)) {
+            throw new ServiceException(ErrorCode.INVALID_TOKEN);
+        }
+
+        // 2. 토큰 타입이 REFRESH인지 확인
+        if (!"REFRESH".equals(jwtProvider.getTokenType(refreshToken))) {
+            throw new ServiceException(ErrorCode.INVALID_TOKEN);
+        }
+
+        // 3. 토큰에서 이메일 추출
+        String email = jwtProvider.getEmailFromToken(refreshToken);
+
+        // 4. Redis에 저장된 Refresh Token과 비교 (탈취된 토큰 사용 방지)
+        String storedToken = redisTemplate.opsForValue().get(REFRESH_TOKEN_KEY_PREFIX + email);
+        if (!refreshToken.equals(storedToken)) {
+            // 이미 사용된 토큰이거나 로그아웃된 경우
+            throw new ServiceException(ErrorCode.INVALID_TOKEN);
+        }
+
+        // 5. 새 Access Token + 새 Refresh Token 발급 (RTR: 기존 토큰 폐기)
+        String newAccessToken = jwtProvider.generateAccessToken(email);
+        String newRefreshToken = jwtProvider.generateRefreshToken(email);
+
+        // 6. Redis 업데이트 (기존 토큰 덮어쓰기)
+        redisTemplate.opsForValue().set(
+                REFRESH_TOKEN_KEY_PREFIX + email,
+                newRefreshToken,
+                Duration.ofMillis(14L * 24 * 60 * 60 * 1000)
+        );
+
+        // 7. 새 Refresh Token 쿠키로 재전송
+        addRefreshTokenCookie(response, newRefreshToken);
+
+        return new TokenResponseDto(newAccessToken);
+    }
+
         // ===== 쿠키 생성 헬퍼 =====
         private void addRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
             Cookie cookie = new Cookie("refresh_token", refreshToken);
