@@ -1,9 +1,12 @@
 package com.example.team3final.domain.auth.controller;
 
 import com.example.team3final.common.dto.response.ApiResponseDto;
+import com.example.team3final.domain.auth.dto.request.LoginRequestDto;
 import com.example.team3final.domain.auth.dto.request.OtpRequestDto;
+import com.example.team3final.domain.auth.dto.response.LoginResponseDto;
 import com.example.team3final.domain.auth.dto.response.OtpResponseDto;
 import com.example.team3final.domain.auth.service.AuthService;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -23,7 +26,15 @@ public class AuthController {
     @PostMapping("/email/otp")
     public ResponseEntity<ApiResponseDto<OtpResponseDto>> sendEmailOtp(
             @RequestBody @Valid OtpRequestDto request) {
-        OtpResponseDto response = authService.sendEmailOtp(request);
-        return ResponseEntity.ok(ApiResponseDto.success(response));
+        return ResponseEntity.ok(ApiResponseDto.success(authService.sendEmailOtp(request)));
+    }
+
+    // 로그인
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponseDto<LoginResponseDto>> login(
+            @RequestBody @Valid LoginRequestDto request,
+            HttpServletResponse response) {
+        // response를 넘기는 이유: Refresh Token 쿠키를 서비스에서 직접 세팅하기 위해
+        return ResponseEntity.ok(ApiResponseDto.success(authService.login(request, response)));
     }
 }
