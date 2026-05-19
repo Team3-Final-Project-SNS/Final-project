@@ -208,15 +208,15 @@ public class AuthServiceImpl implements AuthService{
         expireRefreshTokenCookie(response);
     }
 
-        // ===== 쿠키 생성 헬퍼 =====
-        private void addRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
-            Cookie cookie = new Cookie("refresh_token", refreshToken);
-            cookie.setHttpOnly(true);       // JavaScript에서 접근 불가 (XSS 방어)
-            cookie.setSecure(true);         // HTTPS에서만 전송
-            cookie.setPath("/");            // 모든 경로에서 쿠키 전송
-            cookie.setMaxAge(14 * 24 * 60 * 60); // 14일 (초 단위)
-            response.addCookie(cookie);
-        }
+    // ===== 쿠키 생성 헬퍼 =====
+    private void addRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
+        Cookie cookie = new Cookie("refresh_token", refreshToken);
+        cookie.setHttpOnly(true);       // JavaScript에서 접근 불가 (XSS 방어)
+        cookie.setSecure(true);         // HTTPS에서만 전송
+        cookie.setPath("/");            // 모든 경로에서 쿠키 전송
+        cookie.setMaxAge(14 * 24 * 60 * 60); // 14일 (초 단위)
+        response.addCookie(cookie);
+    }
 
     // ===== 쿠키 만료 헬퍼 =====
     private void expireRefreshTokenCookie(HttpServletResponse response) {
