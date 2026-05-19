@@ -28,4 +28,13 @@ public class ChatServiceImpl implements ChatService {
                 .build();
         chatRoomRepository.save(chatRoom);
     }
+
+    // 채팅방 비활성화 - 완료/취소/노쇼 시 내부 호출
+    @Transactional
+    @Override
+    public void deactivateChatRoom(Long matchId) {
+        ChatRoom chatRoom = chatRoomRepository.findByMatchId(matchId)
+                .orElseThrow(() -> new ServiceException(ErrorCode.CHAT_ROOM_NOT_FOUND));
+        chatRoom.deactivate();
+    }
 }
