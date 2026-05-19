@@ -48,6 +48,18 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponseDto.success(authService.refresh(refreshToken, response)));
     }
 
+    // 로그아웃
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponseDto<Void>> logout(
+            HttpServletRequest request,
+            HttpServletResponse response) {
+
+        // 쿠키에서 refresh_token 꺼내기
+        String refreshToken = extractRefreshTokenFromCookie(request);
+        authService.logout(refreshToken, response);
+        return ResponseEntity.ok(ApiResponseDto.successWithNoContent());
+    }
+
     // 쿠키 배열에서 refresh_token 값을 찾아 반환하는 헬퍼 메서드
     private String extractRefreshTokenFromCookie(HttpServletRequest request) {
         if (request.getCookies() == null) return null;

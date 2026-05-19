@@ -17,4 +17,7 @@ public interface AuthService {
 
     // 토큰 재발급
     TokenResponseDto refresh(String refreshToken, HttpServletResponse response);
+
+    // 로그아웃 - 리프레쉬 토큰 쿠키 만료 처리
+    void logout(String refreshToken, HttpServletResponse response);
 }
