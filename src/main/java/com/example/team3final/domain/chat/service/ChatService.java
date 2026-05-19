@@ -1,5 +1,7 @@
 package com.example.team3final.domain.chat.service;
 
+import com.example.team3final.common.dto.response.CursorResponseDto;
+import com.example.team3final.domain.chat.dto.response.ChatMessageResponseDto;
 import com.example.team3final.domain.chat.dto.response.ChatRoomResponseDto;
 
 import java.util.List;
@@ -15,4 +17,7 @@ public interface ChatService {
 
     // 채팅방 목록 조회
     List<ChatRoomResponseDto> getChatRooms(Long userId);
+
+    // 메시지 목록 조회 (커서 기반 페이징)
+    CursorResponseDto<ChatMessageResponseDto> getChatMessages(Long chatRoomId, Long userId, Long cursorId, int size);
 }

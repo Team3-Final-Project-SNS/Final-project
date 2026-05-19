@@ -1,13 +1,16 @@
 package com.example.team3final.domain.chat.service;
 
+import com.example.team3final.common.dto.response.CursorResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.ServiceException;
+import com.example.team3final.domain.chat.dto.response.ChatMessageResponseDto;
 import com.example.team3final.domain.chat.dto.response.ChatRoomResponseDto;
 import com.example.team3final.domain.chat.entity.ChatMessage;
 import com.example.team3final.domain.chat.entity.ChatRoom;
 import com.example.team3final.domain.chat.repository.ChatMessageRepository;
 import com.example.team3final.domain.chat.repository.ChatRoomRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -86,5 +89,38 @@ public class ChatServiceImpl implements ChatService {
                     );
                 })
                 .toList();
+    }
+
+    // 메시지 목록 조회 (커서 기반 페이징)
+    @Override
+    public CursorResponseDto<ChatMessageResponseDto> getChatMessages(Long chatRoomId, Long userId, Long cursorId, int size) {
+        // 채팅방 존재 여부 확인
+        chatRoomRepository.findById(chatRoomId)
+                .orElseThrow(() -> new ServiceException(ErrorCode.CHAT_ROOM_NOT_FOUND));
+
+        // 메시지 조회 (size+1개 조회로 다음 페이지 여부 확인)
+        List<ChatMessage> messages = chatMessageRepository
+                .findByChatRoomIdAndIdLessThanOrderByIdDesc(chatRoomId, cursorId, PageRequest.of(0, size + 1));
+
+        // 읽음 처리 - 내가 보낸 메시지가 아닌 것만
+        messages.stream()
+                .filter(m -> !m.getSenderId().equals(userId))
+                .filter(m -> !m.isRead())
+                .forEach(ChatMessage::markAsRead);
+
+        // DTO 변환
+        List<ChatMessageResponseDto> content = messages.stream()
+                .map(m -> new ChatMessageResponseDto(
+                        m.getId(),
+                        chatRoomId,
+                        m.getSenderId(),
+                        null, // TODO: UserService 완성 후 닉네임 조회
+                        m.getContent(),
+                        m.isRead(),
+                        m.getCreatedAt()
+                ))
+                .toList();
+
+        return CursorResponseDto.of(content, size, ChatMessageResponseDto::messageId);
     }
 }
