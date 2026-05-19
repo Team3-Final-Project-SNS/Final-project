@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
         // DB 레벨에서 match_id + user_id 조합 중복 방지
         // 한 매칭에서 유저당 위치 레코드 1개만 존재하도록 보장
         uniqueConstraints = @UniqueConstraint(
-                name = "UQ_USER_LOCATION_MATCH_USER",
+                name = "uq_user_location_match_user",
                 columnNames = {"match_id", "user_id"}
         )
 )
