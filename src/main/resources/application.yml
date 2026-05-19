@@ -43,11 +43,16 @@ management:
   endpoints:
     web:
       exposure:
-        # MVP 단계에서는 헬스체크와 기본 정보만 외부에 노출합니다.
-        include: health,info
+        include: health,info,prometheus
   endpoint:
     health:
       show-details: always
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+    tags:
+      application: ${spring.application.name:Team3-final}
 
 websocket:
   # 프론트 로컬 개발 서버와 백엔드 로컬 서버의 WebSocket 접속을 허용합니다.
