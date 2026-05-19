@@ -1,6 +1,8 @@
 package com.example.team3final.domain.location.service;
 
+import com.example.team3final.domain.location.dto.LocationDto;
 import com.example.team3final.domain.location.dto.request.UpdateLocationRequestDto;
+import com.example.team3final.domain.location.dto.response.GetLocationResponseDto;
 import com.example.team3final.domain.location.dto.response.UpdateLocationResponseDto;
 import com.example.team3final.domain.location.entity.UserLocation;
 import com.example.team3final.domain.location.repository.UserLocationRepository;
@@ -10,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -50,5 +53,39 @@ public class UserLocationServiceImpl implements UserLocationService {
         }
 
         return UpdateLocationResponseDto.from(userLocation);
+    }
+
+    // 양측 위치 조회
+    @Override
+    public GetLocationResponseDto getLocations(Long matchId, Long userId) {
+
+        // Match 조회
+        // TODO: Post Dto 완성 후 authorId 실제 조회로 교체
+        matchQueryService.getMatchById(matchId);
+
+        // matchId로 양측 위치 전체 조회
+        List<UserLocation> locations = userLocationRepository.findAllByMatchId(matchId);
+
+        // 내 위치와 상대방 위치 분리
+        LocationDto myLocation = locations.stream()
+                .filter(loc -> loc.getUserId().equals(userId))
+                .findFirst()
+                .map(LocationDto::from)
+                .orElse(null);
+
+        LocationDto opponentLocation = locations.stream()
+                .filter(loc -> !loc.getUserId().equals(userId))
+                .findFirst()
+                .map(LocationDto::from)
+                .orElse(null);
+
+        return GetLocationResponseDto.of(myLocation, opponentLocation);
+    }
+
+    // 매칭 종료 시 위치 데이터 삭제
+    @Override
+    @Transactional
+    public void deleteLocationsByMatchId(Long matchId) {
+        userLocationRepository.deleteAllByMatchId(matchId);
     }
 }

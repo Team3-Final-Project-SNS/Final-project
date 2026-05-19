@@ -2,6 +2,7 @@ package com.example.team3final.domain.location.controller;
 
 import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.domain.location.dto.request.UpdateLocationRequestDto;
+import com.example.team3final.domain.location.dto.response.GetLocationResponseDto;
 import com.example.team3final.domain.location.dto.response.UpdateLocationResponseDto;
 import com.example.team3final.domain.location.service.UserLocationService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
@@ -27,6 +28,17 @@ public class UserLocationController {
 
         Long userId = userDetails.getUserId();
         return ResponseEntity.ok(ApiResponseDto.success(
-                userLocationService.updateMyLocation(userId, matchId, requestDto)));
+                userLocationService.updateMyLocation(matchId, userId, requestDto)));
+    }
+
+    // 양측 위치 조회 - 5초 마다 풀링
+    @GetMapping("/{matchId}/location")
+    public ResponseEntity<ApiResponseDto<GetLocationResponseDto>> getLocations(
+            @PathVariable Long matchId,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+
+        Long userId = userDetails.getUserId();
+        return ResponseEntity.ok(ApiResponseDto.success(
+                userLocationService.getLocations(matchId, userId)));
     }
 }
