@@ -14,7 +14,7 @@ public record PlaceVerificationResponseDto (
         LocalDateTime applicantPlaceVerifiedAt, // 신청자 GPS 인증 시각 (null 가능)
         boolean bothVerified                    // 양측 모두 인증 완료 여부
 ) {
-    public static PlaceVerificationResponseDto from(
+    public static PlaceVerificationResponseDto of(
             MeetVerification meetVerification,
             double distanceMeters,
             boolean bothVerified) {

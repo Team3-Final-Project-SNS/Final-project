@@ -10,7 +10,7 @@ public record QrResponseDto (
         String qrToken,
         LocalDateTime expiresAt
 ) {
-    public static QrResponseDto from (Long matchId, MeetVerification meetVerification) {
+    public static QrResponseDto of(Long matchId, MeetVerification meetVerification) {
         return new QrResponseDto(
                 matchId,
                 meetVerification.getQrToken(),
