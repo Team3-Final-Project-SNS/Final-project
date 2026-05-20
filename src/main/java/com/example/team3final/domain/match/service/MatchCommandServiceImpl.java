@@ -140,4 +140,24 @@ public class MatchCommandServiceImpl implements MatchCommandService{
         // userCommandService.refundPoint(post.getAuthorId(), post.getAuthorDeposit(), RefundType.REFUND);
         // userCommandService.refundPoint(match.getApplicantId(), match.getApplicantDeposit(), RefundType.REFUND);
     }
+
+    @Override
+    public void markNoShow(Long matchId, MatchStatus noShowStatus) {
+
+        Match match = matchQueryService.getMatchById(matchId);
+
+        // MATCHED 상태가 아니면 스킵
+        if (match.getStatus() != MatchStatus.MATCHED) {
+            return;
+        }
+
+        // Match 상태 → 노쇼로 변경 (엔티티가 유효한 노쇼 상태인지 검증)
+        match.markNoShow(noShowStatus);
+
+        // Post 상태 → COMPLETED로 변경 (노쇼도 게시글은 종료)
+        postCommandService.completePost(match.getPostId());
+
+        // TODO: 노쇼한 사용자 포인트 몰수, 피해자 포인트 환불 (User 도메인 머지 후)
+
+    }
 }

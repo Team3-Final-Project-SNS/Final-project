@@ -2,6 +2,7 @@ package com.example.team3final.domain.match.service;
 
 import com.example.team3final.common.exception.MatchException;
 import com.example.team3final.domain.match.dto.response.CreateMatchResponseDto;
+import com.example.team3final.domain.match.enums.MatchStatus;
 
 public interface MatchCommandService {
 
@@ -29,4 +30,6 @@ public interface MatchCommandService {
      * @throws MatchException MATCH_001 — 매칭이 존재하지 않음
      */
     void completeMatch(Long matchId);
+
+    void markNoShow(Long matchId, MatchStatus noShowStatus);
 }
