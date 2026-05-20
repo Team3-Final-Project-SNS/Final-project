@@ -2,7 +2,9 @@ package com.example.team3final.domain.post.service;
 
 import com.example.team3final.common.exception.PostException;
 import com.example.team3final.domain.post.dto.request.CreatePostRequestDto;
+import com.example.team3final.domain.post.dto.request.UpdatePostRequestDto;
 import com.example.team3final.domain.post.dto.response.CreatePostResponseDto;
+import com.example.team3final.domain.post.dto.response.UpdatePostResponseDto;
 
 public interface PostCommandService {
 
@@ -27,4 +29,15 @@ public interface PostCommandService {
      * @throws PostException POST_001 — 게시글이 존재하지 않음
      */
     void completePost(Long postId);
+
+    /**
+     * 게시글 수정 — Controller에서 직접 호출 (명세서 4.4 updatePost)
+     *
+     * @param postId    수정할 게시글 ID
+     * @param userId    요청자 ID (작성자 본인 검증용)
+     * @param request   부분 수정 요청 DTO (모든 필드 nullable)
+     * @return 수정된 게시글 정보
+     * @throws PostException POST_001/201/202/102 — 각 단계별 검증 실패
+     */
+    UpdatePostResponseDto updatePost(Long postId, Long userId, UpdatePostRequestDto request);
 }

@@ -276,16 +276,19 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                         verification.markBothNoShow();
                         matchCommandService.markBothNoShow(verification.getMatchId());
                         userLocationService.deleteLocationsByMatchId(verification.getMatchId());
+                        chatService.deactivateChatRoom(verification.getMatchId());
                     } else if (authorVerified && !applicantVerified) {
                         // 등록자만 인증 -> 신청자 노쇼
                         verification.markApplicantNoShow();
                         matchCommandService.markApplicantNoShow(verification.getMatchId());
                         userLocationService.deleteLocationsByMatchId(verification.getMatchId());
+                        chatService.deactivateChatRoom(verification.getMatchId());
                     } else if (!authorVerified) {
                         // 신청자만 인증 -> 등록자 노쇼
                         verification.markAuthorNoShow();
                         matchCommandService.markAuthorNoShow(verification.getMatchId());
                         userLocationService.deleteLocationsByMatchId(verification.getMatchId());
+                        chatService.deactivateChatRoom(verification.getMatchId());
                     }
                 });
     }
@@ -302,6 +305,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                     verification.markApplicantNoShow();
                     matchCommandService.markApplicantNoShow(verification.getMatchId());
                     userLocationService.deleteLocationsByMatchId(verification.getMatchId());
+                    chatService.deactivateChatRoom(verification.getMatchId());
                 });
     }
 

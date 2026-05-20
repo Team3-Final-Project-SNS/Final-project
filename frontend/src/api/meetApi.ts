@@ -46,4 +46,4 @@ export const getLocations = (matchId: number) => {
 
 // 매칭 상세 조회 - GET /api/v1/matches/{matchId}
 export const getMatch = (matchId: number) =>
-    axiosInstance.get(`/matches/${matchId}`);
+    axiosInstance.get(`/api/v1/matches/${matchId}`);
