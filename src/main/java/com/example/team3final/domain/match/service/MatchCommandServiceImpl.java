@@ -82,7 +82,7 @@ public class MatchCommandServiceImpl implements MatchCommandService{
                  applicantId
          );
 
-        Long chatRoomId = null;
+        Long chatRoomId = chatService.createChatRoom(savedMatch.getId(), post.getAuthorId(), applicantId);
 
         // TODO: User 머지 후 실제 호출로 교체
         // String authorNickname = userQueryService.getUserById(post.getAuthorId()).getNickname();
