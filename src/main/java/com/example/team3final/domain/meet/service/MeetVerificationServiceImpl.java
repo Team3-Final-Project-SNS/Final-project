@@ -36,8 +36,6 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     // GPS검증, 상태 전환, 역할 구분 서비스
     private final MeetVerificationRepository meetVerificationRepository;
     private final MatchQueryService matchQueryService;
-
-    @Lazy
     private final MatchCommandService matchCommandService;
     private final PostQueryService postQueryService;
     private final ChatService chatService;

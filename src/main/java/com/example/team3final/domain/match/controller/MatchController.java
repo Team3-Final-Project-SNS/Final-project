@@ -5,6 +5,7 @@ import com.example.team3final.domain.match.dto.response.CreateMatchResponseDto;
 import com.example.team3final.domain.match.dto.response.GetMatchResponseDto;
 import com.example.team3final.domain.match.service.MatchCommandService;
 import com.example.team3final.domain.match.service.MatchQueryService;
+import com.example.team3final.domain.meet.service.MeetVerificationService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -19,6 +20,7 @@ public class MatchController {
 
     private final MatchCommandService matchCommandService;
     private final MatchQueryService matchQueryService;
+    private final MeetVerificationService meetVerificationService;
 
     /**
      * 매칭 신청 (선착순 매칭 생성)
@@ -36,6 +38,7 @@ public class MatchController {
         Long applicantId = userDetails.getUserId();
 
         CreateMatchResponseDto response = matchCommandService.createMatch(postId, applicantId);
+        meetVerificationService.createPendingVerification(response.matchId());
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
