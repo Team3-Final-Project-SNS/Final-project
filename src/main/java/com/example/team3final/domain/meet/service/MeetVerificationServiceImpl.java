@@ -20,6 +20,7 @@ import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
 import com.example.team3final.domain.post.dto.response.PostInfoDto;
 import com.example.team3final.domain.post.service.PostQueryService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +36,8 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     // GPS검증, 상태 전환, 역할 구분 서비스
     private final MeetVerificationRepository meetVerificationRepository;
     private final MatchQueryService matchQueryService;
+
+    @Lazy
     private final MatchCommandService matchCommandService;
     private final PostQueryService postQueryService;
     private final ChatService chatService;
