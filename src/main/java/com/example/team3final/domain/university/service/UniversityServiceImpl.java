@@ -44,8 +44,16 @@ public class UniversityServiceImpl implements UniversityService {
                 .build();
     }
 
+    // 회원가입 시 등록된 대학 도메인인지 검증하기 위한 조회
     @Override
     public boolean isRegisteredActiveUniversity(String emailDomain) {
         return universityRepository.existsByeDomainAndIsActiveTrue(emailDomain);
+    }
+
+    // 도메인이 일치하고 활성화된 학교 단건 조회
+    public UniversityResponseDto getUniversityByDomain(String emailDomain) {
+        University university = universityRepository.findByeDomainAndIsActiveTrue(emailDomain)
+                .orElseThrow(() -> new ServiceException(ErrorCode.UNREGISTERED_UNIVERSITY));
+        return toUniversityResponseDto(university); // 기존 private 반환 메서드 재사용
     }
 }
