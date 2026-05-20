@@ -75,6 +75,34 @@ export default function QRVerificationPage() {
     return () => clearInterval(timer);
   }, [timeRemaining]);
 
+  // 등록자용 인증 완료 폴링 - 1초마다 상태 조회
+  // 신청자가 QR 스캔 완료하면 등록자 화면도 자동으로 success로 전환
+  useEffect(() => {
+    // 등록자이고 QR 토큰이 발급된 상태일 때만 실행
+    if (role !== 'author' || !qrToken) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        const res = await getMeetVerification(matchId);
+        const status = res.data.data.verificationStatus;
+
+        // 양측 인증 완료 상태면 success로 전환
+        if (status === 'DONE') {
+          setStep('success');
+          clearInterval(intervalId);
+          setTimeout(() => navigate('/matches'), 2000);
+        }
+      } catch (err) {
+        console.error('인증 상태 조회 실패:', err);
+      }
+    }, 1000);
+
+    // 언마운트 시 인터벌 정리 (메모리 누수 방지)
+    return () => clearInterval(intervalId);
+
+    // qrToken 발급된 이후에만 실행되도록 의존성 배열에 포함
+  }, [matchId, role, qrToken]);
+
   // 시간 포맷 변환 (초 → MM:SS)
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
