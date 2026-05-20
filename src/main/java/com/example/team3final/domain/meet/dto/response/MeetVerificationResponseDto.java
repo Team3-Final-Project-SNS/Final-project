@@ -15,7 +15,7 @@ public record MeetVerificationResponseDto (
         LocalDateTime qrExpiresAt,              // QR 만료 시각 (null = 미발급)
         LocalDateTime completedAt               // 만남 인증 완료 시각 (null = 미완료)
 ) {
-    public static MeetVerificationResponseDto from(Long matchId, MeetVerification meetVerification) {
+    public static MeetVerificationResponseDto of(Long matchId, MeetVerification meetVerification) {
         return new MeetVerificationResponseDto (
                 matchId,
                 meetVerification.getStatus(),
