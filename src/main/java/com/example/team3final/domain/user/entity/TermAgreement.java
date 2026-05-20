@@ -1,4 +1,4 @@
-package com.example.team3final.domain.auth.entity;
+package com.example.team3final.domain.user.entity;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
