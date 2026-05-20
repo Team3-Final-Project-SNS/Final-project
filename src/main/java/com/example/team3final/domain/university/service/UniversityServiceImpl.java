@@ -51,6 +51,7 @@ public class UniversityServiceImpl implements UniversityService {
     }
 
     // 도메인이 일치하고 활성화된 학교 단건 조회
+    @Override
     public UniversityResponseDto getUniversityByDomain(String emailDomain) {
         University university = universityRepository.findByeDomainAndIsActiveTrue(emailDomain)
                 .orElseThrow(() -> new ServiceException(ErrorCode.UNREGISTERED_UNIVERSITY));
