@@ -63,7 +63,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
         // PostInfoDto 조회
         // match -> postId -> post 순서대로 (Match에는 authorId 없음)
-        PostInfoDto postInfo = postQueryService.getPostInfo(userId);
+        PostInfoDto postInfo = postQueryService.getPostInfo(matchInfo.postId());
 
         // 매칭 당사자가 맞는지 검증 (등록자 or 신청자인지)
         if(!matchInfo.isParticipant(userId, postInfo.authorId())) {
