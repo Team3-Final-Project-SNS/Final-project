@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { MapPin, Navigation, Check, AlertCircle } from 'lucide-react';
-// ✅ updateMyLocation, getLocations 추가
-import { createPlaceVerification, updateMyLocation, getLocations } from '../../api/meetApi';
+import { createPlaceVerification, updateMyLocation, getLocations, getMatch } from '../../api/meetApi';
 
 interface Position {
     latitude: number;
@@ -18,13 +17,13 @@ export default function PlaceVerificationPage() {
     const { id } = useParams();
     const navigate = useNavigate();
 
-    // Mock data - 실제로는 API에서 가져옴
-    const meetingPlace = {
-        name: '정문',
-        time: '13:30',
-        latitude: 37.5665,
-        longitude: 126.9780,
-    };
+    // 추가
+    const [meetingPlace, setMeetingPlace] = useState<{
+        name: string;
+        time: string;
+        latitude: number;
+        longitude: number;
+    } | null>(null);
 
     const [currentPosition, setCurrentPosition] = useState<Position | null>(null);
     const [distance, setDistance] = useState<number | null>(null);
@@ -40,6 +39,34 @@ export default function PlaceVerificationPage() {
 
     // ✅ 추가: 상대방 위치 상태 (서버 폴링으로 받아옴, 처음엔 null)
     const [opponentPosition, setOpponentPosition] = useState<Position | null>(null);
+
+    // 마운트 시 매칭 정보 1회 조회 → 약속 장소/시간 세팅
+    useEffect(() => {
+        if (!id) return;
+
+        const fetchMatch = async () => {
+            try {
+                const res = await getMatch(Number(id));
+                const data = res.data.data;
+                // 서버에서 받은 실제 약속 장소/시간으로 세팅
+                setMeetingPlace({
+                    name: data.placeName,
+                    // meetAt: "2026-05-16T13:30:00" → "13:30" 형태로 변환
+                    time: new Date(data.meetAt).toLocaleTimeString('ko-KR', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                    }),
+                    latitude: data.placeLat,
+                    longitude: data.placeLng,
+                });
+            } catch (err) {
+                console.error('매칭 정보 조회 실패:', err);
+                alert('매칭 정보를 불러오지 못했습니다.');
+            }
+        };
+
+        fetchMatch();
+    }, [id]);
 
     // 두 좌표 간 거리 계산 (Haversine formula)
     const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -86,11 +113,11 @@ export default function PlaceVerificationPage() {
 
                 const angle = 0.5;
                 const latOffset = (simulatedDistance / 111000) * Math.cos(angle);
-                const lonOffset = (simulatedDistance / (111000 * Math.cos(meetingPlace.latitude * Math.PI / 180))) * Math.sin(angle);
+                const lonOffset = (simulatedDistance / (111000 * Math.cos((meetingPlace?.latitude ?? 0) * Math.PI / 180))) * Math.sin(angle);
 
                 const pos: Position = {
-                    latitude: meetingPlace.latitude + latOffset,
-                    longitude: meetingPlace.longitude + lonOffset,
+                    latitude: (meetingPlace?.latitude ?? 0) + latOffset,
+                    longitude: (meetingPlace?.longitude ?? 0) + lonOffset,
                 };
 
                 setCurrentPosition(pos);
@@ -123,8 +150,8 @@ export default function PlaceVerificationPage() {
                 const dist = calculateDistance(
                     pos.latitude,
                     pos.longitude,
-                    meetingPlace.latitude,
-                    meetingPlace.longitude
+                    meetingPlace?.latitude ?? 0,
+                    meetingPlace?.longitude ?? 0
                 );
                 setDistance(dist);
                 setIsWithinRange(dist <= 50);
@@ -148,7 +175,7 @@ export default function PlaceVerificationPage() {
         return () => {
             navigator.geolocation.clearWatch(watchId);
         };
-    }, [isTracking, useSimulation, meetingPlace.latitude, meetingPlace.longitude]);
+    }, [isTracking, useSimulation, meetingPlace?.latitude, meetingPlace?.longitude]);
 
     // ✅ 추가: 내 위치 서버 전송 + 상대방 위치 폴링 useEffect
     useEffect(() => {
@@ -241,6 +268,10 @@ export default function PlaceVerificationPage() {
         if (isWithinRange) return { text: '범위 이내 ✅', color: 'text-[#4caf50]' };
         return { text: '범위 밖 ❌', color: 'text-[#ef5350]' };
     };
+
+    if (!meetingPlace) {
+        return <div className="text-center py-12 text-[#9e9e9e]">불러오는 중...</div>;
+    }
 
     const status = getStatusText();
     const bothVerified = verificationStatus.authorVerified && verificationStatus.applicantVerified;

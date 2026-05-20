@@ -43,3 +43,7 @@ export const updateMyLocation = (matchId: number, latitude: number, longitude: n
 export const getLocations = (matchId: number) => {
     return axiosInstance.get(`/api/v1/matches/${matchId}/location`);
 };
+
+// 매칭 상세 조회 - GET /api/v1/matches/{matchId}
+export const getMatch = (matchId: number) =>
+    axiosInstance.get(`/matches/${matchId}`);
