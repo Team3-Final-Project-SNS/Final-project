@@ -1,6 +1,11 @@
 package com.example.team3final.domain.user.service;
 
+import com.example.team3final.domain.auth.dto.request.SignupRequestDto;
 import com.example.team3final.domain.user.entity.User;
+import com.example.team3final.domain.user.enums.Gender;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.time.LocalDate;
 
 public interface UserService {
 
@@ -11,5 +16,14 @@ public interface UserService {
     // 회원가입 시 가입되어있는 이메일인지 검증
     boolean isEmailAlreadyRegistered(String email);
 
+    // 이메일로 User 엔티티 조회(로그인시 사용)
     User findByEmail(String email);
+
+    // 닉네임 중복 확인
+    boolean existsByNickname(String nickname);
+
+    // 회원가입 완료 후 User에 저장하기
+    User createUser(String email, String encodedPassword, String name, String nickname,
+                    Long universityId, String major, String studentNumber,
+                    LocalDate birthDate, Gender gender);
 }
