@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { School, HandHeart, Lock } from 'lucide-react';
+import { login } from '../../api/authApi';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -8,9 +9,21 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate('/');
+    setError('');
+
+    try {
+      const res = await login(email, password);
+      const { accessToken } = res.data.data;
+
+      // accessToken을 localStorage에 저장 → axiosInstance가 자동으로 헤더에 주입
+      localStorage.setItem("accessToken", accessToken);
+
+      navigate('/');
+    } catch (err: any) {
+      setError(err.response?.data?.message || '로그인에 실패했습니다.');
+    }
   };
 
   return (
