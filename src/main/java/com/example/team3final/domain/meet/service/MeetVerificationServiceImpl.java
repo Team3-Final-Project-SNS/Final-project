@@ -2,6 +2,7 @@ package com.example.team3final.domain.meet.service;
 
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.VerificationException;
+import com.example.team3final.domain.chat.service.ChatService;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.service.MatchCommandService;
@@ -35,6 +36,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     private final MatchQueryService matchQueryService;
     private final MatchCommandService matchCommandService;
     private final PostQueryService postQueryService;
+    private final ChatService chatService;
 
     // GPS 오차범위까지 고려한 인증 반경
     private static final double PLACE_VERIFICATION_RADIUS_METERS = 60.0;
@@ -203,6 +205,9 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
         // 만남 인증 완료 처리
         meetVerification.meetVerifiedDone();
+
+        // 만남 인증 완료 되는 순간 채팅방 비활성화 실행
+        chatService.deactivateChatRoom(matchId);
 
         // Match 상태 COMPLETED로 변경
         matchCommandService.completeMatch(matchId);
