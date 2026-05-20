@@ -19,7 +19,7 @@ public class UserLocationController {
 
     private final UserLocationService userLocationService;
 
-    // 내 위치 업데이트 - 5초마다 호출
+    // 내 위치 업데이트 - 1초마다 호출
     @PutMapping("/{matchId}/location")
     public ResponseEntity<ApiResponseDto<UpdateLocationResponseDto>> updateMyLocation(
             @PathVariable Long matchId,
@@ -31,7 +31,7 @@ public class UserLocationController {
                 userLocationService.updateMyLocation(matchId, userId, requestDto)));
     }
 
-    // 양측 위치 조회 - 5초 마다 풀링
+    // 양측 위치 조회 - 1초 마다 풀링
     @GetMapping("/{matchId}/location")
     public ResponseEntity<ApiResponseDto<GetLocationResponseDto>> getLocations(
             @PathVariable Long matchId,

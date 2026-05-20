@@ -6,7 +6,7 @@ import com.example.team3final.domain.location.dto.response.UpdateLocationRespons
 
 public interface UserLocationService {
 
-    // 내 위치 업데이트 - 5초마다 호출
+    // 내 위치 업데이트 - 1초마다 호출
     UpdateLocationResponseDto updateMyLocation(Long matchId, Long userId, UpdateLocationRequestDto requestDto);
 
     // 양측 위치 조회

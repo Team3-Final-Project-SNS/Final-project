@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { MapPin, Navigation, Check, AlertCircle } from 'lucide-react';
-import { createPlaceVerification } from '../../api/meetApi';
+// ✅ updateMyLocation, getLocations 추가
+import { createPlaceVerification, updateMyLocation, getLocations } from '../../api/meetApi';
 
 interface Position {
     latitude: number;
@@ -21,7 +22,7 @@ export default function PlaceVerificationPage() {
     const meetingPlace = {
         name: '정문',
         time: '13:30',
-        latitude: 37.5665, // 예시 좌표
+        latitude: 37.5665,
         longitude: 126.9780,
     };
 
@@ -35,11 +36,14 @@ export default function PlaceVerificationPage() {
     });
     const [locationError, setLocationError] = useState<string | null>(null);
     const [isTracking, setIsTracking] = useState(true);
-    const [useSimulation, setUseSimulation] = useState(false); // 테스트용
+    const [useSimulation, setUseSimulation] = useState(false);
+
+    // ✅ 추가: 상대방 위치 상태 (서버 폴링으로 받아옴, 처음엔 null)
+    const [opponentPosition, setOpponentPosition] = useState<Position | null>(null);
 
     // 두 좌표 간 거리 계산 (Haversine formula)
     const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-        const R = 6371e3; // 지구 반지름 (미터)
+        const R = 6371e3;
         const φ1 = (lat1 * Math.PI) / 180;
         const φ2 = (lat2 * Math.PI) / 180;
         const Δφ = ((lat2 - lat1) * Math.PI) / 180;
@@ -50,12 +54,11 @@ export default function PlaceVerificationPage() {
             Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-        return R * c; // 미터 단위
+        return R * c;
     };
 
     // Geolocation 오류 메시지 변환
     const getGeolocationErrorMessage = (error: GeolocationPositionError): string => {
-        // Permissions Policy로 차단된 경우 (iframe 등)
         if (error.message.includes('permissions policy') || error.message.includes('disabled in this document')) {
             return '현재 환경에서는 GPS를 사용할 수 없습니다. 테스트 모드를 사용해주세요.';
         }
@@ -72,18 +75,16 @@ export default function PlaceVerificationPage() {
         }
     };
 
-    // 위치 추적
+    // 기존 GPS 위치 추적 useEffect (watchPosition) - 변경 없음
     useEffect(() => {
         if (!isTracking) return;
 
-        // 시뮬레이션 모드 (테스트용)
         if (useSimulation) {
-            let simulatedDistance = 80; // 시작은 80m (범위 밖)
+            let simulatedDistance = 80;
             const interval = setInterval(() => {
-                simulatedDistance = Math.max(0, simulatedDistance - 10); // 10m씩 접근
+                simulatedDistance = Math.max(0, simulatedDistance - 10);
 
-                // 시뮬레이션된 위치 계산 (약속 장소로부터 simulatedDistance 떨어진 지점)
-                const angle = 0.5; // 라디안
+                const angle = 0.5;
                 const latOffset = (simulatedDistance / 111000) * Math.cos(angle);
                 const lonOffset = (simulatedDistance / (111000 * Math.cos(meetingPlace.latitude * Math.PI / 180))) * Math.sin(angle);
 
@@ -105,9 +106,8 @@ export default function PlaceVerificationPage() {
             return () => clearInterval(interval);
         }
 
-        // 실제 Geolocation API 사용
         if (!navigator.geolocation) {
-            setLocationError('위치 서비스를 지원하지 않는 브라우저입니다. Chrome, Safari, Firefox 최신 버전을 사용해주세요.');
+            setLocationError('위치 서비스를 지원하지 않는 브라우저입니다.');
             return;
         }
 
@@ -120,7 +120,6 @@ export default function PlaceVerificationPage() {
                 setCurrentPosition(pos);
                 setLocationError(null);
 
-                // 거리 계산
                 const dist = calculateDistance(
                     pos.latitude,
                     pos.longitude,
@@ -131,25 +130,17 @@ export default function PlaceVerificationPage() {
                 setIsWithinRange(dist <= 50);
             },
             (error) => {
-                console.error('위치 추적 오류:', {
-                    code: error.code,
-                    message: error.message,
-                    PERMISSION_DENIED: error.PERMISSION_DENIED,
-                    POSITION_UNAVAILABLE: error.POSITION_UNAVAILABLE,
-                    TIMEOUT: error.TIMEOUT,
-                });
+                console.error('위치 추적 오류:', error);
                 const errorMessage = getGeolocationErrorMessage(error);
                 setLocationError(errorMessage);
 
-                // Permissions Policy로 차단된 경우 자동으로 테스트 모드로 전환
                 if (error.message.includes('permissions policy') || error.message.includes('disabled in this document')) {
-                    console.log('GPS가 차단되어 자동으로 테스트 모드로 전환합니다.');
                     setUseSimulation(true);
                 }
             },
             {
                 enableHighAccuracy: true,
-                timeout: 10000, // 10초로 증가
+                timeout: 10000,
                 maximumAge: 0,
             }
         );
@@ -159,31 +150,83 @@ export default function PlaceVerificationPage() {
         };
     }, [isTracking, useSimulation, meetingPlace.latitude, meetingPlace.longitude]);
 
+    // ✅ 추가: 내 위치 서버 전송 + 상대방 위치 폴링 useEffect
+    useEffect(() => {
+        // matchId 없으면 실행 안 함
+        if (!id) return;
+
+        const matchId = Number(id);
+
+        // 내 위치를 서버로 전송하는 함수
+        const sendMyLocation = async () => {
+            // currentPosition이 없으면 GPS 아직 못 받은 것 → 전송 skip
+            if (!currentPosition) return;
+
+            try {
+                await updateMyLocation(
+                    matchId,
+                    parseFloat(currentPosition.latitude.toFixed(7)),  // 소수점 7자리로 맞춤
+                    parseFloat(currentPosition.longitude.toFixed(7))
+                );
+            } catch (err) {
+                // 1초마다 재시도되므로 alert 없이 콘솔만 출력
+                console.error('위치 전송 실패:', err);
+            }
+        };
+
+        // 상대방 위치를 서버에서 조회하는 함수
+        const pollOpponentLocation = async () => {
+            try {
+                const res = await getLocations(matchId);
+                const data = res.data.data;
+                // 상대방 위치가 있을 때만 업데이트 (없으면 null 유지)
+                if (data.opponentLocation) {
+                    setOpponentPosition({
+                        latitude: data.opponentLocation.latitude,
+                        longitude: data.opponentLocation.longitude,
+                    });
+                }
+            } catch (err) {
+                console.error('상대방 위치 조회 실패:', err);
+            }
+        };
+
+        // 마운트 시 즉시 1회 실행
+        sendMyLocation();
+        pollOpponentLocation();
+
+        // 1초마다 반복
+        const intervalId = setInterval(() => {
+            sendMyLocation();
+            pollOpponentLocation();
+        }, 1000);
+
+        // 언마운트 시 인터벌 정리 (메모리 누수 방지)
+        return () => clearInterval(intervalId);
+
+        // currentPosition이 바뀔 때마다 재실행
+        // → GPS가 처음 잡히는 순간 바로 서버에 전송됨
+    }, [id, currentPosition]);
+
     const handleVerify = async () => {
-        // 범위 밖이거나 위치 정보 없으면 실행 안 함
         if (!isWithinRange || !currentPosition) return;
 
         try {
-            // 서버로 현재 GPS 좌표 전송
             const res = await createPlaceVerification(
-                Number(id),                      // matchId
-                currentPosition.latitude,        // 현재 위도
-                currentPosition.longitude        // 현재 경도
+                Number(id),
+                currentPosition.latitude,
+                currentPosition.longitude
             );
 
-            const data = res.data.data; // { matchId, verificationStatus, distanceMeters, bothVerified }
+            const data = res.data.data;
 
-            // 내 인증 완료 상태로 변경
             setIsVerified(true);
-
-            // 서버 응답 기반으로 인증 현황 업데이트
             setVerificationStatus({
                 authorVerified: data.authorPlaceVerifiedAt !== null,
                 applicantVerified: data.applicantPlaceVerifiedAt !== null,
             });
 
         } catch (err: any) {
-            // 서버 에러 메시지 표시 (범위 밖, 시간 범위 초과 등)
             alert(err.response?.data?.message || '장소 인증에 실패했습니다.');
         }
     };
@@ -222,18 +265,10 @@ export default function PlaceVerificationPage() {
                 <div className="relative bg-gradient-to-br from-[#fafafa] to-white rounded-2xl p-8 mb-6 border-2 border-[#e0e0e0]">
                     <div className="relative w-full h-64 flex items-center justify-center">
                         <svg viewBox="0 0 300 300" className="w-full h-full">
-                            {/* 50m 범위 원 (배경) */}
-                            <circle
-                                cx="150"
-                                cy="150"
-                                r="120"
-                                fill="none"
-                                stroke="#e0e0e0"
-                                strokeWidth="2"
-                                strokeDasharray="5,5"
-                            />
+                            {/* 외곽 점선 원 */}
+                            <circle cx="150" cy="150" r="120" fill="none" stroke="#e0e0e0" strokeWidth="2" strokeDasharray="5,5" />
 
-                            {/* 50m 범위 원 (인증 가능 영역) */}
+                            {/* 50m 인증 가능 영역 원 */}
                             <circle
                                 cx="150"
                                 cy="150"
@@ -243,24 +278,21 @@ export default function PlaceVerificationPage() {
                                 strokeWidth="2"
                             />
 
-                            {/* 약속 장소 (중심점) */}
+                            {/* 약속 장소 중심점 (빨간 핀) */}
                             <circle cx="150" cy="150" r="8" fill="#d84315" />
                             <circle cx="150" cy="150" r="12" fill="none" stroke="#d84315" strokeWidth="2" />
 
-                            {/* 내 위치 표시 (거리에 비례하여 위치 계산) */}
+                            {/* 내 위치 표시 (파란 점) */}
                             {currentPosition && distance !== null && (
                                 <>
-                                    {/* 10m 오차범위를 고려한 사용자 원 */}
                                     <circle
                                         cx={150 + Math.min((distance / 50) * 100, 130) * Math.cos(0.5)}
                                         cy={150 - Math.min((distance / 50) * 100, 130) * Math.sin(0.5)}
-                                        r={Math.max(10, (10 / 50) * 120)} // 10m 오차를 시각적으로 표현
+                                        r={Math.max(10, (10 / 50) * 120)}
                                         fill={isWithinRange ? 'rgba(33, 150, 243, 0.3)' : 'rgba(239, 83, 80, 0.3)'}
                                         stroke={isWithinRange ? '#2196f3' : '#ef5350'}
                                         strokeWidth="2"
                                     />
-
-                                    {/* 사용자 중심점 */}
                                     <circle
                                         cx={150 + Math.min((distance / 50) * 100, 130) * Math.cos(0.5)}
                                         cy={150 - Math.min((distance / 50) * 100, 130) * Math.sin(0.5)}
@@ -270,14 +302,44 @@ export default function PlaceVerificationPage() {
                                 </>
                             )}
 
+                            {/* ✅ 추가: 상대방 위치 표시 (빨간 점) */}
+                            {opponentPosition && (() => {
+                                // 상대방과 약속장소 사이 거리 계산
+                                const opponentDist = calculateDistance(
+                                    opponentPosition.latitude,
+                                    opponentPosition.longitude,
+                                    meetingPlace.latitude,
+                                    meetingPlace.longitude
+                                );
+                                // 거리 비례로 SVG 좌표 변환 (내 위치와 겹치지 않게 각도 다르게)
+                                const opponentX = 150 + Math.min((opponentDist / 50) * 100, 130) * Math.cos(2.0);
+                                const opponentY = 150 - Math.min((opponentDist / 50) * 100, 130) * Math.sin(2.0);
+                                const opponentWithinRange = opponentDist <= 50;
+
+                                return (
+                                    <>
+                                        {/* 상대방 오차 범위 원 */}
+                                        <circle
+                                            cx={opponentX}
+                                            cy={opponentY}
+                                            r={Math.max(10, (10 / 50) * 120)}
+                                            fill={opponentWithinRange ? 'rgba(239, 83, 80, 0.3)' : 'rgba(200, 200, 200, 0.3)'}
+                                            stroke={opponentWithinRange ? '#ef5350' : '#9e9e9e'}
+                                            strokeWidth="2"
+                                        />
+                                        {/* 상대방 중심점 */}
+                                        <circle
+                                            cx={opponentX}
+                                            cy={opponentY}
+                                            r="6"
+                                            fill={opponentWithinRange ? '#ef5350' : '#9e9e9e'}
+                                        />
+                                    </>
+                                );
+                            })()}
+
                             {/* 50m 표시 텍스트 */}
-                            <text
-                                x="270"
-                                y="155"
-                                fontSize="12"
-                                fill="#9e9e9e"
-                                textAnchor="middle"
-                            >
+                            <text x="270" y="155" fontSize="12" fill="#9e9e9e" textAnchor="middle">
                                 50m
                             </text>
                         </svg>
@@ -293,6 +355,13 @@ export default function PlaceVerificationPage() {
                             <div className={`w-4 h-4 rounded-full ${isWithinRange ? 'bg-[#2196f3]' : 'bg-[#ef5350]'}`}></div>
                             <span className="text-[#616161]">내 위치 (±10m)</span>
                         </div>
+                        {/* ✅ 추가: 상대방 위치 범례 - 상대방 위치 수신됐을 때만 표시 */}
+                        {opponentPosition && (
+                            <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 rounded-full bg-[#ef5350]"></div>
+                                <span className="text-[#616161]">상대방 위치</span>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -302,16 +371,12 @@ export default function PlaceVerificationPage() {
                         <div className="flex items-center justify-between mb-2">
                             <span className="text-sm text-[#616161]">현재 거리</span>
                             <span className={`text-lg font-bold ${isWithinRange ? 'text-[#4caf50]' : 'text-[#ef5350]'}`}>
-                {distance.toFixed(1)}m / 50m
-              </span>
+                                {distance.toFixed(1)}m / 50m
+                            </span>
                         </div>
-
-                        {/* 진행 바 */}
                         <div className="relative w-full h-3 bg-[#e0e0e0] rounded-full overflow-hidden">
                             <div
-                                className={`h-full transition-all duration-300 ${
-                                    isWithinRange ? 'bg-[#4caf50]' : 'bg-[#ef5350]'
-                                }`}
+                                className={`h-full transition-all duration-300 ${isWithinRange ? 'bg-[#4caf50]' : 'bg-[#ef5350]'}`}
                                 style={{ width: `${Math.min((distance / 50) * 100, 100)}%` }}
                             ></div>
                         </div>
@@ -344,7 +409,6 @@ export default function PlaceVerificationPage() {
                             <p className="text-[#1565c0] text-sm font-semibold mb-1">🧪 테스트 모드 실행 중</p>
                             <p className="text-[#1976d2] text-xs">
                                 GPS 대신 시뮬레이션으로 장소 인증을 테스트하고 있습니다.
-                                실제 서비스에서는 GPS로 정확한 위치를 확인합니다.
                             </p>
                         </div>
                     </div>
@@ -356,55 +420,38 @@ export default function PlaceVerificationPage() {
                         <span className="w-2 h-2 bg-[#4caf50] rounded-full"></span>
                         인증 현황
                     </h3>
-
                     <div className="space-y-3">
                         <div className="flex items-center justify-between bg-white rounded-lg p-3">
                             <div className="flex items-center gap-3">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                                    verificationStatus.authorVerified ? 'bg-[#4caf50]' : 'bg-[#e0e0e0]'
-                                }`}>
-                                    {verificationStatus.authorVerified ? (
-                                        <Check size={16} className="text-white" />
-                                    ) : (
-                                        <span className="text-sm">⏱</span>
-                                    )}
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${verificationStatus.authorVerified ? 'bg-[#4caf50]' : 'bg-[#e0e0e0]'}`}>
+                                    {verificationStatus.authorVerified ? <Check size={16} className="text-white" /> : <span className="text-sm">⏱</span>}
                                 </div>
                                 <span className="text-sm font-medium text-[#212121]">나 (등록자)</span>
                             </div>
                             <div className="text-right">
-                <span className={`text-xs font-semibold block ${
-                    verificationStatus.authorVerified ? 'text-[#4caf50]' : 'text-[#9e9e9e]'
-                }`}>
-                  {verificationStatus.authorVerified ? '완료' : '대기'}
-                </span>
+                                <span className={`text-xs font-semibold block ${verificationStatus.authorVerified ? 'text-[#4caf50]' : 'text-[#9e9e9e]'}`}>
+                                    {verificationStatus.authorVerified ? '완료' : '대기'}
+                                </span>
                                 <span className="text-xs text-[#9e9e9e]">
-                  {verificationStatus.authorVerified ? '장소 인증됨' : '인증 대기 중'}
-                </span>
+                                    {verificationStatus.authorVerified ? '장소 인증됨' : '인증 대기 중'}
+                                </span>
                             </div>
                         </div>
 
                         <div className="flex items-center justify-between bg-white rounded-lg p-3">
                             <div className="flex items-center gap-3">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                                    verificationStatus.applicantVerified ? 'bg-[#4caf50]' : 'bg-[#e0e0e0]'
-                                }`}>
-                                    {verificationStatus.applicantVerified ? (
-                                        <Check size={16} className="text-white" />
-                                    ) : (
-                                        <span className="text-sm">⏱</span>
-                                    )}
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${verificationStatus.applicantVerified ? 'bg-[#4caf50]' : 'bg-[#e0e0e0]'}`}>
+                                    {verificationStatus.applicantVerified ? <Check size={16} className="text-white" /> : <span className="text-sm">⏱</span>}
                                 </div>
                                 <span className="text-sm font-medium text-[#212121]">밥먹자 (신청자)</span>
                             </div>
                             <div className="text-right">
-                <span className={`text-xs font-semibold block ${
-                    verificationStatus.applicantVerified ? 'text-[#4caf50]' : 'text-[#9e9e9e]'
-                }`}>
-                  {verificationStatus.applicantVerified ? '완료' : '대기'}
-                </span>
+                                <span className={`text-xs font-semibold block ${verificationStatus.applicantVerified ? 'text-[#4caf50]' : 'text-[#9e9e9e]'}`}>
+                                    {verificationStatus.applicantVerified ? '완료' : '대기'}
+                                </span>
                                 <span className="text-xs text-[#9e9e9e]">
-                  {verificationStatus.applicantVerified ? '장소 인증됨' : '인증 대기 중'}
-                </span>
+                                    {verificationStatus.applicantVerified ? '장소 인증됨' : '인증 대기 중'}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -426,7 +473,6 @@ export default function PlaceVerificationPage() {
                         </button>
                     </div>
                 ) : (
-                    /* 인증 버튼 */
                     <div>
                         {!isVerified ? (
                             <>
@@ -459,10 +505,7 @@ export default function PlaceVerificationPage() {
                 <div className="mt-6 bg-[#fff3e0] border border-[#ff9800] rounded-xl px-4 py-3">
                     <p className="text-[#ef6c00] text-sm mb-2">
                         💡 <strong>Tip:</strong> GPS 위치 정확도를 높이려면 실외에서 사용해주세요.
-                        건물 내부에서는 오차가 발생할 수 있습니다.
                     </p>
-
-                    {/* 테스트 모드 토글 */}
                     <div className="mt-3 pt-3 border-t border-[#ffe0b2]">
                         <label className="flex items-center gap-2 cursor-pointer">
                             <input
@@ -472,8 +515,8 @@ export default function PlaceVerificationPage() {
                                 className="w-4 h-4"
                             />
                             <span className="text-[#ef6c00] text-xs">
-                테스트 모드 (GPS 없이 시뮬레이션)
-              </span>
+                                테스트 모드 (GPS 없이 시뮬레이션)
+                            </span>
                         </label>
                     </div>
                 </div>
@@ -487,9 +530,6 @@ export default function PlaceVerificationPage() {
                             <li>Safari: 설정 → Safari → 위치 → 허용</li>
                             <li>Firefox: 주소창 왼쪽 자물쇠 → 권한 → 위치 → 허용</li>
                         </ul>
-                        <p className="text-[#1976d2] text-xs mt-3">
-                            💡 또는 테스트 모드를 사용하여 기능을 확인할 수 있습니다.
-                        </p>
                     </div>
                 )}
             </div>
