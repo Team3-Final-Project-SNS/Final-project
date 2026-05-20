@@ -65,10 +65,20 @@ public class ChatRoom {
         this.createdAt = LocalDateTime.now();
     }
 
-    // 채팅방 비활성화 - 완료/취소/노쇼 시
-    public void deactivate() {
+    // 채팅방 즉시 비활성화 - (취소/노쇼 시)
+    public void deactivateNow() {
         this.isActive = false;
         this.deactivatedAt = LocalDateTime.now();
+    }
+
+    // 2시간 후 비활성화 예약 (만남 인증 완료 시)
+    public void scheduleDeactivation() {
+        this.deactivatedAt = LocalDateTime.now().plusHours(2);
+    }
+
+    // 스케줄러에서 호출 - deactivatedAt 지난 채팅방 비활성화
+    public void deactivate() {
+        this.isActive = false;
     }
 
     // 등록자 나가기
