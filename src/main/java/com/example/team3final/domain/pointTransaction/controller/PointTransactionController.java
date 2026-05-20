@@ -39,6 +39,4 @@ public class PointTransactionController {
                 ApiResponseDto.success(pointTransactionService.getPointTransactions(email, type, pageable))
         );
     }
-
-
 }
