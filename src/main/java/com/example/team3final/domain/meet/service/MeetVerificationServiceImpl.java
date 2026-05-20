@@ -231,6 +231,13 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         return MeetVerificationResponseDto.of(matchId, meetVerification);
     }
 
+    @Override
+    @Transactional
+    public void createPendingVerification(Long matchId) {
+        // 매칭 생성 시점에 PENDING 상태로 MeetVerification 레코드 초기화
+        meetVerificationRepository.save(MeetVerification.createPending(matchId));
+    }
+
     // Haversine 공식으로 두 GPS 좌표 사이 거리 계산
     private double calculateDistance(double lat1, double lng1, double lat2, double lng2) {
         double dLat = Math.toRadians(lat2 - lat1);

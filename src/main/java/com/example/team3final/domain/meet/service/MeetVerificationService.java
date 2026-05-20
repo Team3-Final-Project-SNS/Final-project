@@ -24,4 +24,7 @@ public interface MeetVerificationService {
 
     // 인증 상태 조회
     MeetVerificationResponseDto getMeetVerification(Long matchId, Long userId);
+
+    // 매칭 생성 시 MeetVerification 초기 레코드 생성
+    void createPendingVerification(Long matchId);
 }
