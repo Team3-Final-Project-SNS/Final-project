@@ -4,6 +4,7 @@ import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.domain.post.dto.request.CreatePostRequestDto;
 import com.example.team3final.domain.post.dto.response.CreatePostResponseDto;
+import com.example.team3final.domain.post.dto.response.GetPostResponseDto;
 import com.example.team3final.domain.post.dto.response.GetPostsItemResponseDto;
 import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.service.PostCommandService;
@@ -80,6 +81,32 @@ public class PostController {
 
         PageResponseDto<GetPostsItemResponseDto> response =
                 postQueryService.getPosts(userId, status, pageable);
+
+        return ResponseEntity.ok(ApiResponseDto.success(response));
+    }
+
+    /**
+     * 게시글 상세 조회
+     * 명세서: MVP 개발에서 내 역할.md - 4.3 getPost
+     *
+     * GET /api/v1/posts/{postId}
+     */
+    @GetMapping("/{postId}")
+    public ResponseEntity<ApiResponseDto<GetPostResponseDto>> getPost(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @PathVariable Long postId
+    ) {
+        // ===== 임시 디버깅 로그 (원인 파악 후 제거) =====
+        System.out.println("[DEBUG getPost] 진입 - postId: " + postId);
+        System.out.println("[DEBUG getPost] userDetails: " + userDetails);
+        // JWT 토큰에서 검증된 userId 추출 (클라이언트 위변조 불가)
+        Long currentUserId = userDetails.getUserId();
+        System.out.println("[DEBUG getPost] currentUserId: " + currentUserId);
+        // ===== 임시 디버깅 끝 =====
+
+        // Service 호출 - 검증/조회/조립 모두 위임
+        GetPostResponseDto response = postQueryService.getPost(postId, currentUserId);
+        System.out.println("[DEBUG getPost] response 생성 성공");
 
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }

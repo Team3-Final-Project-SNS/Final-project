@@ -3,6 +3,7 @@ package com.example.team3final.domain.post.service;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.PostException;
+import com.example.team3final.domain.post.dto.response.GetPostResponseDto;
 import com.example.team3final.domain.post.dto.response.GetPostsItemResponseDto;
 import com.example.team3final.domain.post.dto.response.PostInfoDto;
 import com.example.team3final.domain.post.entity.Post;
@@ -100,5 +101,47 @@ public class PostQueryServiceImpl implements PostQueryService {
         // 엔티티를 조회한 후 DTO로 변환 (필요한 필드만 추림)
         Post post = getPostById(postId);
         return PostInfoDto.from(post);
+    }
+
+    @Override
+    public GetPostResponseDto getPost(Long postId, Long currentUserId) {
+
+        // 1. 게시글 존재 확인
+        Post post = getPostById(postId);
+
+        // 2.같은 학교 게시글인지 검증
+        // TODO: User 도메인 머지 후 활성화
+        // Long viewerUniversityId = userQueryService.getUniversityIdByUserId(currentUserId);
+        // Long authorUniversityId = userQueryService.getUniversityIdByUserId(post.getAuthorId());
+        // if (!viewerUniversityId.equals(authorUniversityId)) {
+        //     throw new PostException(ErrorCode.POST_FORBIDDEN_UNIVERSITY);
+        // }
+
+        // 3. isMine 결정
+        // 조회자가 작성자 본인이면 true, 아니면 false
+
+        boolean isMine = post.isAuthor(currentUserId);
+
+        // 4. 작성자 정보 조회
+        // TODO: User 도메인 머지 후 실제 조회로 교체
+        // User author = userQueryService.getUserById(post.getAuthorId());
+        // String authorNickname = author.getNickname();
+        // String authorMajor = author.getMajor();
+        // String authorStudentNumber = author.getStudentNumber();
+
+        // ※ 현재는 임시값 — 명세서 응답 형식만 맞춰둠 (getPosts와 동일 패턴)
+        String authorNickname = "임시닉네임";
+        String authorMajor = "임시학과";
+        String authorStudentNumber = "00";
+
+        // ===== 5단계: DTO 조립 =====
+        // 엔티티(Post) + User 정보 + 컨텍스트(isMine)을 한 곳에서 모아 DTO로 변환
+        return GetPostResponseDto.from(
+                post,
+                authorNickname,
+                authorMajor,
+                authorStudentNumber,
+                isMine
+        );
     }
 }
