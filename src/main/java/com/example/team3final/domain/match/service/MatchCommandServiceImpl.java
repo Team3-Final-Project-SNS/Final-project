@@ -140,4 +140,64 @@ public class MatchCommandServiceImpl implements MatchCommandService{
         // userCommandService.refundPoint(post.getAuthorId(), post.getAuthorDeposit(), RefundType.REFUND);
         // userCommandService.refundPoint(match.getApplicantId(), match.getApplicantDeposit(), RefundType.REFUND);
     }
+
+    @Override
+    public void markAuthorNoShow(Long matchId) {
+        // Match 조회 (없으면 MATCH_001 예외)
+        Match match = matchQueryService.getMatchById(matchId);
+
+        // MATCHED 상태가 아니면 스킵
+        // 스케줄러는 중단되면 안 되므로 예외 대신 return
+        if (match.getStatus() != MatchStatus.MATCHED) {
+            return;
+        }
+
+        // Match 상태 → AUTHOR_NO_SHOW (등록자 노쇼)
+        match.markNoShow(MatchStatus.AUTHOR_NO_SHOW);
+
+        // Post 상태 → COMPLETED (노쇼도 게시글은 종료)
+        postCommandService.completePost(match.getPostId());
+
+        // TODO: 피해자(신청자) 포인트 전액 환불, 노쇼(등록자) 포인트 몰수 (User 도메인 머지 후)
+    }
+
+    @Override
+    public void markApplicantNoShow(Long matchId) {
+        // Match 조회 (없으면 MATCH_001 예외)
+        Match match = matchQueryService.getMatchById(matchId);
+
+        // MATCHED 상태가 아니면 스킵
+        if (match.getStatus() != MatchStatus.MATCHED) {
+            return;
+        }
+
+        // Match 상태 → APPLICANT_NO_SHOW (신청자 노쇼)
+        match.markNoShow(MatchStatus.APPLICANT_NO_SHOW);
+
+        // Post 상태 → COMPLETED (노쇼도 게시글은 종료)
+        postCommandService.completePost(match.getPostId());
+
+        // TODO: 피해자(등록자) 포인트 전액 환불, 노쇼(신청자) 포인트 몰수 (User 도메인 머지 후)
+    }
+
+    @Override
+    public void markBothNoShow(Long matchId) {
+        // Match 조회 (없으면 MATCH_001 예외)
+        Match match = matchQueryService.getMatchById(matchId);
+
+        // MATCHED 상태가 아니면 스킵
+        if (match.getStatus() != MatchStatus.MATCHED) {
+            return;
+        }
+
+        // Match 상태 → BOTH_NO_SHOW (양측 노쇼)
+        match.markNoShow(MatchStatus.BOTH_NO_SHOW);
+
+        // Post 상태 → COMPLETED (노쇼도 게시글은 종료)
+        postCommandService.completePost(match.getPostId());
+
+        // TODO: 양측 모두 포인트 몰수 (User 도메인 머지 후)
+    }
+
+
 }
