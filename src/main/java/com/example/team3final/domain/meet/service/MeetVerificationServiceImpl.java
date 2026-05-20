@@ -47,6 +47,8 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     // 장소 인증 가능 시간 : 만남 시간 15분전 ~ 1시간
     private static final long VERIFICATION_BEFORE_MINUTES = 15;
     private static final long VERIFICATION_AFTER_MINUTES = 60;
+    // 노쇼 판정 기준 : GPS -> meetAt + 30분
+    private static final long NO_SHOW_JUDGE_MINUTES = 30;
 
     // GPS 장소 인증
     @Override
@@ -207,7 +209,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         meetVerification.meetVerifiedDone();
 
         // 만남 인증 완료 되는 순간 채팅방 비활성화 실행
-        chatService.deactivateChatRoom(matchId);
+        chatService.scheduleChatRoomDeactivation(matchId);
 
         // Match 상태 COMPLETED로 변경
         matchCommandService.completeMatch(matchId);
@@ -241,6 +243,58 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     public void createPendingVerification(Long matchId) {
         // 매칭 생성 시점에 PENDING 상태로 MeetVerification 레코드 초기화
         meetVerificationRepository.save(MeetVerification.createPending(matchId));
+    }
+
+    @Override
+    @Transactional
+    public void judgeGpsNoShow() {
+
+        LocalDateTime now = LocalDateTime.now();
+
+        // PENDING 상태인 MeetVerification 전체 조회
+        meetVerificationRepository.findAllByStatus(VerificationStatus.PENDING)
+                .stream()
+                .forEach(verification -> {
+                    MatchInfoDto matchInfo = matchQueryService.getMatchInfo(verification.getMatchId());
+                    PostInfoDto postInfo = postQueryService.getPostInfo(matchInfo.postId());
+
+                    // meetAt + 30분 안지났으면 스킵
+                    LocalDateTime deadline = postInfo.meetAt().plusMinutes(NO_SHOW_JUDGE_MINUTES);
+                    if (now.isBefore(deadline)) {
+                        return;
+                    }
+
+                    boolean authorVerified = verification.isAuthorPlaceVerified();
+                    boolean applicantVerified = verification.isApplicantPlaceVerified();
+
+                    if (!authorVerified && !applicantVerified) {
+                        // 둘 다 미인증 -> 양측 노쇼
+                        verification.markBothNoShow();
+                        matchCommandService.markBothNoShow(verification.getMatchId());
+                    } else if (authorVerified && !applicantVerified) {
+                        // 등록자만 인증 -> 신청자 노쇼
+                        verification.markApplicantNoShow();
+                        matchCommandService.markApplicantNoShow(verification.getMatchId());
+                    } else if (!authorVerified) {
+                        // 신청자만 인증 -> 등록자 노쇼
+                        verification.markAuthorNoShow();
+                        matchCommandService.markAuthorNoShow(verification.getMatchId());
+                    }
+                });
+    }
+
+    @Override
+    @Transactional
+    public void judgeQrNoShow() {
+
+        meetVerificationRepository.findAllByStatusAndQrExpiresAtBefore(
+                VerificationStatus.VERIFIED,
+                LocalDateTime.now())
+                .stream()
+                .forEach(verification -> {
+                    verification.markApplicantNoShow();
+                    matchCommandService.markApplicantNoShow(verification.getMatchId());
+                });
     }
 
     // Haversine 공식으로 두 GPS 좌표 사이 거리 계산
