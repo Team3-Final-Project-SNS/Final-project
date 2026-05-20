@@ -12,8 +12,11 @@ public interface ChatService {
     // TODO: 고도화 시 카프카로 교체 예정 → void로 변경될 예정
     Long createChatRoom(Long matchId, Long authorId, Long applicantId);
 
-    // 채팅방 비활성화 - 완료/취소/노쇼 시 내부 호출
+    // 채팅방 즉시 비활성화 - 취소/노쇼 시
     void deactivateChatRoom(Long matchId);
+
+    // 채팅방 2시간 후 비활성화 예약 - 만남 인증 완료 시
+    void scheduleChatRoomDeactivation(Long matchId);
 
     // 채팅방 목록 조회
     List<ChatRoomResponseDto> getChatRooms(Long userId);
