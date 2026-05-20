@@ -15,7 +15,7 @@ public record QrScanResponseDto(
         // TODO: point 환불 로직과 연결
         int refundedPoint
 ) {
-    public static QrScanResponseDto from(
+    public static QrScanResponseDto of(
             Long matchId,
             MeetVerification meetVerification,
             MatchStatus matchStatus,
