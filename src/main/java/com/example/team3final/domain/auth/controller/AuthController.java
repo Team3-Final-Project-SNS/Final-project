@@ -28,6 +28,16 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponseDto.success(authService.sendEmailOtp(request)));
     }
 
+    // otp 검증 및 signup_token 발급
+    @PostMapping("/email/otp/verify")
+    public ResponseEntity<ApiResponseDto<OtpVerifyResponseDto>> verifyEmailOtp(
+            @RequestBody @Valid OtpVerifyRequestDto request,
+            HttpServletResponse response) { // signup_token 쿠키를 응답에 담기 위해 필요
+        return ResponseEntity.ok(
+                ApiResponseDto.success(authService.verifyEmailOtp(request, response))
+        );
+    }
+
     // 로그인
     @PostMapping("/login")
     public ResponseEntity<ApiResponseDto<LoginResponseDto>> login(
