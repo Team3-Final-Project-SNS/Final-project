@@ -39,17 +39,17 @@ public enum ErrorCode {
     MATCH_INVALID_STATUS(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_006", "현재 상태의 매칭은 취소할 수 없습니다."),
     MATCH_AFTER_MEET_TIME(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_007", "약속 시간 이후에는 취소할 수 없습니다."),
 
-    // meet
+    // MeetVerification
     MEET_VERIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "VERIFY_001", "인증 정보를 찾을 수 없습니다"),
-    // meet - GPS 장소 인증 에러 코드
+    // MeetVerification - GPS 장소 인증 에러 코드
     GPS_OUT_OF_RANGE(HttpStatus.UNPROCESSABLE_ENTITY, "VERIFY_002", "약속 장소 반경 50m를 벗어났습니다."),
     GPS_NOT_VERIFICATION_TIME(HttpStatus.UNPROCESSABLE_ENTITY, "VERIFY_003", "현재는 장소 인증 가능 시간이 아닙니다."),
     GPS_ALREADY_VERIFIED(HttpStatus.CONFLICT, "VERIFY_004", "이미 인증을 완료했습니다."),
-    // meet - QR 토큰 조회 에러 코드
+    // MeetVerification - QR 토큰 조회 에러 코드
     QR_NOT_AUTHOR(HttpStatus.FORBIDDEN, "VERIFY_005", "등록자만 QR을 발급받을 수 있습니다."),
     QR_PLACE_VERIFICATION_REQUIRED(HttpStatus.UNPROCESSABLE_ENTITY, "VERIFY_006", "장소 인증이 선행되어야 합니다."),
     QR_EXPIRED(HttpStatus.UNPROCESSABLE_ENTITY, "VERIFY_007", "QR 토큰이 만료되었습니다."),
-    // meet - QR 스캔 에러 코드
+    // MeetVerification - QR 스캔 에러 코드
     SCAN_NOT_APPLICANT(HttpStatus.FORBIDDEN, "VERIFY_008", "신청자만 QR을 스캔할 수 있습니다."),
     SCAN_INVALID_QR_TOKEN(HttpStatus.BAD_REQUEST, "VERIFY_009", "유효하지 않은 QR 토큰입니다."),
 
