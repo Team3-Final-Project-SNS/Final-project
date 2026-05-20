@@ -99,7 +99,22 @@ public class User extends BaseEntity {
     }
 
     // ==================== Service to Service 구현 영역 ====================
+    // 포인트 증가 (가입 보너스, 환불 등)
+    // 트랜잭션 안에서 호출 — 호출 측에서 PointTransaction도 함께 저장해야 함
+    public void addPoint(int amount) {
+        this.point += amount;
+    }
 
+    // 포인트 차감 (예치, 패널티 등)
+    // 잔액 부족이면 예외 — 호출 측에서 사전 검증하거나 이 메서드에서 던짐
+    public void deductPoint(int amount) {
+        if (this.point < amount) {
+            throw new com.example.team3final.common.exception.ServiceException(
+                    com.example.team3final.common.exception.ErrorCode.POINT_NOT_ENOUGH
+            );
+        }
+        this.point -= amount;
+    }
 
 
 }
