@@ -5,6 +5,7 @@ import com.example.team3final.common.exception.MatchException;
 import com.example.team3final.domain.chat.service.ChatService;
 import com.example.team3final.domain.match.dto.response.CreateMatchResponseDto;
 import com.example.team3final.domain.match.entity.Match;
+import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.repository.MatchRepository;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
@@ -115,6 +116,10 @@ public class MatchCommandServiceImpl implements MatchCommandService{
         // 같은 도메인의 QueryService에 위임 — NotFound 처리 일원화
         Match match = matchQueryService.getMatchById(matchId);
 
+        if (match.getStatus() != MatchStatus.MATCHED) {
+            throw new MatchException(ErrorCode.MATCH_INVALID_STATUS);
+        }
+
         // ===== ② Match 상태 변경: → COMPLETED =====
         // 엔티티의 complete() 메서드가 status + completedAt 둘 다 책임짐
         // 우리는 호출만 하면 됨 — 상태 전이 규칙이 엔티티 안에 캡슐화돼 있어서
@@ -125,12 +130,7 @@ public class MatchCommandServiceImpl implements MatchCommandService{
         // match.getPostId()로 PostId 추출 후 Post 도메인이 자기 일을 함
         postCommandService.completePost(match.getPostId());
 
-        // ===== ④ 채팅방 비활성화 =====
-        // 명세서 (박 담당자 메모): 완료/취소/노쇼 시 deactivateChatRoom 호출 필수
-        // 안 부르면 채팅방 isActive = true 상태로 남아 나가기 불가
-        chatService.deactivateChatRoom(matchId);
-
-        // ===== ⑤ 포인트 환불 (TODO) =====
+        // 포인트 환불 (TODO)
         // 만남 정상 완료 시: 양측 모두 100% 환불
         // - 등록자: post.authorDeposit 100% 환불 (type=REFUND)
         // - 신청자: match.applicantDeposit 100% 환불 (type=REFUND)
