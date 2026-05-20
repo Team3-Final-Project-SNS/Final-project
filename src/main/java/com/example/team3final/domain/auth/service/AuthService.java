@@ -3,10 +3,9 @@ package com.example.team3final.domain.auth.service;
 import com.example.team3final.domain.auth.dto.request.LoginRequestDto;
 import com.example.team3final.domain.auth.dto.request.OtpRequestDto;
 import com.example.team3final.domain.auth.dto.request.OtpVerifyRequestDto;
-import com.example.team3final.domain.auth.dto.response.LoginResponseDto;
-import com.example.team3final.domain.auth.dto.response.OtpResponseDto;
-import com.example.team3final.domain.auth.dto.response.OtpVerifyResponseDto;
-import com.example.team3final.domain.auth.dto.response.TokenResponseDto;
+import com.example.team3final.domain.auth.dto.request.SignupRequestDto;
+import com.example.team3final.domain.auth.dto.response.*;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 public interface AuthService {
@@ -16,6 +15,11 @@ public interface AuthService {
 
     // 회원가입을 위한 인증번호 검증 - 성공시 signup token을 httpOnly 쿠키로 발급
     OtpVerifyResponseDto verifyEmailOtp(OtpVerifyRequestDto request, HttpServletResponse response);
+
+    // 회원가입 - signup_token  쿠키 검증 후 유저 생성
+    public SignupResponseDto signup(SignupRequestDto request,
+                                    HttpServletRequest httpRequest,
+                                    HttpServletResponse httpResponse);
 
     // 로그인 - Refresh Token을 응답 쿠키에 직접 세팅하므로 HttpServletResponse 필요
     LoginResponseDto login(LoginRequestDto request, HttpServletResponse response);
