@@ -29,7 +29,7 @@ public class ChatServiceImpl implements ChatService {
     // TODO: Match 도메인 구현 완료 후 authorId, applicantId 파라미터 삭제 예정
     @Transactional
     @Override
-    public void createChatRoom(Long matchId, Long authorId, Long applicantId) {
+    public Long createChatRoom(Long matchId, Long authorId, Long applicantId) {
         // 이미 채팅방이 있으면 생성 안 함
         if (chatRoomRepository.findByMatchId(matchId).isPresent()) {
             throw new ServiceException(ErrorCode.CHAT_ROOM_ALREADY_EXISTS);
@@ -39,7 +39,9 @@ public class ChatServiceImpl implements ChatService {
                 .authorId(authorId)       // TODO: Match 도메인 구현 완료 후 삭제 예정
                 .applicantId(applicantId) // TODO: Match 도메인 구현 완료 후 삭제 예정
                 .build();
-        chatRoomRepository.save(chatRoom);
+        ChatRoom savedChatRoom = chatRoomRepository.save(chatRoom);
+        // TODO: 고도화 시 카프카로 교체 예정 → 해당 라인 삭제될 예정
+        return savedChatRoom.getId();  // // 생성된 채팅방 ID 반환
     }
 
     // 채팅방 비활성화 - 완료/취소/노쇼 시 내부 호출
