@@ -27,4 +27,11 @@ public interface MeetVerificationService {
 
     // 매칭 생성 시 MeetVerification 초기 레코드 생성
     void createPendingVerification(Long matchId);
+
+    // 노쇼 자동 판정
+    // GPS 장소 인증 단계 노쇼
+    void judgeGpsNoShow();
+
+    // QR 만남 인증 단계 노쇼
+    void judgeQrNoShow();
 }
