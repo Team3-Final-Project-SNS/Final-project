@@ -117,4 +117,22 @@ public class MeetVerification {
         // qrExpiresAt이 null이면 아직 발급 전이므로 만료 아님
         return this.qrExpiresAt != null && LocalDateTime.now().isAfter(this.qrExpiresAt);
     }
+
+    // 등록자 노쇼 판정
+    public void markAuthorNoShow() {
+        this.status = VerificationStatus.HOST_NO_SHOW;
+        this.isMeetVerified = false;
+    }
+
+    // 신청자 노쇼 판정
+    public void markApplicantNoShow() {
+        this.status = VerificationStatus.GUEST_NO_SHOW;
+        this.isMeetVerified = false;
+    }
+
+    // 양측 노쇼
+    public void markBothNoShow() {
+        this.status = VerificationStatus.BOTH_NO_SHOW;
+        this.isMeetVerified = false;
+    }
 }
