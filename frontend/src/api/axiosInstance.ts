@@ -6,14 +6,20 @@ const axiosInstance = axios.create({
     headers: {
         "Content-Type": "application/json",
     },
+    // refresh_token 쿠키 자동 전송
+    withCredentials: true,
 });
 
+// 요청 인터셉터 — localStorage에서 accessToken 꺼내서 Authorization 헤더에 주입
 axiosInstance.interceptors.request.use((config) => {
-    const userId = localStorage.getItem("userId") || "1";
-    config.headers["userId"] = userId;
+    const accessToken = localStorage.getItem("accessToken");
+    if (accessToken) {
+        config.headers["Authorization"] = `Bearer ${accessToken}`;
+    }
     return config;
 });
 
+// 응답 인터셉터 — 에러 로깅
 axiosInstance.interceptors.response.use(
     (response) => response,
     (error) => {
