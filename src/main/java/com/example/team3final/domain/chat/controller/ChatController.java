@@ -25,7 +25,8 @@ public class ChatController {
     public ResponseEntity<ApiResponseDto<List<ChatRoomResponseDto>>> getChatRooms(
             @AuthenticationPrincipal UserDetailsImpl userDetails       // JWT에서 자동 추출
     ) {
-        List<ChatRoomResponseDto> response = chatService.getChatRooms(userDetails.getUserId());
+        Long userId = userDetails.getUserId(); // JWT에서 검증된 userId 추출
+        List<ChatRoomResponseDto> response = chatService.getChatRooms(userId);
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
 
@@ -37,8 +38,9 @@ public class ChatController {
             @RequestParam(defaultValue = "9999999999") Long cursorId,  // 첫 요청 시 가장 큰 ID
             @RequestParam(defaultValue = "20") int size                // 한 번에 가져올 메시지 수
     ) {
+        Long userId = userDetails.getUserId(); // JWT에서 검증된 userId 추출
         CursorResponseDto<ChatMessageResponseDto> response = chatService.getChatMessages(
-                chatRoomId, userDetails.getUserId(), cursorId, size);
+                chatRoomId, userId, cursorId, size);
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
 
@@ -48,7 +50,8 @@ public class ChatController {
             @PathVariable Long chatRoomId,
             @AuthenticationPrincipal UserDetailsImpl userDetails // JWT에서 자동 추출
     ) {
-        chatService.leaveChatRoom(chatRoomId, userDetails.getUserId());
+        Long userId = userDetails.getUserId(); // JWT에서 검증된 userId 추출
+        chatService.leaveChatRoom(chatRoomId, userId);
         return ResponseEntity.ok(ApiResponseDto.successWithNoContent());
     }
 }
