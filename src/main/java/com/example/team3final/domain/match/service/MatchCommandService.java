@@ -31,5 +31,12 @@ public interface MatchCommandService {
      */
     void completeMatch(Long matchId);
 
-    void markNoShow(Long matchId, MatchStatus noShowStatus);
+    // 등록자 노쇼
+    void markAuthorNoShow(Long matchId);
+
+    // 신청자 노쇼
+    void markApplicantNoShow(Long matchId);
+
+    // 양측 노쇼
+    void markBothNoShow(Long matchId);
 }
