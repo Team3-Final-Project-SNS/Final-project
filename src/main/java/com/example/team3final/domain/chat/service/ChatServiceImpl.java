@@ -106,8 +106,13 @@ public class ChatServiceImpl implements ChatService {
     @Override
     public CursorResponseDto<ChatMessageResponseDto> getChatMessages(Long chatRoomId, Long userId, Long cursorId, int size) {
         // 채팅방 존재 여부 확인
-        chatRoomRepository.findById(chatRoomId)
+        ChatRoom chatRoom = chatRoomRepository.findById(chatRoomId)
                 .orElseThrow(() -> new ServiceException(ErrorCode.CHAT_ROOM_NOT_FOUND));
+
+        // 채팅방 참여자 여부 확인
+        if (!chatRoom.getAuthorId().equals(userId) && !chatRoom.getApplicantId().equals(userId)) {
+            throw new ServiceException(ErrorCode.CHAT_NOT_PARTICIPANT);
+        }
 
         // 메시지 조회 (size+1개 조회로 다음 페이지 여부 확인)
         List<ChatMessage> messages = chatMessageRepository
