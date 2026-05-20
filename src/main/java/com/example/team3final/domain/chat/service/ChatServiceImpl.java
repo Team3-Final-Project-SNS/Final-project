@@ -44,13 +44,22 @@ public class ChatServiceImpl implements ChatService {
         return savedChatRoom.getId();  // // 생성된 채팅방 ID 반환
     }
 
-    // 채팅방 비활성화 - 완료/취소/노쇼 시 내부 호출
+    // 채팅방 즉시 비활성화 - 취소/노쇼 시 내부 호출
     @Transactional
     @Override
     public void deactivateChatRoom(Long matchId) {
         ChatRoom chatRoom = chatRoomRepository.findByMatchId(matchId)
                 .orElseThrow(() -> new ServiceException(ErrorCode.CHAT_ROOM_NOT_FOUND));
-        chatRoom.deactivate();
+        chatRoom.deactivateNow(); // 즉시 비활성화
+    }
+
+    // 채팅방 2시간 후 비활성화 예약 - 만남 인증 완료 시 내부 호출
+    @Transactional
+    @Override
+    public void scheduleChatRoomDeactivation(Long matchId) {
+        ChatRoom chatRoom = chatRoomRepository.findByMatchId(matchId)
+                .orElseThrow(() -> new ServiceException(ErrorCode.CHAT_ROOM_NOT_FOUND));
+        chatRoom.scheduleDeactivation(); // 2시간 후 비활성화 예약
     }
 
     // 채팅방 목록 조회
@@ -134,8 +143,6 @@ public class ChatServiceImpl implements ChatService {
                 .orElseThrow(() -> new ServiceException(ErrorCode.CHAT_ROOM_NOT_FOUND));
 
         // 활성화된 채팅방은 나가기 불가 (MATCHED 상태)
-        // TODO: 매칭 팀원이 완료/취소/노쇼 처리 시 deactivateChatRoom(matchId) 반드시 호출 필요
-        // 호출하지 않으면 isActive = true 상태가 유지되어 나가기가 불가능함
         if (chatRoom.isActive()) {
             throw new ServiceException(ErrorCode.CHAT_ROOM_ACTIVE_CANNOT_LEAVE);
         }
