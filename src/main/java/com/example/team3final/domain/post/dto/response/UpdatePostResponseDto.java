@@ -11,7 +11,7 @@ public record UpdatePostResponseDto(
         String placeName,
         int authorDeposit,
         PostStatus status,
-        LocalDateTime updateAt
+        LocalDateTime updatedAt
 ) {
     public static UpdatePostResponseDto from(Post post) {
         return new UpdatePostResponseDto(
