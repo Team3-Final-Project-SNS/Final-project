@@ -1,13 +1,17 @@
 package com.example.team3final.domain.location.service;
 
+import com.example.team3final.common.exception.ErrorCode;
+import com.example.team3final.common.exception.LocationException;
 import com.example.team3final.domain.location.dto.LocationDto;
 import com.example.team3final.domain.location.dto.request.UpdateLocationRequestDto;
 import com.example.team3final.domain.location.dto.response.GetLocationResponseDto;
 import com.example.team3final.domain.location.dto.response.UpdateLocationResponseDto;
 import com.example.team3final.domain.location.entity.UserLocation;
 import com.example.team3final.domain.location.repository.UserLocationRepository;
-import com.example.team3final.domain.match.entity.Match;
+import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.service.MatchQueryService;
+import com.example.team3final.domain.post.dto.response.PostInfoDto;
+import com.example.team3final.domain.post.service.PostQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,15 +26,23 @@ public class UserLocationServiceImpl implements UserLocationService {
 
     private final UserLocationRepository userLocationRepository;
     private final MatchQueryService matchQueryService;
+    private final PostQueryService postQueryService;
 
     // 내 위치 업데이트
     @Override
     @Transactional
     public UpdateLocationResponseDto updateMyLocation(Long matchId, Long userId, UpdateLocationRequestDto requestDto) {
 
-        // Match 조회
-        // TODO: Post 도메인에서 Dto 완성 후 authorId 실제 조회로 적용
-        Match match = matchQueryService.getMatchById(matchId);
+        // 매칭 정보 조회
+        MatchInfoDto matchInfo = matchQueryService.getMatchInfo(matchId);
+
+        // 게시글 정보 조회
+        PostInfoDto postInfo = postQueryService.getPostInfo(matchInfo.postId());
+
+        // 매칭 당사자 검증
+        if (!matchInfo.isParticipant(userId, postInfo.authorId())) {
+            throw new LocationException(ErrorCode.MATCH_NOT_PARTICIPANT);
+        }
 
         // 기존 위치 조회
         Optional<UserLocation> exist = userLocationRepository.findByMatchIdAndUserId(matchId, userId);
@@ -59,25 +71,34 @@ public class UserLocationServiceImpl implements UserLocationService {
     @Override
     public GetLocationResponseDto getLocations(Long matchId, Long userId) {
 
-        // Match 조회
-        // TODO: Post Dto 완성 후 authorId 실제 조회로 교체
-        matchQueryService.getMatchById(matchId);
+        // 매칭 정보 조회
+        MatchInfoDto matchInfo = matchQueryService.getMatchInfo(matchId);
+
+        // 게시글 정보 조회
+        PostInfoDto postInfo = postQueryService.getPostInfo(matchInfo.postId());
+
+        // 매칭 당사자 검증
+        if (!matchInfo.isParticipant(userId, postInfo.authorId())) {
+            throw new LocationException(ErrorCode.MATCH_NOT_PARTICIPANT);
+        }
 
         // matchId로 양측 위치 전체 조회
         List<UserLocation> locations = userLocationRepository.findAllByMatchId(matchId);
 
         // 내 위치와 상대방 위치 분리
+        // 내 위치 -> userId가 일치하는 것
         LocationDto myLocation = locations.stream()
                 .filter(loc -> loc.getUserId().equals(userId))
                 .findFirst()
                 .map(LocationDto::from)
-                .orElse(null);
+                .orElse(null); // 아직 위치를 한 번도 업데이트 안했으면 null
 
+        // 상대방 위치 -> userId가 불일치
         LocationDto opponentLocation = locations.stream()
                 .filter(loc -> !loc.getUserId().equals(userId))
                 .findFirst()
                 .map(LocationDto::from)
-                .orElse(null);
+                .orElse(null); // 상대방이 아직 위치를 보내지 않았으면 null
 
         return GetLocationResponseDto.of(myLocation, opponentLocation);
     }
