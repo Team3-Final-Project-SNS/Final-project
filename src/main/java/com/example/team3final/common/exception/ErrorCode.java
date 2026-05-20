@@ -17,6 +17,10 @@ public enum ErrorCode {
     OTP_CODE_MISMATCH(HttpStatus.BAD_REQUEST, "AUTH_006", "OTP 코드가 일치하지 않습니다."),
     OTP_EXPIRED(HttpStatus.BAD_REQUEST, "AUTH_007", "OTP가 만료되었습니다."),
     OTP_MAX_ATTEMPTS_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "AUTH_008", "OTP 시도 횟수를 초과했습니다. 새 인증번호를 요청하세요."),
+    NICKNAME_DUPLICATED(HttpStatus.CONFLICT, "AUTH_009", "이미 사용 중인 닉네임입니다."),
+    INVALID_SIGNUP_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH_010", "유효하지 않거나 만료된 Signup Token입니다."),
+    // Term
+    REQUIRED_TERM_NOT_AGREED(HttpStatus.BAD_REQUEST, "TERM_001", "필수 약관에 동의하지 않았습니다."),
 
     // User
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_001", "존재하지 않는 유저입니다."),
