@@ -3,7 +3,9 @@ package com.example.team3final.domain.post.service;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.PostException;
 import com.example.team3final.domain.post.dto.request.CreatePostRequestDto;
+import com.example.team3final.domain.post.dto.request.UpdatePostRequestDto;
 import com.example.team3final.domain.post.dto.response.CreatePostResponseDto;
+import com.example.team3final.domain.post.dto.response.UpdatePostResponseDto;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.repository.PostRepository;
 import lombok.RequiredArgsConstructor;
@@ -80,6 +82,65 @@ public class PostCommandServiceImpl implements PostCommandService {
         String authorNickname = "임시닉네임"; // 임시값
 
         return CreatePostResponseDto.from(savedPost, authorNickname);
+    }
+
+    @Override
+    public UpdatePostResponseDto updatePost(Long postId, Long userId, UpdatePostRequestDto request) {
+
+        // 1. 게시글 조회
+        Post post = postQueryService.getPostById(postId);
+
+        // 2. 작성자 본인 검증
+        // 엔티티의 isAuthor() 헬퍼 활용 → 비교 로직을 엔티티가 책임짐
+        if (!post.isAuthor(userId)) {
+            throw new PostException(ErrorCode.POST_NOT_AUTHOR);
+        }
+
+        // 3. 상태 검증 — OPEN만 수정 가능
+        if (!post.isOpen()) {
+            throw new PostException(ErrorCode.POST_NOT_OPEN);
+        }
+
+        // 4. authorDeposit 검증 + 차액 처리
+        Integer newDeposit = request.getAuthorDeposit();
+
+        if (newDeposit != null) {
+            // Post.DEPOSIT_UNIT(=100) 상수 참조로 매직넘버 제거
+            if (newDeposit % Post.DEPOSIT_UNIT != 0) {
+                throw new PostException(ErrorCode.POST_INVALID_DEPOSIT);
+            }
+
+            // 차액 계산 — 양수면 추가 차감 필요, 음수면 환불 필요
+            int oldDeposit = post.getAuthorDeposit();
+            int diff = newDeposit - oldDeposit;
+
+            if (diff > 0) {
+                // 증액: diff만큼 추가 차감 — 잔액 부족 시 User 도메인이 POINT_001 던짐
+                // TODO: User 도메인 머지 후 활성화
+                // userCommandService.deductPoint(userId, diff);
+                // ※ PointTransaction status=EDIT_DEPOSIT, description="게시글 수정 추가 예치"
+
+            } else if (diff < 0) {
+                // 감액: |diff|만큼 환불
+                // TODO: User 도메인 머지 후 활성화
+                // userCommandService.refundPoint(userId, Math.abs(diff));
+                // ※ PointTransaction status=EDIT_DEPOSIT, description="게시글 수정 차액 환불"
+            }
+            // diff == 0이면 아무것도 안 함 (같은 금액으로 "수정")
+        }
+
+        // 5. 엔티티 update() 호출
+        post.update(
+                request.getMeetAt(),
+                request.getPlaceName(),
+                request.getPlaceLat(),
+                request.getPlaceLng(),
+                request.getContent(),
+                request.getAuthorDeposit()
+        );
+
+        // 6. 응답 DTO 변환
+        return UpdatePostResponseDto.from(post);
     }
 
     @Override

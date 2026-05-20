@@ -7,6 +7,7 @@ import com.example.team3final.domain.match.dto.response.CreateMatchResponseDto;
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.repository.MatchRepository;
+import com.example.team3final.domain.meet.service.MeetVerificationService;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.service.PostCommandService;
@@ -25,6 +26,7 @@ public class MatchCommandServiceImpl implements MatchCommandService{
     private final PostQueryService postQueryService;
     private final PostCommandService postCommandService;
     private final ChatService chatService;
+    private final MeetVerificationService meetVerificationService;
 
     // TODO: User 도메인 머지 후 활성화
     // private final UserCommandService userCommandService;   // 포인트 차감
@@ -75,6 +77,8 @@ public class MatchCommandServiceImpl implements MatchCommandService{
         Match savedMatch = matchRepository.save(match);
 
         post.match();
+
+        meetVerificationService.createPendingVerification(savedMatch.getId());
 
          chatService.createChatRoom(
                  savedMatch.getId(),
