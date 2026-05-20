@@ -3,6 +3,7 @@ package com.example.team3final.domain.meet.service;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.VerificationException;
 import com.example.team3final.domain.chat.service.ChatService;
+import com.example.team3final.domain.location.service.UserLocationService;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.service.MatchCommandService;
@@ -37,6 +38,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     private final MatchCommandService matchCommandService;
     private final PostQueryService postQueryService;
     private final ChatService chatService;
+    private final UserLocationService userLocationService;
 
     // GPS 오차범위까지 고려한 인증 반경
     private static final double PLACE_VERIFICATION_RADIUS_METERS = 60.0;
@@ -208,6 +210,8 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         // 만남 인증 완료 처리
         meetVerification.meetVerifiedDone();
 
+        userLocationService.deleteLocationsByMatchId(matchId);
+
         // 만남 인증 완료 되는 순간 채팅방 비활성화 실행
         chatService.scheduleChatRoomDeactivation(matchId);
 
@@ -271,14 +275,17 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                         // 둘 다 미인증 -> 양측 노쇼
                         verification.markBothNoShow();
                         matchCommandService.markBothNoShow(verification.getMatchId());
+                        userLocationService.deleteLocationsByMatchId(verification.getMatchId());
                     } else if (authorVerified && !applicantVerified) {
                         // 등록자만 인증 -> 신청자 노쇼
                         verification.markApplicantNoShow();
                         matchCommandService.markApplicantNoShow(verification.getMatchId());
+                        userLocationService.deleteLocationsByMatchId(verification.getMatchId());
                     } else if (!authorVerified) {
                         // 신청자만 인증 -> 등록자 노쇼
                         verification.markAuthorNoShow();
                         matchCommandService.markAuthorNoShow(verification.getMatchId());
+                        userLocationService.deleteLocationsByMatchId(verification.getMatchId());
                     }
                 });
     }
@@ -294,6 +301,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                 .forEach(verification -> {
                     verification.markApplicantNoShow();
                     matchCommandService.markApplicantNoShow(verification.getMatchId());
+                    userLocationService.deleteLocationsByMatchId(verification.getMatchId());
                 });
     }
 
