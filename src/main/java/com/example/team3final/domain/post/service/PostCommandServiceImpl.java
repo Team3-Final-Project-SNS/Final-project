@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 public class PostCommandServiceImpl implements PostCommandService {
 
     private final PostRepository postRepository;
+    private final PostQueryService postQueryService;
 
     // ⚠️ 아래 두 의존성은 다른 도메인 담당자가 구현 예정
     // 시그니처만 합의된 상태로, "존재한다고 가정"하고 호출
@@ -79,5 +80,16 @@ public class PostCommandServiceImpl implements PostCommandService {
         String authorNickname = "임시닉네임"; // 임시값
 
         return CreatePostResponseDto.from(savedPost, authorNickname);
+    }
+
+    @Override
+    public void completePost(Long postId) {
+        // 1. Post 엔티티 조회 — PostQueryService에 위임
+        //    (같은 도메인의 Query Service를 재사용 → 단건 조회 + NotFound 처리 일원화)
+        Post post = postQueryService.getPostById(postId);
+
+        // 2. 도메인 메서드 호출 — 상태 전이 규칙은 엔티티가 책임
+        //    @Transactional 안에서 엔티티 필드 변경 → 더티체킹으로 자동 UPDATE
+        post.complete();
     }
 }

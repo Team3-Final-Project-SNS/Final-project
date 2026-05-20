@@ -3,9 +3,11 @@ package com.example.team3final.domain.match.controller;
 import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.domain.match.dto.response.CreateMatchResponseDto;
 import com.example.team3final.domain.match.service.MatchCommandService;
+import com.example.team3final.domain.user.service.UserDetailsImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -24,9 +26,12 @@ public class MatchController {
      */
     @PostMapping("/posts/{postId}/matches")
     public ResponseEntity<ApiResponseDto<CreateMatchResponseDto>> createMatch(
-            @RequestHeader("X-User-Id") Long applicantId,
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
             @PathVariable Long postId
     ) {
+        // 토큰에서 추출된 검증된 userId
+        Long applicantId = userDetails.getUserId();
+
         CreateMatchResponseDto response = matchCommandService.createMatch(postId, applicantId);
 
         return ResponseEntity

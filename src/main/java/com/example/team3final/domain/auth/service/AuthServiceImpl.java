@@ -6,11 +6,14 @@ import com.example.team3final.common.exception.ServiceException;
 import com.example.team3final.common.jwt.JwtProvider;
 import com.example.team3final.domain.auth.dto.request.LoginRequestDto;
 import com.example.team3final.domain.auth.dto.request.OtpRequestDto;
+import com.example.team3final.domain.auth.dto.request.OtpVerifyRequestDto;
 import com.example.team3final.domain.auth.dto.response.LoginResponseDto;
 import com.example.team3final.domain.auth.dto.response.OtpResponseDto;
+import com.example.team3final.domain.auth.dto.response.OtpVerifyResponseDto;
 import com.example.team3final.domain.auth.dto.response.TokenResponseDto;
 import com.example.team3final.domain.auth.util.OtpGenerator;
 import com.example.team3final.domain.auth.util.OtpRedisKeyUtil;
+import com.example.team3final.domain.university.dto.response.UniversityResponseDto;
 import com.example.team3final.domain.university.service.UniversityService;
 import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.service.UserService;
@@ -41,6 +44,7 @@ public class AuthServiceImpl implements AuthService{
     private final AuthenticationManager authenticationManager;
 
     private static final String REFRESH_TOKEN_KEY_PREFIX = "refresh:";
+    private static final int MAX_OTP_ATTEMPTS = 5;
 
     // ======== OTP 발송 ======================
     @Override
@@ -112,6 +116,72 @@ public class AuthServiceImpl implements AuthService{
 
         // 10. 응답 반환
         return new OtpResponseDto(otpProperties.getExpireSeconds());
+    }
+
+    // ======== OTP 검증 ======================
+    @Override
+    public OtpVerifyResponseDto verifyEmailOtp(OtpVerifyRequestDto request, HttpServletResponse response) {
+        String email = request.email();
+
+        // 1단계: 시도 횟수 확인
+        // 브루트포스 방어: 5회 초과 시 잠금, 새 OTP 발급 유도
+        String attemptsKey = OtpRedisKeyUtil.attemptsKey(email);
+        String attemptsStr = redisTemplate.opsForValue().get(attemptsKey);
+        int attempts = (attemptsStr == null) ? 0 : Integer.parseInt(attemptsStr);
+
+        if (attempts >= MAX_OTP_ATTEMPTS) {
+            throw new ServiceException(ErrorCode.OTP_MAX_ATTEMPTS_EXCEEDED);
+        }
+
+        // 2단계: Redis에서 저장된 OTP 조회
+        String otpKey = OtpRedisKeyUtil.otpCodeKey(email);
+        String storedOtp = redisTemplate.opsForValue().get(otpKey);
+
+        // 3단계: OTP 만료 확인
+        // Redis TTL이 지나면 키가 자동 삭제 → get()이 null 반환 = 만료
+        if (storedOtp == null) {
+            throw new ServiceException(ErrorCode.OTP_EXPIRED);
+        }
+
+        // 4단계: OTP 코드 일치 확인
+        if (!storedOtp.equals(request.otpCode())) {
+            // 불일치: 시도 횟수 +1
+            // increment: 키가 없으면 0→1, 있으면 기존값+1
+            redisTemplate.opsForValue().increment(attemptsKey);
+
+            // 첫 번째 틀림일 때만 TTL 설정 (OTP 유효시간과 동일하게)
+            // 이미 TTL이 있으면 덮어쓰지 않음
+            if (attempts == 0) {
+                redisTemplate.expire(attemptsKey,
+                        Duration.ofSeconds(otpProperties.getExpireSeconds()));
+            }
+
+            throw new ServiceException(ErrorCode.OTP_CODE_MISMATCH);
+        }
+
+        // 5단계: 검증 성공 - 사용된 키 정리
+        redisTemplate.delete(otpKey);      // OTP 재사용 방지
+        redisTemplate.delete(attemptsKey); // 시도 횟수 초기화
+
+        // 6단계: 이메일 도메인으로 학교 정보 조회
+        String emailDomain = email.substring(email.indexOf("@") + 1);
+        UniversityResponseDto university = universityService.getUniversityByDomain(emailDomain);
+
+        // 7단계: signup_token 생성 (기존 JwtProvider 재사용)
+        // type: "SIGNUP", TTL: 15분 (application.yml jwt.signup-token-validity-time)
+        String signupToken = jwtProvider.generateSignupToken(email);
+
+        // 8단계: signup_token HttpOnly 쿠키 발급
+        // Path를 /api/v1/auth/signup으로 제한 → 다른 경로 요청 시엔 쿠키 미전송
+        Cookie signupCookie = new Cookie("signup_token", signupToken);
+        signupCookie.setHttpOnly(true);              // JS 접근 차단 (XSS 방어)
+        signupCookie.setSecure(true);                // HTTPS에서만 전송
+        signupCookie.setPath("/api/v1/auth/signup"); // 회원가입 엔드포인트에만 자동 전송
+        signupCookie.setMaxAge(15 * 60);             // 15분
+        response.addCookie(signupCookie);
+
+        // 9단계: 응답 반환 (쿠키 외 body에는 학교 정보만)
+        return new OtpVerifyResponseDto(university.universityId(), university.universityName());
     }
 
     // ======== 로그인 ======================

@@ -3,6 +3,7 @@ package com.example.team3final.domain.post.service;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.PostException;
 import com.example.team3final.domain.post.dto.response.GetPostsItemResponseDto;
+import com.example.team3final.domain.post.dto.response.PostInfoDto;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import org.springframework.data.domain.Pageable;
@@ -35,4 +36,16 @@ public interface PostQueryService {
      * @throws PostException POST_001 — 게시글이 존재하지 않음
      */
     Post getPostById(Long postId);
+
+    /**
+     * 게시글 정보 조회 — 도메인 간 호출용 (DTO 반환)
+     *
+     * 사용처:
+     * - 정(GPS 인증): 약속 장소 좌표 + 만남 시간만 필요할 때
+     *
+     * ※ getPostById와의 차이: 엔티티가 아닌 DTO 반환 → 호출자가 도메인 메서드 호출 불가, 단순 값 조회용
+     *
+     * @throws PostException POST_001 — 게시글이 존재하지 않음
+     */
+    PostInfoDto getPostInfo(Long postId);
 }
