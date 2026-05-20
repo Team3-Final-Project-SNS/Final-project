@@ -26,7 +26,6 @@ public class MatchCommandServiceImpl implements MatchCommandService{
     private final PostQueryService postQueryService;
     private final PostCommandService postCommandService;
     private final ChatService chatService;
-    private final MeetVerificationService meetVerificationService;
 
     // TODO: User 도메인 머지 후 활성화
     // private final UserCommandService userCommandService;   // 포인트 차감
@@ -77,8 +76,6 @@ public class MatchCommandServiceImpl implements MatchCommandService{
         Match savedMatch = matchRepository.save(match);
 
         post.match();
-
-        meetVerificationService.createPendingVerification(savedMatch.getId());
 
          chatService.createChatRoom(
                  savedMatch.getId(),
