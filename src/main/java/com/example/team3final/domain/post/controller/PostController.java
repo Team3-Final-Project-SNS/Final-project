@@ -8,6 +8,7 @@ import com.example.team3final.domain.post.dto.response.GetPostsItemResponseDto;
 import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.service.PostCommandService;
 import com.example.team3final.domain.post.service.PostQueryService;
+import com.example.team3final.domain.user.service.UserDetailsImpl;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -15,6 +16,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -33,17 +35,17 @@ public class PostController {
      */
     @PostMapping
     public ResponseEntity<ApiResponseDto<CreatePostResponseDto>> createPost(
-            // ⚠️ 임시: 인증 모듈 완성 전까지 헤더로 userId 전달
-            // 인증 완료 후 @AuthenticationPrincipal 또는 커스텀 Argument Resolver로 교체
-            // (인증 담당자와 합의된 헤더 이름: X-User-Id)
-            @RequestHeader("X-User-Id") Long userId,
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
 
             // @Valid: DTO 내부의 @NotNull, @Future, @Min 등 1차 검증 동작
             //   → 실패 시 MethodArgumentNotValidException 발생
             //   → GlobalExceptionHandler가 400 Bad Request로 변환
             @Valid @RequestBody CreatePostRequestDto request
     ) {
-        // Service에 위임 — Controller는 로직 X
+        // JWT 토큰에서 검증된 userId 꺼내기
+        // 클라이언트가 보낸 헤더가 아니라 토큰 안의 서명된 값 → 위변조 불가
+        Long userId = userDetails.getUserId();
+
         CreatePostResponseDto response = postCommandService.createPost(userId, request);
 
         // 명세서: 201 Created 반환
@@ -61,11 +63,13 @@ public class PostController {
      */
     @GetMapping
     public ResponseEntity<ApiResponseDto<PageResponseDto<GetPostsItemResponseDto>>> getPosts(
-            @RequestHeader("X-User-Id") Long userId,
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
             @RequestParam(defaultValue = "OPEN")PostStatus status, // defaultValue = "OPEN" → 쿼리스트링 누락 시 OPEN 사용 (명세서 기본값)
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size  // size=20 — 누락 시 20, 최대 50
     ) {
+        Long userId = userDetails.getUserId();
+
         int safeSize = Math.min(size, 50);
 
         Pageable pageable = PageRequest.of(

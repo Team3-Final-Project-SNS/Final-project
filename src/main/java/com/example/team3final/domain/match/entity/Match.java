@@ -59,6 +59,11 @@ public class Match extends BaseEntity {
 
     // 만남 정상 완료 (QR 인증까지 완료)
     public void complete() {
+        if (this.status != MatchStatus.MATCHED) {
+            throw new IllegalStateException(
+                    "매칭 완료는 MATCHED 상태에서만 가능합니다. 현재 상태: " + this.status
+            );
+        }
         this.status = MatchStatus.COMPLETED;
         this.completedAt = LocalDateTime.now();
     }

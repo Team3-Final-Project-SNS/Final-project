@@ -1,6 +1,7 @@
 package com.example.team3final.domain.match.service;
 
 import com.example.team3final.common.exception.MatchException;
+import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.entity.Match;
 
 public interface MatchQueryService {
@@ -18,4 +19,17 @@ public interface MatchQueryService {
      * @throws MatchException MATCH_001 — 매칭이 존재하지 않음
      */
     Match getMatchById(Long matchId);
+
+    /**
+     * 매칭 정보 조회 — 도메인 간 호출용 (DTO 반환)
+     *
+     * 사용처:
+     * - 박(채팅): 채팅방 입장 권한 검증
+     * - 정(GPS 인증): QR 스캔/만남 인증 시 당사자 검증
+     *
+     * ※ getMatchById와의 차이: 엔티티가 아닌 DTO 반환 → 권한 검증 메서드(isParticipant, isApplicant) 포함
+     *
+     * @throws MatchException MATCH_001
+     */
+    MatchInfoDto getMatchInfo(Long matchId);
 }
