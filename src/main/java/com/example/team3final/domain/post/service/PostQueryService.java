@@ -5,6 +5,7 @@ import com.example.team3final.common.exception.PostException;
 import com.example.team3final.domain.post.dto.response.GetPostResponseDto;
 import com.example.team3final.domain.post.dto.response.GetPostsItemResponseDto;
 import com.example.team3final.domain.post.dto.response.PostInfoDto;
+import com.example.team3final.domain.post.dto.response.PostMatchInfoDto;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import org.springframework.data.domain.Pageable;
@@ -66,4 +67,12 @@ public interface PostQueryService {
      * @throws PostException POST_002 — 다른 학교 게시글 접근
      */
     GetPostResponseDto getPost(Long postId, Long currentUserId);
+
+    /**
+     * 게시글 매칭 정보 조회 — 도메인 간 호출용 (매칭 목록 조회 전용)
+     *
+     * 사용처:
+     * - 매칭 도메인: getMatches 시 약속 시간, 장소명, 등록자 예치금 확인
+     */
+    PostMatchInfoDto getPostMatchInfo(Long postId);
 }

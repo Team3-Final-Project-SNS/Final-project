@@ -6,6 +6,7 @@ import com.example.team3final.common.exception.PostException;
 import com.example.team3final.domain.post.dto.response.GetPostResponseDto;
 import com.example.team3final.domain.post.dto.response.GetPostsItemResponseDto;
 import com.example.team3final.domain.post.dto.response.PostInfoDto;
+import com.example.team3final.domain.post.dto.response.PostMatchInfoDto;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.repository.PostRepository;
@@ -143,5 +144,11 @@ public class PostQueryServiceImpl implements PostQueryService {
                 authorStudentNumber,
                 isMine
         );
+    }
+
+    @Override
+    public PostMatchInfoDto getPostMatchInfo(Long postId) {
+        Post post = getPostById(postId);
+        return PostMatchInfoDto.from(post);
     }
 }
