@@ -17,6 +17,7 @@ public class OtpServiceImpl implements OtpService {
     @Async
     public void sendOtp(String to, String otpCode) {
         SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom("dalsun_rin@naver.com");
         message.setTo(to);
         message.setSubject("[한끼팟] 이메일 인증번호 안내");
         message.setText(buildOtpMessage(otpCode));

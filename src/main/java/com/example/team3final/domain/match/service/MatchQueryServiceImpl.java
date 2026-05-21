@@ -33,10 +33,6 @@ public class MatchQueryServiceImpl implements MatchQueryService{
     private final UserService userService;
     private final ChatService chatService;
 
-    // TODO: User 도메인 머지 후 활성화
-    // private final UserQueryService userQueryService;
-
-
     @Override
     public Match getMatchById(Long matchId) {
 
@@ -71,32 +67,18 @@ public class MatchQueryServiceImpl implements MatchQueryService{
                 .orElse(null);
 
         // 5. User 도메인에서 양측 정보 조회
-        // TODO: User 도메인 머지 후 활성화
-        // User author = userQueryService.getUserById(post.getAuthorId());
-        // User applicant = userQueryService.getUserById(match.getApplicantId());
-        // String authorNickname = author.getNickname();
-        // String authorMajor = author.getMajor();
-        // String authorStudentNumber = author.getStudentNumber();
-        // String applicantNickname = applicant.getNickname();
-        // String applicantMajor = applicant.getMajor();
-        // String applicantStudentNumber = applicant.getStudentNumber();
-        //
-        String authorNickname = "임시-등록자";
-        String authorMajor = "임시-등록자학과";
-        String authorStudentNumber = "00";
-        String applicantNickname = "임시-신청자";
-        String applicantMajor = "임시-신청자학과";
-        String applicantStudentNumber = "00";
+        UserInfoDto authorInfo = userService.getUserInfo(post.getAuthorId());
+        UserInfoDto applicantInfo = userService.getUserInfo(match.getApplicantId());
 
         return GetMatchResponseDto.of(
                 match,
                 post,
-                authorNickname,
-                authorMajor,
-                authorStudentNumber,
-                applicantNickname,
-                applicantMajor,
-                applicantStudentNumber,
+                authorInfo.nickname(),
+                authorInfo.major(),
+                authorInfo.studentNumber(),
+                applicantInfo.nickname(),
+                applicantInfo.major(),
+                applicantInfo.studentNumber(),
                 chatRoomId
         );
     }

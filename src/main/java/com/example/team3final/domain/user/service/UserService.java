@@ -1,13 +1,11 @@
 package com.example.team3final.domain.user.service;
 
-import com.example.team3final.domain.auth.dto.request.SignupRequestDto;
 import com.example.team3final.domain.user.dto.request.UpdateUserRequestDto;
 import com.example.team3final.domain.user.dto.response.GetUserResponseDto;
 import com.example.team3final.domain.user.dto.response.UpdateUserResponseDto;
 import com.example.team3final.domain.user.dto.response.UserInfoDto;
 import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.enums.Gender;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDate;
 

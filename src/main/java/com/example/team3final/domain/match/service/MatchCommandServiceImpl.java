@@ -62,12 +62,11 @@ public class MatchCommandServiceImpl implements MatchCommandService{
         }
 
         // 3. 신청자 포인트 차감 (등록자와 동일 금액)
-        // 명세서: "등록자와 동일한 포인트가 신청자로부터 예치되며"
-        // 잔액 부족 시 UserCommandService가 PointException(POINT_001) 던짐 → 트랜잭션 롤백
-        //
-        // TODO: User 도메인 머지 후 활성화
-        // userCommandService.deductPoint(applicantId, post.getAuthorDeposit());
-        //
+        // 등록자는 게시글 작성 시점에 이미 차감 완료 — 여기선 신청자만 처리
+        // 잔액 부족 시 UserPointService가 예외 던짐 → 트랜잭션 전체 롤백
+        // matchId는 아직 생성 전이라 null — ERD상 point_transaction.match_id NULL 허용
+        userPointService.deductPoint(applicantId, post.getAuthorDeposit(), null);
+
         // 호출 시 User 담당자에게 요청할 사항:
         //   1) PointTransaction 기록 (type=DEPOSIT, description="매칭 신청 예치", matchId=null 또는 매칭 생성 후 ID)
         //   2) 같은 트랜잭션 내 처리 (이 메서드의 트랜잭션에 자동 참여)
@@ -87,11 +86,9 @@ public class MatchCommandServiceImpl implements MatchCommandService{
                 applicantId
         );
 
-        // TODO: User 머지 후 실제 호출로 교체
-        // String authorNickname = userQueryService.getUserById(post.getAuthorId()).getNickname();
-        // String applicantNickname = userQueryService.getUserById(applicantId).getNickname();
-        String authorNickname = "임시-등록자";
-        String applicantNickname = "임시-신청자";
+        // UserService.getUserInfo()로 닉네임 조회 — UserInfoDto에 nickname 포함
+        String authorNickname = userService.getUserInfo(post.getAuthorId()).nickname();
+        String applicantNickname = userService.getUserInfo(applicantId).nickname();
 
         return CreateMatchResponseDto.of(
                 savedMatch,
@@ -111,7 +108,7 @@ public class MatchCommandServiceImpl implements MatchCommandService{
      *   1) Match 조회 + 도메인 메서드 호출 (status=COMPLETED, completedAt=now)
      *   2) Post 상태 → COMPLETED
      *   3) 채팅방 비활성화 (isActive=false)
-     *   4) [TODO] 포인트 환불
+     *   4)  포인트 환불
      */
     @Override
     public void completeMatch(Long matchId) {
@@ -133,15 +130,20 @@ public class MatchCommandServiceImpl implements MatchCommandService{
         // match.getPostId()로 PostId 추출 후 Post 도메인이 자기 일을 함
         postCommandService.completePost(match.getPostId());
 
-        // 포인트 환불 (TODO)
+        // 포인트 환불
         // 만남 정상 완료 시: 양측 모두 100% 환불
         // - 등록자: post.authorDeposit 100% 환불 (type=REFUND)
         // - 신청자: match.applicantDeposit 100% 환불 (type=REFUND)
-        //
-        // TODO: User 도메인 머지 후 활성화
-        // Post post = postQueryService.getPostById(match.getPostId());
-        // userCommandService.refundPoint(post.getAuthorId(), post.getAuthorDeposit(), RefundType.REFUND);
-        // userCommandService.refundPoint(match.getApplicantId(), match.getApplicantDeposit(), RefundType.REFUND);
+        // ===== ④ 포인트 환불: 양측 100% 전액 반환 =====
+        // Post 엔티티에서 등록자 ID, 예치금 조회 (PostQueryService 경유 — repository 직접 접근 아님)
+        Post post = postQueryService.getPostById(match.getPostId());
+
+        // 등록자 전액 환급 (REFUND) — post.authorDeposit이 등록자 예치금
+        userPointService.refundPoint(post.getAuthorId(), post.getAuthorDeposit(), matchId);
+
+        // 신청자 전액 환급 (REFUND) — match.applicantDeposit이 신청자 예치금
+        userPointService.refundPoint(match.getApplicantId(), match.getApplicantDeposit(), matchId);
+
     }
 
     @Override
@@ -161,7 +163,16 @@ public class MatchCommandServiceImpl implements MatchCommandService{
         // Post 상태 → COMPLETED (노쇼도 게시글은 종료)
         postCommandService.completePost(match.getPostId());
 
-        // TODO: 피해자(신청자) 포인트 전액 환불, 노쇼(등록자) 포인트 몰수 (User 도메인 머지 후)
+        // ===== 포인트 처리 =====
+        // Post 엔티티에서 등록자 ID, 예치금 조회
+        Post post = postQueryService.getPostById(match.getPostId());
+
+        // 등록자(노쇼 당사자): 예치금 몰수
+        // 예치 시점에 이미 잔액 차감 완료 → user.point 변경 없이 PENALTY 거래 기록만 남김
+        userPointService.penaltyPoint(post.getAuthorId(), post.getAuthorDeposit(), matchId);
+
+        // 신청자(피해자): 예치금 전액 환급
+        userPointService.refundPoint(match.getApplicantId(), match.getApplicantDeposit(), matchId);
     }
 
     @Override
@@ -180,7 +191,14 @@ public class MatchCommandServiceImpl implements MatchCommandService{
         // Post 상태 → COMPLETED (노쇼도 게시글은 종료)
         postCommandService.completePost(match.getPostId());
 
-        // TODO: 피해자(등록자) 포인트 전액 환불, 노쇼(신청자) 포인트 몰수 (User 도메인 머지 후)
+        // ===== 포인트 처리 =====
+        Post post = postQueryService.getPostById(match.getPostId());
+
+        // 등록자(피해자): 예치금 전액 환급
+        userPointService.refundPoint(post.getAuthorId(), post.getAuthorDeposit(), matchId);
+
+        // 신청자(노쇼 당사자): 예치금 몰수
+        userPointService.penaltyPoint(match.getApplicantId(), match.getApplicantDeposit(), matchId);
     }
 
     @Override
@@ -199,7 +217,14 @@ public class MatchCommandServiceImpl implements MatchCommandService{
         // Post 상태 → COMPLETED (노쇼도 게시글은 종료)
         postCommandService.completePost(match.getPostId());
 
-        // TODO: 양측 모두 포인트 몰수 (User 도메인 머지 후)
+        // ===== 포인트 처리: 양측 모두 몰수 =====
+        Post post = postQueryService.getPostById(match.getPostId());
+
+        // 등록자 몰수
+        userPointService.penaltyPoint(post.getAuthorId(), post.getAuthorDeposit(), matchId);
+
+        // 신청자 몰수
+        userPointService.penaltyPoint(match.getApplicantId(), match.getApplicantDeposit(), matchId);
     }
 
     @Override
