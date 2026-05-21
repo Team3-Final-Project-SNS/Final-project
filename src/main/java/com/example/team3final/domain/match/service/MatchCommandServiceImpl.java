@@ -3,6 +3,8 @@ package com.example.team3final.domain.match.service;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.MatchException;
 import com.example.team3final.domain.chat.service.ChatService;
+import com.example.team3final.domain.match.dto.request.CancelMatchRequestDto;
+import com.example.team3final.domain.match.dto.response.CancelMatchResponseDto;
 import com.example.team3final.domain.match.dto.response.CreateMatchResponseDto;
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.enums.MatchStatus;
@@ -12,10 +14,11 @@ import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.service.PostCommandService;
 import com.example.team3final.domain.post.service.PostQueryService;
 import com.example.team3final.domain.user.service.UserPointService;
-import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 
 @Service
 @Transactional
@@ -28,7 +31,9 @@ public class MatchCommandServiceImpl implements MatchCommandService{
     private final PostCommandService postCommandService;
     private final ChatService chatService;
     private final UserPointService userPointService;
-    private final UserService userService;
+
+    // TODO: User 도메인 머지 후 활성화
+    // private final UserQueryService userQueryService;       // 닉네임 조회
 
 
     @Override
@@ -220,6 +225,75 @@ public class MatchCommandServiceImpl implements MatchCommandService{
 
         // 신청자 몰수
         userPointService.penaltyPoint(match.getApplicantId(), match.getApplicantDeposit(), matchId);
+    }
+
+    @Override
+    public CancelMatchResponseDto cancelMatch(Long matchId, Long userId, CancelMatchRequestDto request) {
+
+        // 1. 매칭 조회
+        Match match = matchQueryService.getMatchById(matchId);
+
+        // 2. Post 조회
+        Post post = postQueryService.getPostById(match.getPostId());
+
+        // 3. 당사자 검증
+        if (!match.isParticipant(userId, post.getAuthorId())) {
+            throw new MatchException(ErrorCode.MATCH_NOT_PARTICIPANT);
+        }
+
+        // 4. 취소 가능 상태 검증
+        if (match.getStatus() != MatchStatus.MATCHED) {
+            throw new MatchException(ErrorCode.MATCH_INVALID_STATUS);
+        }
+
+        // 5. 약속 시간 검증
+        if (post.getMeetAt().isBefore(LocalDateTime.now())) {
+            throw new MatchException(ErrorCode.MATCH_AFTER_MEET_TIME);
+        }
+
+        // 6. 환불/몰수 금액 계산
+        // 취소자는 본인 예치금의 50%만 반환, 나머지 50% 몰수
+        // 상대방은 본인 예치금 100% 환불
+        //
+        // 취소자가 등록자냐 신청자냐에 따라 "본인 예치금"이 다름:
+        //   - 등록자 예치금 = post.getAuthorDeposit()
+        //   - 신청자 예치금 = match.getApplicantDeposit()
+        boolean cancelerIsApplicant = match.isApplicant(userId);
+
+        int cancelerDeposit = cancelerIsApplicant
+                ? match.getApplicantDeposit()   // 취소자가 신청자
+                : post.getAuthorDeposit();      // 취소자가 등록자
+
+        int opponentDeposit = cancelerIsApplicant
+                ? post.getAuthorDeposit()       // 상대방은 등록자
+                : match.getApplicantDeposit();  // 상대방은 신청자
+
+        int refundedPoint = cancelerDeposit / 2;              // 반환 (50%)
+        int forfeitedPoint = cancelerDeposit - refundedPoint; // 몰수(나머지)
+
+        // ===== 7단계: 포인트 처리 =====
+        // 취소자: partialRefundPoint에 "전체 예치금"을 넘김
+        //   → 메서드 내부에서 50% 계산해서 환급 + PARTIAL_REFUND 기록
+        //   ⚠️ 주의: 이미 계산한 refundedPoint(150)를 넘기면 안 됨! 전체(cancelerDeposit=300)를 넘겨야 함
+        //      (partialRefundPoint가 내부에서 amount/2를 하기 때문)
+        userPointService.partialRefundPoint(userId, cancelerDeposit, matchId);
+
+        // 상대방: refundPoint에 "상대방 예치금 전액"을 넘김 → 100% 환급 + REFUND 기록
+        Long opponentId = cancelerIsApplicant ? post.getAuthorId() : match.getApplicantId();
+        userPointService.refundPoint(opponentId, opponentDeposit, matchId);
+
+        match.cancel();
+
+        post.cancel();
+
+        chatService.deactivateChatRoom(matchId);
+
+        return CancelMatchResponseDto.of(
+                match.getId(),
+                match.getStatus(),
+                refundedPoint,
+                forfeitedPoint
+        );
     }
 
 
