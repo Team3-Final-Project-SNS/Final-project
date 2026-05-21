@@ -1,6 +1,6 @@
 package com.example.team3final.domain.auth.dto.request;
 
-import com.example.team3final.domain.user.dto.TermAgreementDto;
+import com.example.team3final.domain.user.dto.response.TermAgreementDto;
 import com.example.team3final.domain.user.enums.Gender;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
