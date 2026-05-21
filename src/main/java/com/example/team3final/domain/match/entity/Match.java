@@ -2,7 +2,6 @@ package com.example.team3final.domain.match.entity;
 
 import com.example.team3final.common.entity.BaseEntity;
 import com.example.team3final.domain.match.enums.MatchStatus;
-import com.example.team3final.domain.post.entity.Post;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
