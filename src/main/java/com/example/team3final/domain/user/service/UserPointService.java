@@ -10,4 +10,7 @@ public interface UserPointService {
 
     // 포인트 50% 환급(매치 취소 패널티)
     void partialRefundPoint(Long userId, int amount, Long matchId);
+
+    // 포인트 몰수 (노쇼 패널티)
+    void penaltyPoint(Long userId, int amount, Long matchId);
 }
