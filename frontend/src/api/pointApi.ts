@@ -18,5 +18,5 @@ export interface PointTransactionResponse {
 // 포인트 거래 내역 조회
 export const getPointTransactions = (type?: PointTransactionType, page: number = 0, size: number = 20) =>
     axiosInstance.get<ApiResponse<PageResponse<PointTransactionResponse>>>("/api/v1/me/points/transactions", {
-        params: { status: type, page, size } // spec uses 'status' query param for transaction type
+        params: { type, page, size }
     });

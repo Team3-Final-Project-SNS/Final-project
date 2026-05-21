@@ -143,6 +143,7 @@ export default function MatchesPage() {
                                 <>
                                   <Link
                                       to={`/chat/${match.chatRoomId}`}
+                                      state={{ matchId: match.matchId }}
                                       className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white border border-[#e0e0e0] rounded-lg text-sm font-semibold text-[#616161] hover:bg-[#f5f5f5] transition-colors"
                                   >
                                     <MessageCircle size={16} />

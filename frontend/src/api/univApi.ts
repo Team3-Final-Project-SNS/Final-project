@@ -4,7 +4,7 @@ import { ApiResponse } from "./authApi";
 export interface UniversityResponse {
     universityId: number;
     universityName: string;
-    eDomain: string; // backend says eDomain
+    eDomain: string;
 }
 
 export const getUniversities = () =>

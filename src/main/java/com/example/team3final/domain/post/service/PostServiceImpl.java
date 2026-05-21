@@ -196,7 +196,6 @@ public class PostServiceImpl implements PostService{
                     pageable
             );
         }
-
         // 4. Page<Post> → Page<GetPostsItemResponseDto> 변환 (페이징 메타데이터 보존)
         Page<GetPostsItemResponseDto> dtoPage = postPage.map(post -> {
             UserInfoDto authorInfo = userService.getUserInfo(post.getAuthorId());
