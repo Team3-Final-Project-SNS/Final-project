@@ -89,7 +89,7 @@ public class ChatMessageHandler {
                         chatMessage.getId(),
                         chatRoomId,
                         senderId,
-                        null, // TODO: UserService 완성 후 닉네임 조회
+                        userService.getUser(senderId).nickname(), // 발신자 닉네임 조회
                         chatMessage.getContent(),
                         chatMessage.isRead(),
                         chatMessage.getCreatedAt()

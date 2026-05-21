@@ -9,6 +9,7 @@ import com.example.team3final.domain.chat.entity.ChatMessage;
 import com.example.team3final.domain.chat.entity.ChatRoom;
 import com.example.team3final.domain.chat.repository.ChatMessageRepository;
 import com.example.team3final.domain.chat.repository.ChatRoomRepository;
+import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ public class ChatServiceImpl implements ChatService {
 
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMessageRepository chatMessageRepository;
+    private final UserService userService;
 
     // 채팅방 생성 - 매칭 확정 시 내부 호출
     // TODO: Match 도메인 구현 완료 후 authorId, applicantId 파라미터 삭제 예정
@@ -86,17 +88,18 @@ public class ChatServiceImpl implements ChatService {
                     long unreadCount = chatMessageRepository
                             .countByChatRoomIdAndIsReadFalseAndSenderIdNot(room.getId(), userId);
 
+                    Long opponentId = room.getAuthorId().equals(userId) ? room.getApplicantId() : room.getAuthorId();
+
                     return new ChatRoomResponseDto(
-                            room.getId(),
-                            room.getMatchId(),
-                            // 상대방 ID: 내가 등록자면 신청자ID, 내가 신청자면 등록자ID
-                            room.getAuthorId().equals(userId) ? room.getApplicantId() : room.getAuthorId(),
-                            null, // TODO: UserService 완성 후 상대방 닉네임 조회
-                            lastMessage != null ? lastMessage.getContent() : null,    // 마지막 메시지
-                            lastMessage != null ? lastMessage.getCreatedAt() : null,  // 마지막 메시지 시각
-                            unreadCount,                                               // 안읽은 메시지 수
-                            room.isActive(),
-                            room.getCreatedAt()
+                            room.getId(),                                            // 채팅방 ID
+                            room.getMatchId(),                                       // 매칭 ID
+                            opponentId,                                              // 상대방 ID
+                            userService.getUser(opponentId).nickname(),              // 상대방 닉네임 조회
+                            lastMessage != null ? lastMessage.getContent() : null,   // 마지막 메시지
+                            lastMessage != null ? lastMessage.getCreatedAt() : null, // 마지막 메시지 시각
+                            unreadCount,                                             // 안읽은 메시지 수
+                            room.isActive(),                                         // 활성 여부
+                            room.getCreatedAt()                                      // 채팅방 생성일
                     );
                 })
                 .toList();
@@ -127,13 +130,13 @@ public class ChatServiceImpl implements ChatService {
         // DTO 변환
         List<ChatMessageResponseDto> content = messages.stream()
                 .map(m -> new ChatMessageResponseDto(
-                        m.getId(),
-                        chatRoomId,
-                        m.getSenderId(),
-                        null, // TODO: UserService 완성 후 닉네임 조회
-                        m.getContent(),
-                        m.isRead(),
-                        m.getCreatedAt()
+                        m.getId(),                                         // 메시지 ID
+                        chatRoomId,                                        // 채팅방 ID
+                        m.getSenderId(),                                   // 발신자 ID
+                        userService.getUser(m.getSenderId()).nickname(),   // 발신자 닉네임 조회
+                        m.getContent(),                                    // 메시지 내용
+                        m.isRead(),                                        // 읽음 여부
+                        m.getCreatedAt()                                   // 메시지 생성일
                 ))
                 .toList();
 
