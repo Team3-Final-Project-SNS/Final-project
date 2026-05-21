@@ -1,9 +1,13 @@
 package com.example.team3final.domain.match.service;
 
+import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.MatchException;
 import com.example.team3final.domain.match.dto.response.GetMatchResponseDto;
+import com.example.team3final.domain.match.dto.response.GetMatchesResponseDto;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.entity.Match;
+import com.example.team3final.domain.match.enums.MatchStatus;
+import org.springframework.data.domain.Pageable;
 
 public interface MatchQueryService {
 
@@ -44,4 +48,21 @@ public interface MatchQueryService {
      * @throws MatchException MATCH_002 — 당사자가 아님
      */
     GetMatchResponseDto getMatch(Long matchId, Long currentUserId);
+
+    /**
+     * 내 매칭 목록 조회 — Controller 직접 호출 (명세서 5.4 getMatches)
+     *
+     * 조회 대상:
+     * - 내가 등록자인 매칭 (post.authorId == userId)
+     * - 내가 신청자인 매칭 (match.applicantId == userId)
+     *
+     * @param userId   현재 로그인 유저 ID
+     * @param status   상태 필터 (null이면 전체 조회)
+     * @param pageable 페이징 + 정렬 정보 (Controller에서 matchedAt DESC로 생성)
+     */
+    PageResponseDto<GetMatchesResponseDto> getMatches(
+            Long userId,
+            MatchStatus status,
+            Pageable pageable
+    );
 }

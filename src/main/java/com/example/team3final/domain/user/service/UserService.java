@@ -4,6 +4,7 @@ import com.example.team3final.domain.auth.dto.request.SignupRequestDto;
 import com.example.team3final.domain.user.dto.request.UpdateUserRequestDto;
 import com.example.team3final.domain.user.dto.response.GetUserResponseDto;
 import com.example.team3final.domain.user.dto.response.UpdateUserResponseDto;
+import com.example.team3final.domain.user.dto.response.UserInfoDto;
 import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.enums.Gender;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -35,4 +36,7 @@ public interface UserService {
 
     // 내 정보 수정
     UpdateUserResponseDto updateUser(Long userId, UpdateUserRequestDto request);
+
+    // User 엔티티 대신 DTO 반환 — 도메인 간 호출 전용
+    UserInfoDto getUserInfo(Long userId);
 }

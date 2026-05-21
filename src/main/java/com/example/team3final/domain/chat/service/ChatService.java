@@ -26,4 +26,7 @@ public interface ChatService {
 
     // 채팅방 나가기 - 완료/취소/노쇼 후에만 가능
     void leaveChatRoom(Long chatRoomId, Long userId);
+
+    // matchId로 chatRoomId 조회 — 매칭 목록 조회에서 사용
+    Long getChatRoomIdByMatchId(Long matchId);
 }

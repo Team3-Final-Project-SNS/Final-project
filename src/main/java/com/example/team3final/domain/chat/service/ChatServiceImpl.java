@@ -165,4 +165,11 @@ public class ChatServiceImpl implements ChatService {
         }
     }
 
+    @Override
+    public Long getChatRoomIdByMatchId(Long matchId) {
+        return chatRoomRepository.findByMatchId(matchId)
+                .map(ChatRoom::getId)
+                .orElse(null);
+    }
+
 }
