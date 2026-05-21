@@ -5,10 +5,13 @@ import com.example.team3final.common.exception.ServiceException;
 import com.example.team3final.domain.pointTransaction.entity.PointTransaction;
 import com.example.team3final.domain.pointTransaction.enums.PointTransactionType;
 import com.example.team3final.domain.pointTransaction.repository.PointTransactionRepository;
+import com.example.team3final.domain.user.dto.response.GetUserResponseDto;
 import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.enums.Gender;
 import com.example.team3final.domain.user.repository.UserRepository;
+import io.jsonwebtoken.security.Password;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +23,7 @@ import java.time.LocalDate;
 public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final PointTransactionRepository pointTransactionRepository;
+    private final PasswordEncoder passwordEncoder;
 
     private static final int SIGNUP_BONUS_POINT = 10_000;
 
@@ -96,5 +100,17 @@ public class UserServiceImpl implements UserService {
         pointTransactionRepository.save(signupBonus);
 
         return savedUser;
+    }
+
+    // ===== 내 정보 조회 =====
+    @Override
+    public GetUserResponseDto getUser(Long userId) {
+
+        // userId로 User 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ServiceException(ErrorCode.USER_NOT_FOUND));
+
+        // Entity → ResponseDto 변환 후 반환
+        return GetUserResponseDto.from(user);
     }
 }

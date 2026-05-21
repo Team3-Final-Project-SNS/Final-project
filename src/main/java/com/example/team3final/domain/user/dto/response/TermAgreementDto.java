@@ -1,4 +1,4 @@
-package com.example.team3final.domain.user.dto;
+package com.example.team3final.domain.user.dto.response;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
