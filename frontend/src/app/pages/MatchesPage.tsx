@@ -35,10 +35,10 @@ export default function MatchesPage() {
 
   const getStatusBadge = (status: MatchStatus) => {
     switch (status) {
-      case 'PENDING':
+      case 'MATCHED':
         return { text: '매칭됨', color: 'bg-[#ff9800] text-white' };
-      case 'VERIFIED':
-        return { text: '인증 완료', color: 'bg-[#4caf50] text-white' };
+      case 'DISPUTED':
+        return { text: '이의제기', color: 'bg-[#f44336] text-white' };
       case 'COMPLETED':
         return { text: '만남 완료', color: 'bg-[#2196f3] text-white' };
       case 'CANCELLED':
@@ -58,7 +58,8 @@ export default function MatchesPage() {
         <h1 className="text-3xl font-bold text-[#212121] mb-8">내 매칭</h1>
 
         <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-          {['전체', 'PENDING', 'VERIFIED', 'COMPLETED', 'CANCELLED'].map((filter) => (
+
+          {['전체', 'MATCHED', 'COMPLETED', 'CANCELLED', 'AUTHOR_NO_SHOW', 'APPLICANT_NO_SHOW', 'BOTH_NO_SHOW', 'DISPUTED'].map((filter) => (
               <button
                   key={filter}
                   onClick={() => {
@@ -71,10 +72,13 @@ export default function MatchesPage() {
                           : 'bg-white border border-[#e0e0e0] text-[#616161] hover:border-[#d84315]'
                   }`}
               >
-                {filter === '전체' ? '전체' : 
-                 filter === 'PENDING' ? '진행 중' :
-                 filter === 'VERIFIED' ? '인증 완료' :
-                 filter === 'COMPLETED' ? '완료됨' : '취소됨'}
+                {filter === '전체' ? '전체' :
+                    filter === 'MATCHED' ? '진행 중' :
+                        filter === 'COMPLETED' ? '완료됨' :
+                            filter === 'CANCELLED' ? '취소됨' :
+                                filter === 'AUTHOR_NO_SHOW' ? '등록자 노쇼' :
+                                    filter === 'APPLICANT_NO_SHOW' ? '신청자 노쇼' :
+                                        filter === 'BOTH_NO_SHOW' ? '양측 노쇼' : '이의제기'}
               </button>
           ))}
         </div>
@@ -138,7 +142,7 @@ export default function MatchesPage() {
                             {(match.status === 'MATCHED' || match.status === 'DISPUTED') && (
                                 <>
                                   <Link
-                                      to={`/chat/${match.matchId}`}
+                                      to={`/chat/${match.chatRoomId}`}
                                       className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white border border-[#e0e0e0] rounded-lg text-sm font-semibold text-[#616161] hover:bg-[#f5f5f5] transition-colors"
                                   >
                                     <MessageCircle size={16} />

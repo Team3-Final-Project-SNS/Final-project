@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, Link } from 'react-router';
+import { useParams, Link, useLocation } from 'react-router';
 import { ArrowLeft, Send, MapPin, Loader2, AlertCircle } from 'lucide-react';
 import { getChatMessages, ChatMessageResponse, leaveChatRoom } from '../../api/chatApi';
 import { getMatchDetail, GetMatchResponse } from '../../api/matchApi';
@@ -8,7 +8,9 @@ import { Client } from '@stomp/stompjs';
 
 export default function ChatPage() {
   const { roomId } = useParams();
+  const location = useLocation();
   const chatRoomId = Number(roomId);
+  const matchId = location.state?.matchId;
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<ChatMessageResponse[]>([]);
   const [matchInfo, setMatchInfo] = useState<GetMatchResponse | null>(null);
@@ -26,13 +28,19 @@ export default function ChatPage() {
     const fetchData = async () => {
       setLoading(true);
       try {
+        if (!matchId) {
+          setError('매칭 정보를 찾을 수 없습니다. 매칭 목록에서 다시 입장해주세요.');
+          setLoading(false);
+          return;
+        }
+
         const [historyRes, matchRes] = await Promise.all([
           getChatMessages(chatRoomId),
-          getMatchDetail(chatRoomId)
+          getMatchDetail(matchId)
         ]);
 
-        setMessages(historyRes.data.data.messages);
-        setCursor(historyRes.data.data.nextCursorId);
+        setMessages(historyRes.data.data.content);
+        setCursor(historyRes.data.data.nextCursor);
         setHasNext(historyRes.data.data.hasNext);
         setMatchInfo(matchRes.data.data);
       } catch (err: any) {
@@ -97,9 +105,9 @@ export default function ChatPage() {
     if (!hasNext || !cursor) return;
     try {
       const res = await getChatMessages(chatRoomId, cursor);
-      const olderMessages = res.data.data.messages;
+      const olderMessages = res.data.data.content;
       setMessages((prev) => [...olderMessages, ...prev]);
-      setCursor(res.data.data.nextCursorId);
+      setCursor(res.data.data.nextCursor);
       setHasNext(res.data.data.hasNext);
     } catch (err) {
       console.error('Failed to load older messages', err);
@@ -122,7 +130,7 @@ export default function ChatPage() {
               <ArrowLeft size={20} />
             </Link>
             <div>
-              <h2 className="font-semibold text-[#212121]">{matchInfo?.postTitle || '채팅'}</h2>
+              <h2 className="font-semibold text-[#212121]">{matchInfo ? `${matchInfo.placeName} 만남` : '채팅'}</h2>
               <p className="text-xs text-[#9e9e9e]">
                 {matchInfo?.placeName} · {matchInfo?.meetAt ? new Date(matchInfo.meetAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
               </p>
@@ -138,7 +146,7 @@ export default function ChatPage() {
             )}
             {/* 장소 인증 버튼 */}
             <Link
-                to={`/matches/${chatRoomId}/place-verification`}
+                to={`/matches/${matchInfo?.matchId}/place-verification`}
                 className="px-5 py-2.5 bg-[#d84315] text-white rounded-xl text-sm font-semibold hover:bg-[#bf360c] transition-all shadow-md flex items-center gap-2"
             >
               <MapPin size={16} />
@@ -165,7 +173,7 @@ export default function ChatPage() {
 
             {messages.map((msg, idx) => {
               // 내 메시지 여부 판단: 상대방 닉네임이 아닌 경우 = 내 메시지
-              const isMe = msg.senderNickname !== matchInfo?.opponentNickname;
+              const isMe = msg.senderNickname !== matchInfo?.authorNickname;
 
               // 날짜 구분선 표시 여부
               const date = new Date(msg.createdAt).toLocaleDateString();
