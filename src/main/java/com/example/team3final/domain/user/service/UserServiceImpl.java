@@ -112,7 +112,7 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new ServiceException(ErrorCode.USER_NOT_FOUND));
 
         // Entity → ResponseDto 변환 후 반환
-        return GetUserResponseDto.from(user);
+        return GetUserResponseDto.of(user);
     }
 
     // ===== 내 정보 수정 =====
@@ -191,6 +191,6 @@ public class UserServiceImpl implements UserService {
         }
 
         // @Transactional + 더티 체킹 덕분에 save() 없이도 자동으로 UPDATE 쿼리 실행
-        return UpdateUserResponseDto.from(user, passwordChanged);
+        return UpdateUserResponseDto.of(user, passwordChanged);
     }
 }
