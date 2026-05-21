@@ -114,9 +114,9 @@ export default function QRVerificationPage() {
     const intervalId = setInterval(async () => {
       try {
         const res = await getMeetVerification(matchId);
-        const status = res.data.data.verificationStatus;
+        const data = res.data.data;
 
-        if (status === 'DONE') {
+        if (data.verificationStatus === 'DONE') {
           setStep('success');
           clearInterval(intervalId);
           setTimeout(() => navigate('/matches'), 2000);
