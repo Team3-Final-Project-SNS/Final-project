@@ -30,26 +30,16 @@ public class ChatServiceImpl implements ChatService {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final UserService userService;
-    private final MatchQueryService matchQueryService;
-    private final PostQueryService postQueryService;
 
     // 채팅방 생성 - 매칭 확정 시 내부 호출
     @Transactional
     @Override
-    public Long createChatRoom(Long matchId) {
+    public Long createChatRoom(Long matchId, Long authorId, Long applicantId) {
 
         // 이미 채팅방이 있으면 생성 안 함
         if (chatRoomRepository.findByMatchId(matchId).isPresent()) {
             throw new ServiceException(ErrorCode.CHAT_ROOM_ALREADY_EXISTS);
         }
-
-        // matchId로 applicantId 조회
-        MatchInfoDto matchInfo = matchQueryService.getMatchInfo(matchId);
-        Long applicantId = matchInfo.applicantId();
-
-        // postId로 authorId 조회
-        PostInfoDto postInfo = postQueryService.getPostInfo(matchInfo.postId());
-        Long authorId = postInfo.authorId();
 
         ChatRoom chatRoom = ChatRoom.builder()
                 .matchId(matchId)
