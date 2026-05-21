@@ -5,6 +5,7 @@ import com.example.team3final.common.exception.PostException;
 import com.example.team3final.domain.post.dto.request.CreatePostRequestDto;
 import com.example.team3final.domain.post.dto.request.UpdatePostRequestDto;
 import com.example.team3final.domain.post.dto.response.CreatePostResponseDto;
+import com.example.team3final.domain.post.dto.response.DeletePostResponseDto;
 import com.example.team3final.domain.post.dto.response.UpdatePostResponseDto;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.repository.PostRepository;
@@ -152,5 +153,37 @@ public class PostCommandServiceImpl implements PostCommandService {
         // 2. 도메인 메서드 호출 — 상태 전이 규칙은 엔티티가 책임
         //    @Transactional 안에서 엔티티 필드 변경 → 더티체킹으로 자동 UPDATE
         post.complete();
+    }
+
+    @Override
+    public DeletePostResponseDto deletePost(Long postId, Long userId) {
+
+        // 1. 게시글 조회
+        Post post = postQueryService.getPostById(postId);
+
+        // 2. 작성자 본인 검증
+        if (!post.isAuthor(userId)) {
+            throw new PostException(ErrorCode.POST_NOT_AUTHOR);
+        }
+
+        // 3. 상태검증 - OPEN만 삭제 가능
+        if (!post.isOpen()) {
+            throw new PostException(ErrorCode.POST_NOT_OPEN);
+        }
+
+        // 4. 환불 금액 추출
+        int refundedPoint = post.getAuthorDeposit();
+
+        // 5. 포인트 전액 환불 (User 도메인 의존)
+        // TODO: User 도메인 포인트 연동 작업(feat/point-integration)에서 일괄 활성화
+        // userService 또는 합의된 Service-to-Service 메서드로 다음 처리:
+        //   1) User.addPoint(refundedPoint) — 작성자에게 전액 환불
+        //   2) PointTransaction 기록 (type=REFUND, amount=+refundedPoint,
+        //      balanceAfter=환불 후 잔액, description="게시글 삭제 환불", matchId=null)
+
+        // 6. 게시글 하드 삭제
+        postRepository.delete(post);
+
+        return DeletePostResponseDto.of(postId, refundedPoint);
     }
 }

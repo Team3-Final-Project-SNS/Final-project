@@ -4,6 +4,7 @@ import com.example.team3final.common.exception.PostException;
 import com.example.team3final.domain.post.dto.request.CreatePostRequestDto;
 import com.example.team3final.domain.post.dto.request.UpdatePostRequestDto;
 import com.example.team3final.domain.post.dto.response.CreatePostResponseDto;
+import com.example.team3final.domain.post.dto.response.DeletePostResponseDto;
 import com.example.team3final.domain.post.dto.response.UpdatePostResponseDto;
 
 public interface PostCommandService {
@@ -40,4 +41,14 @@ public interface PostCommandService {
      * @throws PostException POST_001/201/202/102 — 각 단계별 검증 실패
      */
     UpdatePostResponseDto updatePost(Long postId, Long userId, UpdatePostRequestDto request);
+
+    /**
+     * 게시글 삭제 — Controller에서 직접 호출 (명세서 4.5 deletePost)
+     *
+     * @param postId 삭제할 게시글 ID
+     * @param userId 요청자 ID (작성자 본인 검증용)
+     * @return 삭제된 게시글 ID + 환불 포인트
+     * @throws PostException POST_001/005/006 — 각 단계별 검증 실패
+     */
+    DeletePostResponseDto deletePost(Long postId, Long userId);
 }
