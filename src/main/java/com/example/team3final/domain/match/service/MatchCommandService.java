@@ -1,8 +1,9 @@
 package com.example.team3final.domain.match.service;
 
 import com.example.team3final.common.exception.MatchException;
+import com.example.team3final.domain.match.dto.request.CancelMatchRequestDto;
+import com.example.team3final.domain.match.dto.response.CancelMatchResponseDto;
 import com.example.team3final.domain.match.dto.response.CreateMatchResponseDto;
-import com.example.team3final.domain.match.enums.MatchStatus;
 
 public interface MatchCommandService {
 
@@ -39,4 +40,15 @@ public interface MatchCommandService {
 
     // 양측 노쇼
     void markBothNoShow(Long matchId);
+
+    /**
+     * 매칭 취소 — Controller에서 직접 호출 (명세서 5.3 updateMatchCancel)
+     *
+     * @param matchId  취소할 매칭 ID
+     * @param userId   취소 요청자 ID (당사자 검증 + 50%/100% 구분)
+     * @param request  취소 요청 DTO (reason 선택)
+     * @return 취소 결과 (matchId, status, refundedPoint, forfeitedPoint)
+     * @throws MatchException MATCH_001/002/006/007 — 각 단계별 검증 실패
+     */
+    CancelMatchResponseDto cancelMatch(Long matchId, Long userId, CancelMatchRequestDto request);
 }

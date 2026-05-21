@@ -2,6 +2,8 @@ package com.example.team3final.domain.match.controller;
 
 import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.common.dto.response.PageResponseDto;
+import com.example.team3final.domain.match.dto.request.CancelMatchRequestDto;
+import com.example.team3final.domain.match.dto.response.CancelMatchResponseDto;
 import com.example.team3final.domain.match.dto.response.CreateMatchResponseDto;
 import com.example.team3final.domain.match.dto.response.GetMatchResponseDto;
 import com.example.team3final.domain.match.dto.response.GetMatchesResponseDto;
@@ -10,6 +12,7 @@ import com.example.team3final.domain.match.service.MatchCommandService;
 import com.example.team3final.domain.match.service.MatchQueryService;
 import com.example.team3final.domain.meet.service.MeetVerificationService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -89,6 +92,24 @@ public class MatchController {
 
         PageResponseDto<GetMatchesResponseDto> response =
                 matchQueryService.getMatches(userId, status, pageable);
+
+        return ResponseEntity.ok(ApiResponseDto.success(response));
+    }
+
+    /**
+     * 매칭 취소
+     *
+     * PATCH /api/v1/matches/{matchId}/cancel
+     */
+    @PatchMapping("/matches/{matchId}/cancel")
+    public ResponseEntity<ApiResponseDto<CancelMatchResponseDto>> cancelMatch(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @PathVariable Long matchId,
+            @Valid @RequestBody CancelMatchRequestDto request
+            ) {
+        Long userId = userDetails.getUserId();
+
+        CancelMatchResponseDto response = matchCommandService.cancelMatch(matchId, userId, request);
 
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
