@@ -8,6 +8,7 @@ import com.example.team3final.domain.pointTransaction.repository.PointTransactio
 import com.example.team3final.domain.user.dto.request.UpdateUserRequestDto;
 import com.example.team3final.domain.user.dto.response.GetUserResponseDto;
 import com.example.team3final.domain.user.dto.response.UpdateUserResponseDto;
+import com.example.team3final.domain.user.dto.response.UserInfoDto;
 import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.enums.Gender;
 import com.example.team3final.domain.user.repository.UserRepository;
@@ -192,5 +193,12 @@ public class UserServiceImpl implements UserService {
 
         // @Transactional + 더티 체킹 덕분에 save() 없이도 자동으로 UPDATE 쿼리 실행
         return UpdateUserResponseDto.of(user, passwordChanged);
+    }
+
+    @Override
+    public UserInfoDto getUserInfo(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ServiceException(ErrorCode.USER_NOT_FOUND));
+        return UserInfoDto.from(user);
     }
 }
