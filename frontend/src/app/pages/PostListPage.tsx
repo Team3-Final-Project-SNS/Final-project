@@ -1,11 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router';
-import { MapPin, Clock, Plus, AlertCircle } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router';
+import { MapPin, Clock, Plus, AlertCircle, User } from 'lucide-react';
 import { getPosts, PostItemResponse, PostStatus } from '../../api/postApi';
+import { getUserMe } from '../../api/userApi';
 
 type FilterStatus = '전체' | 'OPEN' | 'MATCHED';
 
+const uniquePostsById = (posts: PostItemResponse[]) =>
+    [...new Map(posts.map((post) => [post.postId, post])).values()];
+
 export default function PostListPage() {
+  const [searchParams] = useSearchParams();
+  const myPostsOnly = searchParams.get('mine') === '1';
   const [posts, setPosts] = useState<PostItemResponse[]>([]);
   const [filter, setFilter] = useState<FilterStatus>('전체');
   const [sortBy, setSortBy] = useState('책임비 높은 순');
@@ -13,19 +19,32 @@ export default function PostListPage() {
   const [error, setError] = useState('');
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchPosts = async () => {
       setLoading(true);
       setError('');
       try {
-        // 백엔드 명세상 status 필터는 필수(기본 OPEN)이거나 선택임.
-        // 여기서는 '전체'일 경우 null을 보내거나 특정 로직 필요. 
-        // PostController는 @RequestParam(defaultValue = "OPEN") PostStatus status 를 가짐.
-        const statusParam = filter === '전체' ? 'OPEN' : filter;
-        const res = await getPosts(statusParam as PostStatus, page, 20);
-        setPosts(res.data.data.content);
-        setTotalPages(res.data.data.totalPages);
+        let userId = currentUserId;
+        if (myPostsOnly && userId === null) {
+          const userRes = await getUserMe();
+          userId = userRes.data.data.userId;
+          setCurrentUserId(userId);
+        }
+
+        if (filter === '전체') {
+          const [openRes, matchedRes] = await Promise.all([
+            getPosts('OPEN', page, 20),
+            getPosts('MATCHED', page, 20),
+          ]);
+          setPosts(uniquePostsById([...openRes.data.data.content, ...matchedRes.data.data.content]));
+          setTotalPages(Math.max(openRes.data.data.totalPages, matchedRes.data.data.totalPages));
+        } else {
+          const res = await getPosts(filter as PostStatus, page, 20);
+          setPosts(res.data.data.content);
+          setTotalPages(res.data.data.totalPages);
+        }
       } catch (err: any) {
         setError('게시글을 불러오는데 실패했습니다.');
         console.error(err);
@@ -34,7 +53,7 @@ export default function PostListPage() {
       }
     };
     fetchPosts();
-  }, [filter, page]);
+  }, [filter, page, myPostsOnly, currentUserId]);
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -53,11 +72,29 @@ export default function PostListPage() {
     return past.toLocaleDateString();
   };
 
+  const visiblePosts = filter === '전체'
+      ? posts.filter((post) => post.status === 'OPEN' || post.status === 'MATCHED')
+      : posts.filter((post) => post.status === filter);
+
+  const scopedPosts = myPostsOnly && currentUserId !== null
+      ? visiblePosts.filter((post) => post.authorId === currentUserId)
+      : visiblePosts;
+
+  const sortedPosts = [...scopedPosts].sort((a, b) => {
+    if (sortBy === '최신순') {
+      return new Date(b.createAt).getTime() - new Date(a.createAt).getTime();
+    }
+
+    return b.authorDeposit - a.authorDeposit;
+  });
+
   return (
       <div>
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[#212121] mb-3">밥 같이 먹을 사람 구해요 🍚</h1>
-          <p className="text-[#616161]">전체 게시글</p>
+          <h1 className="text-3xl font-bold text-[#212121] mb-3">
+            {myPostsOnly ? '내가 작성한 게시물' : '밥 같이 먹을 사람 구해요 🍚'}
+          </h1>
+          <p className="text-[#616161]">{myPostsOnly ? '내 게시글' : '전체 게시글'}</p>
         </div>
 
         <div className="flex items-center justify-between mb-6">
@@ -75,7 +112,7 @@ export default function PostListPage() {
                             : 'bg-white border border-[#e0e0e0] text-[#616161] hover:border-[#d84315]'
                     }`}
                 >
-                  {status === '전체' ? '전체 (모집중)' : status}
+                  {status === '전체' ? '전체' : status === 'OPEN' ? '모집중' : '매칭됨'}
                 </button>
             ))}
           </div>
@@ -108,53 +145,68 @@ export default function PostListPage() {
         )}
 
         {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="space-y-3">
               {[1, 2, 3, 4, 5, 6].map((n) => (
-                  <div key={n} className="bg-white border border-[#e0e0e0] rounded-xl p-5 h-48 animate-pulse">
-                    <div className="h-6 bg-gray-200 rounded w-1/4 mb-4"></div>
-                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                    <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+                  <div key={n} className="h-28 rounded-xl border border-[#e0e0e0] bg-white p-5 animate-pulse">
+                    <div className="mb-4 h-5 w-1/4 rounded bg-gray-200"></div>
+                    <div className="mb-2 h-4 w-2/3 rounded bg-gray-200"></div>
+                    <div className="h-4 w-1/2 rounded bg-gray-200"></div>
                   </div>
               ))}
             </div>
         ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {posts.map((post) => (
+            <div className="space-y-3">
+              {sortedPosts.length === 0 ? (
+                  <div className="rounded-xl border border-[#e0e0e0] bg-white p-10 text-center text-[#9e9e9e]">
+                    {myPostsOnly ? '내가 작성한 게시글이 없습니다.' : '해당 상태의 게시글이 없습니다.'}
+                  </div>
+              ) : sortedPosts.map((post) => (
                   <Link
                       key={post.postId}
                       to={`/posts/${post.postId}`}
-                      className="bg-white border border-[#e0e0e0] rounded-xl p-5 hover:shadow-lg transition-all hover:border-[#d84315]"
+                      className="block rounded-xl border border-[#e0e0e0] bg-white p-5 transition-all hover:border-[#d84315] hover:shadow-md"
                   >
-                    <div className="flex items-start justify-between mb-3">
-                  <span
-                      className={`px-3 py-1 rounded text-xs font-semibold ${
-                          post.status === 'OPEN'
-                              ? 'bg-[#4caf50] text-white'
-                              : 'bg-[#ff9800] text-white'
-                      }`}
-                  >
-                    {post.status}
-                  </span>
-                      <span className="text-lg font-bold text-[#d84315]">{post.authorDeposit.toLocaleString()}P</span>
-                    </div>
+                    <div className="flex items-center justify-between gap-5">
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-2 flex items-center gap-2">
+                          <span
+                              className={`rounded px-2.5 py-1 text-xs font-semibold ${
+                                  post.status === 'OPEN'
+                                      ? 'bg-[#e8f5e9] text-[#2e7d32]'
+                                      : 'bg-[#fff3e0] text-[#ef6c00]'
+                              }`}
+                          >
+                            {post.status === 'OPEN' ? '모집중' : '매칭됨'}
+                          </span>
+                          <span className="text-xs text-[#9e9e9e]">{getTimeAgo(post.createAt)}</span>
+                        </div>
 
-                    <h3 className="font-semibold text-[#212121] mb-2">{post.title}</h3>
-                    <p className="text-sm text-[#616161] mb-4 line-clamp-2">{post.content}</p>
+                        <h3 className="mb-3 truncate text-lg font-bold text-[#212121]">
+                          {post.placeName} 같이 먹어요
+                        </h3>
 
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2 text-sm text-[#616161]">
-                        <MapPin size={16} className="text-[#d84315]" />
-                        <span>{post.placeName}</span>
+                        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-[#616161]">
+                          <span className="flex items-center gap-1.5">
+                            <MapPin size={16} className="text-[#d84315]" />
+                            {post.placeName}
+                          </span>
+                          <span className="flex items-center gap-1.5">
+                            <Clock size={16} className="text-[#d84315]" />
+                            {new Date(post.meetAt).toLocaleDateString()} {formatTime(post.meetAt)}
+                          </span>
+                          <span className="flex items-center gap-1.5">
+                            <User size={16} className="text-[#d84315]" />
+                            {post.authorNickname} ({post.authorMajor} {post.authorStudentNumber}학번)
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-[#616161]">
-                        <Clock size={16} className="text-[#d84315]" />
-                        <span>{new Date(post.meetAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
-                    </div>
 
-                    <div className="mt-4 pt-3 border-t border-[#f5f5f5] flex items-center justify-between text-xs text-[#9e9e9e]">
-                      <span>{post.authorNickname} ({post.authorMajor} {post.authorStudentNumber}학번)</span>
-                      <span>{getTimeAgo(post.createdAt)}</span>
+                      <div className="flex w-32 shrink-0 flex-col items-end border-l border-[#f0f0f0] pl-5">
+                        <span className="text-xs font-semibold text-[#9e9e9e]">책임비</span>
+                        <span className="mt-1 text-2xl font-bold text-[#d84315]">
+                          {post.authorDeposit.toLocaleString()}P
+                        </span>
+                      </div>
                     </div>
                   </Link>
               ))}

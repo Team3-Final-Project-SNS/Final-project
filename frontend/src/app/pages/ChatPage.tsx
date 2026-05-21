@@ -1,19 +1,51 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useLocation } from 'react-router';
 import { ArrowLeft, Send, MapPin, Loader2, AlertCircle } from 'lucide-react';
-import { getChatMessages, ChatMessageResponse, leaveChatRoom } from '../../api/chatApi';
+import { getChatMessages, ChatMessageResponse, getChatRooms } from '../../api/chatApi';
 import { getMatchDetail, GetMatchResponse } from '../../api/matchApi';
+import { getUserMe } from '../../api/userApi';
 import SockJS from 'sockjs-client';
 import { Client } from '@stomp/stompjs';
 
+const formatMessageDate = (value: string) =>
+    new Date(value).toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+    });
+
+const formatMessageTime = (value: string) =>
+    new Date(value).toLocaleTimeString('ko-KR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+
+const toChronologicalMessages = (messages: ChatMessageResponse[]) =>
+    [...messages].reverse();
+
+const mergeMessages = (
+    currentMessages: ChatMessageResponse[],
+    latestMessages: ChatMessageResponse[],
+) => {
+  const messageMap = new Map<number, ChatMessageResponse>();
+
+  currentMessages.forEach((item) => messageMap.set(item.messageId, item));
+  latestMessages.forEach((item) => messageMap.set(item.messageId, item));
+
+  return [...messageMap.values()].sort((a, b) => a.messageId - b.messageId);
+};
+
 export default function ChatPage() {
-  const { roomId } = useParams();
+  const { roomId, id } = useParams();
   const location = useLocation();
-  const chatRoomId = Number(roomId);
-  const matchId = location.state?.matchId;
+  const routeChatRoomId = roomId ? Number(roomId) : null;
+  const routeMatchId = id ? Number(id) : null;
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<ChatMessageResponse[]>([]);
   const [matchInfo, setMatchInfo] = useState<GetMatchResponse | null>(null);
+  const [chatRoomId, setChatRoomId] = useState<number | null>(routeChatRoomId);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [cursor, setCursor] = useState<number | null>(null);
@@ -27,22 +59,39 @@ export default function ChatPage() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      setError('');
       try {
-        if (!matchId) {
-          setError('매칭 정보를 찾을 수 없습니다. 매칭 목록에서 다시 입장해주세요.');
-          setLoading(false);
-          return;
+        let currentMatchId: number | null = location.state?.matchId ?? routeMatchId;
+        let currentChatRoomId: number | null = routeChatRoomId;
+
+        if (!currentMatchId && currentChatRoomId) {
+          const roomsRes = await getChatRooms();
+          const room = roomsRes.data.data.find((item) => item.chatRoomId === currentChatRoomId);
+          currentMatchId = room?.matchId ?? null;
         }
 
-        const [historyRes, matchRes] = await Promise.all([
-          getChatMessages(chatRoomId),
-          getMatchDetail(matchId)
-        ]);
+        if (!currentMatchId) {
+          throw new Error('MATCH_NOT_FOUND');
+        }
 
-        setMessages(historyRes.data.data.content);
+        const [matchRes, userRes] = await Promise.all([
+          getMatchDetail(currentMatchId),
+          getUserMe(),
+        ]);
+        currentChatRoomId = currentChatRoomId ?? matchRes.data.data.chatRoomId;
+
+        if (!currentChatRoomId) {
+          throw new Error('CHAT_ROOM_NOT_FOUND');
+        }
+
+        const historyRes = await getChatMessages(currentChatRoomId);
+
+        setMessages(toChronologicalMessages(historyRes.data.data.content));
         setCursor(historyRes.data.data.nextCursor);
         setHasNext(historyRes.data.data.hasNext);
         setMatchInfo(matchRes.data.data);
+        setChatRoomId(currentChatRoomId);
+        setCurrentUserId(userRes.data.data.userId);
       } catch (err: any) {
         setError('채팅 정보를 불러오는데 실패했습니다.');
         console.error(err);
@@ -51,24 +100,42 @@ export default function ChatPage() {
       }
     };
     fetchData();
-  }, [chatRoomId]);
+  }, [routeChatRoomId, routeMatchId, location.state?.matchId]);
 
   // 웹소켓 연결
   useEffect(() => {
+    if (!chatRoomId) return;
+
+    const accessToken = localStorage.getItem("accessToken");
+    if (!accessToken) {
+      setConnected(false);
+      setError('로그인이 필요합니다. 다시 로그인해주세요.');
+      return;
+    }
+
     const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
-    const socket = new SockJS(`${baseUrl}/ws/chat`);
+    const socket = new SockJS(`${baseUrl}/ws/chat?token=${encodeURIComponent(accessToken)}`);
     const client = new Client({
       webSocketFactory: () => socket,
       debug: (str) => console.log(str),
       onConnect: () => {
         setConnected(true);
+        setError('');
         client.subscribe(`/sub/chat/rooms/${chatRoomId}`, (payload) => {
-          const newMessage = JSON.parse(payload.body);
-          setMessages((prev) => [...prev, newMessage]);
+          const newMessage: ChatMessageResponse = JSON.parse(payload.body);
+          setMessages((prev) => [
+            ...prev,
+            newMessage.senderId === currentUserId ? newMessage : { ...newMessage, isRead: true },
+          ]);
         });
       },
       onStompError: (frame) => {
         console.error('Broker reported error: ' + frame.headers['message']);
+        setConnected(false);
+        setError('채팅 연결 중 오류가 발생했습니다.');
+      },
+      onWebSocketClose: () => {
+        setConnected(false);
       },
     });
 
@@ -80,7 +147,23 @@ export default function ChatPage() {
         stompClient.current.deactivate();
       }
     };
-  }, [chatRoomId]);
+  }, [chatRoomId, currentUserId]);
+
+  useEffect(() => {
+    if (!chatRoomId || currentUserId === null) return;
+
+    const syncReadStatus = async () => {
+      try {
+        const res = await getChatMessages(chatRoomId);
+        setMessages((prev) => mergeMessages(prev, toChronologicalMessages(res.data.data.content)));
+      } catch (err) {
+        console.error('Failed to sync read status', err);
+      }
+    };
+
+    const intervalId = window.setInterval(syncReadStatus, 5000);
+    return () => window.clearInterval(intervalId);
+  }, [chatRoomId, currentUserId]);
 
   // 자동 스크롤
   useEffect(() => {
@@ -91,7 +174,7 @@ export default function ChatPage() {
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim() || !stompClient.current?.connected) return;
+    if (!message.trim() || !chatRoomId || !stompClient.current?.connected) return;
 
     stompClient.current.publish({
       destination: `/pub/chat/rooms/${chatRoomId}`,
@@ -102,10 +185,10 @@ export default function ChatPage() {
   };
 
   const loadMore = async () => {
-    if (!hasNext || !cursor) return;
+    if (!hasNext || !cursor || !chatRoomId) return;
     try {
       const res = await getChatMessages(chatRoomId, cursor);
-      const olderMessages = res.data.data.content;
+      const olderMessages = toChronologicalMessages(res.data.data.content);
       setMessages((prev) => [...olderMessages, ...prev]);
       setCursor(res.data.data.nextCursor);
       setHasNext(res.data.data.hasNext);
@@ -145,15 +228,33 @@ export default function ChatPage() {
             </span>
             )}
             {/* 장소 인증 버튼 */}
-            <Link
-                to={`/matches/${matchInfo?.matchId}/place-verification`}
-                className="px-5 py-2.5 bg-[#d84315] text-white rounded-xl text-sm font-semibold hover:bg-[#bf360c] transition-all shadow-md flex items-center gap-2"
-            >
-              <MapPin size={16} />
-              장소 인증
-            </Link>
+            {matchInfo ? (
+                <Link
+                    to={`/matches/${matchInfo.matchId}/place-verification`}
+                    className="px-5 py-2.5 bg-[#d84315] text-white rounded-xl text-sm font-semibold hover:bg-[#bf360c] transition-all shadow-md flex items-center gap-2"
+                >
+                  <MapPin size={16} />
+                  장소 인증
+                </Link>
+            ) : (
+                <button
+                    type="button"
+                    disabled
+                    className="px-5 py-2.5 bg-[#e0e0e0] text-white rounded-xl text-sm font-semibold shadow-md flex items-center gap-2"
+                >
+                  <MapPin size={16} />
+                  장소 인증
+                </button>
+            )}
           </div>
         </div>
+
+        {error && (
+            <div className="bg-[#ffebee] border-x border-b border-[#ef5350] px-4 py-3 flex items-start gap-2 text-sm text-[#c62828]">
+              <AlertCircle size={16} className="mt-0.5 shrink-0" />
+              <span>{error}</span>
+            </div>
+        )}
 
         {/* 메시지 목록 영역 */}
         <div
@@ -172,41 +273,50 @@ export default function ChatPage() {
             )}
 
             {messages.map((msg, idx) => {
-              // 내 메시지 여부 판단: 상대방 닉네임이 아닌 경우 = 내 메시지
-              const isMe = msg.senderNickname !== matchInfo?.authorNickname;
+              const isMe = currentUserId !== null && msg.senderId === currentUserId;
 
               // 날짜 구분선 표시 여부
-              const date = new Date(msg.createdAt).toLocaleDateString();
-              const showDate = idx === 0 || new Date(messages[idx - 1].createdAt).toLocaleDateString() !== date;
+              const date = formatMessageDate(msg.createdAt);
+              const showDate = idx === 0 || formatMessageDate(messages[idx - 1].createdAt) !== date;
 
               return (
-                  <div key={msg.messageId}>
+                  <div key={msg.messageId} className="space-y-2">
                     {/* 날짜 구분선 */}
                     {showDate && (
-                        <div className="text-center text-xs text-[#9e9e9e] my-4">{date}</div>
+                        <div className="text-center text-xs font-semibold text-[#9e9e9e] my-5">{date}</div>
                     )}
 
-                    {/* 말풍선: 내 메시지는 오른쪽, 상대 메시지는 왼쪽 */}
                     <div className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[70%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                        {/* 상대방 닉네임 (상대 메시지에만 표시) */}
-                        {!isMe && (
-                            <span className="text-[10px] text-[#9e9e9e] mb-1 ml-1">{msg.senderNickname}</span>
-                        )}
-                        {/* 메시지 말풍선 */}
-                        <div
-                            className={`px-4 py-2.5 rounded-lg ${
-                                isMe ? 'bg-[#d84315] text-white' : 'bg-[#f5f5f5] text-[#212121]'
-                            }`}
-                        >
-                          <p className="text-sm">{msg.content}</p>
+                      {!isMe ? (
+                          <div className="max-w-[78%]">
+                            <div className="mb-1 ml-1 text-xs font-semibold text-[#616161]">
+                              {msg.senderNickname}
+                            </div>
+                            <div className="flex items-end gap-2">
+                              <div className="rounded-2xl rounded-tl-sm bg-[#f5f5f5] px-4 py-2.5 text-[#212121] shadow-sm">
+                                <p className="break-words text-sm leading-relaxed">{msg.content}</p>
+                              </div>
+                              <span className="shrink-0 text-[11px] text-[#9e9e9e]">
+                                {formatMessageTime(msg.createdAt)}
+                              </span>
+                            </div>
+                          </div>
+                      ) : (
+                          <div className="flex max-w-[78%] items-end justify-end gap-2">
+                            <div className="flex shrink-0 flex-col items-end gap-0.5 text-[11px]">
+                              <span className={msg.isRead ? 'text-[#bdbdbd]' : 'font-semibold text-[#d84315]'}>
+                                {msg.isRead ? '읽음' : '안읽음'}
+                              </span>
+                              <span className="text-[#9e9e9e]">
+                                {formatMessageTime(msg.createdAt)}
+                              </span>
+                            </div>
+                            <div className="rounded-2xl rounded-tr-sm bg-[#d84315] px-4 py-2.5 text-white shadow-sm">
+                              <p className="break-words text-sm leading-relaxed">{msg.content}</p>
+                            </div>
+                          </div>
+                      )}
                         </div>
-                        {/* 전송 시간 */}
-                        <span className="text-[10px] text-[#9e9e9e] mt-1">
-                      {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                      </div>
-                    </div>
                   </div>
               );
             })}

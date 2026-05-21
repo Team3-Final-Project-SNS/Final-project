@@ -11,6 +11,7 @@ const PUBLIC_ENDPOINTS = [
     "/api/v1/auth/email/otp",
     "/api/v1/auth/email/otp/verify",
     "/api/v1/auth/refresh",
+    "/api/v1/universities",
 ];
 
 // ─────────────────────────────────────────────

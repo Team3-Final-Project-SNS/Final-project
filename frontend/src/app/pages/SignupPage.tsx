@@ -47,6 +47,7 @@ export default function SignupPage() {
         setUniversities(res.data.data);
       } catch (err) {
         console.error('대학 목록 조회 실패', err);
+        setError('학교 목록을 불러오는데 실패했습니다. 잠시 후 다시 시도해주세요.');
       }
     };
     fetchUniversities();
@@ -67,8 +68,18 @@ export default function SignupPage() {
   };
 
   const handleSendOTP = async () => {
+    const selectedUniversity = universities.find((univ) => univ.universityId === selectedUnivId);
+
+    if (!selectedUniversity) {
+      setError('학교를 선택해주세요.');
+      return;
+    }
     if (!email) {
       setError('이메일을 입력해주세요.');
+      return;
+    }
+    if (!email.endsWith(`@${selectedUniversity.eDomain}`)) {
+      setError(`${selectedUniversity.universityName} 이메일은 @${selectedUniversity.eDomain} 형식이어야 합니다.`);
       return;
     }
     setError('');
@@ -144,7 +155,7 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fafafa] relative flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#fff7ed] via-[#f7fbff] to-[#eaf7f1] relative flex flex-col items-center justify-center p-4">
       {/* ── 상단 로고 (화면 좌측 상단 고정, z-index를 높여서 다른 요소에 가려지지 않게 함) ── */}
       <div className="fixed top-8 left-8 z-[100]">
         <Link
@@ -207,13 +218,13 @@ export default function SignupPage() {
                   <label className="block text-sm font-medium text-[#424242] mb-2">학교 선택</label>
                   <select
                       value={selectedUnivId}
-                      onChange={(e) => setSelectedUnivId(Number(e.target.value))}
+                      onChange={(e) => setSelectedUnivId(e.target.value ? Number(e.target.value) : '')}
                       className="w-full px-4 py-3 border border-[#e0e0e0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#d84315] focus:border-transparent bg-white"
                   >
                     <option value="">학교를 선택하세요</option>
                     {universities.map((univ) => (
-                        <option key={univ.id} value={univ.id}>
-                          {univ.name} ({univ.domain})
+                        <option key={univ.universityId} value={univ.universityId}>
+                          {univ.universityName} ({univ.eDomain})
                         </option>
                     ))}
                   </select>

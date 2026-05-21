@@ -107,6 +107,7 @@ public class ChatServiceImpl implements ChatService {
     }
 
     // 메시지 목록 조회 (커서 기반 페이징)
+    @Transactional
     @Override
     public CursorResponseDto<ChatMessageResponseDto> getChatMessages(Long chatRoomId, Long userId, Long cursorId, int size) {
         // 채팅방 존재 여부 확인
