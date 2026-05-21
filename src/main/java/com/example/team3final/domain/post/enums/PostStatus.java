@@ -1,5 +1,8 @@
 package com.example.team3final.domain.post.enums;
 
+import lombok.Getter;
+
+@Getter
 public enum PostStatus {
 
     OPEN("모집 중"),        // 매칭 가능 - 신청을 받을 수 있는 상태
@@ -13,7 +16,4 @@ public enum PostStatus {
         this.description = description;
     }
 
-    public String getDescription() {
-        return description;
-    }
 }
