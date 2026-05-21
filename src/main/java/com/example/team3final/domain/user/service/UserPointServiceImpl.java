@@ -47,6 +47,7 @@ public class UserPointServiceImpl implements UserPointService{
                 user.getPoint());
     }
 
+    // 포인트 50% 환급 (매칭 취소 패널티)
     @Override
     public void partialRefundPoint(Long userId, int amount, Long matchId) {
         // 1. 유저 조회
