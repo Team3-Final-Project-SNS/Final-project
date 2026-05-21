@@ -64,6 +64,18 @@ public class UserPointServiceImpl implements UserPointService{
                 user.getPoint());
     }
 
+    // 포인트 몰수 (노쇼 패널티)
+    @Override
+    public void penaltyPoint(Long userId, int amount, Long matchId) {
+        // 1. 유저 조회 (존재 확인용)
+        User user = getUserOrThrow(userId);
+
+        // 2. PointTransaction 기록 — PENALTY 타입, amount는 음수
+        //    user.point는 이미 예치 시점에 차감됐으므로 변경 없음
+        saveTransaction(user.getId(), matchId, -amount, PointTransactionType.PENALTY,
+                user.getPoint());
+    }
+
     // ===== private 헬퍼 =====
     private User getUserOrThrow(Long userId) {
         return userRepository.findById(userId)
