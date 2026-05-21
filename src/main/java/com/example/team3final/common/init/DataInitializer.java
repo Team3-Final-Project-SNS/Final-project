@@ -1,7 +1,5 @@
 package com.example.team3final.common.init;
 
-//import com.example.team3final.domain.auth.entity.TermAgreement;
-//import com.example.team3final.domain.auth.repository.TermAgreementRepository;
 import com.example.team3final.domain.chat.entity.ChatMessage;
 import com.example.team3final.domain.chat.entity.ChatRoom;
 import com.example.team3final.domain.chat.repository.ChatMessageRepository;
@@ -19,8 +17,10 @@ import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.repository.PostRepository;
 import com.example.team3final.domain.university.entity.University;
 import com.example.team3final.domain.university.repository.UniversityRepository;
+import com.example.team3final.domain.user.entity.TermAgreement;
 import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.enums.Gender;
+import com.example.team3final.domain.user.repository.TermAgreementRepository;
 import com.example.team3final.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.ApplicationArguments;
@@ -37,7 +37,7 @@ import java.time.LocalDateTime;
 /**
  * 애플리케이션 시작 시 테스트용 초기 데이터를 자동으로 삽입하는 클래스
  * - @Profile("local"): application-local.yml 또는 --spring.profiles.active=local 일 때만 실행
- *   → 운영(prod) 환경에서 실수로 데이터가 들어가는 사고를 방지
+ * → 운영(prod) 환경에서 실수로 데이터가 들어가는 사고를 방지
  * - ApplicationRunner: 스프링 컨텍스트 로딩이 완전히 끝난 뒤 run() 메서드를 딱 한 번 실행
  */
 @Profile("local")
@@ -49,7 +49,7 @@ public class DataInitializer implements ApplicationRunner {
     // 각 도메인의 저장소를 주입받아 직접 DB에 저장
     private final UniversityRepository universityRepository;
     private final UserRepository userRepository;
-//    private final TermAgreementRepository termAgreementRepository;
+    private final TermAgreementRepository termAgreementRepository;
     private final PostRepository postRepository;
     private final MatchRepository matchRepository;
     private final MeetVerificationRepository meetVerificationRepository;
@@ -63,8 +63,9 @@ public class DataInitializer implements ApplicationRunner {
 
     /**
      * 스프링 부팅 완료 후 딱 한 번 실행되는 메서드
+     *
      * @Transactional: 아래 모든 save 작업이 하나의 트랜잭션으로 묶임
-     *                 중간에 예외 발생 시 전체 롤백 → DB 부분 삽입 방지
+     * 중간에 예외 발생 시 전체 롤백 → DB 부분 삽입 방지
      */
     @Override
     @Transactional
@@ -119,18 +120,18 @@ public class DataInitializer implements ApplicationRunner {
         // 3. 약관 동의 이력 생성
         // ===================================================
         // 두 유저 모두 최신 약관에 동의한 상태로 초기화
-//        termAgreementRepository.save(
-//                TermAgreement.builder()
-//                        .userId(author.getId())
-//                        .termVersion("v1.0")
-//                        .build()
-//        );
-//        termAgreementRepository.save(
-//                TermAgreement.builder()
-//                        .userId(applicant.getId())
-//                        .termVersion("v1.0")
-//                        .build()
-//        );
+        termAgreementRepository.save(
+                TermAgreement.builder()
+                        .userId(author.getId())
+                        .termVersion("v1.0")
+                        .build()
+        );
+        termAgreementRepository.save(
+                TermAgreement.builder()
+                        .userId(applicant.getId())
+                        .termVersion("v1.0")
+                        .build()
+        );
 
         // ===================================================
         // 4. 포인트 거래 내역 — 가입 보너스
@@ -170,7 +171,7 @@ public class DataInitializer implements ApplicationRunner {
         Post post = postRepository.save(
                 Post.builder()
                         .authorId(author.getId())
-                        .meetAt(LocalDateTime.now().plusHours(1))  // 1시간 뒤 만남
+                        .meetAt(LocalDateTime.now().plusMinutes(10))  // 1시간 뒤 만남
                         .placeName("정문 편의점 앞")
                         .placeLat(new BigDecimal("37.3745300"))     // 위도 (소수점 7자리)
                         .placeLng(new BigDecimal("126.6322100"))    // 경도
@@ -234,6 +235,13 @@ public class DataInitializer implements ApplicationRunner {
         meetVerificationRepository.save(
                 MeetVerification.createPending(match.getId())
         );
+
+        // 교체 — QR 테스트용으로 VERIFIED 상태로 초기화
+//        MeetVerification meetVerification = MeetVerification.createPending(match.getId());
+//        meetVerification.verifyAuthorPlace();    // 등록자 GPS 인증 완료
+//        meetVerification.verifyApplicantPlace(); // 신청자 GPS 인증 완료
+//        // 이 시점에서 status = VERIFIED 로 자동 전환
+//        meetVerificationRepository.save(meetVerification);
 
         // ===================================================
         // 9. 유저 위치 레코드 생성

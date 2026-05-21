@@ -1,11 +1,15 @@
 package com.example.team3final.common.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 public class CorsConfig implements WebMvcConfigurer {
+
+    @Value("${cors.allowed-origins}")
+    private String allowedOrigins;
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
@@ -14,7 +18,7 @@ public class CorsConfig implements WebMvcConfigurer {
                 .addMapping("/api/**")
 
                 // 허용할 프론트엔드 출처
-                .allowedOrigins("http://localhost:5173")
+                .allowedOrigins(allowedOrigins.split(","))
 
                 // 허용할 HTTP 메서드
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
