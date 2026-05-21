@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -36,6 +37,19 @@ public class AuthController {
         return ResponseEntity.ok(
                 ApiResponseDto.success(authService.verifyEmailOtp(request, response))
         );
+    }
+
+    // 회원가입
+    @PostMapping("/signup")
+    public ResponseEntity<ApiResponseDto<SignupResponseDto>> signup(
+            @RequestBody @Valid SignupRequestDto request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+        return ResponseEntity
+                .status(HttpStatus.CREATED) // 명세서: 201 Created
+                .body(ApiResponseDto.success(
+                        authService.signup(request, httpRequest, httpResponse)
+                ));
     }
 
     // 로그인
