@@ -1,9 +1,38 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { Utensils, QrCode, Shield, Users } from 'lucide-react';
+import { Utensils, QrCode, Shield, User, Users } from 'lucide-react';
+import { logout } from '../../api/authApi';
 
 export default function HomePage() {
+  const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(localStorage.getItem('accessToken')));
+
+  useEffect(() => {
+    const syncLoginState = () => {
+      setIsLoggedIn(Boolean(localStorage.getItem('accessToken')));
+    };
+
+    window.addEventListener('storage', syncLoginState);
+    window.addEventListener('focus', syncLoginState);
+
+    return () => {
+      window.removeEventListener('storage', syncLoginState);
+      window.removeEventListener('focus', syncLoginState);
+    };
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (err) {
+      console.error('Logout request failed', err);
+    } finally {
+      localStorage.removeItem('accessToken');
+      setIsLoggedIn(false);
+    }
+  };
+
   return (
-      <div className="min-h-screen bg-gradient-to-br from-[#fff5f0] via-white to-[#fff3e0]">
+      <div className="min-h-screen bg-gradient-to-br from-[#fff7ed] via-[#f7fbff] to-[#eaf7f1]">
         {/* Header */}
         <header className="bg-white/80 backdrop-blur-sm border-b border-[#e0e0e0] sticky top-0 z-50">
           <div className="max-w-screen-xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -12,18 +41,39 @@ export default function HomePage() {
               <span className="text-2xl font-bold text-[#d84315]">한끼팟</span>
             </div>
             <div className="flex items-center gap-4">
-              <Link
-                  to="/login"
-                  className="px-4 py-2 text-[#616161] hover:text-[#d84315] font-medium transition-colors"
-              >
-                로그인
-              </Link>
-              <Link
-                  to="/signup"
-                  className="px-6 py-2.5 bg-[#d84315] text-white rounded-full font-semibold hover:bg-[#bf360c] transition-all shadow-md hover:shadow-lg"
-              >
-                시작하기
-              </Link>
+              {isLoggedIn ? (
+                  <>
+                    <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="px-4 py-2 text-[#616161] hover:text-[#d84315] font-medium transition-colors"
+                    >
+                      로그아웃
+                    </button>
+                    <Link
+                        to="/me"
+                        className="flex items-center gap-2 px-6 py-2.5 bg-[#d84315] text-white rounded-full font-semibold hover:bg-[#bf360c] transition-all shadow-md hover:shadow-lg"
+                    >
+                      <User size={18} />
+                      내 정보 보기
+                    </Link>
+                  </>
+              ) : (
+                  <>
+                    <Link
+                        to="/login"
+                        className="px-4 py-2 text-[#616161] hover:text-[#d84315] font-medium transition-colors"
+                    >
+                      로그인
+                    </Link>
+                    <Link
+                        to="/signup"
+                        className="px-6 py-2.5 bg-[#d84315] text-white rounded-full font-semibold hover:bg-[#bf360c] transition-all shadow-md hover:shadow-lg"
+                    >
+                      시작하기
+                    </Link>
+                  </>
+              )}
             </div>
           </div>
         </header>
@@ -91,7 +141,7 @@ export default function HomePage() {
         </section>
 
         {/* Features Section */}
-        <section className="bg-white py-20">
+        <section className="bg-[#fffaf5] py-20">
           <div className="max-w-screen-xl mx-auto px-6">
             <div className="text-center mb-16">
               <h2 className="text-4xl font-bold text-[#212121] mb-4">왜 한끼팟인가요?</h2>
@@ -133,7 +183,7 @@ export default function HomePage() {
         </section>
 
         {/* How it works */}
-        <section className="py-20 bg-gradient-to-br from-[#fafafa] to-white">
+        <section className="py-20 bg-gradient-to-br from-[#eef8ff] to-[#fffaf5]">
           <div className="max-w-screen-xl mx-auto px-6">
             <div className="text-center mb-16">
               <h2 className="text-4xl font-bold text-[#212121] mb-4">이용 방법</h2>
