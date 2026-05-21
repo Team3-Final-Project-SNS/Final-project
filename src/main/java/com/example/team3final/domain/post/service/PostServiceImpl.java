@@ -202,9 +202,9 @@ public class PostServiceImpl implements PostService{
             UserInfoDto authorInfo = userService.getUserInfo(post.getAuthorId());
             return GetPostsItemResponseDto.from(
                     post,
-                    "임시닉네임",
-                    "임시학과",
-                    "00"
+                    authorInfo.nickname(),
+                    authorInfo.major(),
+                    authorInfo.studentNumber()
             );
         });
 
