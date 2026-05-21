@@ -3,7 +3,6 @@ package com.example.team3final.domain.match.service;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.MatchException;
-import com.example.team3final.domain.chat.repository.ChatRoomRepository;
 import com.example.team3final.domain.chat.service.ChatService;
 import com.example.team3final.domain.match.dto.request.CancelMatchRequestDto;
 import com.example.team3final.domain.match.dto.response.*;
@@ -31,7 +30,6 @@ import java.time.LocalDateTime;
 public class MatchServiceImpl implements MatchService{
 
     private final MatchRepository matchRepository;
-    private final ChatRoomRepository chatRoomRepository;
     private final ChatService chatService;
     private final UserPointService userPointService;
     private final UserService userService;
@@ -250,9 +248,7 @@ public class MatchServiceImpl implements MatchService{
             throw new MatchException(ErrorCode.MATCH_NOT_PARTICIPANT);
         }
 
-        Long chatRoomId = chatRoomRepository.findByMatchId(matchId)
-                .map(chatRoom -> chatRoom.getId())
-                .orElse(null);
+        Long chatRoomId = chatService.getChatRoomIdByMatchId(matchId);
 
         UserInfoDto authorInfo = userService.getUserInfo(post.getAuthorId());
         UserInfoDto applicantInfo = userService.getUserInfo(match.getApplicantId());
