@@ -13,6 +13,7 @@ import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.service.PostCommandService;
 import com.example.team3final.domain.post.service.PostQueryService;
+import com.example.team3final.domain.user.service.UserPointService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,11 +30,11 @@ public class MatchCommandServiceImpl implements MatchCommandService{
     private final PostQueryService postQueryService;
     private final PostCommandService postCommandService;
     private final ChatService chatService;
+    private final UserPointService userPointService;
 
     // TODO: User 도메인 머지 후 활성화
-    // private final UserCommandService userCommandService;   // 포인트 차감
     // private final UserQueryService userQueryService;       // 닉네임 조회
-    //
+
 
     @Override
     public CreateMatchResponseDto createMatch(Long postId, Long applicantId) {
@@ -245,20 +246,16 @@ public class MatchCommandServiceImpl implements MatchCommandService{
         int refundedPoint = cancelerDeposit / 2;              // 반환 (50%)
         int forfeitedPoint = cancelerDeposit - refundedPoint; // 몰수(나머지)
 
-        // 7. 포인트 처리 (User 도메인 의존)
-        // TODO: 포인트 연동 작업(feat/point-integration)에서 일괄 활성화
-        //
-        // [취소자] cancelerId = userId
-        //   - User.addPoint(refundedPoint) — 50% 반환
-        //   - PointTransaction(type=PARTIAL_REFUND, amount=+refundedPoint,
-        //     matchId=matchId, description="매칭 취소 50% 반환")
-        //   ※ 몰수분(forfeitedPoint)은 포인트를 "주지 않음"으로 처리 — 별도 차감 트랜잭션 불필요
-        //     (예치 시 이미 차감됐고, 그중 50%만 돌려주는 것이므로)
-        //
-        // [상대방] opponentId = cancelerIsApplicant ? post.getAuthorId() : match.getApplicantId()
-        //   - User.addPoint(opponentDeposit) — 100% 환불
-        //   - PointTransaction(type=REFUND, amount=+opponentDeposit,
-        //     matchId=matchId, description="상대방 매칭 취소로 전액 환불")
+        // ===== 7단계: 포인트 처리 =====
+        // 취소자: partialRefundPoint에 "전체 예치금"을 넘김
+        //   → 메서드 내부에서 50% 계산해서 환급 + PARTIAL_REFUND 기록
+        //   ⚠️ 주의: 이미 계산한 refundedPoint(150)를 넘기면 안 됨! 전체(cancelerDeposit=300)를 넘겨야 함
+        //      (partialRefundPoint가 내부에서 amount/2를 하기 때문)
+        userPointService.partialRefundPoint(userId, cancelerDeposit, matchId);
+
+        // 상대방: refundPoint에 "상대방 예치금 전액"을 넘김 → 100% 환급 + REFUND 기록
+        Long opponentId = cancelerIsApplicant ? post.getAuthorId() : match.getApplicantId();
+        userPointService.refundPoint(opponentId, opponentDeposit, matchId);
 
         match.cancel();
 
