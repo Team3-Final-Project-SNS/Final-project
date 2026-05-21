@@ -120,14 +120,20 @@ public class DataInitializer implements ApplicationRunner {
         termAgreementRepository.save(TermAgreement.builder().userId(hacker.getId()).termVersion("v1.0").build());
 
         // ===================================================
-        // 4. 포인트 가입 보너스 내역 (POINT-S-001, POINT-S-004)
+        // 4. 포인트 가입 보너스 내역 (기본 10,000포인트 + 랜덤 포인트 추가)
         // ===================================================
+
+        // 10,000원 기본 보너스에 0원 ~ 10,000원 사이의 100원 단위 랜덤 포인트 추가
+        int authorBonus = 10000;
+        int applicantBonus = 10000;
+        int hackerBonus = 10000;
+
         pointTransactionRepository.save(
                 PointTransaction.builder()
                         .userId(author.getId())
-                        .amount(10_000)
+                        .amount(authorBonus)
                         .transactionType(PointTransactionType.JOIN_BONUS)
-                        .balanceAfter(10_000)
+                        .balanceAfter(authorBonus)
                         .description("회원가입 보너스 지급")
                         .build()
         );
@@ -135,9 +141,19 @@ public class DataInitializer implements ApplicationRunner {
         pointTransactionRepository.save(
                 PointTransaction.builder()
                         .userId(applicant.getId())
-                        .amount(10_000)
+                        .amount(applicantBonus)
                         .transactionType(PointTransactionType.JOIN_BONUS)
-                        .balanceAfter(10_000)
+                        .balanceAfter(applicantBonus)
+                        .description("회원가입 보너스 지급")
+                        .build()
+        );
+
+        pointTransactionRepository.save(
+                PointTransaction.builder()
+                        .userId(hacker.getId())
+                        .amount(hackerBonus)
+                        .transactionType(PointTransactionType.JOIN_BONUS)
+                        .balanceAfter(hackerBonus)
                         .description("회원가입 보너스 지급")
                         .build()
         );
@@ -176,7 +192,7 @@ public class DataInitializer implements ApplicationRunner {
                         .matchId(activeMatch.getId())
                         .amount(-300)
                         .transactionType(PointTransactionType.DEPOSIT)
-                        .balanceAfter(9_700)
+                        .balanceAfter(authorBonus - 300)
                         .description("게시글 작성 책임비 예치")
                         .build()
         );
@@ -218,14 +234,12 @@ public class DataInitializer implements ApplicationRunner {
                         .authorDeposit(300)
                         .build()
         );
-        // 비즈니스 로직 상 완료(COMPLETED) 상태로 매핑되었다고 가정 (필요 시 엔티티 메서드 호출)
 
         Match completedMatch = matchRepository.save(
                 Match.builder()
                         .postId(completedPost.getId())
                         .applicantId(applicant.getId())
                         .applicantDeposit(300)
-                        // 임의로 상태 필드가 있다면 상수를 기입하거나 비즈니스 메서드로 변경 가능
                         .build()
         );
 
@@ -234,7 +248,6 @@ public class DataInitializer implements ApplicationRunner {
                         .matchId(completedMatch.getId())
                         .authorId(author.getId())
                         .applicantId(applicant.getId())
-                        // .status(ChatRoomStatus.COMPLETED) <- 프로젝트 구조에 따라 상태값 부여 시 활용
                         .build()
         );
         chatMessageRepository.save(ChatMessage.builder().chatRoom(completedChatRoom).senderId(author.getId()).content("예전 완료된 대화내용입니다.").build());
@@ -246,7 +259,7 @@ public class DataInitializer implements ApplicationRunner {
                         .matchId(completedMatch.getId())
                         .amount(300)
                         .transactionType(PointTransactionType.REFUND)
-                        .balanceAfter(10_000)
+                        .balanceAfter(authorBonus) // 예치금이 그대로 돌아왔으므로 초기 보너스 값과 동일
                         .description("만남 인증 완료로 인한 책임비 환급")
                         .build()
         );
@@ -282,7 +295,7 @@ public class DataInitializer implements ApplicationRunner {
                         .matchId(cancelledMatch.getId())
                         .amount(-500)
                         .transactionType(PointTransactionType.PENALTY)
-                        .balanceAfter(9_200)
+                        .balanceAfter(applicantBonus - 500) // 가입 보너스에서 패널티 차감
                         .description("당일 취소로 인한 패널티 차감")
                         .build()
         );

@@ -43,6 +43,7 @@ export const router = createBrowserRouter([
     Component: Layout,
     children: [
       { index: true, Component: MatchesPage },
+      { path: ":id", Component: ChatPage },
       { path: ":id/place-verification", Component: PlaceVerificationPage },
       { path: ":id/qr", Component: QRVerificationPage },
     ],
