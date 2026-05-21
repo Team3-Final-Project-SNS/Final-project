@@ -8,9 +8,8 @@ import java.util.List;
 
 public interface ChatService {
 
-    // TODO: Match 도메인 구현 완료 후 authorId, applicantId 파라미터 삭제 예정
     // TODO: 고도화 시 카프카로 교체 예정 → void로 변경될 예정
-    Long createChatRoom(Long matchId, Long authorId, Long applicantId);
+    Long createChatRoom(Long matchId);
 
     // 채팅방 즉시 비활성화 - 취소/노쇼 시
     void deactivateChatRoom(Long matchId);
