@@ -11,7 +11,7 @@ public record UpdateUserResponseDto (
         boolean passwordChanged,
         LocalDateTime updatedAt
 ) {
-    public static UpdateUserResponseDto from(User user, boolean passwordChanged) {
+    public static UpdateUserResponseDto of(User user, boolean passwordChanged) {
         return new UpdateUserResponseDto(
                 user.getId(),
                 user.getNickname(),
