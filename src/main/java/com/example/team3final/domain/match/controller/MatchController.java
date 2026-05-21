@@ -1,13 +1,19 @@
 package com.example.team3final.domain.match.controller;
 
 import com.example.team3final.common.dto.response.ApiResponseDto;
+import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.domain.match.dto.response.CreateMatchResponseDto;
 import com.example.team3final.domain.match.dto.response.GetMatchResponseDto;
+import com.example.team3final.domain.match.dto.response.GetMatchesResponseDto;
+import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.service.MatchCommandService;
 import com.example.team3final.domain.match.service.MatchQueryService;
 import com.example.team3final.domain.meet.service.MeetVerificationService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -24,9 +30,9 @@ public class MatchController {
 
     /**
      * 매칭 신청 (선착순 매칭 생성)
-     *
+     * <p>
      * 명세서: MVP 개발에서 내 역할.md - 5.1 createMatch
-     *
+     * <p>
      * POST /api/v1/posts/{postId}/matches
      */
     @PostMapping("/posts/{postId}/matches")
@@ -47,7 +53,7 @@ public class MatchController {
 
     /**
      * 매칭 상세 조회
-     *
+     * <p>
      * GET /api/v1/matches/{matchId}
      */
     @GetMapping("/matches/{matchId}")
@@ -60,6 +66,31 @@ public class MatchController {
 
         GetMatchResponseDto response = matchQueryService.getMatch(matchId, currentUserId);
 
-        return  ResponseEntity.ok(ApiResponseDto.success(response));
+        return ResponseEntity.ok(ApiResponseDto.success(response));
+    }
+
+    @GetMapping("/matches/me")
+    public ResponseEntity<ApiResponseDto<PageResponseDto<GetMatchesResponseDto>>> getMatches(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @RequestParam(required = false) MatchStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        Long userId = userDetails.getUserId();
+
+        int safeSize = Math.min(size, 50);
+
+        // matchedAt 최신순 정렬 (가장 최근 매칭이 위로)
+        Pageable pageable = PageRequest.of(
+                page,
+                safeSize,
+                Sort.by("matchedAt").descending()
+        );
+
+        PageResponseDto<GetMatchesResponseDto> response =
+                matchQueryService.getMatches(userId, status, pageable);
+
+        return ResponseEntity.ok(ApiResponseDto.success(response));
     }
 }
+

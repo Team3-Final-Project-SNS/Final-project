@@ -1,15 +1,24 @@
 package com.example.team3final.domain.match.service;
 
+import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.MatchException;
 import com.example.team3final.domain.chat.repository.ChatRoomRepository;
+import com.example.team3final.domain.chat.service.ChatService;
 import com.example.team3final.domain.match.dto.response.GetMatchResponseDto;
+import com.example.team3final.domain.match.dto.response.GetMatchesResponseDto;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.entity.Match;
+import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.repository.MatchRepository;
+import com.example.team3final.domain.post.dto.response.PostMatchInfoDto;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.service.PostQueryService;
+import com.example.team3final.domain.user.dto.response.UserInfoDto;
+import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +30,8 @@ public class MatchQueryServiceImpl implements MatchQueryService{
     private final MatchRepository matchRepository;
     private final PostQueryService postQueryService;
     private final ChatRoomRepository chatRoomRepository;
+    private final UserService userService;
+    private final ChatService chatService;
 
     // TODO: User 도메인 머지 후 활성화
     // private final UserQueryService userQueryService;
@@ -88,5 +99,48 @@ public class MatchQueryServiceImpl implements MatchQueryService{
                 applicantStudentNumber,
                 chatRoomId
         );
+    }
+
+    @Override
+    public PageResponseDto<GetMatchesResponseDto> getMatches(
+            Long userId,
+            MatchStatus status,
+            Pageable pageable
+    ) {
+        // 내 매칭 목록 조회 (등록자 or 신청자)
+        Page<Match> matchPage = (status == null)
+                ? matchRepository.findAllByUserId(userId, pageable)
+                : matchRepository.findAllByUserIdAndStatus(userId, status, pageable);
+
+        // Page<Match> → Page<GetMatchesItemResponseDto> 변환
+        Page<GetMatchesResponseDto> dtoPage = matchPage.map(match -> {
+
+            // Post 정보 조회
+            PostMatchInfoDto postMatchInfo = postQueryService.getPostMatchInfo(match.getPostId());
+
+            // 내 역할 판단 → opponentId, myDeposit 결정
+            boolean isAuthor = postMatchInfo.authorId().equals(userId);
+            Long opponentId = isAuthor ? match.getApplicantId() : postMatchInfo.authorId();
+            int myDeposit = isAuthor ? postMatchInfo.authorDeposit() : match.getApplicantDeposit();
+
+            UserInfoDto opponentInfo = userService.getUserInfo(opponentId);
+
+            Long chatRoomId = chatService.getChatRoomIdByMatchId(match.getId());
+
+            return GetMatchesResponseDto.of(
+                    match,
+                    opponentId,
+                    opponentInfo.nickname(),
+                    opponentInfo.major(),
+                    opponentInfo.studentNumber(),
+                    postMatchInfo.meetAt(),
+                    postMatchInfo.placeName(),
+                    myDeposit,
+                    chatRoomId
+            );
+        });
+
+        // PageResponseDto로 래핑
+        return PageResponseDto.from(dtoPage);
     }
 }
