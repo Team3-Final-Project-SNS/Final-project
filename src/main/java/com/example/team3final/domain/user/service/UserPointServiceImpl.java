@@ -33,7 +33,7 @@ public class UserPointServiceImpl implements UserPointService{
                 user.getPoint());
     }
 
-    // 포인트 전액 환수
+    // 포인트 전액 환급
     @Override
     public void refundPoint(Long userId, int amount, Long matchId) {
         // 1. 유저 조회
@@ -44,6 +44,22 @@ public class UserPointServiceImpl implements UserPointService{
 
         // 3. PointTransaction 기록
         saveTransaction(user.getId(), matchId, amount, PointTransactionType.REFUND,
+                user.getPoint());
+    }
+
+    @Override
+    public void partialRefundPoint(Long userId, int amount, Long matchId) {
+        // 1. 유저 조회
+        User user = getUserOrThrow(userId);
+
+        // 2. 50% 계산
+        int refundAmount = amount / 2;
+
+        // 3. 포인트 지급
+        user.addPoint(refundAmount);
+
+        // 4. PointTransaction 기록 — PARTIAL_REFUND 타입
+        saveTransaction(user.getId(), matchId, refundAmount, PointTransactionType.PARTIAL_REFUND,
                 user.getPoint());
     }
 
