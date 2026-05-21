@@ -74,11 +74,19 @@ public class DataInitializer implements ApplicationRunner {
         // ===================================================
         // 1. 대학교 생성
         // ===================================================
-        // 테스트용 학교 1개 — 유저 생성 시 universityId로 참조
+        // 테스트용 학교 2개 — 유저 생성 시 universityId로 참조
         University university = universityRepository.save(
                 University.builder()
                         .universityName("한국대학교")          // 학교명
                         .eDomain("korea.ac.kr")               // 이메일 도메인 (unique 제약)
+                        .isActive(true)                        // 활성 상태
+                        .build()
+        );
+
+        University university1 = universityRepository.save(
+                University.builder()
+                        .universityName("광운대학교")          // 학교명
+                        .eDomain("iit.kw.ac.kr")               // 이메일 도메인 (unique 제약)
                         .isActive(true)                        // 활성 상태
                         .build()
         );
