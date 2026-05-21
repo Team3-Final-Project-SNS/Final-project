@@ -14,6 +14,7 @@ import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.service.PostCommandService;
 import com.example.team3final.domain.post.service.PostQueryService;
 import com.example.team3final.domain.user.service.UserPointService;
+import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +32,7 @@ public class MatchCommandServiceImpl implements MatchCommandService{
     private final PostCommandService postCommandService;
     private final ChatService chatService;
     private final UserPointService userPointService;
+    private final UserService userService;
 
     // TODO: User 도메인 머지 후 활성화
     // private final UserQueryService userQueryService;       // 닉네임 조회
