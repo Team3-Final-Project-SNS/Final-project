@@ -24,7 +24,7 @@ public class PointTransaction {
     @Column(name = "user_id", nullable = false, updatable = false)
     private Long userId;
 
-    @Column(name = "match_id",unique = true, updatable = false) //  매칭 ID, 회원가입 보너스처럼 매칭과 무관한 거래는 null입니다.
+    @Column(name = "match_id", nullable = true, updatable = false)
     private Long matchId;
 
     @Column(name = "amount", nullable = false) //  포인트 변동량
