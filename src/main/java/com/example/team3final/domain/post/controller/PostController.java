@@ -8,6 +8,7 @@ import com.example.team3final.domain.post.dto.response.*;
 import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.service.PostCommandService;
 import com.example.team3final.domain.post.service.PostQueryService;
+import com.example.team3final.domain.post.service.PostService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,8 +25,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class PostController {
 
-    private final PostCommandService postCommandService;
-    private final PostQueryService postQueryService;
+    private final PostService postService;
 
     /**
      * 게시글 작성
@@ -45,7 +45,7 @@ public class PostController {
         // 클라이언트가 보낸 헤더가 아니라 토큰 안의 서명된 값 → 위변조 불가
         Long userId = userDetails.getUserId();
 
-        CreatePostResponseDto response = postCommandService.createPost(userId, request);
+        CreatePostResponseDto response = postService.createPost(userId, request);
 
         // 명세서: 201 Created 반환
         // ResponseEntity.status(201).body(...) 패턴
@@ -77,7 +77,7 @@ public class PostController {
         );
 
         PageResponseDto<GetPostsItemResponseDto> response =
-                postQueryService.getPosts(userId, status, pageable);
+                postService.getPosts(userId, status, pageable);
 
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
@@ -96,7 +96,7 @@ public class PostController {
         Long currentUserId = userDetails.getUserId();
 
         // Service 호출 - 검증/조회/조립 모두 위임
-        GetPostResponseDto response = postQueryService.getPost(postId, currentUserId);
+        GetPostResponseDto response = postService.getPost(postId, currentUserId);
 
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
@@ -116,7 +116,7 @@ public class PostController {
         Long userId = userDetails.getUserId();
 
         // Service에 위임 - 검증/차액처리/업데이트 모두 위임
-        UpdatePostResponseDto response = postCommandService.updatePost(postId, userId, request);
+        UpdatePostResponseDto response = postService.updatePost(postId, userId, request);
 
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
@@ -134,7 +134,7 @@ public class PostController {
 
         Long userId = userDetails.getUserId();
 
-        DeletePostResponseDto response = postCommandService.deletePost(postId, userId);
+        DeletePostResponseDto response = postService.deletePost(postId, userId);
 
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }

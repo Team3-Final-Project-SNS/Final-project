@@ -11,8 +11,7 @@ import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.repository.MatchRepository;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
-import com.example.team3final.domain.post.service.PostCommandService;
-import com.example.team3final.domain.post.service.PostQueryService;
+import com.example.team3final.domain.post.service.PostService;
 import com.example.team3final.domain.user.service.UserPointService;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -28,8 +27,7 @@ public class MatchCommandServiceImpl implements MatchCommandService{
 
     private final MatchRepository matchRepository;
     private final MatchQueryService matchQueryService;
-    private final PostQueryService postQueryService;
-    private final PostCommandService postCommandService;
+    private final PostService postService;
     private final ChatService chatService;
     private final UserPointService userPointService;
     private final UserService userService;
@@ -41,7 +39,7 @@ public class MatchCommandServiceImpl implements MatchCommandService{
     @Override
     public CreateMatchResponseDto createMatch(Long postId, Long applicantId) {
 
-        Post post = postQueryService.getPostById(postId);
+        Post post = postService.getPostById(postId);
 
         // 비즈니스 검증
 
@@ -130,7 +128,7 @@ public class MatchCommandServiceImpl implements MatchCommandService{
         // ===== ③ Post 상태 변경: → COMPLETED =====
         // Post 도메인의 Service에 위임 — Post 엔티티를 직접 가져오지 않고 도메인 경계 유지
         // match.getPostId()로 PostId 추출 후 Post 도메인이 자기 일을 함
-        postCommandService.completePost(match.getPostId());
+        postService.completePost(match.getPostId());
 
         // 포인트 환불
         // 만남 정상 완료 시: 양측 모두 100% 환불
@@ -138,7 +136,7 @@ public class MatchCommandServiceImpl implements MatchCommandService{
         // - 신청자: match.applicantDeposit 100% 환불 (type=REFUND)
         // ===== ④ 포인트 환불: 양측 100% 전액 반환 =====
         // Post 엔티티에서 등록자 ID, 예치금 조회 (PostQueryService 경유 — repository 직접 접근 아님)
-        Post post = postQueryService.getPostById(match.getPostId());
+        Post post = postService.getPostById(match.getPostId());
 
         // 등록자 전액 환급 (REFUND) — post.authorDeposit이 등록자 예치금
         userPointService.refundPoint(post.getAuthorId(), post.getAuthorDeposit(), matchId);
@@ -163,11 +161,11 @@ public class MatchCommandServiceImpl implements MatchCommandService{
         match.markNoShow(MatchStatus.AUTHOR_NO_SHOW);
 
         // Post 상태 → COMPLETED (노쇼도 게시글은 종료)
-        postCommandService.completePost(match.getPostId());
+        postService.completePost(match.getPostId());
 
         // ===== 포인트 처리 =====
         // Post 엔티티에서 등록자 ID, 예치금 조회
-        Post post = postQueryService.getPostById(match.getPostId());
+        Post post = postService.getPostById(match.getPostId());
 
         // 등록자(노쇼 당사자): 예치금 몰수
         // 예치 시점에 이미 잔액 차감 완료 → user.point 변경 없이 PENALTY 거래 기록만 남김
@@ -191,10 +189,10 @@ public class MatchCommandServiceImpl implements MatchCommandService{
         match.markNoShow(MatchStatus.APPLICANT_NO_SHOW);
 
         // Post 상태 → COMPLETED (노쇼도 게시글은 종료)
-        postCommandService.completePost(match.getPostId());
+        postService.completePost(match.getPostId());
 
         // ===== 포인트 처리 =====
-        Post post = postQueryService.getPostById(match.getPostId());
+        Post post = postService.getPostById(match.getPostId());
 
         // 등록자(피해자): 예치금 전액 환급
         userPointService.refundPoint(post.getAuthorId(), post.getAuthorDeposit(), matchId);
@@ -217,10 +215,10 @@ public class MatchCommandServiceImpl implements MatchCommandService{
         match.markNoShow(MatchStatus.BOTH_NO_SHOW);
 
         // Post 상태 → COMPLETED (노쇼도 게시글은 종료)
-        postCommandService.completePost(match.getPostId());
+        postService.completePost(match.getPostId());
 
         // ===== 포인트 처리: 양측 모두 몰수 =====
-        Post post = postQueryService.getPostById(match.getPostId());
+        Post post = postService.getPostById(match.getPostId());
 
         // 등록자 몰수
         userPointService.penaltyPoint(post.getAuthorId(), post.getAuthorDeposit(), matchId);
@@ -236,7 +234,7 @@ public class MatchCommandServiceImpl implements MatchCommandService{
         Match match = matchQueryService.getMatchById(matchId);
 
         // 2. Post 조회
-        Post post = postQueryService.getPostById(match.getPostId());
+        Post post = postService.getPostById(match.getPostId());
 
         // 3. 당사자 검증
         if (!match.isParticipant(userId, post.getAuthorId())) {

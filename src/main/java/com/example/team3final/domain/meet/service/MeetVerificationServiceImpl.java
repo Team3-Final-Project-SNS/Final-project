@@ -18,9 +18,8 @@ import com.example.team3final.domain.meet.entity.MeetVerification;
 import com.example.team3final.domain.meet.enums.VerificationStatus;
 import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
 import com.example.team3final.domain.post.dto.response.PostInfoDto;
-import com.example.team3final.domain.post.service.PostQueryService;
+import com.example.team3final.domain.post.service.PostService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,7 +36,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     private final MeetVerificationRepository meetVerificationRepository;
     private final MatchQueryService matchQueryService;
     private final MatchCommandService matchCommandService;
-    private final PostQueryService postQueryService;
+    private final PostService postQueryService;
     private final ChatService chatService;
     private final UserLocationService userLocationService;
 
