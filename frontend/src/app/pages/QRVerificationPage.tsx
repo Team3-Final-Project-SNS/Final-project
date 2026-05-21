@@ -1,15 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { Check, Camera } from 'lucide-react';
 import QRCode from 'qrcode';
 import { getMeetQr, createQrScan, getMeetVerification } from '../../api/meetApi';
+import { getMatchDetail } from '../../api/matchApi';
+import { getUserMe } from '../../api/userApi';
+
+type QrRole = 'author' | 'applicant';
+
+const getQrBaseUrl = () => {
+  const configuredUrl = import.meta.env.VITE_QR_BASE_URL;
+  return configuredUrl ? configuredUrl.replace(/\/$/, '') : window.location.origin;
+};
 
 export default function QRVerificationPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const role = searchParams.get('role') || 'author';
+  const roleParam = searchParams.get('role');
 
+  const [role, setRole] = useState<QrRole | null>(null);
   const [step, setStep] = useState<'display' | 'scan' | 'success'>('display');
   const [qrToken, setQrToken] = useState('');
   const [qrImageUrl, setQrImageUrl] = useState(''); // ✅ 추가: QR 이미지 base64
@@ -17,8 +27,49 @@ export default function QRVerificationPage() {
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [scanError, setScanError] = useState('');
   const [loading, setLoading] = useState(false);
+  const scannedTokenRef = useRef('');
 
   const matchId = Number(id);
+
+  // ───────────────────────────────────────────
+  // 현재 로그인 사용자 기준으로 등록자/신청자 역할 판별
+  // URL에 role이 없어도 올바른 화면을 보여준다.
+  // ───────────────────────────────────────────
+  useEffect(() => {
+    const resolveRole = async () => {
+      if (!matchId) return;
+
+      const tokenFromUrl = searchParams.get('qrToken');
+      if (roleParam === 'author' || roleParam === 'applicant') {
+        setRole(roleParam);
+        setStep(roleParam === 'applicant' ? 'scan' : 'display');
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const [matchRes, userRes] = await Promise.all([
+          getMatchDetail(matchId),
+          getUserMe(),
+        ]);
+
+        const match = matchRes.data.data;
+        const currentUserId = userRes.data.data.userId;
+        const resolvedRole = currentUserId === match.authorId ? 'author' : 'applicant';
+
+        setRole(resolvedRole);
+        setStep(resolvedRole === 'applicant' || tokenFromUrl ? 'scan' : 'display');
+      } catch (err) {
+        console.error('QR 역할 판별 실패:', err);
+        alert('매칭 정보를 확인할 수 없습니다.');
+        navigate('/matches');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    resolveRole();
+  }, [matchId, navigate, roleParam, searchParams]);
 
   // ───────────────────────────────────────────
   // 등록자: 마운트 시 QR 토큰 발급/조회
@@ -63,7 +114,7 @@ export default function QRVerificationPage() {
       try {
         // 신청자가 열 URL 생성 (qrToken을 쿼리 파라미터로 삽입)
         // 이 URL을 QR로 만들면 신청자가 스캔 시 자동으로 해당 페이지로 이동
-        const qrUrl = `${window.location.origin}/matches/${matchId}/qr?role=applicant&qrToken=${qrToken}`;
+        const qrUrl = `${getQrBaseUrl()}/matches/${matchId}/qr?role=applicant&qrToken=${encodeURIComponent(qrToken)}`;
 
         // qrcode 모듈로 URL → base64 이미지 변환
         // toDataURL: canvas에 QR 그리고 PNG base64 문자열로 반환
@@ -137,28 +188,11 @@ export default function QRVerificationPage() {
   };
 
   // ───────────────────────────────────────────
-  // ✅ 추가: 신청자 - URL에서 qrToken 자동 추출
-  // 신청자가 QR 스캔 후 URL로 들어오면 토큰 자동 입력
-  // ───────────────────────────────────────────
-  useEffect(() => {
-    // 신청자일 때만 실행
-    if (role !== 'applicant') return;
-
-    // URL 쿼리 파라미터에서 qrToken 추출
-    // ex) /matches/1/qr?role=applicant&qrToken=hp_qr_xxx
-    const tokenFromUrl = searchParams.get('qrToken');
-    if (tokenFromUrl) {
-      // URL에 토큰 있으면 입력창에 자동 세팅 + scan 단계로 바로 이동
-      setQrInput(tokenFromUrl);
-      setStep('scan');
-    }
-  }, [role, searchParams]);
-
-  // ───────────────────────────────────────────
   // 신청자: QR 토큰 스캔 (직접 입력 or URL 자동 추출)
   // ───────────────────────────────────────────
-  const handleScan = async () => {
-    if (!qrInput.trim()) {
+  const handleScan = async (tokenOverride?: string) => {
+    const tokenToScan = tokenOverride ?? qrInput;
+    if (!tokenToScan.trim()) {
       setScanError('QR 토큰을 입력해주세요.');
       return;
     }
@@ -166,7 +200,7 @@ export default function QRVerificationPage() {
     try {
       setLoading(true);
       setScanError('');
-      await createQrScan(matchId, qrInput.trim());
+      await createQrScan(matchId, tokenToScan.trim());
 
       setStep('success');
       setTimeout(() => navigate('/matches'), 2000);
@@ -177,6 +211,32 @@ export default function QRVerificationPage() {
       setLoading(false);
     }
   };
+
+  // ───────────────────────────────────────────
+  // 신청자: QR URL로 진입하면 토큰 추출 후 바로 인증 요청
+  // ───────────────────────────────────────────
+  useEffect(() => {
+    if (role !== 'applicant') return;
+
+    const tokenFromUrl = searchParams.get('qrToken');
+    if (tokenFromUrl) {
+      if (scannedTokenRef.current === tokenFromUrl) return;
+      scannedTokenRef.current = tokenFromUrl;
+      setQrInput(tokenFromUrl);
+      setStep('scan');
+      handleScan(tokenFromUrl);
+    }
+  }, [role, searchParams]);
+
+  if (!role) {
+    return (
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-white rounded-2xl shadow-lg p-8 text-center text-[#9e9e9e]">
+            QR 인증 정보를 확인하는 중...
+          </div>
+        </div>
+    );
+  }
 
   // ───────────────────────────────────────────
   // 신청자 화면
@@ -224,7 +284,7 @@ export default function QRVerificationPage() {
                           className="flex-1 px-4 py-3 border border-[#e0e0e0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#d84315]"
                       />
                       <button
-                          onClick={handleScan}
+                          onClick={() => handleScan()}
                           disabled={loading}
                           className="px-6 py-3 bg-[#d84315] text-white rounded-lg font-semibold hover:bg-[#bf360c] transition-colors disabled:opacity-50"
                       >
