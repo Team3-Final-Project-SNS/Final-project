@@ -21,7 +21,7 @@ public class UserPointServiceImpl implements UserPointService{
 
     // 포인트 차감(예치)
     @Override
-    public void deductPoint(Long userId, int amount, Long matchId, String description) {
+    public void deductPoint(Long userId, int amount, Long matchId) {
         // 1. 유저 조회
         User user = getUserOrThrow(userId);
 
@@ -30,7 +30,7 @@ public class UserPointServiceImpl implements UserPointService{
 
         // 3. PointTransaction 기록 — amount는 음수(차감을 표현)
         saveTransaction(user.getId(), matchId, -amount, PointTransactionType.DEPOSIT,
-                user.getPoint(), description);
+                user.getPoint());
     }
 
     // ===== private 헬퍼 =====
@@ -40,8 +40,7 @@ public class UserPointServiceImpl implements UserPointService{
     }
 
     private void saveTransaction(Long userId, Long matchId, int amount,
-                                 PointTransactionType type, int balanceAfter,
-                                 String description) {
+                                 PointTransactionType type, int balanceAfter) {
         pointTransactionRepository.save(
                 PointTransaction.builder()
                         .userId(userId)
@@ -49,7 +48,6 @@ public class UserPointServiceImpl implements UserPointService{
                         .amount(amount)
                         .transactionType(type)
                         .balanceAfter(balanceAfter)
-                        .description(description)
                         .build()
         );
     }
