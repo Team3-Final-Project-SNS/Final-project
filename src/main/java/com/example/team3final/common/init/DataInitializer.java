@@ -39,6 +39,10 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class DataInitializer implements ApplicationRunner {
 
+    private static final String DEMO_PLACE_NAME = System.getenv().getOrDefault("DEMO_PLACE_NAME", "장소 인증 테스트 위치");
+    private static final BigDecimal DEMO_PLACE_LAT = new BigDecimal(System.getenv().getOrDefault("DEMO_PLACE_LAT", "37.3745300"));
+    private static final BigDecimal DEMO_PLACE_LNG = new BigDecimal(System.getenv().getOrDefault("DEMO_PLACE_LNG", "126.6322100"));
+
     private final UniversityRepository universityRepository;
     private final UserRepository userRepository;
     private final TermAgreementRepository termAgreementRepository;
@@ -168,9 +172,9 @@ public class DataInitializer implements ApplicationRunner {
                 Post.builder()
                         .authorId(author.getId())
                         .meetAt(LocalDateTime.now().plusMinutes(10))
-                        .placeName("정문 편의점 앞")
-                        .placeLat(new BigDecimal("37.3745300"))
-                        .placeLng(new BigDecimal("126.6322100"))
+                        .placeName(DEMO_PLACE_NAME)
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
                         .content("활성화된 채팅 및 인증 테스트용 방입니다.")
                         .authorDeposit(300)
                         .build()
@@ -201,8 +205,8 @@ public class DataInitializer implements ApplicationRunner {
         meetVerificationRepository.save(MeetVerification.createPending(activeMatch.getId()));
 
         // 유저 위치 설정 (장소 반경 60m 이내 - 약 30~40m 거리)
-        userLocationRepository.save(UserLocation.builder().matchId(activeMatch.getId()).userId(author.getId()).latitude(new BigDecimal("37.3745100")).longitude(new BigDecimal("126.6321800")).build());
-        userLocationRepository.save(UserLocation.builder().matchId(activeMatch.getId()).userId(applicant.getId()).latitude(new BigDecimal("37.3744900")).longitude(new BigDecimal("126.6322400")).build());
+        userLocationRepository.save(UserLocation.builder().matchId(activeMatch.getId()).userId(author.getId()).latitude(DEMO_PLACE_LAT).longitude(DEMO_PLACE_LNG).build());
+        userLocationRepository.save(UserLocation.builder().matchId(activeMatch.getId()).userId(applicant.getId()).latitude(DEMO_PLACE_LAT).longitude(DEMO_PLACE_LNG).build());
 
         // 활성 채팅방 및 메시지 설정
         ChatRoom activeChatRoom = chatRoomRepository.save(
