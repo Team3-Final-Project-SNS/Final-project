@@ -2,19 +2,20 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { createPost } from '../../api/postApi';
 import axiosInstance from '../../api/axiosInstance';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, MapPin } from 'lucide-react';
 
 export default function PostCreatePage() {
   const navigate = useNavigate();
   const [placeName, setPlaceName] = useState('');
-  const [placeLat, setPlaceLat] = useState(37.5665);
-  const [placeLng, setPlaceLng] = useState(126.9780);
+  const [placeLat, setPlaceLat] = useState<number | null>(null);
+  const [placeLng, setPlaceLng] = useState<number | null>(null);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState('12:30');
   const [content, setContent] = useState('');
   const [points, setPoints] = useState(1000);
   const [userPoints, setUserPoints] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -31,10 +32,37 @@ export default function PostCreatePage() {
 
   const afterPoints = userPoints - points;
 
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setError('이 브라우저에서는 위치 정보를 사용할 수 없습니다.');
+      return;
+    }
+
+    setLocationLoading(true);
+    setError('');
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setPlaceLat(position.coords.latitude);
+          setPlaceLng(position.coords.longitude);
+          setLocationLoading(false);
+        },
+        (locationError) => {
+          console.error('Failed to get current location', locationError);
+          setError('현재 위치를 가져올 수 없습니다. 브라우저 위치 권한을 허용해주세요.');
+          setLocationLoading(false);
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!placeName || !date || !time) {
       setError('필수 정보를 입력해주세요.');
+      return;
+    }
+    if (placeLat === null || placeLng === null) {
+      setError('만남 장소의 위치를 설정해주세요.');
       return;
     }
 
@@ -81,14 +109,30 @@ export default function PostCreatePage() {
                 <label className="block text-sm font-medium text-[#424242] mb-2">
                   만남 장소
                 </label>
-                <input
-                    type="text"
-                    value={placeName}
-                    onChange={(e) => setPlaceName(e.target.value)}
-                    placeholder="예: 학생식당 1층, 공학관 카페"
-                    className="w-full px-4 py-3 border border-[#e0e0e0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#d84315] focus:border-transparent"
-                    required
-                />
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                      type="text"
+                      value={placeName}
+                      onChange={(e) => setPlaceName(e.target.value)}
+                      placeholder="예: 학생식당 1층, 공학관 카페"
+                      className="w-full px-4 py-3 border border-[#e0e0e0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#d84315] focus:border-transparent"
+                      required
+                  />
+                  <button
+                      type="button"
+                      onClick={handleUseCurrentLocation}
+                      disabled={locationLoading}
+                      className="flex shrink-0 items-center justify-center gap-2 rounded-lg border border-[#d84315] bg-white px-4 py-3 text-sm font-semibold text-[#d84315] transition-colors hover:bg-[#fff3e0] disabled:border-[#e0e0e0] disabled:text-[#9e9e9e]"
+                  >
+                    {locationLoading ? <Loader2 size={16} className="animate-spin" /> : <MapPin size={16} />}
+                    현재 위치 사용
+                  </button>
+                </div>
+                {placeLat !== null && placeLng !== null && (
+                    <p className="mt-2 text-xs font-semibold text-[#4caf50]">
+                      장소 위치가 설정되었습니다.
+                    </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
