@@ -4,10 +4,7 @@ import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.domain.post.dto.request.CreatePostRequestDto;
 import com.example.team3final.domain.post.dto.request.UpdatePostRequestDto;
-import com.example.team3final.domain.post.dto.response.CreatePostResponseDto;
-import com.example.team3final.domain.post.dto.response.GetPostResponseDto;
-import com.example.team3final.domain.post.dto.response.GetPostsItemResponseDto;
-import com.example.team3final.domain.post.dto.response.UpdatePostResponseDto;
+import com.example.team3final.domain.post.dto.response.*;
 import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.service.PostCommandService;
 import com.example.team3final.domain.post.service.PostQueryService;
@@ -32,7 +29,6 @@ public class PostController {
 
     /**
      * 게시글 작성
-     * 명세서: MVP 개발에서 내 역할.md - 4.1 createPost
      *
      * POST /api/v1/posts
      */
@@ -60,7 +56,6 @@ public class PostController {
 
     /**
      * 게시글 목록 조회
-     * 명세서: MVP 개발에서 내 역할.md - 4.2 getPosts
      *
      * GET /api/v1/posts?status=OPEN&page=0&size=20
      */
@@ -89,7 +84,6 @@ public class PostController {
 
     /**
      * 게시글 상세 조회
-     * 명세서: MVP 개발에서 내 역할.md - 4.3 getPost
      *
      * GET /api/v1/posts/{postId}
      */
@@ -109,7 +103,6 @@ public class PostController {
 
     /**
      * 게시글 수정
-     * 명세서: MVP 개발에서 내 역할.md - 4.4 updatePost
      *
      * PATCH /api/v1/posts/{postId}
      */
@@ -124,6 +117,24 @@ public class PostController {
 
         // Service에 위임 - 검증/차액처리/업데이트 모두 위임
         UpdatePostResponseDto response = postCommandService.updatePost(postId, userId, request);
+
+        return ResponseEntity.ok(ApiResponseDto.success(response));
+    }
+
+    /**
+     * 게시글 삭제
+     *
+     * DELETE /api/v1/posts/{postId}
+     */
+    @DeleteMapping("/{postId}")
+    public ResponseEntity<ApiResponseDto<DeletePostResponseDto>> deletePost(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @PathVariable Long postId
+    ) {
+
+        Long userId = userDetails.getUserId();
+
+        DeletePostResponseDto response = postCommandService.deletePost(postId, userId);
 
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
