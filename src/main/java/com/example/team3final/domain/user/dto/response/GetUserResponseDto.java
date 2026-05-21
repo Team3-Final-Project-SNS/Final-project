@@ -22,7 +22,7 @@ public record GetUserResponseDto (
         LocalDateTime createdAt
 
 ) {
-    public static GetUserResponseDto from(User user) {
+    public static GetUserResponseDto of(User user) {
         return new GetUserResponseDto(
                 user.getId(),
                 user.getEmail(),

@@ -1,7 +1,9 @@
 package com.example.team3final.domain.user.service;
 
 import com.example.team3final.domain.auth.dto.request.SignupRequestDto;
+import com.example.team3final.domain.user.dto.request.UpdateUserRequestDto;
 import com.example.team3final.domain.user.dto.response.GetUserResponseDto;
+import com.example.team3final.domain.user.dto.response.UpdateUserResponseDto;
 import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.enums.Gender;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,4 +32,7 @@ public interface UserService {
 
     // 내 정보 조회
     GetUserResponseDto getUser(Long userId);
+
+    // 내 정보 수정
+    UpdateUserResponseDto updateUser(Long userId, UpdateUserRequestDto request);
 }

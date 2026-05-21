@@ -5,11 +5,12 @@ import com.example.team3final.common.exception.ServiceException;
 import com.example.team3final.domain.pointTransaction.entity.PointTransaction;
 import com.example.team3final.domain.pointTransaction.enums.PointTransactionType;
 import com.example.team3final.domain.pointTransaction.repository.PointTransactionRepository;
+import com.example.team3final.domain.user.dto.request.UpdateUserRequestDto;
 import com.example.team3final.domain.user.dto.response.GetUserResponseDto;
+import com.example.team3final.domain.user.dto.response.UpdateUserResponseDto;
 import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.enums.Gender;
 import com.example.team3final.domain.user.repository.UserRepository;
-import io.jsonwebtoken.security.Password;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -111,6 +112,85 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new ServiceException(ErrorCode.USER_NOT_FOUND));
 
         // Entity → ResponseDto 변환 후 반환
-        return GetUserResponseDto.from(user);
+        return GetUserResponseDto.of(user);
+    }
+
+    // ===== 내 정보 수정 =====
+    @Override
+    @Transactional // 읽기 전용 클래스 기본값을 쓰기 가능으로 오버라이드 (더티 체킹 작동)
+    public UpdateUserResponseDto updateUser(Long userId, UpdateUserRequestDto request) {
+
+        // 1단계: 수정할 필드가 최소 1개 이상인지 검증
+        // 세 필드 모두 null이면 수정할 게 없으므로 에러 반환
+        boolean hasNothingToUpdate =
+                request.getNewPassword() == null &&
+                        request.getNickname() == null &&
+                        request.getMajor() == null;
+
+        if (hasNothingToUpdate) {
+            throw new ServiceException(ErrorCode.USER_NO_FIELD_TO_UPDATE);
+        }
+
+        // 2단계: userId로 User 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ServiceException(ErrorCode.USER_NOT_FOUND));
+
+        // 비밀번호 변경 여부를 추적하는 플래그
+        boolean passwordChanged = false;
+
+        // 3단계: 비밀번호 변경 처리
+        // newPassword가 있을 때만 비밀번호 변경 로직 실행
+        if (request.getNewPassword() != null) {
+
+            // 현재 비밀번호 확인 - newPassword가 있으면 currentPassword는 필수
+            if (request.getCurrentPassword() == null) {
+                throw new ServiceException(ErrorCode.USER_CURRENT_PASSWORD_MISMATCH);
+            }
+
+            // BCrypt 비교: passwordEncoder.matches(입력한 평문, DB의 암호화된 값)
+            // BCrypt는 단방향 해시라 복호화가 불가능 → matches()로만 비교 가능
+            boolean isCurrentPasswordCorrect =
+                    passwordEncoder.matches(request.getCurrentPassword(), user.getPassword());
+
+            if (!isCurrentPasswordCorrect) {
+                throw new ServiceException(ErrorCode.USER_CURRENT_PASSWORD_MISMATCH);
+            }
+
+            // 새 비밀번호가 현재 비밀번호와 동일한지 확인
+            boolean isSamePassword =
+                    passwordEncoder.matches(request.getNewPassword(), user.getPassword());
+
+            if (isSamePassword) {
+                throw new ServiceException(ErrorCode.USER_SAME_PASSWORD);
+            }
+
+            // 새 비밀번호 암호화 후 엔티티 메서드로 변경
+            // 암호화 책임은 Service에 있음 (User 엔티티는 암호화 로직을 모름)
+            String encodedNewPassword = passwordEncoder.encode(request.getNewPassword());
+            user.updatePassword(encodedNewPassword); // 엔티티 도메인 메서드 호출
+            passwordChanged = true;
+        }
+
+        // 4단계: 닉네임 변경 처리
+        // null이 아닐 때만 변경 (PATCH 패턴: 보낸 필드만 수정)
+        if (request.getNickname() != null) {
+
+            // 닉네임 중복 확인 - 현재 내 닉네임과 동일하면 중복 체크 스킵
+            boolean isDifferentNickname = !request.getNickname().equals(user.getNickname());
+
+            if (isDifferentNickname && userRepository.existsByNickname(request.getNickname())) {
+                throw new ServiceException(ErrorCode.NICKNAME_DUPLICATED);
+            }
+
+            user.updateNickname(request.getNickname()); // 엔티티 도메인 메서드 호출
+        }
+
+        // 5단계: 학과 변경 처리
+        if (request.getMajor() != null) {
+            user.updateMajor(request.getMajor()); // 엔티티 도메인 메서드 호출
+        }
+
+        // @Transactional + 더티 체킹 덕분에 save() 없이도 자동으로 UPDATE 쿼리 실행
+        return UpdateUserResponseDto.of(user, passwordChanged);
     }
 }
