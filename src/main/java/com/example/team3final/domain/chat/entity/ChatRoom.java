@@ -22,17 +22,11 @@ public class ChatRoom {
     @Column(name = "match_id", nullable = false, unique = true, updatable = false)
     private Long matchId;
 
-    // TODO: Match 도메인 구현 완료 후 아래 방식으로 교체 예정
-    // Match matchId로 조회 → match.getPostId()로 Post 조회 → post.getAuthorId() 반환
-    // ChatServiceImpl.createChatRoom() 파라미터에서 authorId 제거 예정
     @Column(name = "author_id", nullable = false, updatable = false)
-    private Long authorId;      // 등록자 ID (임시 저장)
+    private Long authorId;      // 등록자 ID
 
-    // TODO: Match 도메인 구현 완료 후 아래 방식으로 교체 예정
-    // Match matchId로 조회 → match.getApplicantId() 반환
-    // ChatServiceImpl.createChatRoom() 파라미터에서 applicantId 제거 예정
     @Column(name = "applicant_id", nullable = false, updatable = false)
-    private Long applicantId;   // 신청자 ID (임시 저장)
+    private Long applicantId;   // 신청자 ID
 
     @Column(name = "is_active", nullable = false)
     private boolean isActive;                       // 활성 여부
@@ -52,8 +46,8 @@ public class ChatRoom {
     @Builder
     private ChatRoom(Long matchId, Long authorId, Long applicantId) {
         this.matchId = matchId;
-        this.authorId = authorId;       // TODO: Match 도메인 구현 완료 후 파라미터 삭제 예정
-        this.applicantId = applicantId; // TODO: Match 도메인 구현 완료 후 파라미터 삭제 예정
+        this.authorId = authorId;
+        this.applicantId = applicantId;
         this.isActive = true;       // 생성 시 활성화
         this.authorLeft = false;    // 생성 시 등록자 나가지 않은 상태
         this.applicantLeft = false; // 생성 시 신청자 나가지 않은 상태
