@@ -9,6 +9,9 @@ import com.example.team3final.domain.post.dto.response.*;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.repository.PostRepository;
+import com.example.team3final.domain.user.dto.response.UserInfoDto;
+import com.example.team3final.domain.user.service.UserPointService;
+import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -25,10 +28,8 @@ import java.util.List;
 public class PostServiceImpl implements PostService{
 
     private final PostRepository postRepository;
-
-    // TODO: User 도메인 연동 시 활성화
-    // private final UserService userService;
-    // private final UserPointService userPointService;
+    private final UserService userService;
+    private final UserPointService userPointService;
 
 
     @Override
@@ -46,8 +47,7 @@ public class PostServiceImpl implements PostService{
         }
 
         // 2. 포인트 차감
-        // TODO: User 도메인 머지 후 활성화
-        // userPointService.deductPoint(authorId, request.getAuthorDeposit(), null);
+        userPointService.deductPoint(authorId, request.getAuthorDeposit(), null);
 
         // 3. Post 엔티티 생성
         Post post = Post.builder()
@@ -63,9 +63,9 @@ public class PostServiceImpl implements PostService{
         // 4. 저장
         Post savedPost = postRepository.save(post);
 
-        // TODO: User 도메인 머지 후 실제 조회로 교체
-        // String authorNickname = userService.getUserInfo(authorId).nickname();
-        String authorNickname = "임시닉네임"; // 임시값
+        // 5. Response
+        // userService.getUserInfo(authorId) → UserInfoDto 반환, 거기서 nickname() 추출
+        String authorNickname = userService.getUserInfo(authorId).nickname();
 
         return CreatePostResponseDto.from(savedPost, authorNickname);
     }
@@ -102,12 +102,10 @@ public class PostServiceImpl implements PostService{
 
             if (diff > 0) {
                 // 증액: diff만큼 추가 차감
-                // TODO: User 도메인 머지 후 활성화
-                // userPointService.deductPoint(userId, diff, null);
+                 userPointService.deductPoint(userId, diff, null);
             } else if (diff < 0) {
                 // 감액: |diff|만큼 환불
-                // TODO: User 도메인 머지 후 활성화
-                // userPointService.refundPoint(userId, Math.abs(diff), null);
+                 userPointService.refundPoint(userId, Math.abs(diff), null);
             }
             // diff == 0이면 아무것도 안 함
         }
@@ -156,9 +154,8 @@ public class PostServiceImpl implements PostService{
         // 4. 환불 금액 추출
         int refundedPoint = post.getAuthorDeposit();
 
-        // 5. 포인트 전액 환불 (User 도메인 의존)
-        // TODO: User 도메인 머지 후 활성화
-        // userPointService.refundPoint(userId, refundedPoint, null);
+        // 5. 포인트 전액 환불
+        userPointService.refundPoint(userId, refundedPoint, null);
 
         // 6. 게시글 하드 삭제
         postRepository.delete(post);
@@ -202,7 +199,7 @@ public class PostServiceImpl implements PostService{
 
         // 4. Page<Post> → Page<GetPostsItemResponseDto> 변환 (페이징 메타데이터 보존)
         Page<GetPostsItemResponseDto> dtoPage = postPage.map(post -> {
-            // TODO: User 도메인 머지 후 실제 조회로 교체
+            UserInfoDto authorInfo = userService.getUserInfo(post.getAuthorId());
             return GetPostsItemResponseDto.from(
                     post,
                     "임시닉네임",
@@ -242,17 +239,15 @@ public class PostServiceImpl implements PostService{
         boolean isMine = post.isAuthor(currentUserId);
 
         // 4. 작성자 정보 조회
-        // TODO: User 도메인 머지 후 실제 조회로 교체
-        String authorNickname = "임시닉네임";
-        String authorMajor = "임시학과";
-        String authorStudentNumber = "00";
+        // getUserInfo 한 번으로 nickname/major/studentNumber 모두 확보 (호출 1회로 N+1 방지)
+        UserInfoDto authorInfo = userService.getUserInfo(post.getAuthorId());
 
         // 5. DTO 조립
         return GetPostResponseDto.from(
                 post,
-                authorNickname,
-                authorMajor,
-                authorStudentNumber,
+                authorInfo.nickname(),
+                authorInfo.major(),
+                authorInfo.studentNumber(),
                 isMine
         );
     }
