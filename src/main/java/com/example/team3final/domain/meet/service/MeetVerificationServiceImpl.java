@@ -6,8 +6,7 @@ import com.example.team3final.domain.chat.service.ChatService;
 import com.example.team3final.domain.location.service.UserLocationService;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.enums.MatchStatus;
-import com.example.team3final.domain.match.service.MatchCommandService;
-import com.example.team3final.domain.match.service.MatchQueryService;
+import com.example.team3final.domain.match.service.MatchService;
 import com.example.team3final.domain.meet.dto.request.PlaceVerificationRequestDto;
 import com.example.team3final.domain.meet.dto.request.QrScanRequestDto;
 import com.example.team3final.domain.meet.dto.response.MeetVerificationResponseDto;
@@ -34,8 +33,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
     // GPS검증, 상태 전환, 역할 구분 서비스
     private final MeetVerificationRepository meetVerificationRepository;
-    private final MatchQueryService matchQueryService;
-    private final MatchCommandService matchCommandService;
+    private final MatchService matchService;
     private final PostService postQueryService;
     private final ChatService chatService;
     private final UserLocationService userLocationService;
@@ -65,7 +63,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                 .orElseThrow( () -> new VerificationException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
 
         // MatchInfoDto 조회
-        MatchInfoDto matchInfo = matchQueryService.getMatchInfo(matchId);
+        MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
 
         // PostInfoDto 조회
         // match -> postId -> post 순서대로 (Match에는 authorId 없음)
@@ -130,7 +128,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                 .orElseThrow( () -> new VerificationException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
 
         // MatchInfoDto -> PostInfoDto 순으로 타서 authorId 획득
-        MatchInfoDto matchInfo = matchQueryService.getMatchInfo(matchId);
+        MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
         PostInfoDto postInfo = postQueryService.getPostInfo(matchInfo.postId());
 
         // 등록자인지 확인 (QR 발급은 등록자만 가능!)
@@ -180,7 +178,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                 .orElseThrow( () -> new VerificationException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
 
         // MatchInfoDto 조회로 신청자 검증
-        MatchInfoDto matchInfo = matchQueryService.getMatchInfo(matchId);
+        MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
 
         // 신청자인지 확인 (QR 스캔은 신청자만 가능!)
         if (!matchInfo.isApplicant(userId)) {
@@ -216,7 +214,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         chatService.scheduleChatRoomDeactivation(matchId);
 
         // Match 상태 COMPLETED로 변경
-        matchCommandService.completeMatch(matchId);
+        matchService.completeMatch(matchId);
 
         // TODO: 양측 예치 포인트 전액 환급 필요
 
@@ -231,7 +229,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                 .orElseThrow( () -> new VerificationException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
 
         // MatchInfoDto → PostInfoDto 순으로 타서 authorId 획득
-        MatchInfoDto matchInfo = matchQueryService.getMatchInfo(matchId);
+        MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
         PostInfoDto postInfo = postQueryService.getPostInfo(matchInfo.postId());
 
         // 매칭 당사자 검증
@@ -259,7 +257,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         meetVerificationRepository.findAllByStatus(VerificationStatus.PENDING)
                 .stream()
                 .forEach(verification -> {
-                    MatchInfoDto matchInfo = matchQueryService.getMatchInfo(verification.getMatchId());
+                    MatchInfoDto matchInfo = matchService.getMatchInfo(verification.getMatchId());
                     PostInfoDto postInfo = postQueryService.getPostInfo(matchInfo.postId());
 
                     // meetAt + 30분 안지났으면 스킵
@@ -274,19 +272,19 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                     if (!authorVerified && !applicantVerified) {
                         // 둘 다 미인증 -> 양측 노쇼
                         verification.markBothNoShow();
-                        matchCommandService.markBothNoShow(verification.getMatchId());
+                        matchService.markBothNoShow(verification.getMatchId());
                         userLocationService.deleteLocationsByMatchId(verification.getMatchId());
                         chatService.deactivateChatRoom(verification.getMatchId());
                     } else if (authorVerified && !applicantVerified) {
                         // 등록자만 인증 -> 신청자 노쇼
                         verification.markApplicantNoShow();
-                        matchCommandService.markApplicantNoShow(verification.getMatchId());
+                        matchService.markApplicantNoShow(verification.getMatchId());
                         userLocationService.deleteLocationsByMatchId(verification.getMatchId());
                         chatService.deactivateChatRoom(verification.getMatchId());
                     } else if (!authorVerified) {
                         // 신청자만 인증 -> 등록자 노쇼
                         verification.markAuthorNoShow();
-                        matchCommandService.markAuthorNoShow(verification.getMatchId());
+                        matchService.markAuthorNoShow(verification.getMatchId());
                         userLocationService.deleteLocationsByMatchId(verification.getMatchId());
                         chatService.deactivateChatRoom(verification.getMatchId());
                     }
@@ -303,7 +301,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                 .stream()
                 .forEach(verification -> {
                     verification.markApplicantNoShow();
-                    matchCommandService.markApplicantNoShow(verification.getMatchId());
+                    matchService.markApplicantNoShow(verification.getMatchId());
                     userLocationService.deleteLocationsByMatchId(verification.getMatchId());
                     chatService.deactivateChatRoom(verification.getMatchId());
                 });

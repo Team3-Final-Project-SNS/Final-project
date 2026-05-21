@@ -9,7 +9,7 @@ import com.example.team3final.domain.location.dto.response.UpdateLocationRespons
 import com.example.team3final.domain.location.entity.UserLocation;
 import com.example.team3final.domain.location.repository.UserLocationRepository;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
-import com.example.team3final.domain.match.service.MatchQueryService;
+import com.example.team3final.domain.match.service.MatchService;
 import com.example.team3final.domain.post.dto.response.PostInfoDto;
 import com.example.team3final.domain.post.service.PostService;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +25,7 @@ import java.util.Optional;
 public class UserLocationServiceImpl implements UserLocationService {
 
     private final UserLocationRepository userLocationRepository;
-    private final MatchQueryService matchQueryService;
+    private final MatchService matchQueryService;
     private final PostService postQueryService;
 
     // 내 위치 업데이트

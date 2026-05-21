@@ -8,8 +8,7 @@ import com.example.team3final.domain.match.dto.response.CreateMatchResponseDto;
 import com.example.team3final.domain.match.dto.response.GetMatchResponseDto;
 import com.example.team3final.domain.match.dto.response.GetMatchesResponseDto;
 import com.example.team3final.domain.match.enums.MatchStatus;
-import com.example.team3final.domain.match.service.MatchCommandService;
-import com.example.team3final.domain.match.service.MatchQueryService;
+import com.example.team3final.domain.match.service.MatchService;
 import com.example.team3final.domain.meet.service.MeetVerificationService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
 import jakarta.validation.Valid;
@@ -27,15 +26,12 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1")
 public class MatchController {
 
-    private final MatchCommandService matchCommandService;
-    private final MatchQueryService matchQueryService;
+    private final MatchService matchService;
     private final MeetVerificationService meetVerificationService;
 
     /**
      * 매칭 신청 (선착순 매칭 생성)
-     * <p>
-     * 명세서: MVP 개발에서 내 역할.md - 5.1 createMatch
-     * <p>
+     *
      * POST /api/v1/posts/{postId}/matches
      */
     @PostMapping("/posts/{postId}/matches")
@@ -46,7 +42,7 @@ public class MatchController {
         // 토큰에서 추출된 검증된 userId
         Long applicantId = userDetails.getUserId();
 
-        CreateMatchResponseDto response = matchCommandService.createMatch(postId, applicantId);
+        CreateMatchResponseDto response = matchService.createMatch(postId, applicantId);
         meetVerificationService.createPendingVerification(response.matchId());
 
         return ResponseEntity
@@ -67,7 +63,7 @@ public class MatchController {
         // JWT 토큰에서 검증된 userId 추출 (당사자 검증용)
         Long currentUserId = userDetails.getUserId();
 
-        GetMatchResponseDto response = matchQueryService.getMatch(matchId, currentUserId);
+        GetMatchResponseDto response = matchService.getMatch(matchId, currentUserId);
 
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
@@ -91,7 +87,7 @@ public class MatchController {
         );
 
         PageResponseDto<GetMatchesResponseDto> response =
-                matchQueryService.getMatches(userId, status, pageable);
+                matchService.getMatches(userId, status, pageable);
 
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
@@ -109,7 +105,7 @@ public class MatchController {
             ) {
         Long userId = userDetails.getUserId();
 
-        CancelMatchResponseDto response = matchCommandService.cancelMatch(matchId, userId, request);
+        CancelMatchResponseDto response = matchService.cancelMatch(matchId, userId, request);
 
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
