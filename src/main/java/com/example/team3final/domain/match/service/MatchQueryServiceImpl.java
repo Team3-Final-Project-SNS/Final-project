@@ -13,7 +13,7 @@ import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.repository.MatchRepository;
 import com.example.team3final.domain.post.dto.response.PostMatchInfoDto;
 import com.example.team3final.domain.post.entity.Post;
-import com.example.team3final.domain.post.service.PostQueryService;
+import com.example.team3final.domain.post.service.PostService;
 import com.example.team3final.domain.user.dto.response.UserInfoDto;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class MatchQueryServiceImpl implements MatchQueryService{
 
     private final MatchRepository matchRepository;
-    private final PostQueryService postQueryService;
+    private final PostService postQueryService;
     private final ChatRoomRepository chatRoomRepository;
     private final UserService userService;
     private final ChatService chatService;

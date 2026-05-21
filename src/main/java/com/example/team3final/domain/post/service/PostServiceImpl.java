@@ -1,0 +1,265 @@
+package com.example.team3final.domain.post.service;
+
+import com.example.team3final.common.dto.response.PageResponseDto;
+import com.example.team3final.common.exception.ErrorCode;
+import com.example.team3final.common.exception.PostException;
+import com.example.team3final.domain.post.dto.request.CreatePostRequestDto;
+import com.example.team3final.domain.post.dto.request.UpdatePostRequestDto;
+import com.example.team3final.domain.post.dto.response.*;
+import com.example.team3final.domain.post.entity.Post;
+import com.example.team3final.domain.post.enums.PostStatus;
+import com.example.team3final.domain.post.repository.PostRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Service
+@Transactional(readOnly = true)
+@RequiredArgsConstructor
+public class PostServiceImpl implements PostService{
+
+    private final PostRepository postRepository;
+
+    // TODO: User 도메인 연동 시 활성화
+    // private final UserService userService;
+    // private final UserPointService userPointService;
+
+
+    @Override
+    @Transactional // ⭐ 쓰기 메서드 → 클래스 기본값(readOnly) 오버라이드
+    public CreatePostResponseDto createPost(Long authorId, CreatePostRequestDto request) {
+
+        // 1. 비즈니스 규칙 검증
+        if (request.getMeetAt().isBefore(LocalDateTime.now())) {
+            throw new PostException(ErrorCode.POST_INVALID_MEET_AT);
+        }
+
+        // 책임비 100P 단위 검증
+        if (request.getAuthorDeposit() % Post.DEPOSIT_UNIT != 0) {
+            throw new PostException(ErrorCode.POST_INVALID_DEPOSIT);
+        }
+
+        // 2. 포인트 차감
+        // TODO: User 도메인 머지 후 활성화
+        // userPointService.deductPoint(authorId, request.getAuthorDeposit(), null);
+
+        // 3. Post 엔티티 생성
+        Post post = Post.builder()
+                .authorId(authorId)
+                .meetAt(request.getMeetAt())
+                .placeName(request.getPlaceName())
+                .placeLat(request.getPlaceLat())
+                .placeLng(request.getPlaceLng())
+                .content(request.getContent()) // null이면 null로 저장 (선택 필드)
+                .authorDeposit(request.getAuthorDeposit())
+                .build();
+
+        // 4. 저장
+        Post savedPost = postRepository.save(post);
+
+        // TODO: User 도메인 머지 후 실제 조회로 교체
+        // String authorNickname = userService.getUserInfo(authorId).nickname();
+        String authorNickname = "임시닉네임"; // 임시값
+
+        return CreatePostResponseDto.from(savedPost, authorNickname);
+    }
+
+    @Override
+    @Transactional
+    public UpdatePostResponseDto updatePost(Long postId, Long userId, UpdatePostRequestDto request) {
+
+        // 1. 게시글 조회
+        Post post = getPostById(postId);
+
+        // 2. 작성자 본인 검증
+        if (!post.isAuthor(userId)) {
+            throw new PostException(ErrorCode.POST_NOT_AUTHOR);
+        }
+
+        // 3. 상태 검증 — OPEN만 수정 가능
+        if (!post.isOpen()) {
+            throw new PostException(ErrorCode.POST_NOT_OPEN);
+        }
+
+        // 4. authorDeposit 검증 + 차액 처리
+        Integer newDeposit = request.getAuthorDeposit();
+
+        if (newDeposit != null) {
+            // 100P 단위 검증
+            if (newDeposit % Post.DEPOSIT_UNIT != 0) {
+                throw new PostException(ErrorCode.POST_INVALID_DEPOSIT);
+            }
+
+            // 차액 계산 — 양수면 추가 차감, 음수면 환불
+            int oldDeposit = post.getAuthorDeposit();
+            int diff = newDeposit - oldDeposit;
+
+            if (diff > 0) {
+                // 증액: diff만큼 추가 차감
+                // TODO: User 도메인 머지 후 활성화
+                // userPointService.deductPoint(userId, diff, null);
+            } else if (diff < 0) {
+                // 감액: |diff|만큼 환불
+                // TODO: User 도메인 머지 후 활성화
+                // userPointService.refundPoint(userId, Math.abs(diff), null);
+            }
+            // diff == 0이면 아무것도 안 함
+        }
+
+        // 5. 엔티티 update() 호출 — 상태/필드 변경은 도메인 메서드가 책임
+        post.update(
+                request.getMeetAt(),
+                request.getPlaceName(),
+                request.getPlaceLat(),
+                request.getPlaceLng(),
+                request.getContent(),
+                request.getAuthorDeposit()
+        );
+
+        // 6. 응답 DTO 변환
+        return UpdatePostResponseDto.from(post);
+    }
+
+    @Override
+    @Transactional
+    public void completePost(Long postId) {
+        // 1. Post 조회
+        Post post = getPostById(postId);
+
+        // 2. 도메인 메서드 호출 — 상태 전이 규칙은 엔티티가 책임
+        post.complete();
+    }
+
+    @Override
+    @Transactional
+    public DeletePostResponseDto deletePost(Long postId, Long userId) {
+
+        // 1. 게시글 조회
+        Post post = getPostById(postId);
+
+        // 2. 작성자 본인 검증
+        if (!post.isAuthor(userId)) {
+            throw new PostException(ErrorCode.POST_NOT_AUTHOR);
+        }
+
+        // 3. 상태 검증 — OPEN만 삭제 가능
+        if (!post.isOpen()) {
+            throw new PostException(ErrorCode.POST_NOT_OPEN);
+        }
+
+        // 4. 환불 금액 추출
+        int refundedPoint = post.getAuthorDeposit();
+
+        // 5. 포인트 전액 환불 (User 도메인 의존)
+        // TODO: User 도메인 머지 후 활성화
+        // userPointService.refundPoint(userId, refundedPoint, null);
+
+        // 6. 게시글 하드 삭제
+        postRepository.delete(post);
+
+        return DeletePostResponseDto.of(postId, refundedPoint);
+    }
+
+    @Override
+    public PageResponseDto<GetPostsItemResponseDto> getPosts(
+            Long currentUserId,
+            PostStatus status,
+            Pageable pageable
+    ) {
+        // 1. 현재 유저의 학교 ID 조회
+        // TODO: User 도메인 머지 후 실제 호출로 교체
+        // Long universityId = userService.getUserInfo(currentUserId)...; // 학교 조회 메서드 필요
+        Long universityId = 1L; // 임시값
+
+        // 2. 같은 학교 유저 ID 목록 조회
+        // TODO: User 도메인 머지 후 실제 호출로 교체
+        List<Long> sameUniversityUserIds = null; // null로 두고 아래에서 분기
+
+        // 3. 게시글 조회
+        Page<Post> postPage;
+        if (sameUniversityUserIds == null) {
+            // 임시 분기: User 도메인 머지 전까지 학교 필터 없이 전체 조회
+            postPage = postRepository.findAll(
+                    PageRequest.of(
+                            pageable.getPageNumber(),
+                            pageable.getPageSize(),
+                            pageable.getSort()
+                    )
+            );
+        } else {
+            postPage = postRepository.findByAuthorIdInAndStatus(
+                    sameUniversityUserIds,
+                    status,
+                    pageable
+            );
+        }
+
+        // 4. Page<Post> → Page<GetPostsItemResponseDto> 변환 (페이징 메타데이터 보존)
+        Page<GetPostsItemResponseDto> dtoPage = postPage.map(post -> {
+            // TODO: User 도메인 머지 후 실제 조회로 교체
+            return GetPostsItemResponseDto.from(
+                    post,
+                    "임시닉네임",
+                    "임시학과",
+                    "00"
+            );
+        });
+
+        // 5. 공통 PageResponseDto로 래핑
+        return PageResponseDto.from(dtoPage);
+    }
+
+    @Override
+    public Post getPostById(Long postId) {
+        // 단순 단건 조회 — findById Optional 반환 → 없으면 POST_001로 변환
+        return postRepository.findById(postId)
+                .orElseThrow(() -> new PostException(ErrorCode.POST_NOT_FOUND));
+    }
+
+    @Override
+    public PostInfoDto getPostInfo(Long postId) {
+        // 내부적으로 getPostById 재사용 → 중복 제거
+        Post post = getPostById(postId);
+        return PostInfoDto.from(post);
+    }
+
+    @Override
+    public GetPostResponseDto getPost(Long postId, Long currentUserId) {
+
+        // 1. 게시글 존재 확인
+        Post post = getPostById(postId);
+
+        // 2. 같은 학교 게시글인지 검증
+        // TODO: User 도메인 머지 후 활성화
+
+        // 3. isMine 결정 — 조회자가 작성자 본인이면 true
+        boolean isMine = post.isAuthor(currentUserId);
+
+        // 4. 작성자 정보 조회
+        // TODO: User 도메인 머지 후 실제 조회로 교체
+        String authorNickname = "임시닉네임";
+        String authorMajor = "임시학과";
+        String authorStudentNumber = "00";
+
+        // 5. DTO 조립
+        return GetPostResponseDto.from(
+                post,
+                authorNickname,
+                authorMajor,
+                authorStudentNumber,
+                isMine
+        );
+    }
+
+    @Override
+    public PostMatchInfoDto getPostMatchInfo(Long postId) {
+        Post post = getPostById(postId);
+        return PostMatchInfoDto.from(post);
+    }
+}

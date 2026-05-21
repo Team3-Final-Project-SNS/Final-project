@@ -11,7 +11,7 @@ import com.example.team3final.domain.location.repository.UserLocationRepository;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.service.MatchQueryService;
 import com.example.team3final.domain.post.dto.response.PostInfoDto;
-import com.example.team3final.domain.post.service.PostQueryService;
+import com.example.team3final.domain.post.service.PostService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,7 +26,7 @@ public class UserLocationServiceImpl implements UserLocationService {
 
     private final UserLocationRepository userLocationRepository;
     private final MatchQueryService matchQueryService;
-    private final PostQueryService postQueryService;
+    private final PostService postQueryService;
 
     // 내 위치 업데이트
     @Override
