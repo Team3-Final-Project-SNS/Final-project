@@ -1,20 +1,61 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
+import { createPost } from '../../api/postApi';
+import axiosInstance from '../../api/axiosInstance';
+import { AlertCircle, Loader2 } from 'lucide-react';
 
 export default function PostCreatePage() {
   const navigate = useNavigate();
-  const [location, setLocation] = useState('');
-  const [date, setDate] = useState('2026-05-14');
+  const [placeName, setPlaceName] = useState('');
+  const [placeLat, setPlaceLat] = useState(37.5665);
+  const [placeLng, setPlaceLng] = useState(126.9780);
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState('12:30');
   const [content, setContent] = useState('');
   const [points, setPoints] = useState(1000);
+  const [userPoints, setUserPoints] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const currentPoints = 8500;
-  const afterPoints = currentPoints - points;
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const res = await axiosInstance.get('/api/v1/users/me');
+        setUserPoints(res.data.data.point);
+      } catch (e) {
+        console.error('Failed to fetch user info');
+      }
+    };
+    fetchUser();
+  }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const afterPoints = userPoints - points;
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate('/');
+    if (!placeName || !date || !time) {
+      setError('필수 정보를 입력해주세요.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      const meetAt = `${date}T${time}:00`;
+      await createPost({
+        meetAt,
+        placeName,
+        placeLat,
+        placeLng,
+        content,
+        authorDeposit: points,
+      });
+      navigate('/posts');
+    } catch (err: any) {
+      setError(err.response?.data?.message || '게시글 작성에 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const pointOptions = [1000, 2000, 3000, 5000];
@@ -25,45 +66,55 @@ export default function PostCreatePage() {
         <p className="text-center text-[#616161] mb-8">간단한 정보만 입력하면 매칭이 시작됩니다</p>
 
         <form onSubmit={handleSubmit} className="bg-white border border-[#e0e0e0] rounded-2xl p-8 shadow-sm">
+          {error && (
+            <div className="mb-6 bg-[#ffebee] border border-[#ef5350] rounded-lg px-4 py-3 flex items-start gap-2">
+              <AlertCircle size={18} className="text-[#c62828] mt-0.5" />
+              <span className="text-[#c62828] text-sm">{error}</span>
+            </div>
+          )}
+
           <div className="mb-6">
             <h2 className="text-lg font-semibold text-[#212121] mb-4">모임 정보</h2>
 
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-[#424242] mb-2">
-                  장소 (선택)
+                  만남 장소
                 </label>
                 <input
                     type="text"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
+                    value={placeName}
+                    onChange={(e) => setPlaceName(e.target.value)}
                     placeholder="예: 학생식당 1층, 공학관 카페"
                     className="w-full px-4 py-3 border border-[#e0e0e0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#d84315] focus:border-transparent"
+                    required
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-[#424242] mb-2">
-                    날짜 (선택)
+                    날짜
                   </label>
                   <input
                       type="date"
                       value={date}
                       onChange={(e) => setDate(e.target.value)}
                       className="w-full px-4 py-3 border border-[#e0e0e0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#d84315] focus:border-transparent"
+                      required
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-[#424242] mb-2">
-                    시간 (선택)
+                    시간
                   </label>
                   <input
                       type="time"
                       value={time}
                       onChange={(e) => setTime(e.target.value)}
                       className="w-full px-4 py-3 border border-[#e0e0e0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#d84315] focus:border-transparent"
+                      required
                   />
                 </div>
               </div>
@@ -102,17 +153,18 @@ export default function PostCreatePage() {
                     {option.toLocaleString()}P
                   </button>
               ))}
-              <button
-                  type="button"
-                  className="px-6 py-3 rounded-lg font-semibold bg-white border border-[#e0e0e0] text-[#616161] hover:border-[#d84315]"
-              >
-                직접입력
-              </button>
+              <input 
+                type="number"
+                placeholder="직접입력"
+                value={points}
+                onChange={(e) => setPoints(Number(e.target.value))}
+                className="px-4 py-3 border border-[#e0e0e0] rounded-lg w-32 focus:outline-none focus:ring-2 focus:ring-[#d84315]"
+              />
             </div>
 
             <div className="bg-[#fff3e0] rounded-lg p-4">
               <p className="text-sm text-[#616161]">
-                현재 잔액 <strong className="text-[#d84315]">{currentPoints.toLocaleString()}P</strong> → 신청 후 잔액:{' '}
+                현재 잔액 <strong className="text-[#d84315]">{userPoints.toLocaleString()}P</strong> → 신청 후 잔액:{' '}
                 <strong className="text-[#4caf50]">{afterPoints.toLocaleString()}P</strong>
               </p>
             </div>
@@ -120,9 +172,10 @@ export default function PostCreatePage() {
 
           <button
               type="submit"
-              className="w-full bg-[#d84315] text-white py-4 rounded-xl font-bold text-lg hover:bg-[#bf360c] transition-all shadow-md hover:shadow-lg"
+              disabled={loading}
+              className="w-full bg-[#d84315] text-white py-4 rounded-xl font-bold text-lg hover:bg-[#bf360c] transition-all shadow-md hover:shadow-lg disabled:bg-[#e0e0e0] flex items-center justify-center"
           >
-            게시글 올리기
+            {loading ? <Loader2 className="animate-spin" /> : '게시글 올리기'}
           </button>
         </form>
       </div>

@@ -213,7 +213,7 @@ public class MatchCommandServiceImpl implements MatchCommandService{
             return;
         }
 
-        // Match 상태 → BOTH_NO_SHOW (양측 노쇼)
+        // Match 상태 → BOTH_NO_SHOW (양측 노쇼
         match.markNoShow(MatchStatus.BOTH_NO_SHOW);
 
         // Post 상태 → COMPLETED (노쇼도 게시글은 종료)

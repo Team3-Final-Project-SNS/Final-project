@@ -5,6 +5,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.util.Arrays;
+
 @Configuration
 public class CorsConfig implements WebMvcConfigurer {
 
@@ -13,24 +15,17 @@ public class CorsConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
+        String[] origins = Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .toArray(String[]::new);
+
         registry
-                // /** -> 모든 API 경로에 CORS 설정 허용
-                .addMapping("/api/**")
-
-                // 허용할 프론트엔드 출처
-                .allowedOrigins(allowedOrigins.split(","))
-
-                // 허용할 HTTP 메서드
+                .addMapping("/**")
+                // 환경변수에서 허용할 origin 목록 읽어서 적용
+                .allowedOriginPatterns(origins)  // allowedOrigins → allowedOriginPatterns 로 변경
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-
-                // 허용할 헤더 (userId 임시 헤더 포함)
                 .allowedHeaders("*")
-
-                // 인증 정보 (쿠키, Authorization 헤더) 포함 허용
-                // JWT 붙을 때 필요하므로 미리 설정
                 .allowCredentials(true)
-
-                // Preflight 요청 캐시 시간 (초) -> 매 요청마다 Preflight 안 보내도 됨
                 .maxAge(3600);
     }
 }
