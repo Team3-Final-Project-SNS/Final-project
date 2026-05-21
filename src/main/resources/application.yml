@@ -12,22 +12,22 @@ spring:
       host: ${REDIS_HOST:localhost}   # 환경변수 없으면 localhost 사용
       port: ${REDIS_PORT:6379}        # 환경변수 없으면 6379 사용
   mail:
-    host: smtp.gmail.com              # Gmail SMTP 서버 주소
-    port: 587                         # TLS 포트 (465는 SSL)
+    host: smtp.naver.com             # Gmail SMTP 서버 주소
+    port: 465                         # TLS 포트 (465는 SSL)
     username: ${MAIL_USERNAME}        # 발송에 사용할 Gmail 주소 (환경변수로 주입)
     password: ${MAIL_PASSWORD}        # Gmail 앱 비밀번호 (환경변수로 주입)
     properties:
       mail:
         smtp:
           auth: true                  # SMTP 인증 사용
-          starttls:
+          ssl:
             enable: true              # TLS 암호화 활성화
-            required: true            # TLS 필수
+            trust: smtp.naver.com     # TLS 필수
 otp:
   expire-seconds: 300         # OTP 유효시간: 5분 (300초)
   cooldown-seconds: 60        # 재발송 쿨다운: 1분 (60초)
-  max-resend-count: 3         # 1시간 내 최대 재발송 횟수
-  resend-window-seconds: 3600 # 재발송 횟수 리셋 주기: 1시간
+  max-resend-count: 10         # 1시간 내 최대 재발송 횟수
+  resend-window-seconds: 60 # 재발송 횟수 리셋 주기: 1시간
 
 jwt:
   # 운영 환경에서는 반드시 JWT_SECRET_KEY 환경변수로 주입해야 합니다.
