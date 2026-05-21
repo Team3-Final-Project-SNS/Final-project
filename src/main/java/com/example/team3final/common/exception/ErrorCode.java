@@ -18,16 +18,18 @@ public enum ErrorCode {
     OTP_EXPIRED(HttpStatus.BAD_REQUEST, "AUTH_007", "OTP가 만료되었습니다."),
     OTP_MAX_ATTEMPTS_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "AUTH_008", "OTP 시도 횟수를 초과했습니다. 새 인증번호를 요청하세요."),
     NICKNAME_DUPLICATED(HttpStatus.CONFLICT, "AUTH_009", "이미 사용 중인 닉네임입니다."),
-    INVALID_SIGNUP_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH_010", "유효하지 않거나 만료된 Signup Token입니다."),
+    LOGIN_FAIL(HttpStatus.UNAUTHORIZED, "AUTH_011", "이메일 또는 비밀번호가 일치하지 않습니다."),
+    USER_SUSPENDED_OR_WITHDRAWN(HttpStatus.FORBIDDEN, "AUTH_012", "정지 또는 탈퇴된 계정입니다."),
+    INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH_013", "유효하지 않거나 만료된 토큰입니다."),
     // Term
     REQUIRED_TERM_NOT_AGREED(HttpStatus.BAD_REQUEST, "TERM_001", "필수 약관에 동의하지 않았습니다."),
 
     // User
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_001", "존재하지 않는 유저입니다."),
-    LOGIN_FAIL(HttpStatus.UNAUTHORIZED, "AUTH_002", "이메일 또는 비밀번호가 일치하지 않습니다."),
-    USER_SUSPENDED_OR_WITHDRAWN(HttpStatus.FORBIDDEN, "AUTH_003", "정지 또는 탈퇴된 계정입니다."),
-    INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH_004", "유효하지 않거나 만료된 토큰입니다."),
-    EXPIRED_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH_005", "만료된 토큰입니다."),
+    USER_CURRENT_PASSWORD_MISMATCH(HttpStatus.UNAUTHORIZED, "USER_002", "현재 비밀번호가 일치하지 않습니다."),
+    USER_SAME_PASSWORD(HttpStatus.BAD_REQUEST, "USER_003", "새 비밀번호가 현재 비밀번호와 동일합니다."),
+    // common
+    USER_NO_FIELD_TO_UPDATE(HttpStatus.BAD_REQUEST, "COMMON_002", "수정할 필드가 한 개 이상 필요합니다."),
 
     // Post
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "POST_001", "존재하지 않는 게시글입니다."),
