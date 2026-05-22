@@ -25,6 +25,9 @@ public class Post extends BaseEntity {
         // 책임비 포인트 단위 (100P 단위)
         public static final int DEPOSIT_UNIT = 100;
 
+        // 게시글 목록 조회 시 페이지당 최대 항목 수
+        public static final int MAX_PAGE_SIZE = 50;
+
         @Id
         @GeneratedValue(strategy = GenerationType.IDENTITY)
         @Column(name = "post_id")
