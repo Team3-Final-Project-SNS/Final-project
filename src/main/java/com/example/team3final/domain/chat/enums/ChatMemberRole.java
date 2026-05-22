@@ -1,8 +1,10 @@
 package com.example.team3final.domain.chat.enums;
 
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 @Getter
+@RequiredArgsConstructor
 public enum ChatMemberRole {
 
     HOST("게시글 등록자"),
@@ -10,7 +12,4 @@ public enum ChatMemberRole {
 
     private final String description;
 
-    ChatMemberRole(String description) {
-        this.description = description;
-    }
 }
