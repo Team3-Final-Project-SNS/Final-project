@@ -102,6 +102,12 @@ export default function MyInfoPage() {
                     포인트 거래 내역 조회
                   </Link>
                   <Link
+                      to="/me/matches"
+                      className="rounded-lg border border-[#d84315] bg-white px-5 py-2.5 text-sm font-semibold text-[#d84315] transition-colors hover:bg-[#fff3e0]"
+                  >
+                    내 매칭 결과 보기
+                  </Link>
+                  <Link
                       to="/posts?mine=1"
                       className="rounded-lg bg-[#d84315] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#bf360c]"
                   >
