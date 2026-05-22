@@ -9,6 +9,9 @@ import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
+import java.util.Map;
+
 public interface PostService {
 
     // ===================== Command (쓰기) =====================
@@ -96,4 +99,20 @@ public interface PostService {
      * 게시글 매칭 정보 조회 — 도메인 간 호출용 (매칭 목록 조회 전용)
      */
     PostMatchInfoDto getPostMatchInfo(Long postId);
+
+    /**
+     * 게시글 정보 일괄 조회 — 도메인 간 호출용 (벌크)
+     * 사용처: Meet 도메인 노쇼 일괄 판정(judgeGpsNoShow) — N건의 매칭 정보에 묶인
+     *         Post(meetAt, placeLat/Lng 등)를 한 번의 IN 쿼리로 가져와 N+1 문제 방지
+     *
+     * 반환 형태:
+     *  - Key   = postId
+     *  - Value = PostInfoDto
+     *  - 호출 측에서 O(1) 룩업이 가능하도록 Map으로 반환
+     *
+     * Contract:
+     *  - postIds 가 비어있거나 null이면 빈 Map 반환 (예외 던지지 않음)
+     *  - 존재하지 않는 postId 가 섞여 있어도 예외를 던지지 않고, 결과 Map에서 빠진 채로 반환
+     */
+    Map<Long, PostInfoDto> getPostInfos(List<Long> postIds);
 }
