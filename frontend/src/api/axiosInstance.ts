@@ -64,7 +64,7 @@ axiosInstance.interceptors.request.use((config) => {
 
     // 공개 엔드포인트가 아닌 경우에만 Authorization 헤더 추가
     if (!isPublic) {
-        const accessToken = localStorage.getItem("accessToken");
+        const accessToken = sessionStorage.getItem("accessToken");
         if (accessToken) {
             config.headers["Authorization"] = `Bearer ${accessToken}`;
         }
@@ -113,7 +113,7 @@ axiosInstance.interceptors.response.use(
             try {
                 const { data } = await axiosInstance.post("/api/v1/auth/refresh");
                 const newAccessToken = data.data.accessToken;
-                localStorage.setItem("accessToken", newAccessToken);
+                sessionStorage.setItem("accessToken", newAccessToken);
                 processQueue(null, newAccessToken);
                 originalRequest.headers = {
                     ...originalRequest.headers,
@@ -122,7 +122,7 @@ axiosInstance.interceptors.response.use(
                 return axiosInstance(originalRequest);
             } catch (refreshError) {
                 processQueue(refreshError, null);
-                localStorage.removeItem("accessToken");
+                sessionStorage.removeItem("accessToken");
                 window.location.href = "/login";
                 return Promise.reject(refreshError);
             } finally {
