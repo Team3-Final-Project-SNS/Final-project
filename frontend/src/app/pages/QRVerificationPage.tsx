@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { Check, Camera } from 'lucide-react';
 import QRCode from 'qrcode';
+import jsQR from 'jsqr';
 import { getMeetQr, createQrScan, getMeetVerification } from '../../api/meetApi';
 import { getMatchDetail } from '../../api/matchApi';
 import { getUserMe } from '../../api/userApi';
@@ -30,6 +31,7 @@ export default function QRVerificationPage() {
   const [cameraError, setCameraError] = useState('');
   const [cameraReady, setCameraReady] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const scanFrameRef = useRef<number | null>(null);
   const scannedTokenRef = useRef('');
@@ -255,13 +257,6 @@ export default function QRVerificationPage() {
           return;
         }
 
-        const BarcodeDetectorConstructor = (window as any).BarcodeDetector;
-        if (!BarcodeDetectorConstructor) {
-          setCameraError('이 브라우저는 실시간 QR 스캔을 지원하지 않습니다. QR을 스캔한 URL로 접속하거나 토큰을 직접 입력해주세요.');
-          return;
-        }
-
-        const detector = new BarcodeDetectorConstructor({ formats: ['qr_code'] });
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: 'environment' } },
           audio: false,
@@ -285,17 +280,33 @@ export default function QRVerificationPage() {
 
           try {
             if (videoRef.current.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-              const barcodes = await detector.detect(videoRef.current);
-              const scannedValue = barcodes?.[0]?.rawValue;
+              const video = videoRef.current;
+              const canvas = canvasRef.current ?? document.createElement('canvas');
+              canvasRef.current = canvas;
 
-              if (scannedValue) {
-                const token = extractQrToken(scannedValue);
-                if (token && scannedTokenRef.current !== token) {
-                  scannedTokenRef.current = token;
-                  setQrInput(token);
-                  stopCamera();
-                  await handleScan(token);
-                  return;
+              const width = video.videoWidth;
+              const height = video.videoHeight;
+
+              if (width > 0 && height > 0) {
+                canvas.width = width;
+                canvas.height = height;
+
+                const context = canvas.getContext('2d', { willReadFrequently: true });
+                context?.drawImage(video, 0, 0, width, height);
+
+                const imageData = context?.getImageData(0, 0, width, height);
+                const qrCode = imageData ? jsQR(imageData.data, imageData.width, imageData.height) : null;
+                const scannedValue = qrCode?.data;
+
+                if (scannedValue) {
+                  const token = extractQrToken(scannedValue);
+                  if (token && scannedTokenRef.current !== token) {
+                    scannedTokenRef.current = token;
+                    setQrInput(token);
+                    stopCamera();
+                    await handleScan(token);
+                    return;
+                  }
                 }
               }
             }
