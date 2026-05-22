@@ -27,6 +27,11 @@ export default function QRVerificationPage() {
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [scanError, setScanError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [cameraError, setCameraError] = useState('');
+  const [cameraReady, setCameraReady] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const scanFrameRef = useRef<number | null>(null);
   const scannedTokenRef = useRef('');
 
   const matchId = Number(id);
@@ -212,6 +217,110 @@ export default function QRVerificationPage() {
     }
   };
 
+  const stopCamera = () => {
+    if (scanFrameRef.current !== null) {
+      cancelAnimationFrame(scanFrameRef.current);
+      scanFrameRef.current = null;
+    }
+
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    setCameraReady(false);
+  };
+
+  const extractQrToken = (value: string) => {
+    try {
+      const url = new URL(value);
+      return url.searchParams.get('qrToken') || value;
+    } catch {
+      const tokenMatch = value.match(/[?&]qrToken=([^&]+)/);
+      return tokenMatch ? decodeURIComponent(tokenMatch[1]) : value;
+    }
+  };
+
+  useEffect(() => {
+    if (role !== 'applicant' || step !== 'scan') {
+      stopCamera();
+      return;
+    }
+
+    let stopped = false;
+
+    const startCameraScanner = async () => {
+      try {
+        setCameraError('');
+
+        if (!navigator.mediaDevices?.getUserMedia) {
+          setCameraError('이 브라우저에서는 카메라를 사용할 수 없습니다.');
+          return;
+        }
+
+        const BarcodeDetectorConstructor = (window as any).BarcodeDetector;
+        if (!BarcodeDetectorConstructor) {
+          setCameraError('이 브라우저는 실시간 QR 스캔을 지원하지 않습니다. QR을 스캔한 URL로 접속하거나 토큰을 직접 입력해주세요.');
+          return;
+        }
+
+        const detector = new BarcodeDetectorConstructor({ formats: ['qr_code'] });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } },
+          audio: false,
+        });
+
+        if (stopped) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        streamRef.current = stream;
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+          setCameraReady(true);
+        }
+
+        const scanFrame = async () => {
+          if (stopped || !videoRef.current) return;
+
+          try {
+            if (videoRef.current.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+              const barcodes = await detector.detect(videoRef.current);
+              const scannedValue = barcodes?.[0]?.rawValue;
+
+              if (scannedValue) {
+                const token = extractQrToken(scannedValue);
+                if (token && scannedTokenRef.current !== token) {
+                  scannedTokenRef.current = token;
+                  setQrInput(token);
+                  stopCamera();
+                  await handleScan(token);
+                  return;
+                }
+              }
+            }
+          } catch (err) {
+            console.error('QR scan frame failed', err);
+          }
+
+          scanFrameRef.current = requestAnimationFrame(scanFrame);
+        };
+
+        scanFrameRef.current = requestAnimationFrame(scanFrame);
+      } catch (err) {
+        console.error('Camera start failed', err);
+        setCameraError('카메라를 열 수 없습니다. 브라우저 카메라 권한을 허용해주세요.');
+      }
+    };
+
+    startCameraScanner();
+
+    return () => {
+      stopped = true;
+      stopCamera();
+    };
+  }, [role, step, matchId]);
+
   // ───────────────────────────────────────────
   // 신청자: QR URL로 진입하면 토큰 추출 후 바로 인증 요청
   // ───────────────────────────────────────────
@@ -267,9 +376,29 @@ export default function QRVerificationPage() {
                     상대방이 보여주는 QR 코드를 스캔하세요.
                   </p>
 
-                  <div className="bg-[#fafafa] border-2 border-dashed border-[#e0e0e0] rounded-2xl p-12 mb-6 text-center">
-                    <Camera size={64} className="text-[#bdbdbd] mx-auto mb-4" />
-                    <p className="text-[#9e9e9e]">카메라 스캔 기능은 추후 지원 예정</p>
+                  <div className="relative mb-6 overflow-hidden rounded-2xl border-2 border-dashed border-[#e0e0e0] bg-[#111111]">
+                    <video
+                        ref={videoRef}
+                        autoPlay
+                        muted
+                        playsInline
+                        className="aspect-square w-full object-cover"
+                    />
+                    {!cameraReady && !cameraError && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#fafafa] text-center">
+                          <Camera size={64} className="mx-auto mb-4 text-[#bdbdbd]" />
+                          <p className="text-[#9e9e9e]">카메라를 여는 중...</p>
+                        </div>
+                    )}
+                    {cameraReady && (
+                        <div className="pointer-events-none absolute inset-8 rounded-2xl border-4 border-white/80 shadow-[0_0_0_999px_rgba(0,0,0,0.25)]" />
+                    )}
+                    {cameraError && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#fafafa] p-8 text-center">
+                          <Camera size={64} className="mx-auto mb-4 text-[#bdbdbd]" />
+                          <p className="text-sm font-semibold text-[#757575]">{cameraError}</p>
+                        </div>
+                    )}
                   </div>
 
                   {/* QR 토큰 직접 입력 */}
