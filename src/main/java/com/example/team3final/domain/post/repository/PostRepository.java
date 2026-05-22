@@ -15,4 +15,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             PostStatus status,
             Pageable pageable
     );
+
+    // 특정 작성자(authorId)의 게시글만 페이징 조회
+    Page<Post> findByAuthorId(Long authorId, Pageable pageable);
 }

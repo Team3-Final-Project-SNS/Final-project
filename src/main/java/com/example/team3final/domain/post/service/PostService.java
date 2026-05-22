@@ -59,6 +59,17 @@ public interface PostService {
     );
 
     /**
+     * 작성자 기준 게시글 목록 조회 — 본인이 작성한 게시글만 페이징 반환
+     *
+     * @param authorId 작성자 ID
+     * @param pageable 페이징 + 정렬
+     */
+    PageResponseDto<GetPostsItemResponseDto> getPostsByAuthor(
+            Long authorId,
+            Pageable pageable
+    );
+
+    /**
      * 게시글 단건 조회 — 도메인 간 호출용 (엔티티 반환)
      * 사용처: 매칭(createMatch 검증), GPS 인증(위경도 확인)
      *

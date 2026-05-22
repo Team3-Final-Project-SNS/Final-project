@@ -33,7 +33,7 @@ public class PostServiceImpl implements PostService{
 
 
     @Override
-    @Transactional // ⭐ 쓰기 메서드 → 클래스 기본값(readOnly) 오버라이드
+    @Transactional
     public CreatePostResponseDto createPost(Long authorId, CreatePostRequestDto request) {
 
         // 1. 비즈니스 규칙 검증
@@ -41,8 +41,9 @@ public class PostServiceImpl implements PostService{
             throw new PostException(ErrorCode.POST_INVALID_MEET_AT);
         }
 
-        // 책임비 100P 단위 검증
-        if (request.getAuthorDeposit() % Post.DEPOSIT_UNIT != 0) {
+        // 책임비 검증 - (1) 최소 200P 단위, (2) 100P 단위
+        if (request.getAuthorDeposit() < Post.MIN_AUTHOR_DEPOSIT
+                || request.getAuthorDeposit() % Post.DEPOSIT_UNIT != 0) {
             throw new PostException(ErrorCode.POST_INVALID_DEPOSIT);
         }
 
@@ -169,6 +170,12 @@ public class PostServiceImpl implements PostService{
             PostStatus status,
             Pageable pageable
     ) {
+        // 0. 페이지 크기 검증 — 최대 50 초과 시 예외 (명세서 4.2: size 최대 50)
+        // 과도하게 큰 size 요청으로 인한 DB 부하/메모리 폭증을 막는 방어 로직.
+        if (pageable.getPageSize() > Post.MAX_PAGE_SIZE) {
+            throw new PostException(ErrorCode.POST_INVALID_PAGE_SIZE);
+        }
+
         // 1. 현재 유저의 학교 ID 조회
         // TODO: User 도메인 머지 후 실제 호출로 교체
         // Long universityId = userService.getUserInfo(currentUserId)...; // 학교 조회 메서드 필요
@@ -207,7 +214,33 @@ public class PostServiceImpl implements PostService{
             );
         });
 
-        // 5. 공통 PageResponseDto로 래핑
+        return PageResponseDto.from(dtoPage);
+    }
+
+    @Override
+    public PageResponseDto<GetPostsItemResponseDto> getPostsByAuthor(
+            Long authorId,
+            Pageable pageable
+    ) {
+        // 1. 페이지 크기 검증 (최대 50)
+        if (pageable.getPageSize() > Post.MAX_PAGE_SIZE) {
+            throw new PostException(ErrorCode.POST_INVALID_PAGE_SIZE);
+        }
+
+        // 2. 작성자 기준 조회
+        Page<Post> postPage = postRepository.findByAuthorId(authorId, pageable);
+
+        // 3. Page<Post> → Page<GetPostsItemResponseDto> 변환
+        Page<GetPostsItemResponseDto> dtoPage = postPage.map(post -> {
+            UserInfoDto authorInfo = userService.getUserInfo(post.getAuthorId());
+            return GetPostsItemResponseDto.from(
+                    post,
+                    authorInfo.nickname(),
+                    authorInfo.major(),
+                    authorInfo.studentNumber()
+            );
+        });
+
         return PageResponseDto.from(dtoPage);
     }
 

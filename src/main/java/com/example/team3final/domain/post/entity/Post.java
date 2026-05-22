@@ -1,6 +1,8 @@
 package com.example.team3final.domain.post.entity;
 
 import com.example.team3final.common.entity.BaseEntity;
+import com.example.team3final.common.exception.ErrorCode;
+import com.example.team3final.common.exception.PostException;
 import com.example.team3final.domain.post.enums.PostStatus;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -22,6 +24,9 @@ public class Post extends BaseEntity {
 
         // 책임비 포인트 단위 (100P 단위)
         public static final int DEPOSIT_UNIT = 100;
+
+        // 게시글 목록 조회 시 페이지당 최대 항목 수
+        public static final int MAX_PAGE_SIZE = 50;
 
         @Id
         @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -95,6 +100,10 @@ public class Post extends BaseEntity {
 
         // 만남 정상 완료
         public void complete() {
+                // 상태 전이 규칙 검증: MATCHED가 아니면 완료 처리 불가
+                if (!isMatched()) {
+                        throw new PostException(ErrorCode.POST_NOT_MATCHED);
+                }
                 this.status = PostStatus.COMPLETED;
         }
 
@@ -107,6 +116,11 @@ public class Post extends BaseEntity {
 
         public boolean isOpen() {
                 return this.status == PostStatus.OPEN;
+        }
+
+        // 매칭 완료 상태 여부 검증 (complete() 전이 가능 여부 체크용)
+        public boolean isMatched() {
+                return this.status == PostStatus.MATCHED;
         }
 
         // 본인 게시글 여부 검증 (수정/삭제 권한 체크용)
