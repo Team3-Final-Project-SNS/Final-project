@@ -4,11 +4,11 @@ import { Utensils, QrCode, Shield, User, Users } from 'lucide-react';
 import { logout } from '../../api/authApi';
 
 export default function HomePage() {
-  const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(localStorage.getItem('accessToken')));
+  const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(sessionStorage.getItem('accessToken')));
 
   useEffect(() => {
     const syncLoginState = () => {
-      setIsLoggedIn(Boolean(localStorage.getItem('accessToken')));
+      setIsLoggedIn(Boolean(sessionStorage.getItem('accessToken')));
     };
 
     window.addEventListener('storage', syncLoginState);
@@ -26,7 +26,7 @@ export default function HomePage() {
     } catch (err) {
       console.error('Logout request failed', err);
     } finally {
-      localStorage.removeItem('accessToken');
+      sessionStorage.removeItem('accessToken');
       setIsLoggedIn(false);
     }
   };

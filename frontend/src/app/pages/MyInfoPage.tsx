@@ -34,7 +34,7 @@ export default function MyInfoPage() {
     } catch (err) {
       console.error('Logout request failed', err);
     } finally {
-      localStorage.removeItem('accessToken');
+      sessionStorage.removeItem('accessToken');
       navigate('/');
     }
   };

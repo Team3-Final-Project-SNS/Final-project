@@ -106,7 +106,7 @@ export default function ChatPage() {
   useEffect(() => {
     if (!chatRoomId) return;
 
-    const accessToken = localStorage.getItem("accessToken");
+    const accessToken = sessionStorage.getItem("accessToken");
     if (!accessToken) {
       setConnected(false);
       setError('로그인이 필요합니다. 다시 로그인해주세요.');

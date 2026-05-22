@@ -17,8 +17,8 @@ export default function LoginPage() {
       const res = await login(email, password);
       const { accessToken } = res.data.data;
 
-      // accessToken을 localStorage에 저장 → axiosInstance가 자동으로 헤더에 주입
-      localStorage.setItem("accessToken", accessToken);
+      // accessToken을 sessionStorage에 저장 → 브라우저 세션 동안만 로그인 유지
+      sessionStorage.setItem("accessToken", accessToken);
 
       navigate('/');
     } catch (err: any) {

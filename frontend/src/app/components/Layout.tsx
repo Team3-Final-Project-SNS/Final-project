@@ -13,7 +13,7 @@ export default function Layout() {
 
   useEffect(() => {
     const fetchMyPoint = async () => {
-      if (!localStorage.getItem('accessToken')) {
+      if (!sessionStorage.getItem('accessToken')) {
         setPoint(null);
         return;
       }
