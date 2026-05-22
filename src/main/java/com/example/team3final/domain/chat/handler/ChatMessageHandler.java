@@ -63,7 +63,7 @@ public class ChatMessageHandler {
             return;
         }
 
-        // 채팅방 참여자인지 확인 - TODO: 1단계에서 ChatMember 기반으로 수정 예정
+        // 채팅방 참여자인지 확인
         if (!chatMemberRepository.existsByChatRoomIdAndUserId(chatRoomId, senderId)) {
             messagingTemplate.convertAndSendToUser(
                     email,
@@ -75,7 +75,7 @@ public class ChatMessageHandler {
 
         // 메시지 DB 저장
         ChatMessage chatMessage = ChatMessage.builder()
-                .chatRoom(chatRoom)
+                .chatRoomId(chatRoomId)
                 .senderId(senderId)
                 .content(request.getContent())
                 .build();

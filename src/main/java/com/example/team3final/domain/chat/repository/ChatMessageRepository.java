@@ -13,7 +13,7 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
 
     // 채팅방 ID로 메세지 목록 조회 - 최신순 페이징
     // cursorId 이전 메세지만 조회 (커서 기반 페이징)
-    @Query("SELECT m FROM ChatMessage m WHERE  m.chatRoom.id = :chatRoomId AND m.id < :cursorId ORDER BY m.id DESC")
+    @Query("SELECT m FROM ChatMessage m WHERE  m.chatRoomId = :chatRoomId AND m.id < :cursorId ORDER BY m.id DESC")
     List<ChatMessage> findByChatRoomIdAndIdLessThanOrderByIdDesc(
             @Param("chatRoomId") Long chatRoomId,
             @Param("cursorId") Long cursorId,
