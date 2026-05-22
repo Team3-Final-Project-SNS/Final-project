@@ -2,6 +2,9 @@ package com.example.team3final.common.init;
 
 import com.example.team3final.domain.chat.entity.ChatMessage;
 import com.example.team3final.domain.chat.entity.ChatRoom;
+import com.example.team3final.domain.chat.entity.ChatMember;
+import com.example.team3final.domain.chat.enums.ChatMemberRole;
+import com.example.team3final.domain.chat.repository.ChatMemberRepository;
 import com.example.team3final.domain.chat.repository.ChatMessageRepository;
 import com.example.team3final.domain.chat.repository.ChatRoomRepository;
 import com.example.team3final.domain.location.entity.UserLocation;
@@ -54,6 +57,7 @@ public class DataInitializer implements ApplicationRunner {
     private final ChatMessageRepository chatMessageRepository;
     private final PointTransactionRepository pointTransactionRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ChatMemberRepository chatMemberRepository;
 
     @Override
     @Transactional
@@ -167,7 +171,7 @@ public class DataInitializer implements ApplicationRunner {
         // 대상 테스트: CHAT-S-001~003, VERI-S-001~005, POINT-S-002~003
         // ===================================================
 
-        // 만남 일시: 현재 시점 기준 +10분 후 (VERI-S-001의 -15분 ~ +1시간 조건 충족)
+        // 만남 일시: 현재 시점 기준 +10분 후 (VARI-S-001의 -15분 ~ +1시간 조건 충족)
         Post activePost = postRepository.save(
                 Post.builder()
                         .authorId(author.getId())
@@ -212,8 +216,21 @@ public class DataInitializer implements ApplicationRunner {
         ChatRoom activeChatRoom = chatRoomRepository.save(
                 ChatRoom.builder()
                         .matchId(activeMatch.getId())
-                        .authorId(author.getId())
-                        .applicantId(applicant.getId())
+                        .build()
+        );
+
+        chatMemberRepository.save(
+                ChatMember.builder()
+                        .chatRoomId(activeChatRoom.getId())
+                        .userId(author.getId())
+                        .role(ChatMemberRole.HOST)
+                        .build()
+        );
+        chatMemberRepository.save(
+                ChatMember.builder()
+                        .chatRoomId(activeChatRoom.getId())
+                        .userId(applicant.getId())
+                        .role(ChatMemberRole.GUEST)
                         .build()
         );
 
@@ -250,10 +267,24 @@ public class DataInitializer implements ApplicationRunner {
         ChatRoom completedChatRoom = chatRoomRepository.save(
                 ChatRoom.builder()
                         .matchId(completedMatch.getId())
-                        .authorId(author.getId())
-                        .applicantId(applicant.getId())
                         .build()
         );
+
+        chatMemberRepository.save(
+                ChatMember.builder()
+                        .chatRoomId(completedChatRoom.getId())
+                        .userId(author.getId())
+                        .role(ChatMemberRole.HOST)
+                        .build()
+        );
+        chatMemberRepository.save(
+                ChatMember.builder()
+                        .chatRoomId(completedChatRoom.getId())
+                        .userId(applicant.getId())
+                        .role(ChatMemberRole.GUEST)
+                        .build()
+        );
+
         chatMessageRepository.save(ChatMessage.builder().chatRoom(completedChatRoom).senderId(author.getId()).content("예전 완료된 대화내용입니다.").build());
 
         // POINT-S-004 검증용 환급(REFUND) 트랜잭션 추가
