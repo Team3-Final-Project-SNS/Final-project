@@ -4,9 +4,11 @@ import com.example.team3final.common.dto.response.CursorResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.ServiceException;
 import com.example.team3final.domain.chat.dto.response.ChatMessageResponseDto;
-import com.example.team3final.domain.chat.dto.response.ChatRoomResponseDto;
+import com.example.team3final.domain.chat.entity.ChatMember;
 import com.example.team3final.domain.chat.entity.ChatMessage;
 import com.example.team3final.domain.chat.entity.ChatRoom;
+import com.example.team3final.domain.chat.enums.ChatMemberRole;
+import com.example.team3final.domain.chat.repository.ChatMemberRepository;
 import com.example.team3final.domain.chat.repository.ChatMessageRepository;
 import com.example.team3final.domain.chat.repository.ChatRoomRepository;
 import com.example.team3final.domain.user.service.UserService;
@@ -15,7 +17,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -25,6 +26,7 @@ public class ChatServiceImpl implements ChatService {
 
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMessageRepository chatMessageRepository;
+    private final ChatMemberRepository chatMemberRepository;
     private final UserService userService;
 
     // 채팅방 생성 - 매칭 확정 시 내부 호출
@@ -37,14 +39,30 @@ public class ChatServiceImpl implements ChatService {
             throw new ServiceException(ErrorCode.CHAT_ROOM_ALREADY_EXISTS);
         }
 
+        // 채팅방 생성
         ChatRoom chatRoom = ChatRoom.builder()
                 .matchId(matchId)
-                .authorId(authorId)
-                .applicantId(applicantId)
                 .build();
         ChatRoom savedChatRoom = chatRoomRepository.save(chatRoom);
+
+        // 참여자 등록 (HOST: 등록자, GUEST: 신청자)
+        chatMemberRepository.save(
+                ChatMember.builder()
+                        .chatRoomId(savedChatRoom.getId())
+                        .userId(authorId)
+                        .role(ChatMemberRole.HOST)
+                        .build()
+        );
+        chatMemberRepository.save(
+                ChatMember.builder()
+                        .chatRoomId(savedChatRoom.getId())
+                        .userId(applicantId)
+                        .role(ChatMemberRole.GUEST)
+                        .build()
+        );
+
         // TODO: 고도화 시 카프카로 교체 예정 → 해당 라인 삭제될 예정
-        return savedChatRoom.getId();  // // 생성된 채팅방 ID 반환
+        return savedChatRoom.getId();
     }
 
     // 채팅방 즉시 비활성화 - 취소/노쇼 시 내부 호출
@@ -53,7 +71,7 @@ public class ChatServiceImpl implements ChatService {
     public void deactivateChatRoom(Long matchId) {
         ChatRoom chatRoom = chatRoomRepository.findByMatchId(matchId)
                 .orElseThrow(() -> new ServiceException(ErrorCode.CHAT_ROOM_NOT_FOUND));
-        chatRoom.deactivateNow(); // 즉시 비활성화
+        chatRoom.deactivateNow();
     }
 
     // 채팅방 2시간 후 비활성화 예약 - 만남 인증 완료 시 내부 호출
@@ -62,60 +80,20 @@ public class ChatServiceImpl implements ChatService {
     public void scheduleChatRoomDeactivation(Long matchId) {
         ChatRoom chatRoom = chatRoomRepository.findByMatchId(matchId)
                 .orElseThrow(() -> new ServiceException(ErrorCode.CHAT_ROOM_NOT_FOUND));
-        chatRoom.scheduleDeactivation(); // 2시간 후 비활성화 예약
-    }
-
-    // 채팅방 목록 조회
-    @Override
-    public List<ChatRoomResponseDto> getChatRooms(Long userId) {
-        // 내가 등록자인 채팅방 + 내가 신청자인 채팅방 합치기
-        List<ChatRoom> authorRooms = chatRoomRepository.findByAuthorIdAndAuthorLeftFalse(userId);
-        List<ChatRoom> applicantRooms = chatRoomRepository.findByApplicantIdAndApplicantLeftFalse(userId);
-
-        // 두 목록 합치기
-        List<ChatRoom> allRooms = new ArrayList<>();
-        allRooms.addAll(authorRooms);
-        allRooms.addAll(applicantRooms);
-
-        // DTO 변환
-        return allRooms.stream()
-                .map(room -> {
-                    // 마지막 메시지 조회
-                    ChatMessage lastMessage = chatMessageRepository
-                            .findTopByChatRoomIdOrderByCreatedAtDesc(room.getId())
-                            .orElse(null);
-
-                    // 안읽은 메시지 수 조회
-                    long unreadCount = chatMessageRepository
-                            .countByChatRoomIdAndIsReadFalseAndSenderIdNot(room.getId(), userId);
-
-                    Long opponentId = room.getAuthorId().equals(userId) ? room.getApplicantId() : room.getAuthorId();
-
-                    return new ChatRoomResponseDto(
-                            room.getId(),                                            // 채팅방 ID
-                            room.getMatchId(),                                       // 매칭 ID
-                            opponentId,                                              // 상대방 ID
-                            userService.getUser(opponentId).nickname(),              // 상대방 닉네임 조회
-                            lastMessage != null ? lastMessage.getContent() : null,   // 마지막 메시지
-                            lastMessage != null ? lastMessage.getCreatedAt() : null, // 마지막 메시지 시각
-                            unreadCount,                                             // 안읽은 메시지 수
-                            room.isActive(),                                         // 활성 여부
-                            room.getCreatedAt()                                      // 채팅방 생성일
-                    );
-                })
-                .toList();
+        chatRoom.scheduleDeactivation();
     }
 
     // 메시지 목록 조회 (커서 기반 페이징)
     @Transactional
     @Override
     public CursorResponseDto<ChatMessageResponseDto> getChatMessages(Long chatRoomId, Long userId, Long cursorId, int size) {
+
         // 채팅방 존재 여부 확인
-        ChatRoom chatRoom = chatRoomRepository.findById(chatRoomId)
+        chatRoomRepository.findById(chatRoomId)
                 .orElseThrow(() -> new ServiceException(ErrorCode.CHAT_ROOM_NOT_FOUND));
 
         // 채팅방 참여자 여부 확인
-        if (!chatRoom.getAuthorId().equals(userId) && !chatRoom.getApplicantId().equals(userId)) {
+        if (!chatMemberRepository.existsByChatRoomIdAndUserId(chatRoomId, userId)) {
             throw new ServiceException(ErrorCode.CHAT_NOT_PARTICIPANT);
         }
 
@@ -132,46 +110,24 @@ public class ChatServiceImpl implements ChatService {
         // DTO 변환
         List<ChatMessageResponseDto> content = messages.stream()
                 .map(m -> new ChatMessageResponseDto(
-                        m.getId(),                                         // 메시지 ID
-                        chatRoomId,                                        // 채팅방 ID
-                        m.getSenderId(),                                   // 발신자 ID
-                        userService.getUser(m.getSenderId()).nickname(),   // 발신자 닉네임 조회
-                        m.getContent(),                                    // 메시지 내용
-                        m.isRead(),                                        // 읽음 여부
-                        m.getCreatedAt()                                   // 메시지 생성일
+                        m.getId(),
+                        chatRoomId,
+                        m.getSenderId(),
+                        userService.getUser(m.getSenderId()).nickname(),
+                        m.getContent(),
+                        m.isRead(),
+                        m.getCreatedAt()
                 ))
                 .toList();
 
         return CursorResponseDto.of(content, size, ChatMessageResponseDto::messageId);
     }
 
-    // 채팅방 나가기 - 완료/취소/노쇼 후에만 가능
-    @Transactional
-    @Override
-    public void leaveChatRoom(Long chatRoomId, Long userId) {
-        ChatRoom chatRoom = chatRoomRepository.findById(chatRoomId)
-                .orElseThrow(() -> new ServiceException(ErrorCode.CHAT_ROOM_NOT_FOUND));
-
-        // 활성화된 채팅방은 나가기 불가 (MATCHED 상태)
-        if (chatRoom.isActive()) {
-            throw new ServiceException(ErrorCode.CHAT_ROOM_ACTIVE_CANNOT_LEAVE);
-        }
-
-        // 등록자/신청자 구분 후 나가기 처리
-        if (chatRoom.getAuthorId().equals(userId)) {
-            chatRoom.authorLeave();
-        } else if (chatRoom.getApplicantId().equals(userId)) {
-            chatRoom.applicantLeave();
-        } else {
-            throw new ServiceException(ErrorCode.CHAT_NOT_PARTICIPANT);
-        }
-    }
-
+    // matchId로 chatRoomId 조회 - 매칭 목록 조회에서 사용
     @Override
     public Long getChatRoomIdByMatchId(Long matchId) {
         return chatRoomRepository.findByMatchId(matchId)
                 .map(ChatRoom::getId)
                 .orElse(null);
     }
-
 }

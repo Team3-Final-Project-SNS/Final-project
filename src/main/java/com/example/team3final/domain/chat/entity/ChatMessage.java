@@ -19,10 +19,9 @@ public class ChatMessage {
     @Column(name = "id")
     private Long id;
 
-    // 소속 채팅방 -> Long으로 전환 예정
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "chat_room_id", nullable = false, updatable = false)
-    private ChatRoom chatRoom;
+    // 소속 채팅방 ID
+    @Column(name = "chat_room_id", nullable = false, updatable = false)
+    private Long chatRoomId;
 
     // 발신자 유저 ID
     @Column(name = "sender_id", nullable = false, updatable = false)
@@ -41,8 +40,8 @@ public class ChatMessage {
     private LocalDateTime createdAt;
 
     @Builder
-    private ChatMessage(ChatRoom chatRoom, Long senderId, String content) {
-        this.chatRoom = chatRoom;
+    private ChatMessage(Long chatRoomId, Long senderId, String content) {
+        this.chatRoomId = chatRoomId;
         this.senderId = senderId;
         this.content = content;
         this.isRead = false;

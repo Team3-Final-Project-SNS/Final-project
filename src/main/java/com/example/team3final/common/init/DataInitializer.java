@@ -234,12 +234,11 @@ public class DataInitializer implements ApplicationRunner {
                         .build()
         );
 
-        ChatMessage msg1 = chatMessageRepository.save(ChatMessage.builder().chatRoom(activeChatRoom).senderId(author.getId()).content("안녕하세요!").build());
+        ChatMessage msg1 = chatMessageRepository.save(ChatMessage.builder().chatRoomId(activeChatRoom.getId()).senderId(author.getId()).content("안녕하세요!").build());
         msg1.markAsRead();
-        ChatMessage msg2 = chatMessageRepository.save(ChatMessage.builder().chatRoom(activeChatRoom).senderId(applicant.getId()).content("네 반갑습니다.").build());
+        ChatMessage msg2 = chatMessageRepository.save(ChatMessage.builder().chatRoomId(activeChatRoom.getId()).senderId(applicant.getId()).content("네 반갑습니다.").build());
         msg2.markAsRead();
-        chatMessageRepository.save(ChatMessage.builder().chatRoom(activeChatRoom).senderId(author.getId()).content("안 읽은 메시지 테스트용").build()); // unreadCount용 고의 누락
-
+        chatMessageRepository.save(ChatMessage.builder().chatRoomId(activeChatRoom.getId()).senderId(author.getId()).content("안 읽은 메시지 테스트용").build());
         // ===================================================
         // CASE B. 비활성화/종료된 매칭 (COMPLETED)
         // 대상 테스트: CHAT-S-004 (읽기전용 조회), CHAT-E-002 (메시지 전송 차단)
@@ -285,7 +284,7 @@ public class DataInitializer implements ApplicationRunner {
                         .build()
         );
 
-        chatMessageRepository.save(ChatMessage.builder().chatRoom(completedChatRoom).senderId(author.getId()).content("예전 완료된 대화내용입니다.").build());
+        chatMessageRepository.save(ChatMessage.builder().chatRoomId(completedChatRoom.getId()).senderId(author.getId()).content("예전 완료된 대화내용입니다.").build());
 
         // POINT-S-004 검증용 환급(REFUND) 트랜잭션 추가
         pointTransactionRepository.save(

@@ -12,12 +12,6 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
     // 매칭 ID로 채팅방 조회 - 매칭 확정 시 채팅방 존재 여부 확인에 사용
     Optional<ChatRoom> findByMatchId(Long matchId);
 
-    // 내가 등록자이고 나가지 않은 채팅방 목록
-    List<ChatRoom> findByAuthorIdAndAuthorLeftFalse(Long authorId);
-
-    // 내가 신청자이고 나가지 않은 채팅방 목록
-    List<ChatRoom> findByApplicantIdAndApplicantLeftFalse(Long applicantId);
-
     // 활성 상태이면서 비활성화 예정 시각이 지난 채팅방 조회 (스케줄러용)
     List<ChatRoom> findByIsActiveTrueAndDeactivatedAtBefore(LocalDateTime now);
 }
