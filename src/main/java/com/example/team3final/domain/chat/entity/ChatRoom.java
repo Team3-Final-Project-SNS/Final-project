@@ -1,89 +1,68 @@
 package com.example.team3final.domain.chat.entity;
 
+import com.example.team3final.domain.chat.enums.ChatRoomType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "chat_room")
 @Getter
+@Entity
+@Table(name = "chat_rooms")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ChatRoom {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
     private Long id;
 
-    @Column(name = "match_id", nullable = false, unique = true, updatable = false)
+    // 매칭 ID
+    @Column(name = "match_id", nullable = false, updatable = false)
     private Long matchId;
 
-    @Column(name = "author_id", nullable = false, updatable = false)
-    private Long authorId;      // 등록자 ID
+    // 채팅방 유형
+    @Enumerated(EnumType.STRING)
+    @Column(name = "room_type", nullable = false, length = 20)
+    private ChatRoomType roomType;
 
-    @Column(name = "applicant_id", nullable = false, updatable = false)
-    private Long applicantId;   // 신청자 ID
-
+    // 활성 여부
     @Column(name = "is_active", nullable = false)
-    private boolean isActive;                       // 활성 여부
+    private boolean isActive;
 
+    // 생성일
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;                // 생성일
+    private LocalDateTime createdAt;
 
+    // 비활성화 시각
     @Column(name = "deactivated_at")
-    private LocalDateTime deactivatedAt;            // 비활성화 시각
-
-    @Column(name = "author_left", nullable = false)
-    private boolean authorLeft;                     // 등록자 나가기 여부
-
-    @Column(name = "applicant_left", nullable = false)
-    private boolean applicantLeft;                  // 신청자 나가기 여부
+    private LocalDateTime deactivatedAt;
 
     @Builder
-    private ChatRoom(Long matchId, Long authorId, Long applicantId) {
+    private ChatRoom(Long matchId, ChatRoomType roomType) {
         this.matchId = matchId;
-        this.authorId = authorId;
-        this.applicantId = applicantId;
-        this.isActive = true;       // 생성 시 활성화
-        this.authorLeft = false;    // 생성 시 등록자 나가지 않은 상태
-        this.applicantLeft = false; // 생성 시 신청자 나가지 않은 상태
+        this.roomType = (roomType != null) ? roomType : ChatRoomType.ONE_TO_ONE;
+        this.isActive = true;
     }
 
-    // Entity가 처음 저장되기 직전에 생성일을 자동으로 기록
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
     }
 
-    // 채팅방 즉시 비활성화 - (취소/노쇼 시)
+    // ==================== 도메인 메서드 ====================
+
+    // 즉시 비활성화 - 취소/노쇼 시 호출
     public void deactivateNow() {
         this.isActive = false;
         this.deactivatedAt = LocalDateTime.now();
     }
 
-    // 2시간 후 비활성화 예약 (만남 인증 완료 시)
+    // 2시간 후 비활성화 예약 - 만남 인증 완료 시 호출
     public void scheduleDeactivation() {
         this.deactivatedAt = LocalDateTime.now().plusHours(2);
     }
-
-    // 스케줄러에서 호출 - deactivatedAt 지난 채팅방 비활성화
-    public void deactivate() {
-        this.isActive = false;
-    }
-
-    // 등록자 나가기
-    public void authorLeave() {
-        this.authorLeft = true;
-    }
-
-    // 신청자 나가기
-    public void applicantLeave() {
-        this.applicantLeft = true;
-    }
 }
-
-

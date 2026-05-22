@@ -32,7 +32,7 @@ public class ChatRoomScheduler {
             return;
         }
 
-        expiredRooms.forEach(ChatRoom::deactivate);
+        expiredRooms.forEach(ChatRoom::deactivateNow);
 
         log.info("[Scheduler] 채팅방 자동 비활성화 - 처리 건수: {}", expiredRooms.size());
     }
