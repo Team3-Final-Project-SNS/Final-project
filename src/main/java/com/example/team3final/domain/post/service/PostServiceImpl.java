@@ -33,7 +33,7 @@ public class PostServiceImpl implements PostService{
 
 
     @Override
-    @Transactional // ⭐ 쓰기 메서드 → 클래스 기본값(readOnly) 오버라이드
+    @Transactional
     public CreatePostResponseDto createPost(Long authorId, CreatePostRequestDto request) {
 
         // 1. 비즈니스 규칙 검증
@@ -41,8 +41,9 @@ public class PostServiceImpl implements PostService{
             throw new PostException(ErrorCode.POST_INVALID_MEET_AT);
         }
 
-        // 책임비 100P 단위 검증
-        if (request.getAuthorDeposit() % Post.DEPOSIT_UNIT != 0) {
+        // 책임비 검증 - (1) 최소 200P 단위, (2) 100P 단위
+        if (request.getAuthorDeposit() < Post.MIN_AUTHOR_DEPOSIT
+                || request.getAuthorDeposit() % Post.DEPOSIT_UNIT != 0) {
             throw new PostException(ErrorCode.POST_INVALID_DEPOSIT);
         }
 
