@@ -38,6 +38,8 @@ public enum ErrorCode {
     POST_INVALID_DEPOSIT(HttpStatus.BAD_REQUEST, "POST_004", "책임비 포인트는 최소 200P 이상, 100P 단위여야 합니다."),
     POST_NOT_AUTHOR(HttpStatus.FORBIDDEN, "POST_005", "본인 게시글만 수정/삭제할 수 있습니다."),
     POST_NOT_OPEN(HttpStatus.UNPROCESSABLE_ENTITY, "POST_006", "OPEN 상태의 게시글만 수정/삭제할 수 있습니다."),
+    POST_INVALID_PAGE_SIZE(HttpStatus.BAD_REQUEST, "POST_007", "페이지 크기는 최대 50까지 요청할 수 있습니다."),
+    POST_NOT_MATCHED(HttpStatus.UNPROCESSABLE_ENTITY, "POST_008", "매칭된 게시글만 완료 처리할 수 있습니다."),
 
     // Match
     MATCH_NOT_FOUND(HttpStatus.NOT_FOUND, "MATCH_001", "존재하지 않는 매칭입니다."),
