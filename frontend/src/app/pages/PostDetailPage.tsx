@@ -129,7 +129,7 @@ export default function PostDetailPage() {
               <User size={20} className="text-[#d84315]" />
               <div>
                 <p className="text-xs text-[#9e9e9e]">작성자</p>
-                <p className="font-medium text-[#212121]">{post.authorNickname} ({post.authorMajor} {post.authorStudentNumber}학번)</p>
+                <p className="font-medium text-[#212121]">{post.authorNickname}</p>
               </div>
             </div>
           </div>

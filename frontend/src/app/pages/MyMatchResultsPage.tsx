@@ -192,7 +192,7 @@ function MatchResultCard({ match }: { match: GetMatchesItemResponse }) {
         <div className="mb-5 grid gap-2 text-sm text-[#616161] sm:grid-cols-2">
           <span className="flex items-center gap-1.5">
             <User size={16} className="text-[#d84315]" />
-            {match.opponentNickname} ({match.opponentMajor} {match.opponentStudentNumber}학번)
+            {match.opponentNickname}
           </span>
           <span className="flex items-center gap-1.5">
             <Clock size={16} className="text-[#d84315]" />

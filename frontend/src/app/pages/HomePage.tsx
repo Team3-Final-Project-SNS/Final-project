@@ -118,7 +118,7 @@ export default function HomePage() {
                     </div>
                     <div>
                       <p className="font-semibold text-[#212121]">밥먹자</p>
-                      <p className="text-xs text-[#9e9e9e]">컴퓨터공학과 22학번</p>
+                      <p className="text-xs text-[#9e9e9e]">같이 먹을 사람을 찾는 중</p>
                     </div>
                   </div>
                   <p className="text-[#424242] mb-3">오늘 점심 학생식당 같이 가실 분!</p>
