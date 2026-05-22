@@ -6,6 +6,7 @@ import com.example.team3final.domain.chat.dto.request.ChatMessageRequestDto;
 import com.example.team3final.domain.chat.dto.response.ChatMessageResponseDto;
 import com.example.team3final.domain.chat.entity.ChatMessage;
 import com.example.team3final.domain.chat.entity.ChatRoom;
+import com.example.team3final.domain.chat.repository.ChatMemberRepository;
 import com.example.team3final.domain.chat.repository.ChatMessageRepository;
 import com.example.team3final.domain.chat.repository.ChatRoomRepository;
 import com.example.team3final.domain.user.service.UserService;
@@ -26,8 +27,9 @@ public class ChatMessageHandler {
 
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMessageRepository chatMessageRepository;
-    private final SimpMessagingTemplate messagingTemplate;
     // SimpMessagingTemplate: 특정 경로를 구독 중인 클라이언트에게 메시지 브로드캐스트
+    private final SimpMessagingTemplate messagingTemplate;
+    private final ChatMemberRepository chatMemberRepository;
 
     private final UserService userService;
 
@@ -61,8 +63,8 @@ public class ChatMessageHandler {
             return;
         }
 
-        // 채팅방 참여자인지 확인
-        if (!chatRoom.getAuthorId().equals(senderId) && !chatRoom.getApplicantId().equals(senderId)) {
+        // 채팅방 참여자인지 확인 - TODO: 1단계에서 ChatMember 기반으로 수정 예정
+        if (!chatMemberRepository.existsByChatRoomIdAndUserId(chatRoomId, senderId)) {
             messagingTemplate.convertAndSendToUser(
                     email,
                     "/queue/errors",
