@@ -23,6 +23,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -289,5 +293,33 @@ public class MatchServiceImpl implements MatchService{
         });
 
         return PageResponseDto.from(dtoPage);
+    }
+
+    @Override
+    public Map<Long, MatchInfoDto> getMatchInfos(List<Long> matchIds) {
+
+        // [1] 빈 리스트 가드
+        //     - null 체크: 호출 측의 실수 방지 (NPE 던지지 않고 빈 결과로 처리)
+        //     - isEmpty 체크: IN 절에 빈 컬렉션을 넣으면 일부 DB(특히 Oracle)에서 SQL 문법 오류 발생
+        //     - Collections.emptyMap()을 쓰는 이유: new HashMap<>()보다 불변/싱글톤이라 GC 부담 ↓
+        if (matchIds == null || matchIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        // [2] findAllById는 JpaRepository 기본 제공 메서드
+        //     내부적으로 SELECT * FROM matches WHERE match_id IN (?, ?, ?, ...) 쿼리 1번으로 변환됨
+        //     ※ 존재하지 않는 ID가 섞여 있으면 결과에서 그냥 빠짐 (예외 안 던짐)
+        //        → 위 JavaDoc의 Contract와 자연스럽게 일치
+        List<Match> matches = matchRepository.findAllById(matchIds);
+
+        // [3] List<Match> → Map<Long, MatchInfoDto> 변환
+        //     - keyMapper:   Match::getId         → Key로 사용할 값 추출 (matchId)
+        //     - valueMapper: MatchInfoDto::from   → Value로 변환할 함수 (기존 단건 메서드와 동일한 변환기 재사용)
+        //     ※ matchId는 PK라 중복될 수 없으므로 mergeFunction 인자는 불필요
+        return matches.stream()
+                .collect(Collectors.toMap(
+                        Match::getId,
+                        MatchInfoDto::from
+                ));
     }
 }
