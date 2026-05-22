@@ -6,6 +6,13 @@ import { getUniversities, UniversityResponse } from '../../api/univApi';
 
 type SignupStep = 'email' | 'info' | 'complete';
 
+const TERM_ITEMS = [
+  { termVersion: 'v1.0-service', label: '서비스 이용약관 동의', required: true },
+  { termVersion: 'v1.0-privacy', label: '개인정보 처리방침 동의', required: true },
+  { termVersion: 'v1.0-location', label: '위치기반 서비스 이용약관 동의', required: true },
+  { termVersion: 'v1.0-marketing', label: '마케팅 정보 수신 동의', required: true },
+];
+
 export default function SignupPage() {
   const navigate = useNavigate();
 
@@ -34,10 +41,9 @@ export default function SignupPage() {
   const [major, setMajor] = useState('');
   const [studentNumber, setStudentNumber] = useState('');
 
-  const [termAgreements, setTermAgreements] = useState([
-    { termVersion: 'v1.0-service', agreed: false },
-    { termVersion: 'v1.0-privacy', agreed: false }
-  ]);
+  const [termAgreements, setTermAgreements] = useState(
+      TERM_ITEMS.map(({ termVersion }) => ({ termVersion, agreed: false }))
+  );
 
   // ── 초기화 ────────────────────────────────────
   useEffect(() => {
@@ -66,6 +72,19 @@ export default function SignupPage() {
   const handleTermChange = (version: string, agreed: boolean) => {
     setTermAgreements(prev => prev.map(t => t.termVersion === version ? { ...t, agreed } : t));
   };
+
+  const handleAllTermsChange = (agreed: boolean) => {
+    setTermAgreements(prev => prev.map(term => ({ ...term, agreed })));
+  };
+
+  const hasAgreed = (version: string) =>
+      termAgreements.find(term => term.termVersion === version)?.agreed ?? false;
+
+  const requiredTermsAgreed = TERM_ITEMS
+      .filter(term => term.required)
+      .every(term => hasAgreed(term.termVersion));
+
+  const allTermsAgreed = TERM_ITEMS.every(term => hasAgreed(term.termVersion));
 
   const handleSendOTP = async () => {
     const selectedUniversity = universities.find((univ) => univ.universityId === selectedUnivId);
@@ -121,7 +140,7 @@ export default function SignupPage() {
       setError('모든 정보를 입력해주세요.');
       return;
     }
-    if (termAgreements.some(t => !t.agreed)) {
+    if (!requiredTermsAgreed) {
       setError('필수 약관에 동의해주세요.');
       return;
     }
@@ -408,24 +427,28 @@ export default function SignupPage() {
                 <div className="col-span-2 mt-6">
                   <h3 className="font-semibold text-[#212121] mb-4">약관 동의</h3>
                   <div className="space-y-3 bg-[#fafafa] p-4 rounded-xl border border-[#f0f0f0]">
-                    <label className="flex items-start gap-3 cursor-pointer group">
+                    <label className="flex items-start gap-3 cursor-pointer group border-b border-[#eeeeee] pb-3">
                       <input
                           type="checkbox"
-                          checked={termAgreements.find(t => t.termVersion === 'v1.0-service')?.agreed}
-                          onChange={(e) => handleTermChange('v1.0-service', e.target.checked)}
+                          checked={allTermsAgreed}
+                          onChange={(e) => handleAllTermsChange(e.target.checked)}
                           className="mt-1 w-4 h-4 text-[#d84315] border-[#e0e0e0] rounded focus:ring-[#d84315]"
                       />
-                      <span className="text-sm text-[#424242] group-hover:text-[#212121]">[필수] 서비스 이용약관 동의</span>
+                      <span className="text-sm font-semibold text-[#212121] group-hover:text-[#d84315]">전체 동의</span>
                     </label>
-                    <label className="flex items-start gap-3 cursor-pointer group">
-                      <input
-                          type="checkbox"
-                          checked={termAgreements.find(t => t.termVersion === 'v1.0-privacy')?.agreed}
-                          onChange={(e) => handleTermChange('v1.0-privacy', e.target.checked)}
-                          className="mt-1 w-4 h-4 text-[#d84315] border-[#e0e0e0] rounded focus:ring-[#d84315]"
-                      />
-                      <span className="text-sm text-[#424242] group-hover:text-[#212121]">[필수] 개인정보 처리방침 동의</span>
-                    </label>
+                    {TERM_ITEMS.map((term) => (
+                        <label key={term.termVersion} className="flex items-start gap-3 cursor-pointer group">
+                          <input
+                              type="checkbox"
+                              checked={hasAgreed(term.termVersion)}
+                              onChange={(e) => handleTermChange(term.termVersion, e.target.checked)}
+                              className="mt-1 w-4 h-4 text-[#d84315] border-[#e0e0e0] rounded focus:ring-[#d84315]"
+                          />
+                          <span className="text-sm text-[#424242] group-hover:text-[#212121]">
+                            [{term.required ? '필수' : '선택'}] {term.label}
+                          </span>
+                        </label>
+                    ))}
                     <p className="text-[10px] text-[#9e9e9e] mt-2 pl-7">Policy Version: v1.0.0</p>
                   </div>
                 </div>
@@ -433,7 +456,7 @@ export default function SignupPage() {
 
               <button
                   onClick={handleSignup}
-                  disabled={termAgreements.some(t => !t.agreed) || loading}
+                  disabled={!requiredTermsAgreed || loading}
                   className="w-full mt-10 bg-[#d84315] text-white py-4 rounded-xl font-bold text-lg hover:bg-[#bf360c] transition-all shadow-md hover:shadow-lg disabled:bg-[#e0e0e0] disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2"
               >
                 {loading ? '처리 중...' : '가입 완료 → 10,000P 지급'}

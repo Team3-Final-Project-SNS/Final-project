@@ -85,6 +85,10 @@ export default function PostListPage() {
       return new Date(b.createAt).getTime() - new Date(a.createAt).getTime();
     }
 
+    if (sortBy === '만남시간 임박 순') {
+      return new Date(a.meetAt).getTime() - new Date(b.meetAt).getTime();
+    }
+
     return b.authorDeposit - a.authorDeposit;
   });
 
@@ -124,6 +128,7 @@ export default function PostListPage() {
                 className="px-4 py-2 border border-[#e0e0e0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#d84315] focus:border-transparent"
             >
               <option>책임비 높은 순</option>
+              <option>만남시간 임박 순</option>
               <option>최신순</option>
             </select>
 
@@ -196,7 +201,7 @@ export default function PostListPage() {
                           </span>
                           <span className="flex items-center gap-1.5">
                             <User size={16} className="text-[#d84315]" />
-                            {post.authorNickname} ({post.authorMajor} {post.authorStudentNumber}학번)
+                            {post.authorNickname}
                           </span>
                         </div>
                       </div>

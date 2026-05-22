@@ -127,7 +127,7 @@ export default function MatchesPage() {
 
                           <div className="space-y-2 mb-4">
                             <div className="flex items-center gap-2 text-sm text-[#616161]">
-                              <span className="font-medium text-[#424242]">상대방:</span> {match.opponentNickname} ({match.opponentMajor} {match.opponentStudentNumber}학번)
+                              <span className="font-medium text-[#424242]">상대방:</span> {match.opponentNickname}
                             </div>
                             <div className="flex items-center gap-2 text-sm text-[#616161]">
                               <Clock size={16} className="text-[#d84315]" />
