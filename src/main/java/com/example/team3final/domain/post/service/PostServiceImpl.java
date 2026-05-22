@@ -214,7 +214,33 @@ public class PostServiceImpl implements PostService{
             );
         });
 
-        // 5. 공통 PageResponseDto로 래핑
+        return PageResponseDto.from(dtoPage);
+    }
+
+    @Override
+    public PageResponseDto<GetPostsItemResponseDto> getPostsByAuthor(
+            Long authorId,
+            Pageable pageable
+    ) {
+        // 1. 페이지 크기 검증 (최대 50)
+        if (pageable.getPageSize() > Post.MAX_PAGE_SIZE) {
+            throw new PostException(ErrorCode.POST_INVALID_PAGE_SIZE);
+        }
+
+        // 2. 작성자 기준 조회
+        Page<Post> postPage = postRepository.findByAuthorId(authorId, pageable);
+
+        // 3. Page<Post> → Page<GetPostsItemResponseDto> 변환
+        Page<GetPostsItemResponseDto> dtoPage = postPage.map(post -> {
+            UserInfoDto authorInfo = userService.getUserInfo(post.getAuthorId());
+            return GetPostsItemResponseDto.from(
+                    post,
+                    authorInfo.nickname(),
+                    authorInfo.major(),
+                    authorInfo.studentNumber()
+            );
+        });
+
         return PageResponseDto.from(dtoPage);
     }
 
