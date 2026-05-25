@@ -6,6 +6,7 @@ import com.example.team3final.domain.chat.dto.request.ChatMessageRequestDto;
 import com.example.team3final.domain.chat.dto.response.ChatMessageResponseDto;
 import com.example.team3final.domain.chat.entity.ChatMessage;
 import com.example.team3final.domain.chat.entity.ChatRoom;
+import com.example.team3final.domain.chat.pubsub.RedisMessagePublisher;
 import com.example.team3final.domain.chat.repository.ChatMemberRepository;
 import com.example.team3final.domain.chat.repository.ChatMessageRepository;
 import com.example.team3final.domain.chat.repository.ChatRoomRepository;
@@ -30,7 +31,7 @@ public class ChatMessageHandler {
     // SimpMessagingTemplate: 특정 경로를 구독 중인 클라이언트에게 메시지 브로드캐스트
     private final SimpMessagingTemplate messagingTemplate;
     private final ChatMemberRepository chatMemberRepository;
-
+    private final RedisMessagePublisher redisMessagePublisher;
     private final UserService userService;
 
     // 메시지 전송
@@ -43,7 +44,12 @@ public class ChatMessageHandler {
             SimpMessageHeaderAccessor headerAccessor // 세션 정보 (JWT에서 저장한 email)
     ) {
         // Handshake 시 저장한 이메일 꺼내기
-        String email = (String) headerAccessor.getSessionAttributes().get("email");
+        var sessionAttributes = headerAccessor.getSessionAttributes();
+        if (sessionAttributes == null) {
+            log.error("[WebSocket] 세션 정보가 없습니다.");
+            return;
+        }
+        String email = (String) sessionAttributes.get("email");
 
         // 이메일로 userId 조회
         Long senderId = userService.getUserIdByEmail(email);
@@ -84,18 +90,17 @@ public class ChatMessageHandler {
         log.info("[WebSocket] 메시지 저장 - chatRoomId: {}, senderId: {}", chatRoomId, senderId);
 
         // 채팅방 구독자들에게 메시지 브로드캐스트
-        // /sub/chat/rooms/{chatRoomId} 구독 중인 클라이언트에게 전송
-        messagingTemplate.convertAndSend(
-                "/sub/chat/rooms/" + chatRoomId,
-                new ChatMessageResponseDto(
-                        chatMessage.getId(),
-                        chatRoomId,
-                        senderId,
-                        userService.getUser(senderId).nickname(), // 발신자 닉네임 조회
-                        chatMessage.getContent(),
-                        chatMessage.isRead(),
-                        chatMessage.getCreatedAt()
-                )
+        // Redis Publish → RedisMessageSubscriber → WebSocket 전송
+        // 서버가 여러 대여도 모든 서버의 구독자에게 메시지 전달 가능
+        ChatMessageResponseDto response = new ChatMessageResponseDto(
+                chatMessage.getId(),
+                chatRoomId,
+                senderId,
+                userService.getUser(senderId).nickname(),
+                chatMessage.getContent(),
+                chatMessage.isRead(),
+                chatMessage.getCreatedAt()
         );
+        redisMessagePublisher.publish(chatRoomId, response);
     }
 }
