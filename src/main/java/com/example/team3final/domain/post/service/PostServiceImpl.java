@@ -323,25 +323,37 @@ public class PostServiceImpl implements PostService{
     @Override
     public Map<Long, PostInfoDto> getPostInfos(List<Long> postIds) {
 
-        // [1] 빈 리스트 가드
+        // 1. 빈 리스트 가드
         //     null / 빈 컬렉션을 IN 절에 넣지 않기 위한 방어
         //     Collections.emptyMap() = 불변 싱글톤 빈 Map (가벼움)
         if (postIds == null || postIds.isEmpty()) {
             return Collections.emptyMap();
         }
 
-        // [2] findAllById = JpaRepository 기본 제공 IN 쿼리 메서드
-        //     SELECT * FROM posts WHERE post_id IN (?, ?, ?, ...) 한 번으로 실행됨
-        //     존재하지 않는 ID는 결과에서 누락 (예외 X) → 위 Contract와 일치
+        // 2. findAllById = JpaRepository 기본 제공 IN 쿼리 메서드
         List<Post> posts = postRepository.findAllById(postIds);
 
-        // [3] List<Post> → Map<Long, PostInfoDto> 변환
-        //     기존 단건 메서드 getPostInfo가 PostInfoDto.from(post) 를 사용하므로
-        //     동일한 변환기를 메서드 레퍼런스로 재사용 → 일관성 확보 + 중복 코드 제거
+        // 3. List<Post> → Map<Long, PostInfoDto> 변환
         return posts.stream()
                 .collect(Collectors.toMap(
                         Post::getId,
                         PostInfoDto::from
+                ));
+    }
+
+    @Override
+    public Map<Long, PostMatchInfoDto> getPostMatchInfos(List<Long> postIds) {
+        // 1. 빈 리스트 가드 (getPostInfos와 동일)
+        if (postIds == null || postIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        // 2. postId IN (...) 단일 쿼리로 게시글 일괄 조회
+        List<Post> posts = postRepository.findAllById(postIds);
+
+        return posts.stream()
+                .collect(Collectors.toMap(
+                        Post::getId,
+                        PostMatchInfoDto::from
                 ));
     }
 }
