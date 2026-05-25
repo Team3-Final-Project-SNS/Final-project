@@ -30,7 +30,7 @@ dependencies {
     // 이메일 발송을 위한 Spring Mail 의존성
     implementation 'org.springframework.boot:spring-boot-starter-mail'
 
-    // Redis 연동을 위한 의존성 (OTP 임시 저장 + 발송 제한)
+    // Redis 연동을 위한 의존성 (OTP 임시 저장 + 발송 제한 + 채팅 Pub/Sub 메시지 브로커)
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
     // 입력값 유효성 검증을 위한 의존성 (@Email, @NotBlank 등 사용)
