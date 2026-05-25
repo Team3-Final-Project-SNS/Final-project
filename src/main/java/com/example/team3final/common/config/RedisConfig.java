@@ -44,15 +44,4 @@ public class RedisConfig {
     public MessageListenerAdapter listenerAdapter(RedisMessageSubscriber subscriber) {
         return new MessageListenerAdapter(subscriber, "onMessage");
     }
-
-    // Redis에 데이터를 저장/조회할 때 사용하는 템플릿
-    // Key, Value 모두 String으로 직렬화
-    @Bean
-    public RedisTemplate<String, String> redisTemplate(RedisConnectionFactory connectionFactory) {
-        RedisTemplate<String, String> template = new RedisTemplate<>();
-        template.setConnectionFactory(connectionFactory);
-        template.setKeySerializer(new StringRedisSerializer());
-        template.setValueSerializer(new StringRedisSerializer());
-        return template;
-    }
 }
