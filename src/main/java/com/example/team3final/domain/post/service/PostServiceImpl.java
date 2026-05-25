@@ -206,9 +206,29 @@ public class PostServiceImpl implements PostService{
                     pageable
             );
         }
-        // 4. Page<Post> → Page<GetPostsItemResponseDto> 변환 (페이징 메타데이터 보존)
+        // 4. 이번 페이지 게시글들의 작성자 ID만 중복 없이 추출
+        //    - postPage.getContent() : 현재 페이지의 실제 List<Post>를 꺼냄
+        //    - map(Post::getAuthorId) : 각 게시글에서 작성자 ID만 뽑음
+        //    - distinct()             : 한 사람이 글 여러 개 썼을 때 중복 ID 제거 → 불필요한 조회 방지
+        //    - toList()               : List<Long>으로 수집
+        List<Long> authorIds = postPage.getContent().stream()
+                .map(Post::getAuthorId)
+                .distinct()
+                .toList();
+
+        // 5. 작성자 정보를 IN 쿼리 단 1번으로 한꺼번에 조회
+        Map<Long, UserInfoDto> authorMap = userService.getUserInfos(authorIds);
+
+        // 6. 이제 루프 안에서는 DB를 건드리지 않고 Map에서 꺼내 쓰기만 함
         Page<GetPostsItemResponseDto> dtoPage = postPage.map(post -> {
-            UserInfoDto authorInfo = userService.getUserInfo(post.getAuthorId());
+            UserInfoDto authorInfo = authorMap.get(post.getAuthorId());
+
+            // 방어 코드: 혹시 작성자가 빠졌다면(탈퇴/삭제 등) NPE 대신 안전 처리
+            // TODO: 탈퇴 유저 표기 정책이 정해지면 그에 맞게 보완 (예: "(알 수 없음)")
+            if (authorInfo == null) {
+                return GetPostsItemResponseDto.from(post, null, null, null);
+            }
+
             return GetPostsItemResponseDto.from(
                     post,
                     authorInfo.nickname(),
@@ -233,9 +253,16 @@ public class PostServiceImpl implements PostService{
         // 2. 작성자 기준 조회
         Page<Post> postPage = postRepository.findByAuthorId(authorId, pageable);
 
+        Map<Long,UserInfoDto> authorMap = userService.getUserInfos(List.of(authorId));
+
         // 3. Page<Post> → Page<GetPostsItemResponseDto> 변환
         Page<GetPostsItemResponseDto> dtoPage = postPage.map(post -> {
-            UserInfoDto authorInfo = userService.getUserInfo(post.getAuthorId());
+            UserInfoDto authorInfo = authorMap.get(post.getAuthorId());
+
+            if (authorInfo == null) {
+                return GetPostsItemResponseDto.from(post, null, null, null);
+            }
+
             return GetPostsItemResponseDto.from(
                     post,
                     authorInfo.nickname(),
