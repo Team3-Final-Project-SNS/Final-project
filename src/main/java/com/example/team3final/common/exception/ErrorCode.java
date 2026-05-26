@@ -8,7 +8,7 @@ import org.springframework.http.HttpStatus;
 @RequiredArgsConstructor
 public enum ErrorCode {
 
-    // Auth - OTP
+    // Auth + OTP
     INVALID_EMAIL_DOMAIN(HttpStatus.BAD_REQUEST, "AUTH_001", "학교 이메일(.ac.kr) 형식이 아닙니다."),
     UNREGISTERED_UNIVERSITY(HttpStatus.BAD_REQUEST, "AUTH_002", "등록되지 않은 학교 도메인입니다."),
     ALREADY_REGISTERED_EMAIL(HttpStatus.CONFLICT, "AUTH_003", "이미 가입된 이메일입니다."),
@@ -18,9 +18,9 @@ public enum ErrorCode {
     OTP_EXPIRED(HttpStatus.BAD_REQUEST, "AUTH_007", "OTP가 만료되었습니다."),
     OTP_MAX_ATTEMPTS_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "AUTH_008", "OTP 시도 횟수를 초과했습니다. 새 인증번호를 요청하세요."),
     NICKNAME_DUPLICATED(HttpStatus.CONFLICT, "AUTH_009", "이미 사용 중인 닉네임입니다."),
-    LOGIN_FAIL(HttpStatus.UNAUTHORIZED, "AUTH_011", "이메일 또는 비밀번호가 일치하지 않습니다."),
-    USER_SUSPENDED_OR_WITHDRAWN(HttpStatus.FORBIDDEN, "AUTH_012", "정지 또는 탈퇴된 계정입니다."),
-    INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH_013", "유효하지 않거나 만료된 토큰입니다."),
+    LOGIN_FAIL(HttpStatus.UNAUTHORIZED, "AUTH_010", "이메일 또는 비밀번호가 일치하지 않습니다."),
+    USER_SUSPENDED_OR_WITHDRAWN(HttpStatus.FORBIDDEN, "AUTH_011", "정지 또는 탈퇴된 계정입니다."),
+    INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH_012", "유효하지 않거나 만료된 토큰입니다."),
     // Term
     REQUIRED_TERM_NOT_AGREED(HttpStatus.BAD_REQUEST, "TERM_001", "필수 약관에 동의하지 않았습니다."),
 
@@ -29,7 +29,7 @@ public enum ErrorCode {
     USER_CURRENT_PASSWORD_MISMATCH(HttpStatus.UNAUTHORIZED, "USER_002", "현재 비밀번호가 일치하지 않습니다."),
     USER_SAME_PASSWORD(HttpStatus.BAD_REQUEST, "USER_003", "새 비밀번호가 현재 비밀번호와 동일합니다."),
     // common
-    USER_NO_FIELD_TO_UPDATE(HttpStatus.BAD_REQUEST, "COMMON_002", "수정할 필드가 한 개 이상 필요합니다."),
+    USER_NO_FIELD_TO_UPDATE(HttpStatus.BAD_REQUEST, "COMMON_001", "수정할 필드가 한 개 이상 필요합니다."),
 
     // Post
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "POST_001", "존재하지 않는 게시글입니다."),
@@ -89,10 +89,8 @@ public enum ErrorCode {
     UNIVERSITY_NOT_FOUND(HttpStatus.NOT_FOUND, "UNIVERSITY_001", "조회 가능한 대학 목록이 없습니다."),
 
     // PointTransaction
-    POINT_TRANSACTION_INVALID_TYPE(HttpStatus.BAD_REQUEST, "POINT_001", "유효하지 않은 포인트 거래 타입입니다."),
-    POINT_TRANSACTION_INVALID_PAGE(HttpStatus.BAD_REQUEST, "POINT_002", "페이지 요청 값이 올바르지 않습니다."),
-    POINT_TRANSACTION_NOT_FOUND(HttpStatus.NOT_FOUND, "POINT_003", "포인트 거래 내역이 없습니다."),
-    POINT_NOT_ENOUGH(HttpStatus.UNPROCESSABLE_ENTITY, "POINT_004", "보유 포인트가 부족합니다."),
+    POINT_TRANSACTION_INVALID_PAGE(HttpStatus.BAD_REQUEST, "POINT_001", "페이지 요청 값이 올바르지 않습니다."),
+    POINT_NOT_ENOUGH(HttpStatus.UNPROCESSABLE_ENTITY, "POINT_002", "보유 포인트가 부족합니다."),
 
     // Admin
     // 인증
@@ -112,6 +110,7 @@ public enum ErrorCode {
     REPORT_TOO_SOON(HttpStatus.CONFLICT, "REPORT_004", "3일 이내 동일 게시글 재신고는 불가합니다."),
     REPORT_SELF_REPORT(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_005", "본인의 게시글은 신고할 수 없습니다."),
     REPORT_ALREADY_REPORTED(HttpStatus.CONFLICT, "REPORT_006", "이미 신고한 게시글입니다."),
+    // Report - admin
     REPORT_NOT_ACCEPTED(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_007", "채택(ACCEPTED)된 신고만 게시글 삭제에 사용할 수 있습니다."),
     REPORT_POST_ID_MISMATCH(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_008", "신고 대상 게시글과 요청 게시글이 일치하지 않습니다."),
     REPORT_TARGET_TYPE_NOT_POST(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_009", "게시글(POST) 유형의 신고만 사용할 수 있습니다.");
