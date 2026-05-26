@@ -114,7 +114,15 @@ public enum ErrorCode {
     REPORT_ALREADY_REPORTED(HttpStatus.CONFLICT, "REPORT_006", "이미 신고한 게시글입니다."),
     REPORT_NOT_ACCEPTED(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_007", "채택(ACCEPTED)된 신고만 게시글 삭제에 사용할 수 있습니다."),
     REPORT_POST_ID_MISMATCH(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_008", "신고 대상 게시글과 요청 게시글이 일치하지 않습니다."),
-    REPORT_TARGET_TYPE_NOT_POST(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_009", "게시글(POST) 유형의 신고만 사용할 수 있습니다.");
+    REPORT_TARGET_TYPE_NOT_POST(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_009", "게시글(POST) 유형의 신고만 사용할 수 있습니다."),
+
+
+
+
+
+    // AI
+    AI_PROMPT_TEMPLATE_NOT_FOUND(HttpStatus.NOT_FOUND, "AI_001", "활성화된 AI 프롬프트 템플릿을 찾을 수 없습니다."),
+    AI_PROMPT_FILE_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AI_002", "AI 프롬프트 파일을 읽을 수 없습니다.");
 
 
     private final HttpStatus httpStatus;

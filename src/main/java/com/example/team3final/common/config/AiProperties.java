@@ -26,6 +26,7 @@ public class AiProperties {
     private Feature report = new Feature();
     private ModerationFeature moderation = new ModerationFeature();
     private Metrics metrics = new Metrics();
+    private Prompt prompt = new Prompt();
 
     @Getter
     @Setter
@@ -61,5 +62,14 @@ public class AiProperties {
     @Setter
     public static class Metrics {
         private boolean enabled = true;
+    }
+
+
+
+    @Getter
+    @Setter
+    public static class Prompt {
+        private String basePath = "./prompts";
+        private boolean fallbackToClasspath = true;
     }
 }
