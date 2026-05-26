@@ -113,7 +113,7 @@ public class AdminReportServiceImpl implements AdminReportService {
         // ACCEPTED면 50포인트, REJECTED면 0포인트 지급
         int rewardPoint = processedReport.isRewarded() ? REWARD_POINT : NO_REWARD_POINT;
 
-        return AdminProcessReportResponseDto.from(processedReport, rewardPoint);
+        return AdminProcessReportResponseDto.of(processedReport, rewardPoint);
     }
 }
 

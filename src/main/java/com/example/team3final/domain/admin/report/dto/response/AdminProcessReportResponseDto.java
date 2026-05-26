@@ -14,7 +14,7 @@ public record AdminProcessReportResponseDto (
         LocalDateTime processedAt // 처리 시각
 ) {
 
-    public static AdminProcessReportResponseDto from(Report report, int rewardPoint) {
+    public static AdminProcessReportResponseDto of(Report report, int rewardPoint) {
         return new AdminProcessReportResponseDto(
                 report.getId(),
                 report.getStatus(),
