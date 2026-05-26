@@ -1,7 +1,10 @@
 package com.example.team3final.common.config;
 
+import com.example.team3final.common.jwt.AdminJwtAuthenticationFilter;
 import com.example.team3final.common.jwt.JwtAuthenticationFilter;
 import com.example.team3final.common.jwt.JwtProvider;
+import com.example.team3final.domain.admin.security.AdminDetailsService;
+import com.example.team3final.domain.user.service.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,7 +15,6 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -24,7 +26,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtProvider jwtProvider;
-    private final UserDetailsService userDetailsService;
+    private final CustomUserDetailsService userDetailsService;
+    private final AdminDetailsService adminDetailsService;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -46,7 +49,8 @@ public class SecurityConfig {
                                 "/api/v1/auth/refresh",            // 토큰 재발급
                                 "/api/v1/universities",            // 대학 목록 (회원가입 페이지에서 사용)
                                 "/ws/**",                           // 웹소켓 경로
-                                "/h2-console/**"
+                                "/h2-console/**",
+                                "/api/v1/admin/auth/login"          // Admin 로그인 열어두기
                         ).permitAll()
 
                         // Actuator 헬스체크 허용
@@ -55,6 +59,11 @@ public class SecurityConfig {
                         // 그 외 모든 요청은 인증 필요
                         .anyRequest().authenticated()
                 )
+
+                // Admin 필터 먼저 등록
+                .addFilterBefore(
+                        adminJwtAuthenticationFilter(),
+                        UsernamePasswordAuthenticationFilter.class)
 
                 // JWT 필터를 Spring Security의 UsernamePasswordAuthenticationFilter 앞에 삽입
                 // → 모든 요청에서 JWT를 먼저 검증한 후 Spring Security가 처리
@@ -84,5 +93,11 @@ public class SecurityConfig {
             AuthenticationConfiguration authenticationConfiguration
     ) throws Exception {
         return authenticationConfiguration.getAuthenticationManager();
+    }
+
+    // Admin 전용 JWT 필터 빈 등록 ← 추가
+    @Bean
+    public AdminJwtAuthenticationFilter adminJwtAuthenticationFilter() {
+        return new AdminJwtAuthenticationFilter(jwtProvider, adminDetailsService);
     }
 }
