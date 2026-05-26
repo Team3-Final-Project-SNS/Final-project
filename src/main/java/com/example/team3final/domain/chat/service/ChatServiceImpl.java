@@ -1,8 +1,8 @@
 package com.example.team3final.domain.chat.service;
 
 import com.example.team3final.common.dto.response.CursorResponseDto;
+import com.example.team3final.common.exception.ChatException;
 import com.example.team3final.common.exception.ErrorCode;
-import com.example.team3final.common.exception.ServiceException;
 import com.example.team3final.domain.chat.dto.response.ChatMessageResponseDto;
 import com.example.team3final.domain.chat.entity.ChatMember;
 import com.example.team3final.domain.chat.entity.ChatMessage;
@@ -11,6 +11,7 @@ import com.example.team3final.domain.chat.enums.ChatMemberRole;
 import com.example.team3final.domain.chat.repository.ChatMemberRepository;
 import com.example.team3final.domain.chat.repository.ChatMessageRepository;
 import com.example.team3final.domain.chat.repository.ChatRoomRepository;
+import com.example.team3final.domain.user.dto.response.UserInfoDto;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -20,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -39,7 +39,7 @@ public class ChatServiceImpl implements ChatService {
 
         // 이미 채팅방이 있으면 생성 안 함
         if (chatRoomRepository.findByPostId(postId).isPresent()) {
-            throw new ServiceException(ErrorCode.CHAT_ROOM_ALREADY_EXISTS);
+            throw new ChatException(ErrorCode.CHAT_ROOM_ALREADY_EXISTS);
         }
 
         // 채팅방 생성
@@ -73,7 +73,7 @@ public class ChatServiceImpl implements ChatService {
     @Override
     public void deactivateChatRoom(Long postId) {
         ChatRoom chatRoom = chatRoomRepository.findByPostId(postId)
-                .orElseThrow(() -> new ServiceException(ErrorCode.CHAT_ROOM_NOT_FOUND));
+                .orElseThrow(() -> new ChatException(ErrorCode.CHAT_ROOM_NOT_FOUND));
         chatRoom.deactivateNow();
     }
 
@@ -82,7 +82,7 @@ public class ChatServiceImpl implements ChatService {
     @Override
     public void scheduleChatRoomDeactivation(Long postId) {
         ChatRoom chatRoom = chatRoomRepository.findByPostId(postId)
-                .orElseThrow(() -> new ServiceException(ErrorCode.CHAT_ROOM_NOT_FOUND));
+                .orElseThrow(() -> new ChatException(ErrorCode.CHAT_ROOM_NOT_FOUND));
         chatRoom.scheduleDeactivation();
     }
 
@@ -91,13 +91,23 @@ public class ChatServiceImpl implements ChatService {
     @Override
     public CursorResponseDto<ChatMessageResponseDto> getChatMessages(Long chatRoomId, Long userId, Long cursorId, int size) {
 
+        // size 최대 제한
+        if (size > 50) {
+            throw new ChatException(ErrorCode.CHAT_INVALID_PAGE_SIZE);
+        }
+
+        // cursorId 유효성
+        if (cursorId <= 0) {
+            throw new ChatException(ErrorCode.CHAT_INVALID_CURSOR);
+        }
+
         // 채팅방 존재 여부 확인
         chatRoomRepository.findById(chatRoomId)
-                .orElseThrow(() -> new ServiceException(ErrorCode.CHAT_ROOM_NOT_FOUND));
+                .orElseThrow(() -> new ChatException(ErrorCode.CHAT_ROOM_NOT_FOUND));
 
         // 채팅방 참여자 여부 확인
         if (!chatMemberRepository.existsByChatRoomIdAndUserId(chatRoomId, userId)) {
-            throw new ServiceException(ErrorCode.CHAT_NOT_PARTICIPANT);
+            throw new ChatException(ErrorCode.CHAT_NOT_PARTICIPANT);
         }
 
         // 메시지 조회 (size+1개 조회로 다음 페이지 여부 확인)
@@ -110,13 +120,22 @@ public class ChatServiceImpl implements ChatService {
                 .filter(m -> !m.isRead())
                 .forEach(ChatMessage::markAsRead);
 
+        // 발신자 ID 목록 한 번에 조회 (N+1 방지)
+        List<Long> senderIds = messages.stream()
+                .map(ChatMessage::getSenderId)
+                .distinct()
+                .toList();
+        Map<Long, UserInfoDto> userInfoMap = userService.getUserInfos(senderIds);
+
         // DTO 변환
         List<ChatMessageResponseDto> content = messages.stream()
                 .map(m -> new ChatMessageResponseDto(
                         m.getId(),
                         chatRoomId,
                         m.getSenderId(),
-                        userService.getUser(m.getSenderId()).nickname(),
+                        userInfoMap.containsKey(m.getSenderId())
+                                ? userInfoMap.get(m.getSenderId()).nickname()
+                                : null,
                         m.getContent(),
                         m.isRead(),
                         m.getCreatedAt()
