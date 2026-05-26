@@ -74,6 +74,14 @@ public class DataInitializer implements ApplicationRunner {
                         .build()
         );
 
+        University university2 = universityRepository.save(
+                University.builder()
+                        .universityName("형민이형이야")          // 학교명
+                        .eDomain("naver.com")               // 이메일 도메인 (unique 제약)
+                        .isActive(true)                        // 활성 상태
+                        .build()
+        );
+
         // ===================================================
         // 2. 유저 생성 (정상 참여자 2명 및 제3자 테스트용 유저 1명)
         // ===================================================
@@ -83,7 +91,7 @@ public class DataInitializer implements ApplicationRunner {
                         .password(passwordEncoder.encode("password123!"))
                         .name("김등록")
                         .nickname("밥먹자")
-                        .universityId(university.getId())
+                        .universityId(university2.getId())
                         .major("컴퓨터공학과")
                         .studentNumber("24")
                         .birthDate(LocalDate.of(2004, 3, 15))
@@ -97,7 +105,7 @@ public class DataInitializer implements ApplicationRunner {
                         .password(passwordEncoder.encode("password123!"))
                         .name("이신청")
                         .nickname("같이밥먹어요")
-                        .universityId(university.getId())
+                        .universityId(university2.getId())
                         .major("경영학과")
                         .studentNumber("23")
                         .birthDate(LocalDate.of(2003, 7, 22))
