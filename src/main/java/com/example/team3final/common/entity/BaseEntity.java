@@ -14,16 +14,18 @@ import java.time.LocalDateTime;
 public abstract class BaseEntity {
 
     @CreatedDate
-    @Column(updatable = false)
+    @Column(name = "created_at", updatable = false)
     @Temporal(TemporalType.TIMESTAMP)
     private LocalDateTime createdAt;
 
     @LastModifiedDate
+    @Column(name = "updated_at")
     @Temporal(TemporalType.TIMESTAMP)
     private LocalDateTime updatedAt;
 
     // 소프트 삭제 시각. null이면 살아있음, 값이 있으면 삭제됨.
     @Column(name = "deleted_at")
+    @Temporal(TemporalType.TIMESTAMP)
     private LocalDateTime deletedAt;
 
     // 삭제 표시
