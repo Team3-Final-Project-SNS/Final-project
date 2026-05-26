@@ -102,5 +102,6 @@ public class ChatMessageHandler {
                 chatMessage.getCreatedAt()
         );
         redisMessagePublisher.publish(chatRoomId, response);
+
     }
 }
