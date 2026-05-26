@@ -373,6 +373,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
     // 연장 요청
     @Override
+    @Transactional
     public CreateMeetExtensionResponseDto createMeetExtension(Long userId, Long matchId) {
 
         // MeetVerification 조회
@@ -384,7 +385,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         PostInfoDto postInfoDto = postQueryService.getPostInfo(matchInfoDto.postId());
 
         // 당사자 확인
-        if (!matchInfoDto.isParticipant(userId, postInfoDto.postId())) {
+        if (!matchInfoDto.isParticipant(userId, postInfoDto.authorId())) {
             throw new VerificationException(ErrorCode.MATCH_NOT_PARTICIPANT);
         }
 
