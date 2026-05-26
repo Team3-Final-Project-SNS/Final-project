@@ -11,13 +11,19 @@ import com.example.team3final.domain.user.dto.response.UpdateUserResponseDto;
 import com.example.team3final.domain.user.dto.response.UserInfoDto;
 import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.enums.Gender;
+import com.example.team3final.domain.user.enums.UserStatus;
 import com.example.team3final.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -200,5 +206,35 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ServiceException(ErrorCode.USER_NOT_FOUND));
         return UserInfoDto.from(user);
+    }
+
+    // Admin 도메인에서 사용할 유저 목록 조회
+    @Override
+    public Page<User> getUsersForAdmin(UserStatus status, String keyword, Pageable pageable) {
+        return userRepository.findAllByForAdmin(status, keyword, pageable);
+    }
+
+    // Admin 도메인에서 사용할 유저 계정 정지
+    @Override
+    @Transactional
+    public void suspendUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ServiceException(ErrorCode.USER_NOT_FOUND));
+
+        // 이미 정지된 계정이면 예외
+        if (user.getStatus() == UserStatus.SUSPENDED) {
+            throw new ServiceException(ErrorCode.ADMIN_USER_ALREADY_SUSPENDED);
+        }
+
+        // 더티체킹으로 자동 업데이트
+        user.suspend();
+    }
+
+    // Admin 도메인에서 사용할 userId 목록을 닉네임 Map으로 반환
+    @Override
+    public Map<Long, String> getUserNicknameMap(List<Long> userIds) {
+        return userRepository.findAllById(userIds)
+                .stream()
+                .collect(Collectors.toMap(User::getId, User::getNickname));
     }
 }
