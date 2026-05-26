@@ -81,6 +81,8 @@ public enum ErrorCode {
     CHAT_NOT_PARTICIPANT(HttpStatus.FORBIDDEN, "CHAT_004", "해당 채팅방의 참여자가 아닙니다."),
     CHAT_ROOM_RE_ENTER_FORBIDDEN(HttpStatus.FORBIDDEN, "CHAT_005", "재입장할 수 없는 채팅방입니다."),
     CHAT_ROOM_ACTIVE_CANNOT_LEAVE(HttpStatus.FORBIDDEN, "CHAT_006", "진행 중인 채팅방은 나갈 수 없습니다."),
+    CHAT_INVALID_PAGE_SIZE(HttpStatus.BAD_REQUEST, "CHAT_007", "페이지 크기는 최대 50까지 요청할 수 있습니다."),
+    CHAT_INVALID_CURSOR(HttpStatus.BAD_REQUEST, "CHAT_008", "유효하지 않은 커서 ID입니다."),
 
 
     // University
