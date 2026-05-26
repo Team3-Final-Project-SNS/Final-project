@@ -64,6 +64,16 @@ public enum ErrorCode {
     SCAN_NOT_APPLICANT(HttpStatus.FORBIDDEN, "VERIFY_008", "신청자만 QR을 스캔할 수 있습니다."),
     SCAN_INVALID_QR_TOKEN(HttpStatus.BAD_REQUEST, "VERIFY_009", "유효하지 않은 QR 토큰입니다."),
 
+    // MeetVerification - 만남 시간 연장
+    MEET_EXTEND_BEFORE_MEET_AT(HttpStatus.UNPROCESSABLE_ENTITY, "VERIFY_010", "연장은 약속 시간 5분 전까지만 가능합니다."),
+    MEET_EXTEND_ALREADY_ACCEPTED(HttpStatus.UNPROCESSABLE_ENTITY, "VERIFY_011", "이미 연장이 완료된 매칭입니다."),
+    MEET_EXTEND_MATCH_NOT_MATCHED(HttpStatus.UNPROCESSABLE_ENTITY, "VERIFY_012", "MATCHED 상태의 매칭만 연장할 수 있습니다."),
+    MEET_EXTEND_ALREADY_REQUESTED(HttpStatus.CONFLICT, "VERIFY_013", "이미 진행 중인 연장 요청이 있습니다."),
+    MEET_EXTEND_SELF_RESPONSE(HttpStatus.FORBIDDEN, "VERIFY_014", "본인이 요청한 연장은 본인이 응답할 수 없습니다."),
+    MEET_EXTEND_NO_ACTIVE_REQUEST(HttpStatus.UNPROCESSABLE_ENTITY, "VERIFY_015", "응답 가능한 연장 요청이 없습니다."),
+    MEET_EXTEND_EXPIRED(HttpStatus.GONE, "VERIFY_016", "연장 요청이 만료되었습니다."),
+
+
     // Chat
     CHAT_ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "CHAT_001", "존재하지 않는 채팅방입니다."),
     CHAT_ROOM_ALREADY_EXISTS(HttpStatus.CONFLICT, "CHAT_002", "이미 존재하는 채팅방입니다."),
@@ -80,7 +90,18 @@ public enum ErrorCode {
     POINT_TRANSACTION_INVALID_TYPE(HttpStatus.BAD_REQUEST, "POINT_001", "유효하지 않은 포인트 거래 타입입니다."),
     POINT_TRANSACTION_INVALID_PAGE(HttpStatus.BAD_REQUEST, "POINT_002", "페이지 요청 값이 올바르지 않습니다."),
     POINT_TRANSACTION_NOT_FOUND(HttpStatus.NOT_FOUND, "POINT_003", "포인트 거래 내역이 없습니다."),
-    POINT_NOT_ENOUGH(HttpStatus.UNPROCESSABLE_ENTITY, "POINT_004", "보유 포인트가 부족합니다.");
+    POINT_NOT_ENOUGH(HttpStatus.UNPROCESSABLE_ENTITY, "POINT_004", "보유 포인트가 부족합니다."),
+
+    // Admin
+    // 인증
+    ADMIN_LOGIN_FAIL(HttpStatus.UNAUTHORIZED, "ADMIN_001", "이메일 또는 비밀번호가 일치하지 않습니다."),
+    ADMIN_ACCOUNT_INACTIVE(HttpStatus.FORBIDDEN, "ADMIN_002", "비활성화된 관리자 계정입니다."),
+    ADMIN_NOT_FOUND(HttpStatus.NOT_FOUND, "ADMIN_003", "존재하지 않는 관리자입니다."),
+    // 권한
+    ADMIN_SUPER_REQUIRED(HttpStatus.FORBIDDEN, "ADMIN_004", "SUPER_ADMIN 권한이 필요합니다."),
+    ADMIN_USER_ALREADY_SUSPENDED(HttpStatus.CONFLICT, "ADMIN_005", "이미 정지된 계정입니다."),
+    // Post 강제 삭제
+    ADMIN_POST_NOT_OPEN(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_006", "OPEN 상태의 게시글만 삭제할 수 있습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;
