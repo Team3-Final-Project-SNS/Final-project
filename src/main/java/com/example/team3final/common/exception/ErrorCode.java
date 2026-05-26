@@ -104,6 +104,8 @@ public enum ErrorCode {
     ADMIN_USER_ALREADY_SUSPENDED(HttpStatus.CONFLICT, "ADMIN_005", "이미 정지된 계정입니다."),
     // Post 강제 삭제
     ADMIN_POST_NOT_OPEN(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_006", "OPEN 상태의 게시글만 삭제할 수 있습니다."),
+    // Report
+    ADMIN_INVALID_REPORT_STATUS(HttpStatus.BAD_REQUEST, "ADMIN_007", "ACCEPTED 또는 REJECTED만 처리 가능합니다."),
 
     // Report
     REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "REPORT_001", "존재하지 않는 신고입니다."),
