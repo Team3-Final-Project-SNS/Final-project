@@ -1,5 +1,8 @@
 package com.example.team3final.domain.user.enums;
 
+import lombok.Getter;
+
+@Getter
 public enum UserStatus {
     ACTIVE("활성화"),     // 활성화
     SUSPENDED("정지"),  // 정지

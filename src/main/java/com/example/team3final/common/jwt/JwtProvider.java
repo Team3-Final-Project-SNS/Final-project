@@ -27,6 +27,10 @@ public class JwtProvider {
     @Value("${jwt.signup-token-validity-time}")
     private long signupTokenValidityTime;
 
+    // Admin 전용 토큰 만료 시간 (15분)
+    @Value("${jwt.admin-access-token-validity-time}")
+    private long adminAccessTokenValidityTime;
+
     private SecretKey secretKey;
 
     @PostConstruct
@@ -51,6 +55,11 @@ public class JwtProvider {
         return buildToken(email, signupTokenValidityTime, "SIGNUP");
     }
 
+    // Admin 전용 Access Token 생성
+    public String generateAdminAccessToken(String email) {
+        return buildToken(email, adminAccessTokenValidityTime, "ADMIN_ACCESS");
+    }
+
     // ===== 공통 토큰 빌드 로직 =====
     private String buildToken(String subject, long validityTime, String tokenType) {
         Date now = new Date();
@@ -58,7 +67,7 @@ public class JwtProvider {
 
         return Jwts.builder()
                 .subject(subject)                  // 토큰 주인 (이메일)
-                .claim("type", tokenType)       // 토큰 타입 구분 (ACCESS/REFRESH/SIGNUP)
+                .claim("type", tokenType)       // 토큰 타입 구분 (ACCESS/REFRESH/SIGNUP/ADMIN_ACCESS)
                 .issuedAt(now)                     // 발급 시각
                 .expiration(expiry)                // 만료 시각
                 .signWith(secretKey)               // 서명 (위조 방지)

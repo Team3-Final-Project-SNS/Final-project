@@ -38,6 +38,8 @@ jwt:
   access-token-validity-time: 1800000
   # Refresh Token 유효 시간: 7일(ms)
   refresh-token-validity-time: 604800000
+  # Admin AccessToken 유효시간 : 15분(ms)
+  admin-access-token-validity-time: 900000
 
 management:
   endpoints:
@@ -61,3 +63,9 @@ websocket:
 chat:
   # 채팅방 비활성화 기준 시간입니다. 추후 정책 확정 시 만남 시간 기준으로 변경할 수 있습니다.
   inactivity-timeout-minutes: 10
+
+admin:
+  init:
+    email: ${ADMIN_INIT_EMAIL}
+    password: ${ADMIN_INIT_PASSWORD}
+    name: ${ADMIN_INIT_NAME}

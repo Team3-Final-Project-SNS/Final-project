@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -56,5 +58,16 @@ public class UniversityServiceImpl implements UniversityService {
         University university = universityRepository.findByeDomainAndIsActiveTrue(emailDomain)
                 .orElseThrow(() -> new ServiceException(ErrorCode.UNREGISTERED_UNIVERSITY));
         return toUniversityResponseDto(university); // 기존 private 반환 메서드 재사용
+    }
+
+    // Admin 도메인에서 사용할 universityIds 조회
+    @Override
+    public Map<Long, String> getUniversityName(List<Long> universityIds) {
+        return universityRepository.findAllById(universityIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        University::getId,
+                        University::getUniversityName
+                ));
     }
 }
