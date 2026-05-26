@@ -15,7 +15,7 @@ public record GetUserResponseDto (
         Long universityId,
         String major,
         String studentNumber,
-        LocalDate birthYear,
+        LocalDate birthDate,
         Gender gender,
         int point,
         UserStatus status,
