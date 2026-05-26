@@ -5,6 +5,8 @@ import com.example.team3final.domain.auth.dto.request.OtpRequestDto;
 import com.example.team3final.domain.auth.dto.request.OtpVerifyRequestDto;
 import com.example.team3final.domain.auth.dto.request.SignupRequestDto;
 import com.example.team3final.domain.auth.dto.response.*;
+import com.example.team3final.domain.user.dto.request.WithdrawRequestDto;
+import com.example.team3final.domain.user.dto.response.WithdrawResponseDto;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -29,4 +31,7 @@ public interface AuthService {
 
     // 로그아웃 - 리프레쉬 토큰 쿠키 만료 처리
     void logout(String refreshToken, HttpServletResponse response);
+
+    // 회원 탈퇴 - Redis 토큰 삭제 + UserService 탈퇴 처리 + 쿠키 파기 오케스트레이션
+    WithdrawResponseDto withdraw(Long userId, WithdrawRequestDto request, String refreshToken, HttpServletResponse response);
 }

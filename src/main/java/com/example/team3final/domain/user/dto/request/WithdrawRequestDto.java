@@ -6,7 +6,7 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @NoArgsConstructor
-public class WithdrawRequestDtd {
+public class WithdrawRequestDto {
 
     @NotBlank(message = "현재 비밀번호를 입력해주세요")
     private String password;
