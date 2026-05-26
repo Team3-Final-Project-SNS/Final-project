@@ -1,5 +1,8 @@
 package com.example.team3final.domain.pointTransaction.enums;
 
+import lombok.Getter;
+
+@Getter
 public enum PointTransactionType {
 
     JOIN_BONUS("회원가입 보너스 지급"),          // 가입 시 10,000P 지급
