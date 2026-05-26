@@ -246,9 +246,14 @@ public class UserServiceImpl implements UserService {
         user.suspend();
     }
 
-    // Admin 도메인에서 사용할 userId 목록을 닉네임 Map으로 반환
+    // userId 목록을 닉네임 Map으로 반환
     @Override
     public Map<Long, String> getUserNicknameMap(List<Long> userIds) {
+
+        if (userIds == null || userIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
         return userRepository.findAllById(userIds)
                 .stream()
                 .collect(Collectors.toMap(User::getId, User::getNickname));
