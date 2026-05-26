@@ -34,6 +34,7 @@ public class AdminReportServiceImpl implements AdminReportService {
     private static final int NO_REWARD_POINT = 0;
 
 
+    // 신고 목록 조회
     @Override
     public PageResponseDto<AdminGetReportResponseDto> getReports(Long adminId, ReportStatus status, Pageable pageable) {
 
@@ -66,6 +67,7 @@ public class AdminReportServiceImpl implements AdminReportService {
         return PageResponseDto.from(dtoPage);
     }
 
+    // 신고 접수
     @Override
     @Transactional
     public AdminProcessReportResponseDto processReport(
