@@ -61,6 +61,13 @@ public class MatchServiceImpl implements MatchService{
             throw new MatchException(ErrorCode.MATCH_POST_CLOSED);
         }
 
+        // 2-1. 활성 매칭 정원 검증
+        final long MAX_ACTIVE_MATCHES = 1; // ★ 그룹 매칭 전환 지점
+        long activeMatchCount = matchRepository.countByPostIdAndStatus(postId, MatchStatus.MATCHED);
+        if (activeMatchCount >= MAX_ACTIVE_MATCHES) {
+            throw new MatchException(ErrorCode.MATCH_ALREADY_MATCHED);
+        }
+
         // 3. 신청자 포인트 차감 — 잔액 부족 시 예외 → 트랜잭션 전체 롤백
         // matchId는 아직 생성 전이라 null
         userPointService.deductPoint(applicantId, post.getAuthorDeposit(), null);

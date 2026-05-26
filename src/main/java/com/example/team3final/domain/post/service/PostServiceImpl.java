@@ -161,8 +161,8 @@ public class PostServiceImpl implements PostService{
         // 5. 포인트 전액 환불
         userPointService.refundPoint(userId, refundedPoint, null);
 
-        // 6. 게시글 하드 삭제
-        postRepository.delete(post);
+        // 6. 게시글 소프트 삭제
+        post.delete();
 
         return DeletePostResponseDto.of(postId, refundedPoint);
     }
