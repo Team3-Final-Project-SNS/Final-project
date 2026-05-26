@@ -13,4 +13,7 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
 
     // 활성 상태이면서 비활성화 예정 시각이 지난 채팅방 조회 (스케줄러용)
     List<ChatRoom> findByIsActiveTrueAndDeactivatedAtBefore(LocalDateTime now);
+
+    // 매칭 목록 조회(getMatches)에서 채팅방 N+1을 막기 위한 메서드
+    List<ChatRoom> findByPostIdIn(List<Long> postIds);
 }
