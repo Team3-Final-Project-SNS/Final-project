@@ -3,6 +3,9 @@ package com.example.team3final.domain.chat.service;
 import com.example.team3final.common.dto.response.CursorResponseDto;
 import com.example.team3final.domain.chat.dto.response.ChatMessageResponseDto;
 
+import java.util.List;
+import java.util.Map;
+
 public interface ChatService {
 
     // 채팅방 생성 - 매칭 확정 시 내부 호출
@@ -20,4 +23,9 @@ public interface ChatService {
 
     // postId로 chatRoomId 조회 - 매칭 상세 조회에서 사용
     Long getChatRoomIdByPostId(Long postId);
+
+    /**
+     * postId 목록으로 chatRoomId 일괄 조회 — 매칭 목록(getMatches) N+1 방지용
+     */
+    Map<Long, Long> getChatRoomIdsByPostIds(List<Long> postIds);
 }
