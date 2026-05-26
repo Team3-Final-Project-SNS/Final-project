@@ -1,7 +1,7 @@
 package com.example.team3final.domain.chat.handler;
 
+import com.example.team3final.common.exception.ChatException;
 import com.example.team3final.common.exception.ErrorCode;
-import com.example.team3final.common.exception.ServiceException;
 import com.example.team3final.domain.chat.dto.request.ChatMessageRequestDto;
 import com.example.team3final.domain.chat.dto.response.ChatMessageResponseDto;
 import com.example.team3final.domain.chat.entity.ChatMessage;
@@ -56,7 +56,7 @@ public class ChatMessageHandler {
 
         // 채팅방 존재 여부 확인
         ChatRoom chatRoom = chatRoomRepository.findById(chatRoomId)
-                .orElseThrow(() -> new ServiceException(ErrorCode.CHAT_ROOM_NOT_FOUND));
+                .orElseThrow(() -> new ChatException(ErrorCode.CHAT_ROOM_NOT_FOUND));
 
         // 비활성화된 채팅방은 메시지 전송 불가
         if (!chatRoom.isActive()) {
