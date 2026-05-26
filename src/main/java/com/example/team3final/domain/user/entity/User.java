@@ -43,7 +43,7 @@ public class User extends BaseEntity {
     private String studentNumber; //학번 입학연도 기준 뒤에 2자리
 
     @Column(name = "birth_date",nullable = false)
-    private LocalDate birthDate; // 생년
+    private LocalDate birthDate; // 생년월일
 
     @Enumerated(EnumType.STRING)
     @Column(name = "gender",nullable = false, length = 10)
