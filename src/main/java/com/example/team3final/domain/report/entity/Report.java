@@ -47,7 +47,7 @@ public class Report {
     private ReportReason reason;
 
     // 신고 상세 내용 (선택)
-    @Column(name = "detail", length = 500)
+    @Column(name = "detail", nullable = true, length = 500)
     private String detail;
 
     // 관리자 처리 상태

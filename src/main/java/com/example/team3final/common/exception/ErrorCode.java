@@ -101,7 +101,15 @@ public enum ErrorCode {
     ADMIN_SUPER_REQUIRED(HttpStatus.FORBIDDEN, "ADMIN_004", "SUPER_ADMIN 권한이 필요합니다."),
     ADMIN_USER_ALREADY_SUSPENDED(HttpStatus.CONFLICT, "ADMIN_005", "이미 정지된 계정입니다."),
     // Post 강제 삭제
-    ADMIN_POST_NOT_OPEN(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_006", "OPEN 상태의 게시글만 삭제할 수 있습니다.");
+    ADMIN_POST_NOT_OPEN(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_006", "OPEN 상태의 게시글만 삭제할 수 있습니다."),
+
+    // Report
+    REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "REPORT_001", "존재하지 않는 신고입니다."),
+    REPORT_ALREADY_PROCESSED(HttpStatus.CONFLICT, "REPORT_002", "이미 처리된 신고입니다."),
+    REPORT_NOT_OWNER(HttpStatus.FORBIDDEN, "REPORT_003", "본인의 신고만 취소할 수 있습니다."),
+    REPORT_TOO_SOON(HttpStatus.CONFLICT, "REPORT_004", "10일 이내 동일 대상 재신고는 불가합니다."),
+    REPORT_SELF_REPORT(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_005", "본인을 신고할 수 없습니다."),
+    REPORT_ALREADY_REPORTED(HttpStatus.CONFLICT, "REPORT_006", "이미 신고한 대상입니다.");
 
     private final HttpStatus httpStatus;
     private final String code;
