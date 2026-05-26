@@ -330,7 +330,6 @@ public class PostServiceImpl implements PostService{
         }
 
         // 작성자에게 예치 포인트 전액 환불
-        // TODO: 강제 삭제 당한 게시글을 전액 환불 해주는게 맞을지? 논의 후 결정해야 함
         int refundedPoint = post.getAuthorDeposit();
         userPointService.refundPoint(post.getAuthorId(), refundedPoint, null);
 
