@@ -30,20 +30,21 @@ public class ReportServiceImpl implements ReportService {
     @Override
     public CreateReportResponseDto createReport(Long reporterId, CreateReportRequestDto request) {
 
-        // 본인 신고 차단 (REVIEW 타입일 때만 - 본인 후기 신고 방지)
-        if (request.getTargetType().name().equals("REVIEW") && request.getTargetId().equals(reporterId)) {
-            throw new ReportException(ErrorCode.REPORT_SELF_REPORT);
-        }
+        // TODO: 신고 대상 게시글 존재 여부 확인
+        // postService.getPostById(request.getTargetId()) (게시글 담당자 협의 필요)
+
+        // 본인 게시글 신고 차단
+        // TODO: postService.getPostById()로 authorId 조회 후 비교 (게시글 담당자 협의 필요)
 
         // 중복 신고 방지
-        if (reportRepository.existsByReporterIdAndTargetTypeAndTargetId(
-                reporterId, request.getTargetType(), request.getTargetId())) {
+        if (reportRepository.existsByReporterIdAndTargetId(
+                reporterId, request.getTargetId())) {
             throw new ReportException(ErrorCode.REPORT_ALREADY_REPORTED);
         }
 
         // 10일 이내 동일 대상 재신고 제한
-        if (reportRepository.existsByReporterIdAndTargetTypeAndTargetIdAndCreatedAtAfter(
-                reporterId, request.getTargetType(), request.getTargetId(),
+        if (reportRepository.existsByReporterIdAndTargetIdAndCreatedAtAfter(
+                reporterId, request.getTargetId(),
                 LocalDateTime.now().minusDays(10))) {
             throw new ReportException(ErrorCode.REPORT_TOO_SOON);
         }
@@ -51,7 +52,6 @@ public class ReportServiceImpl implements ReportService {
         // 신고 저장
         Report report = Report.builder()
                 .reporterId(reporterId)
-                .targetType(request.getTargetType())
                 .targetId(request.getTargetId())
                 .reason(request.getReason())
                 .detail(request.getDetail())
@@ -111,8 +111,8 @@ public class ReportServiceImpl implements ReportService {
         report.markRewarded();
 
         // 피신고자 채택 누적 횟수 조회 (제재 정책용)
-        int acceptedCount = reportRepository.countByTargetIdAndTargetTypeAndStatus(
-                report.getTargetId(), report.getTargetType(), ReportStatus.ACCEPTED);
+        int acceptedCount = reportRepository.countByTargetIdAndStatus(
+                report.getTargetId(), ReportStatus.ACCEPTED);
 
         // TODO: 신고자에게 포상 50P 지급 (류 담당 UserPointService 준비 후 연동)
         // userPointService.rewardPoint(report.getReporterId(), 50, reportId);

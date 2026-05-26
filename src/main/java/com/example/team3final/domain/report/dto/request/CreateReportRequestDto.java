@@ -1,7 +1,6 @@
 package com.example.team3final.domain.report.dto.request;
 
 import com.example.team3final.domain.report.enums.ReportReason;
-import com.example.team3final.domain.report.enums.ReportTargetType;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -14,9 +13,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateReportRequestDto {
-
-    @NotNull(message = "신고 대상 유형은 필수입니다.")
-    private ReportTargetType targetType;
 
     @NotNull(message = "신고 대상 ID는 필수입니다.")
     private Long targetId;

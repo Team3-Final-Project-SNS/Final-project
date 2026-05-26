@@ -2,7 +2,6 @@ package com.example.team3final.domain.report.repository;
 
 import com.example.team3final.domain.report.entity.Report;
 import com.example.team3final.domain.report.enums.ReportStatus;
-import com.example.team3final.domain.report.enums.ReportTargetType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -19,23 +18,15 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
     Optional<Report> findByIdAndReporterId(Long id, Long reporterId);
 
     // 이미 신고한 대상인지 확인 (중복 신고 방지)
-    boolean existsByReporterIdAndTargetTypeAndTargetId(
-            Long reporterId, ReportTargetType targetType, Long targetId);
+    boolean existsByReporterIdAndTargetId(Long reporterId, Long targetId);
 
     // 10일 이내 동일 대상 재신고 확인
-    boolean existsByReporterIdAndTargetTypeAndTargetIdAndCreatedAtAfter(
-            Long reporterId, ReportTargetType targetType, Long targetId, LocalDateTime after);
+    boolean existsByReporterIdAndTargetIdAndCreatedAtAfter(
+            Long reporterId, Long targetId, LocalDateTime after);
 
-    // 관리자용 신고 목록 조회 - 상태 + 타입 필터
-    Page<Report> findByStatusAndTargetType(ReportStatus status, ReportTargetType targetType, Pageable pageable);
-
-    // 관리자용 신고 목록 조회 - 상태 필터만
+    // 관리자용 신고 목록 조회 - 상태 필터
     Page<Report> findByStatus(ReportStatus status, Pageable pageable);
 
-    // 관리자용 신고 목록 조회 - 타입 필터만
-    Page<Report> findByTargetType(ReportTargetType targetType, Pageable pageable);
-
     // 피신고자 채택 횟수 조회 (제재 정책용)
-    int countByTargetIdAndTargetTypeAndStatus(
-            Long targetId, ReportTargetType targetType, ReportStatus status);
+    int countByTargetIdAndStatus(Long targetId, ReportStatus status);
 }
