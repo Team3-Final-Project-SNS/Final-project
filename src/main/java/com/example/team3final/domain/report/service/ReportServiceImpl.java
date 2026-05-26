@@ -3,6 +3,8 @@ package com.example.team3final.domain.report.service;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.ReportException;
+import com.example.team3final.domain.post.entity.Post;
+import com.example.team3final.domain.post.service.PostService;
 import com.example.team3final.domain.report.dto.request.CreateReportRequestDto;
 import com.example.team3final.domain.report.dto.response.CreateReportResponseDto;
 import com.example.team3final.domain.report.dto.response.DeleteReportResponseDto;
@@ -24,17 +26,18 @@ import java.time.LocalDateTime;
 public class ReportServiceImpl implements ReportService {
 
     private final ReportRepository reportRepository;
+    private final PostService postService;
 
     // 신고 접수
-    @Transactional
     @Override
+    @Transactional
     public CreateReportResponseDto createReport(Long reporterId, CreateReportRequestDto request) {
 
-        // TODO: 신고 대상 게시글 존재 여부 확인
-        // postService.getPostById(request.getTargetId()) (게시글 담당자 협의 필요)
-
-        // 본인 게시글 신고 차단
-        // TODO: postService.getPostById()로 authorId 조회 후 비교 (게시글 담당자 협의 필요)
+        // 신고 대상 게시글 존재 여부 확인 + 본인 게시글 신고 차단
+        Post post = postService.getPostById(request.getTargetId());
+        if (post.getAuthorId().equals(reporterId)) {
+            throw new ReportException(ErrorCode.REPORT_SELF_REPORT);
+        }
 
         // 중복 신고 방지
         if (reportRepository.existsByReporterIdAndTargetId(
@@ -42,10 +45,12 @@ public class ReportServiceImpl implements ReportService {
             throw new ReportException(ErrorCode.REPORT_ALREADY_REPORTED);
         }
 
-        // 10일 이내 동일 대상 재신고 제한
-        if (reportRepository.existsByReporterIdAndTargetIdAndCreatedAtAfter(
+        // 기각된 신고에 대해 3일 이내 재신고 제한
+        // TODO: 수정 게시글은 재신고 가능 - post.getUpdatedAt()과 기각 시각 비교 필요
+        if (reportRepository.existsByReporterIdAndTargetIdAndStatusAndCreatedAtAfter(
                 reporterId, request.getTargetId(),
-                LocalDateTime.now().minusDays(10))) {
+                ReportStatus.REJECTED,
+                LocalDateTime.now().minusDays(3))) {
             throw new ReportException(ErrorCode.REPORT_TOO_SOON);
         }
 
@@ -71,9 +76,9 @@ public class ReportServiceImpl implements ReportService {
         return PageResponseDto.from(page);
     }
 
-    // 신고 취소 (소프트 딜리트 - WITHDRAWN 상태로 변경)
-    @Transactional
+    // 신고 취소
     @Override
+    @Transactional
     public DeleteReportResponseDto deleteReport(Long reporterId, Long reportId) {
 
         // 신고 존재 여부 + 본인 신고 확인
@@ -92,8 +97,8 @@ public class ReportServiceImpl implements ReportService {
     }
 
     // 신고 채택 - 관리자 호출용
-    @Transactional
     @Override
+    @Transactional
     public void acceptReport(Long reportId, Long adminId) {
 
         Report report = reportRepository.findById(reportId)
@@ -129,8 +134,8 @@ public class ReportServiceImpl implements ReportService {
     }
 
     // 신고 기각 - 관리자 호출용
-    @Transactional
     @Override
+    @Transactional
     public void rejectReport(Long reportId, Long adminId) {
 
         Report report = reportRepository.findById(reportId)
