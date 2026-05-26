@@ -152,4 +152,10 @@ public class ReportServiceImpl implements ReportService {
         // TODO: 신고자 알림 발송
         // notificationPublisher.sendReportResult(report.getReporterId(), reportId);
     }
+
+    @Override
+    public Report getReportById(Long reportId) {
+        return reportRepository.findById(reportId)
+                .orElseThrow(() -> new ReportException(ErrorCode.REPORT_NOT_FOUND));
+    }
 }
