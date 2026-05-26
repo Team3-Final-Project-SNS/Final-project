@@ -60,8 +60,9 @@ public class PostServiceImpl implements PostService{
                 .placeName(request.getPlaceName())
                 .placeLat(request.getPlaceLat())
                 .placeLng(request.getPlaceLng())
-                .content(request.getContent()) // null이면 null로 저장 (선택 필드)
+                .content(request.getContent())
                 .authorDeposit(request.getAuthorDeposit())
+                .maxApplicants(request.getMaxApplicants()) // 최대 참여 인원 추가
                 .build();
 
         // 4. 저장

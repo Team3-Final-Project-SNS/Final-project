@@ -68,10 +68,18 @@ public class Post extends BaseEntity {
         @Column(name = "status", nullable = false, length = 20)
         private PostStatus status;
 
+        // 최대 참여 인원 (등록자 포함)
+        @Column(name = "max_applicants", nullable = false)
+        private int maxApplicants;
+
+        // 현재 참여 인원
+        @Column(name = "current_applicants", nullable = false)
+        private int currentApplicants;
+
         @Builder
         private Post(Long authorId, LocalDateTime meetAt, String placeName,
                      BigDecimal placeLat, BigDecimal placeLng, String content,
-                     int authorDeposit) {
+                     int authorDeposit, int maxApplicants) {
                 this.authorId = authorId;
                 this.meetAt = meetAt;
                 this.placeName = placeName;
@@ -79,6 +87,8 @@ public class Post extends BaseEntity {
                 this.placeLng = placeLng;
                 this.content = content;
                 this.authorDeposit = authorDeposit;
+                this.maxApplicants = maxApplicants > 0 ? maxApplicants : 1; // 기본값 1 (1:1 매칭)
+                this.currentApplicants = 0;
                 this.status = PostStatus.OPEN;
         }
 
@@ -135,5 +145,22 @@ public class Post extends BaseEntity {
         // 본인 게시글 여부 검증 (수정/삭제 권한 체크용)
         public boolean isAuthor(Long userId) {
                 return this.authorId.equals(userId);
+        }
+
+        // 참여 인원 증가
+        public void increaseCurrentApplicants() {
+                this.currentApplicants++;
+        }
+
+        // 모집 완료 여부 확인
+        public boolean isFull() {
+                return this.currentApplicants >= this.maxApplicants;
+        }
+
+        // 참여 인원 감소 (매칭 취소 시)
+        public void decreaseCurrentApplicants() {
+                if (this.currentApplicants > 0) {
+                        this.currentApplicants--;
+                }
         }
 }
