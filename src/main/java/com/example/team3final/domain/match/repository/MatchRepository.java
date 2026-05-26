@@ -40,4 +40,7 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
             @Param("status") MatchStatus status,
             Pageable pageable
     );
+
+    // 특정 게시글에 특정 상태(주로 MATCHED)인 매칭이 현재 몇 건인지 카운트
+    long countByPostIdAndStatus(Long postId, MatchStatus status);
 }

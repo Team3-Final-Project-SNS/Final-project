@@ -9,6 +9,8 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -17,6 +19,8 @@ import java.time.LocalDateTime;
 @Getter
 @Table(name = "posts")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@SQLRestriction("deleted_at IS NULL")
+@SQLDelete(sql = "UPDATE posts SET deleted_at = NOW() WHERE post_id = ?")
 public class Post extends BaseEntity {
 
         // 최소 책임비 포인트
@@ -112,6 +116,11 @@ public class Post extends BaseEntity {
                 this.status = PostStatus.CANCELLED;
         }
 
+        // 소프트 삭제 — 실제 행 삭제 대신 deleted_at 만 찍음
+        public void delete() {
+                markDeleted();
+        }
+
         // ===== 조회 메서드 =====
 
         public boolean isOpen() {
@@ -127,4 +136,5 @@ public class Post extends BaseEntity {
         public boolean isAuthor(Long userId) {
                 return this.authorId.equals(userId);
         }
+
 }
