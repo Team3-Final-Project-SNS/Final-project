@@ -115,4 +115,7 @@ public interface PostService {
      *  - 존재하지 않는 postId 가 섞여 있어도 예외를 던지지 않고, 결과 Map에서 빠진 채로 반환
      */
     Map<Long, PostInfoDto> getPostInfos(List<Long> postIds);
+
+    // Admin 도메인에서 사용할 게시글 강제 삭제 후 환불된 포인트 반환
+    int forceDeletePost(Long postId);
 }
