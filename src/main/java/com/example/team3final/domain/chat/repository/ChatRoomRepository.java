@@ -4,6 +4,7 @@ import com.example.team3final.domain.chat.entity.ChatRoom;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,4 +15,6 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
 
     // 활성 상태이면서 비활성화 예정 시각이 지난 채팅방 조회 (스케줄러용)
     List<ChatRoom> findByIsActiveTrueAndDeactivatedAtBefore(LocalDateTime now);
+
+    List<ChatRoom> findByMatchIdIn(List<Long> matchIds);
 }

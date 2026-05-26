@@ -21,7 +21,7 @@ public class Match extends BaseEntity {
     @Column(name = "match_id", unique = true, updatable = false)
     private Long id;
 
-    // 매칭된 게시글 (1:1, post_id UNIQUE)
+    // 매칭된 게시글 (1:1)
     @Column(name = "post_id",nullable = false)
     private Long postId;
 

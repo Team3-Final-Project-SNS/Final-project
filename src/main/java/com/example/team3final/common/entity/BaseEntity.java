@@ -21,4 +21,18 @@ public abstract class BaseEntity {
     @LastModifiedDate
     @Temporal(TemporalType.TIMESTAMP)
     private LocalDateTime updatedAt;
+
+    // 소프트 삭제 시각. null이면 살아있음, 값이 있으면 삭제됨.
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    // 삭제 표시
+    protected void markDeleted() {
+        this.deletedAt = LocalDateTime.now();
+    }
+
+    // 삭제 여부 조회용
+    public boolean isDeleted() {
+        return this.deletedAt != null;
+    }
 }

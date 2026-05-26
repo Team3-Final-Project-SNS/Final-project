@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -202,10 +203,25 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public Map<Long, UserInfoDto> getUserInfos(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        // users WHERE user_id IN (...) 단일 쿼리
+        return userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, UserInfoDto::from));
+    }
+
+    // 단건 — 벌크를 재사용. ID 하나짜리 리스트를 넘기고 결과 Map에서 꺼냄
+    @Override
     public UserInfoDto getUserInfo(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ServiceException(ErrorCode.USER_NOT_FOUND));
-        return UserInfoDto.from(user);
+        // 벌크에 단일 원소 리스트로 위임 → 조회/변환 로직 중복 제거
+        UserInfoDto info = getUserInfos(List.of(userId)).get(userId);
+        // 없으면 기존과 동일하게 USER_NOT_FOUND 예외 (단건은 "없으면 에러"가 계약)
+        if (info == null) {
+            throw new ServiceException(ErrorCode.USER_NOT_FOUND);
+        }
+        return info;
     }
 
     // Admin 도메인에서 사용할 유저 목록 조회

@@ -17,7 +17,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -129,5 +132,23 @@ public class ChatServiceImpl implements ChatService {
         return chatRoomRepository.findByMatchId(matchId)
                 .map(ChatRoom::getId)
                 .orElse(null);
+    }
+
+    @Override
+    public Map<Long, Long> getChatRoomIdsByMatchIds(List<Long> matchIds) {
+
+        // 1. 빈 리스트 가드
+        if (matchIds == null || matchIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        // 2. matchId IN (...) 으로 채팅방을 한 번에 조회
+        List<ChatRoom> rooms = chatRoomRepository.findByMatchIdIn(matchIds);
+
+        return rooms.stream()
+                .collect(Collectors.toMap(
+                        ChatRoom::getMatchId,
+                        ChatRoom::getId
+                ));
     }
 }

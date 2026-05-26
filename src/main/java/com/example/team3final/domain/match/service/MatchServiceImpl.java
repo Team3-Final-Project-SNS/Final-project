@@ -61,6 +61,13 @@ public class MatchServiceImpl implements MatchService{
             throw new MatchException(ErrorCode.MATCH_POST_CLOSED);
         }
 
+        // 2-1. 활성 매칭 정원 검증
+        final long MAX_ACTIVE_MATCHES = 1; // ★ 그룹 매칭 전환 지점
+        long activeMatchCount = matchRepository.countByPostIdAndStatus(postId, MatchStatus.MATCHED);
+        if (activeMatchCount >= MAX_ACTIVE_MATCHES) {
+            throw new MatchException(ErrorCode.MATCH_ALREADY_MATCHED);
+        }
+
         // 3. 신청자 포인트 차감 — 잔액 부족 시 예외 → 트랜잭션 전체 롤백
         // matchId는 아직 생성 전이라 null
         userPointService.deductPoint(applicantId, post.getAuthorDeposit(), null);
@@ -270,24 +277,75 @@ public class MatchServiceImpl implements MatchService{
 
             Long userId, MatchStatus status, Pageable pageable
     ) {
+        // 0. 매칭 목록 조회 (기존 그대로) — 쿼리 1번
         Page<Match> matchPage = (status == null)
                 ? matchRepository.findAllByUserId(userId, pageable)
                 : matchRepository.findAllByUserIdAndStatus(userId, status, pageable);
 
+        // 현재 페이지의 실제 매칭 리스트 (ID 수집·룩업에 사용)
+        List<Match> matches = matchPage.getContent();
+
+        // 1: 게시글 정보를 벌크로 가져와 "상대방"을 계산
+
+        // 1-1. 이번 페이지 매칭들의 postId만 중복 없이 추출
+        List<Long> postIds = matches.stream()
+                .map(Match::getPostId)
+                .distinct()
+                .toList();
+
+        // 1-2. 게시글 정보를 IN 쿼리 1번으로
+        Map<Long, PostMatchInfoDto> postMap = postService.getPostMatchInfos(postIds);
+
+        // 1-3. 각 매칭마다 내가 author인지 판단 → 상대방 ID 결정
+        Map<Long, Long> opponentIdByMatch = new java.util.HashMap<>();
+        for (Match match : matches) {
+            PostMatchInfoDto postInfo = postMap.get(match.getPostId());
+            if (postInfo == null) continue; // 게시글이 없으면(이상 케이스) 스킵
+
+            boolean isAuthor = postInfo.authorId().equals(userId);
+            Long opponentId = isAuthor ? match.getApplicantId() : postInfo.authorId();
+            opponentIdByMatch.put(match.getId(), opponentId);
+        }
+
+        // 2: 상대방 유저 + 채팅방을 각각 가져오기
+
+        // 2-1. 상대방 ID 목록
+        List<Long> opponentIds = opponentIdByMatch.values().stream()
+                .distinct()
+                .toList();
+
+        // 2-2. 상대방 유저 정보 IN 쿼리 1번
+        Map<Long, UserInfoDto> opponentMap = userService.getUserInfos(opponentIds);
+
+        // 2-3. 매칭 ID 목록
+        List<Long> matchIds = matches.stream()
+                .map(Match::getId)
+                .toList();
+
+        // 2-4. 채팅방 ID IN 쿼리 1번
+        Map<Long, Long> chatRoomMap = chatService.getChatRoomIdsByMatchIds(matchIds);
+
         Page<GetMatchesResponseDto> dtoPage = matchPage.map(match -> {
-            PostMatchInfoDto postMatchInfo = postService.getPostMatchInfo(match.getPostId()); // ⭐ postService
+            PostMatchInfoDto postInfo = postMap.get(match.getPostId());
+            Long opponentId = opponentIdByMatch.get(match.getId());
+            UserInfoDto opponentInfo = (opponentId != null) ? opponentMap.get(opponentId) : null;
+            Long chatRoomId = chatRoomMap.get(match.getId());
 
-            boolean isAuthor = postMatchInfo.authorId().equals(userId);
-            Long opponentId = isAuthor ? match.getApplicantId() : postMatchInfo.authorId();
-            int myDeposit = isAuthor ? postMatchInfo.authorDeposit() : match.getApplicantDeposit();
+            // 내 예치금 계산 — 내가 author면 authorDeposit, 아니면 applicantDeposit
+            boolean isAuthor = (postInfo != null) && postInfo.authorId().equals(userId);
+            int myDeposit = isAuthor ? postInfo.authorDeposit() : match.getApplicantDeposit();
 
-            UserInfoDto opponentInfo = userService.getUserInfo(opponentId);
-            Long chatRoomId = chatService.getChatRoomIdByMatchId(match.getId());
+            // 방어: 게시글/상대방 정보가 빠진 이상 케이스 (탈퇴 등) — null-safe 처리
+            String oppNickname = (opponentInfo != null) ? opponentInfo.nickname() : null;
+            String oppMajor    = (opponentInfo != null) ? opponentInfo.major() : null;
+            String oppStudentNo= (opponentInfo != null) ? opponentInfo.studentNumber() : null;
+            LocalDateTime meetAt = (postInfo != null) ? postInfo.meetAt() : null;
+            String placeName     = (postInfo != null) ? postInfo.placeName() : null;
 
             return GetMatchesResponseDto.of(
                     match, opponentId,
-                    opponentInfo.nickname(), opponentInfo.major(), opponentInfo.studentNumber(),
-                    postMatchInfo.meetAt(), postMatchInfo.placeName(),
+                    oppNickname, oppMajor, oppStudentNo,
+                    meetAt, placeName,
                     myDeposit, chatRoomId
             );
         });

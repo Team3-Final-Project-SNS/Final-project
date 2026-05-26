@@ -43,6 +43,10 @@ public interface UserService {
     // User 엔티티 대신 DTO 반환 — 도메인 간 호출 전용
     UserInfoDto getUserInfo(Long userId);
 
+    // User 정보 일괄 조회 - 도메인 간 호출용
+    // 한 번의 IN 쿼리로 가져와 N+1 문제 방지
+    Map<Long, UserInfoDto> getUserInfos(List<Long> userIds);
+
     // Admin 유저 목록 조회용
     Page<User> getUsersForAdmin(UserStatus status, String keyword, Pageable pageable);
 
