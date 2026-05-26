@@ -82,7 +82,7 @@ public class MatchServiceImpl implements MatchService{
         post.match();
 
         Long chatRoomId = chatService.createChatRoom(
-                savedMatch.getId(),
+                postId,
                 post.getAuthorId(),
                 applicantId
         );
@@ -223,7 +223,7 @@ public class MatchServiceImpl implements MatchService{
 
         match.cancel();
         post.cancel();
-        chatService.deactivateChatRoom(matchId);
+        chatService.deactivateChatRoom(match.getPostId());
 
         return CancelMatchResponseDto.of(
                 match.getId(),
@@ -259,7 +259,7 @@ public class MatchServiceImpl implements MatchService{
             throw new MatchException(ErrorCode.MATCH_NOT_PARTICIPANT);
         }
 
-        Long chatRoomId = chatService.getChatRoomIdByMatchId(matchId);
+        Long chatRoomId = chatService.getChatRoomIdByPostId(match.getPostId());
 
         UserInfoDto authorInfo = userService.getUserInfo(post.getAuthorId());
         UserInfoDto applicantInfo = userService.getUserInfo(match.getApplicantId());
@@ -323,13 +323,13 @@ public class MatchServiceImpl implements MatchService{
                 .toList();
 
         // 2-4. 채팅방 ID IN 쿼리 1번
-        Map<Long, Long> chatRoomMap = chatService.getChatRoomIdsByMatchIds(matchIds);
+        Map<Long, Long> chatRoomMap = chatService.getChatRoomIdsByPostIds(postIds);
 
         Page<GetMatchesResponseDto> dtoPage = matchPage.map(match -> {
             PostMatchInfoDto postInfo = postMap.get(match.getPostId());
             Long opponentId = opponentIdByMatch.get(match.getId());
             UserInfoDto opponentInfo = (opponentId != null) ? opponentMap.get(opponentId) : null;
-            Long chatRoomId = chatRoomMap.get(match.getId());
+            Long chatRoomId = chatRoomMap.get(match.getPostId());
 
             // 내 예치금 계산 — 내가 author면 authorDeposit, 아니면 applicantDeposit
             boolean isAuthor = (postInfo != null) && postInfo.authorId().equals(userId);
