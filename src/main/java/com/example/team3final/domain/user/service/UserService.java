@@ -6,8 +6,13 @@ import com.example.team3final.domain.user.dto.response.UpdateUserResponseDto;
 import com.example.team3final.domain.user.dto.response.UserInfoDto;
 import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.enums.Gender;
+import com.example.team3final.domain.user.enums.UserStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 
 public interface UserService {
 
@@ -37,4 +42,13 @@ public interface UserService {
 
     // User 엔티티 대신 DTO 반환 — 도메인 간 호출 전용
     UserInfoDto getUserInfo(Long userId);
+
+    // Admin 유저 목록 조회용
+    Page<User> getUsersForAdmin(UserStatus status, String keyword, Pageable pageable);
+
+    // Admin 유저 계정 정지
+    void suspendUser(Long userId);
+
+    // Admin 도메인에서 사용할 userId 목록을 닉네임 Map으로 반환 (N+1 방지 배치 조회)
+    Map<Long, String> getUserNicknameMap(List<Long> userIds);
 }

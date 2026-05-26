@@ -116,5 +116,10 @@ public class User extends BaseEntity {
         this.point -= amount;
     }
 
+    // 계정 정지 (관리자)
+    public void suspend() {
+        this.status = UserStatus.SUSPENDED;
+    }
+
 
 }

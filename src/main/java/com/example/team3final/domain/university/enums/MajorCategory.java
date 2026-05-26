@@ -1,6 +1,8 @@
 package com.example.team3final.domain.university.enums;
 
+import lombok.Getter;
 
+@Getter
 public enum MajorCategory {
 
     COMPUTER_SCIENCE("컴퓨터공학"),
