@@ -2,7 +2,6 @@ package com.example.team3final.domain.report.entity;
 
 import com.example.team3final.domain.report.enums.ReportReason;
 import com.example.team3final.domain.report.enums.ReportStatus;
-import com.example.team3final.domain.report.enums.ReportTargetType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -12,7 +11,6 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * 신고 대상: POST / USER / CHAT_MESSAGE
  * 신고 사유: SPAM / OBSCENE / FRAUD / ABUSE / OTHER
  * 처리 상태: PENDING → ACCEPTED / REJECTED / WITHDRAWN
  */
@@ -31,11 +29,6 @@ public class Report {
     // 신고한 유저 ID
     @Column(name = "reporter_id", nullable = false, updatable = false)
     private Long reporterId;
-
-    // 신고 대상 유형 (POST / USER / CHAT_MESSAGE)
-    @Enumerated(EnumType.STRING)
-    @Column(name = "target_type", nullable = false, updatable = false, length = 20)
-    private ReportTargetType targetType;
 
     // 신고 대상 엔티티 ID
     @Column(name = "target_id", nullable = false, updatable = false)
@@ -76,10 +69,9 @@ public class Report {
     private LocalDateTime cancelledAt;
 
     @Builder
-    private Report(Long reporterId, ReportTargetType targetType, Long targetId,
+    private Report(Long reporterId, Long targetId,
                    ReportReason reason, String detail) {
         this.reporterId = reporterId;
-        this.targetType = targetType;
         this.targetId = targetId;
         this.reason = reason;
         this.detail = detail;
