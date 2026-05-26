@@ -1,5 +1,7 @@
 package com.example.team3final.domain.user.service;
 
+import com.example.team3final.common.exception.ErrorCode;
+import com.example.team3final.common.exception.ServiceException;
 import com.example.team3final.domain.user.dto.request.UpdateUserRequestDto;
 import com.example.team3final.domain.user.dto.response.GetUserResponseDto;
 import com.example.team3final.domain.user.dto.response.UpdateUserResponseDto;
@@ -40,12 +42,23 @@ public interface UserService {
     // 내 정보 수정
     UpdateUserResponseDto updateUser(Long userId, UpdateUserRequestDto request);
 
-    // User 엔티티 대신 DTO 반환 — 도메인 간 호출 전용
-    UserInfoDto getUserInfo(Long userId);
-
-    // User 정보 일괄 조회 - 도메인 간 호출용
-    // 한 번의 IN 쿼리로 가져와 N+1 문제 방지
+    // 1. 구현 클래스에서 반드시 구현해야 하는 bulk 조회 메서드
     Map<Long, UserInfoDto> getUserInfos(List<Long> userIds);
+
+    // 2. bulk 조회를 재사용하는 단건 default 메서드 (공통 로직으로 합침)
+    default UserInfoDto getUserInfo(Long userId) {
+        if (userId == null) {
+            throw new ServiceException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        // bulk 메서드 호출 후 Map에서 결과 추출
+        UserInfoDto info = getUserInfos(List.of(userId)).get(userId);
+
+        if (info == null) {
+            throw new ServiceException(ErrorCode.USER_NOT_FOUND);
+        }
+        return info;
+    }
 
     // Admin 유저 목록 조회용
     Page<User> getUsersForAdmin(UserStatus status, String keyword, Pageable pageable);
@@ -55,4 +68,7 @@ public interface UserService {
 
     // Admin 도메인에서 사용할 userId 목록을 닉네임 Map으로 반환 (N+1 방지 배치 조회)
     Map<Long, String> getUserNicknameMap(List<Long> userIds);
+
+    // 회원 탈퇴 처리 - 비밀번호 검증 후 상태를 Withdrawn으로 변경
+    void withdrawUser(Long userId, String rawPassword);
 }

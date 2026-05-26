@@ -207,21 +207,10 @@ public class UserServiceImpl implements UserService {
         if (userIds == null || userIds.isEmpty()) {
             return Collections.emptyMap();
         }
-        // users WHERE user_id IN (...) 단일 쿼리
+
+        // DB에서 IN 절로 유저들을 한 번에(Bulk) 땡겨와서 Map으로 반환
         return userRepository.findAllById(userIds).stream()
                 .collect(Collectors.toMap(User::getId, UserInfoDto::from));
-    }
-
-    // 단건 — 벌크를 재사용. ID 하나짜리 리스트를 넘기고 결과 Map에서 꺼냄
-    @Override
-    public UserInfoDto getUserInfo(Long userId) {
-        // 벌크에 단일 원소 리스트로 위임 → 조회/변환 로직 중복 제거
-        UserInfoDto info = getUserInfos(List.of(userId)).get(userId);
-        // 없으면 기존과 동일하게 USER_NOT_FOUND 예외 (단건은 "없으면 에러"가 계약)
-        if (info == null) {
-            throw new ServiceException(ErrorCode.USER_NOT_FOUND);
-        }
-        return info;
     }
 
     // Admin 도메인에서 사용할 유저 목록 조회
@@ -257,5 +246,32 @@ public class UserServiceImpl implements UserService {
         return userRepository.findAllById(userIds)
                 .stream()
                 .collect(Collectors.toMap(User::getId, User::getNickname));
+    }
+
+    // 회원 탈퇴
+    @Override
+    @Transactional
+    public void withdrawUser(Long userId, String rawPassword) {
+
+        // 1. 유저 조회 — 없으면 USER_NOT_FOUND 예외
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ServiceException(ErrorCode.USER_NOT_FOUND));
+
+        // 2. 이미 탈퇴/정지된 계정이면 진행 불가
+        if (user.getStatus() != com.example.team3final.domain.user.enums.UserStatus.ACTIVE) {
+            throw new ServiceException(ErrorCode.USER_SUSPENDED_OR_WITHDRAWN);
+        }
+
+        // 3. 비밀번호 일치 여부 확인
+        boolean isPasswordCorrect = passwordEncoder.matches(rawPassword, user.getPassword());
+        if (!isPasswordCorrect) {
+            throw new ServiceException(ErrorCode.USER_CURRENT_PASSWORD_MISMATCH);
+        }
+
+        // 4. 상태를 WITHDRAWN으로 변경
+        user.withdraw();
+
+        // 5. 더티 체킹: @Transactional 범위 안에서 엔티티 변경 → 트랜잭션 종료 시 자동 UPDATE
+        // save()를 명시적으로 호출하지 않아도 됨
     }
 }
