@@ -61,10 +61,8 @@ public class MatchServiceImpl implements MatchService{
             throw new MatchException(ErrorCode.MATCH_POST_CLOSED);
         }
 
-        // 2-1. 활성 매칭 정원 검증
-        final long MAX_ACTIVE_MATCHES = 1; // ★ 그룹 매칭 전환 지점
-        long activeMatchCount = matchRepository.countByPostIdAndStatus(postId, MatchStatus.MATCHED);
-        if (activeMatchCount >= MAX_ACTIVE_MATCHES) {
+        // 2-1. 활성 매칭 정원 검증 (그룹 매칭 지원)
+        if (post.isFull()) {
             throw new MatchException(ErrorCode.MATCH_ALREADY_MATCHED);
         }
 
@@ -79,13 +77,19 @@ public class MatchServiceImpl implements MatchService{
                 .build();
         Match savedMatch = matchRepository.save(match);
 
-        post.match();
+        // 참여 인원 증가
+        post.increaseCurrentApplicants();
 
-        Long chatRoomId = chatService.createChatRoom(
-                postId,
-                post.getAuthorId(),
-                applicantId
-        );
+        // 모집 완료 시 채팅방 생성 및 게시글 상태 MATCHED 전환
+        Long chatRoomId = null;
+        if (post.isFull()) {
+            post.match();
+            chatRoomId = chatService.createChatRoom(
+                    postId,
+                    post.getAuthorId(),
+                    applicantId
+            );
+        }
 
         // 양측 닉네임 조회
         String authorNickname = userService.getUserInfo(post.getAuthorId()).nickname();
@@ -222,6 +226,7 @@ public class MatchServiceImpl implements MatchService{
         userPointService.refundPoint(opponentId, opponentDeposit, matchId);
 
         match.cancel();
+        post.decreaseCurrentApplicants(); // 참여 인원 감소
         post.cancel();
         chatService.deactivateChatRoom(match.getPostId());
 
