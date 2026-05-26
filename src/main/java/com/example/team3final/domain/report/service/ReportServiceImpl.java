@@ -8,6 +8,7 @@ import com.example.team3final.domain.report.dto.response.CreateReportResponseDto
 import com.example.team3final.domain.report.dto.response.DeleteReportResponseDto;
 import com.example.team3final.domain.report.dto.response.GetMyReportsResponseDto;
 import com.example.team3final.domain.report.entity.Report;
+import com.example.team3final.domain.report.enums.ReportStatus;
 import com.example.team3final.domain.report.repository.ReportRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -29,8 +30,8 @@ public class ReportServiceImpl implements ReportService {
     @Override
     public CreateReportResponseDto createReport(Long reporterId, CreateReportRequestDto request) {
 
-        // 본인 신고 차단 (USER 타입만)
-        if (request.getTargetType().name().equals("USER") && request.getTargetId().equals(reporterId)) {
+        // 본인 신고 차단 (REVIEW 타입일 때만 - 본인 후기 신고 방지)
+        if (request.getTargetType().name().equals("REVIEW") && request.getTargetId().equals(reporterId)) {
             throw new ReportException(ErrorCode.REPORT_SELF_REPORT);
         }
 
@@ -88,5 +89,62 @@ public class ReportServiceImpl implements ReportService {
         report.withdraw();
 
         return DeleteReportResponseDto.of(report.getId(), report.getCancelledAt());
+    }
+
+    // 신고 채택 - 관리자 호출용
+    @Transactional
+    @Override
+    public void acceptReport(Long reportId, Long adminId) {
+
+        Report report = reportRepository.findById(reportId)
+                .orElseThrow(() -> new ReportException(ErrorCode.REPORT_NOT_FOUND));
+
+        // 이미 처리된 신고 확인
+        if (report.isProcessed()) {
+            throw new ReportException(ErrorCode.REPORT_ALREADY_PROCESSED);
+        }
+
+        // 채택 처리
+        report.accept(adminId);
+
+        // 포상 지급 완료 처리
+        report.markRewarded();
+
+        // 피신고자 채택 누적 횟수 조회 (제재 정책용)
+        int acceptedCount = reportRepository.countByTargetIdAndTargetTypeAndStatus(
+                report.getTargetId(), report.getTargetType(), ReportStatus.ACCEPTED);
+
+        // TODO: 신고자에게 포상 50P 지급 (류 담당 UserPointService 준비 후 연동)
+        // userPointService.rewardPoint(report.getReporterId(), 50, reportId);
+
+        // TODO: 채택 횟수에 따른 피신고자 제재 처리
+        // userService.suspendUser(userId, days) 시그니처 확정 후 연동 (정 담당자 협의 필요)
+        // 1회 → 경고, 2회 → 경고, 3회 → 3일 정지
+        // 4회 → 10일 정지, 5회 → 30일 정지, 6회 이상 → 영구 정지
+        // userService.applyPenalty(report.getTargetId(), acceptedCount);
+
+        // TODO: 신고자/피신고자 알림 발송 (NotificationPublisher 구현체 완성 후 연동)
+        // notificationPublisher.sendReportResult(report.getReporterId(), reportId);
+        // notificationPublisher.sendReportResult(report.getTargetId(), reportId);
+    }
+
+    // 신고 기각 - 관리자 호출용
+    @Transactional
+    @Override
+    public void rejectReport(Long reportId, Long adminId) {
+
+        Report report = reportRepository.findById(reportId)
+                .orElseThrow(() -> new ReportException(ErrorCode.REPORT_NOT_FOUND));
+
+        // 이미 처리된 신고 확인
+        if (report.isProcessed()) {
+            throw new ReportException(ErrorCode.REPORT_ALREADY_PROCESSED);
+        }
+
+        // 기각 처리
+        report.reject(adminId);
+
+        // TODO: 신고자 알림 발송
+        // notificationPublisher.sendReportResult(report.getReporterId(), reportId);
     }
 }

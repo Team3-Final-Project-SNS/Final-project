@@ -15,6 +15,12 @@ public interface ReportService {
     // 내 신고 내역 조회
     PageResponseDto<GetMyReportsResponseDto> getMyReports(Long reporterId, Pageable pageable);
 
-    // 신고 취소
+    // 신고 취소 (소프트 딜리트)
     DeleteReportResponseDto deleteReport(Long reporterId, Long reportId);
+
+    // 신고 채택 - 관리자 호출용
+    void acceptReport(Long reportId, Long adminId);
+
+    // 신고 기각 - 관리자 호출용
+    void rejectReport(Long reportId, Long adminId);
 }
