@@ -116,6 +116,7 @@ public interface PostService {
      * 사용처: 매칭 목록(getMatches) N+1 방지
      */
     Map<Long, PostMatchInfoDto> getPostMatchInfos(List<Long> postIds);
+
     // Admin 도메인에서 사용할 게시글 강제 삭제 후 환불된 포인트 반환
-    int forceDeletePost(Long postId);
+    int forceDeletePost(Post post);
 }

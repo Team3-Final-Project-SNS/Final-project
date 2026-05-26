@@ -5,6 +5,7 @@ import com.example.team3final.domain.report.dto.request.CreateReportRequestDto;
 import com.example.team3final.domain.report.dto.response.CreateReportResponseDto;
 import com.example.team3final.domain.report.dto.response.DeleteReportResponseDto;
 import com.example.team3final.domain.report.dto.response.GetMyReportsResponseDto;
+import com.example.team3final.domain.report.entity.Report;
 import org.springframework.data.domain.Pageable;
 
 public interface ReportService {
@@ -23,4 +24,7 @@ public interface ReportService {
 
     // 신고 기각 - 관리자 호출용
     void rejectReport(Long reportId, Long adminId);
+
+    // 신고 단건 조회
+    Report getReportById(Long reportId);
 }
