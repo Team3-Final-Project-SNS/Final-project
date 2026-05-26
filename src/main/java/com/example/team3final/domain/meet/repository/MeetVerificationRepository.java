@@ -1,8 +1,13 @@
 package com.example.team3final.domain.meet.repository;
 
 import com.example.team3final.domain.meet.entity.MeetVerification;
+import com.example.team3final.domain.meet.enums.ExtensionStatus;
 import com.example.team3final.domain.meet.enums.VerificationStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -17,4 +22,16 @@ public interface MeetVerificationRepository extends JpaRepository<MeetVerificati
 
     // QR 노쇼 판정용 VERIFIED 상태이면서 QR 만료 시각이 지난 것들 조회
     List<MeetVerification> findAllByStatusAndQrExpiresAtBefore(VerificationStatus status, LocalDateTime now);
+
+    // 노쇼 후보군 조회
+    @Query("""
+           SELECT mv
+           FROM MeetVerification mv
+           WHERE mv.status IN :statuses
+           """)
+    Page<MeetVerification> findAllByStatusIn(@Param("statuses")List<VerificationStatus> statuses, Pageable pageable);
+
+    // 만료 처리가 필요한 연장 요청 조회
+    List<MeetVerification> findAllByExtensionStatusAndExtensionRequestedAtBefore(
+            ExtensionStatus status, LocalDateTime dateTime);
 }
