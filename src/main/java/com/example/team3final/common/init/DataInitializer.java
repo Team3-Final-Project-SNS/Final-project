@@ -218,7 +218,7 @@ public class DataInitializer implements ApplicationRunner {
         userLocationRepository.save(UserLocation.builder().matchId(activeMatch.getId()).userId(author.getId()).latitude(DEMO_PLACE_LAT).longitude(DEMO_PLACE_LNG).build());
         userLocationRepository.save(UserLocation.builder().matchId(activeMatch.getId()).userId(applicant.getId()).latitude(DEMO_PLACE_LAT).longitude(DEMO_PLACE_LNG).build());
 
-        ChatRoom activeChatRoom = chatRoomRepository.save(ChatRoom.builder().matchId(activeMatch.getId()).build());
+        ChatRoom activeChatRoom = chatRoomRepository.save(ChatRoom.builder().postId(activePost.getId()).build());
 
         chatMemberRepository.save(ChatMember.builder().chatRoomId(activeChatRoom.getId()).userId(author.getId()).role(ChatMemberRole.HOST).build());
         chatMemberRepository.save(ChatMember.builder().chatRoomId(activeChatRoom.getId()).userId(applicant.getId()).role(ChatMemberRole.GUEST).build());
@@ -252,7 +252,7 @@ public class DataInitializer implements ApplicationRunner {
                         .build()
         );
 
-        ChatRoom completedChatRoom = chatRoomRepository.save(ChatRoom.builder().matchId(completedMatch.getId()).build());
+        ChatRoom completedChatRoom = chatRoomRepository.save(ChatRoom.builder().postId(completedPost.getId()).build());
 
         chatMemberRepository.save(ChatMember.builder().chatRoomId(completedChatRoom.getId()).userId(author.getId()).role(ChatMemberRole.HOST).build());
         chatMemberRepository.save(ChatMember.builder().chatRoomId(completedChatRoom.getId()).userId(applicant.getId()).role(ChatMemberRole.GUEST).build());
