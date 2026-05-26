@@ -69,7 +69,7 @@ public class User extends BaseEntity {
         this.studentNumber = studentNumber;
         this.birthDate = birthDate;
         this.gender = gender;
-        this.point = 1000000;                  // 기본값 0, 가입 보너스는 서비스에서 별도 처리
+        this.point = 0;                  // 기본값 0, 가입 보너스는 서비스에서 별도 처리
         this.status = UserStatus.ACTIVE; // 가입 시 기본 상태
     }
 

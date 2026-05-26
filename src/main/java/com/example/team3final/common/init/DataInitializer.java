@@ -74,8 +74,16 @@ public class DataInitializer implements ApplicationRunner {
                         .build()
         );
 
+        University university1 = universityRepository.save(
+                University.builder()
+                        .universityName("네이버대학교")
+                        .eDomain("naver.com")
+                        .isActive(true)
+                        .build()
+        );
+
         // ===================================================
-        // 2. 유저 생성 (정상 참여자 2명 및 제3자 테스트용 유저 1명)
+        // 2. 유저 생성 (초기 생성 시 point는 자동으로 0 세팅됨)
         // ===================================================
         User author = userRepository.save(
                 User.builder()
@@ -105,7 +113,6 @@ public class DataInitializer implements ApplicationRunner {
                         .build()
         );
 
-        // CHAT-E-001 (제3자 권한 예외) 테스트용 유저
         User hacker = userRepository.save(
                 User.builder()
                         .email("hacker@korea.ac.kr")
@@ -128,13 +135,16 @@ public class DataInitializer implements ApplicationRunner {
         termAgreementRepository.save(TermAgreement.builder().userId(hacker.getId()).termVersion("v1.0").build());
 
         // ===================================================
-        // 4. 포인트 가입 보너스 내역 (기본 10,000포인트 + 랜덤 포인트 추가)
+        // 4. 포인트 가입 보너스 지급 (기본 10,000포인트 충전)
         // ===================================================
-
-        // 10,000원 기본 보너스에 0원 ~ 10,000원 사이의 100원 단위 랜덤 포인트 추가
         int authorBonus = 10000;
         int applicantBonus = 10000;
         int hackerBonus = 10000;
+
+        // 엔티티 내부의 addPoint 메서드를 사용하여 포인트 반영
+        author.addPoint(authorBonus);
+        applicant.addPoint(applicantBonus);
+        hacker.addPoint(hackerBonus);
 
         pointTransactionRepository.save(
                 PointTransaction.builder()
@@ -168,10 +178,7 @@ public class DataInitializer implements ApplicationRunner {
 
         // ===================================================
         // CASE A. 활성화 상태의 매칭 (MATCHED)
-        // 대상 테스트: CHAT-S-001~003, VERI-S-001~005, POINT-S-002~003
         // ===================================================
-
-        // 만남 일시: 현재 시점 기준 +10분 후 (VARI-S-001의 -15분 ~ +1시간 조건 충족)
         Post activePost = postRepository.save(
                 Post.builder()
                         .authorId(author.getId())
@@ -183,7 +190,7 @@ public class DataInitializer implements ApplicationRunner {
                         .authorDeposit(300)
                         .build()
         );
-        activePost.match(); // 상태 MATCHED 전환
+        activePost.match();
 
         Match activeMatch = matchRepository.save(
                 Match.builder()
@@ -192,8 +199,9 @@ public class DataInitializer implements ApplicationRunner {
                         .applicantDeposit(300)
                         .build()
         );
+        // CASE A: 게시글 작성이므로 방장(author) 책임비 예치금 차감 적용
+        author.deductPoint(300);
 
-        // 포인트 예치금 트랜잭션 적재
         pointTransactionRepository.save(
                 PointTransaction.builder()
                         .userId(author.getId())
@@ -205,43 +213,24 @@ public class DataInitializer implements ApplicationRunner {
                         .build()
         );
 
-        // 만남 인증 대기(PENDING) 생성
         meetVerificationRepository.save(MeetVerification.createPending(activeMatch.getId()));
 
-        // 유저 위치 설정 (장소 반경 60m 이내 - 약 30~40m 거리)
         userLocationRepository.save(UserLocation.builder().matchId(activeMatch.getId()).userId(author.getId()).latitude(DEMO_PLACE_LAT).longitude(DEMO_PLACE_LNG).build());
         userLocationRepository.save(UserLocation.builder().matchId(activeMatch.getId()).userId(applicant.getId()).latitude(DEMO_PLACE_LAT).longitude(DEMO_PLACE_LNG).build());
 
-        // 활성 채팅방 및 메시지 설정
-        ChatRoom activeChatRoom = chatRoomRepository.save(
-                ChatRoom.builder()
-                        .matchId(activeMatch.getId())
-                        .build()
-        );
+        ChatRoom activeChatRoom = chatRoomRepository.save(ChatRoom.builder().matchId(activeMatch.getId()).build());
 
-        chatMemberRepository.save(
-                ChatMember.builder()
-                        .chatRoomId(activeChatRoom.getId())
-                        .userId(author.getId())
-                        .role(ChatMemberRole.HOST)
-                        .build()
-        );
-        chatMemberRepository.save(
-                ChatMember.builder()
-                        .chatRoomId(activeChatRoom.getId())
-                        .userId(applicant.getId())
-                        .role(ChatMemberRole.GUEST)
-                        .build()
-        );
+        chatMemberRepository.save(ChatMember.builder().chatRoomId(activeChatRoom.getId()).userId(author.getId()).role(ChatMemberRole.HOST).build());
+        chatMemberRepository.save(ChatMember.builder().chatRoomId(activeChatRoom.getId()).userId(applicant.getId()).role(ChatMemberRole.GUEST).build());
 
         ChatMessage msg1 = chatMessageRepository.save(ChatMessage.builder().chatRoomId(activeChatRoom.getId()).senderId(author.getId()).content("안녕하세요!").build());
         msg1.markAsRead();
         ChatMessage msg2 = chatMessageRepository.save(ChatMessage.builder().chatRoomId(activeChatRoom.getId()).senderId(applicant.getId()).content("네 반갑습니다.").build());
         msg2.markAsRead();
         chatMessageRepository.save(ChatMessage.builder().chatRoomId(activeChatRoom.getId()).senderId(author.getId()).content("안 읽은 메시지 테스트용").build());
+
         // ===================================================
         // CASE B. 비활성화/종료된 매칭 (COMPLETED)
-        // 대상 테스트: CHAT-S-004 (읽기전용 조회), CHAT-E-002 (메시지 전송 차단)
         // ===================================================
         Post completedPost = postRepository.save(
                 Post.builder()
@@ -263,44 +252,27 @@ public class DataInitializer implements ApplicationRunner {
                         .build()
         );
 
-        ChatRoom completedChatRoom = chatRoomRepository.save(
-                ChatRoom.builder()
-                        .matchId(completedMatch.getId())
-                        .build()
-        );
+        ChatRoom completedChatRoom = chatRoomRepository.save(ChatRoom.builder().matchId(completedMatch.getId()).build());
 
-        chatMemberRepository.save(
-                ChatMember.builder()
-                        .chatRoomId(completedChatRoom.getId())
-                        .userId(author.getId())
-                        .role(ChatMemberRole.HOST)
-                        .build()
-        );
-        chatMemberRepository.save(
-                ChatMember.builder()
-                        .chatRoomId(completedChatRoom.getId())
-                        .userId(applicant.getId())
-                        .role(ChatMemberRole.GUEST)
-                        .build()
-        );
+        chatMemberRepository.save(ChatMember.builder().chatRoomId(completedChatRoom.getId()).userId(author.getId()).role(ChatMemberRole.HOST).build());
+        chatMemberRepository.save(ChatMember.builder().chatRoomId(completedChatRoom.getId()).userId(applicant.getId()).role(ChatMemberRole.GUEST).build());
 
         chatMessageRepository.save(ChatMessage.builder().chatRoomId(completedChatRoom.getId()).senderId(author.getId()).content("예전 완료된 대화내용입니다.").build());
 
-        // POINT-S-004 검증용 환급(REFUND) 트랜잭션 추가
+        // 원래는 완료되면서 차감되었다가 환급(REFUND)된 케이스이므로 결과적으로 잔액 변동 없음
         pointTransactionRepository.save(
                 PointTransaction.builder()
                         .userId(author.getId())
                         .matchId(completedMatch.getId())
                         .amount(300)
                         .transactionType(PointTransactionType.REFUND)
-                        .balanceAfter(authorBonus) // 예치금이 그대로 돌아왔으므로 초기 보너스 값과 동일
+                        .balanceAfter(authorBonus)
                         .description("만남 인증 완료로 인한 책임비 환급")
                         .build()
         );
 
         // ===================================================
         // CASE C. 취소된 매칭 (CANCELLED)
-        // 대상 테스트: VERI-E-004 (CANCELLED 후 재입장 시도 bad request 검증)
         // ===================================================
         Post cancelledPost = postRepository.save(
                 Post.builder()
@@ -322,20 +294,22 @@ public class DataInitializer implements ApplicationRunner {
                         .build()
         );
 
-        // POINT-S-004 검증용 벌점(PENALTY) 트랜잭션 추가
+        // CASE C: 당일 취소로 인한 지원자(applicant)의 패널티 차감 적용
+        applicant.deductPoint(500);
+
         pointTransactionRepository.save(
                 PointTransaction.builder()
                         .userId(applicant.getId())
                         .matchId(cancelledMatch.getId())
                         .amount(-500)
                         .transactionType(PointTransactionType.PENALTY)
-                        .balanceAfter(applicantBonus - 500) // 가입 보너스에서 패널티 차감
+                        .balanceAfter(applicantBonus - 500)
                         .description("당일 취소로 인한 패널티 차감")
                         .build()
         );
 
         // ===================================================
-        // CASE D. OPEN 상태 게시글 (16.4 강제 삭제 테스트용)
+        // CASE D. OPEN 상태 게시글
         // ===================================================
         postRepository.save(
                 Post.builder()
@@ -347,11 +321,10 @@ public class DataInitializer implements ApplicationRunner {
                         .content("강제 삭제 테스트용 게시글입니다.")
                         .authorDeposit(300)
                         .build()
-                // match() 호출 안 함 → OPEN 상태 유지
         );
 
         // ===================================================
-        // CASE E. 노쇼 상태 MeetVerification (16.7 노쇼 후보군 테스트용)
+        // CASE E. 노쇼 상태 MeetVerification
         // ===================================================
         Post noShowPost = postRepository.save(
                 Post.builder()
@@ -375,9 +348,12 @@ public class DataInitializer implements ApplicationRunner {
         );
 
         MeetVerification noShowVerification = MeetVerification.createPending(noShowMatch.getId());
-        noShowVerification.markAuthorNoShow(); // HOST_NO_SHOW 상태로 설정
+        noShowVerification.markAuthorNoShow();
         meetVerificationRepository.save(noShowVerification);
+
+        // 변경된 포인트(Dirty Checking)가 DB에 확실히 저장되도록 유저 정보 최종 저장
+        userRepository.save(author);
+        userRepository.save(applicant);
+        userRepository.save(hacker);
     }
-
-
 }

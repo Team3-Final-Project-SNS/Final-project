@@ -64,10 +64,10 @@ public class AuthServiceImpl implements AuthService{
     public OtpResponseDto sendEmailOtp(OtpRequestDto request) {
         String email = request.getEmail();
 
-        // 1. .ac.kr 도메인 검증
-        if (!email.endsWith(".ac.kr")) {
-            throw new ServiceException(ErrorCode.INVALID_EMAIL_DOMAIN);
-        }
+//        // 1. .ac.kr 도메인 검증
+//        if (!email.endsWith(".ac.kr")) {
+//            throw new ServiceException(ErrorCode.INVALID_EMAIL_DOMAIN);
+//        }
 
         // 2. 등록된 학교 도메인인지 검증 (Service to Service)
         String emailDomain = email.substring(email.indexOf("@") + 1);

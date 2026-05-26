@@ -23,6 +23,18 @@ spring:
           ssl:
             enable: true              # TLS 암호화 활성화
             trust: smtp.naver.com     # TLS 필수
+  ai:
+    openai:
+      api-key: ${OPEN_AI_KEY}
+      chat:
+        options:
+          model: ${AI_DEFAULT_MODEL:gpt-4o-mini}
+          temperature: ${AI_DEFAULT_TEMPERATURE:0.3}
+          max-tokens: ${AI_DEFAULT_MAX_TOKENS:700}
+      embedding:
+        options:
+          model: ${AI_EMBEDDING_MODEL:text-embedding-3-small}
+
 otp:
   expire-seconds: 300         # OTP 유효시간: 5분 (300초)
   cooldown-seconds: 60        # 재발송 쿨다운: 1분 (60초)
@@ -69,3 +81,43 @@ admin:
     email: ${ADMIN_INIT_EMAIL}
     password: ${ADMIN_INIT_PASSWORD}
     name: ${ADMIN_INIT_NAME}
+
+app:
+  ai:
+    enabled: ${AI_ENABLED:true}
+    timeout-ms: ${AI_TIMEOUT_MS:5000}
+
+    matching:
+      model: ${AI_MATCHING_MODEL:gpt-4o-mini}
+      max-tokens: ${AI_MATCHING_MAX_TOKENS:800}
+      temperature: ${AI_MATCHING_TEMPERATURE:0.4}
+      memory-window-size: ${AI_MATCHING_MEMORY_WINDOW_SIZE:10}
+      stream-enabled: ${AI_MATCHING_STREAM_ENABLED:true}
+      rag:
+        top-k: ${AI_MATCHING_RAG_TOP_K:5}
+        similarity-threshold: ${AI_MATCHING_RAG_SIMILARITY_THRESHOLD:0.65}
+
+    support:
+      model: ${AI_SUPPORT_MODEL:gpt-4o-mini}
+      max-tokens: ${AI_SUPPORT_MAX_TOKENS:1000}
+      temperature: ${AI_SUPPORT_TEMPERATURE:0.2}
+      memory-window-size: ${AI_SUPPORT_MEMORY_WINDOW_SIZE:10}
+      stream-enabled: ${AI_SUPPORT_STREAM_ENABLED:true}
+      rag:
+        top-k: ${AI_SUPPORT_RAG_TOP_K:5}
+        similarity-threshold: ${AI_SUPPORT_RAG_SIMILARITY_THRESHOLD:0.7}
+
+    report:
+      model: ${AI_REPORT_MODEL:gpt-4o-mini}
+      max-tokens: ${AI_REPORT_MAX_TOKENS:600}
+      temperature: ${AI_REPORT_TEMPERATURE:0.1}
+
+    moderation:
+      model: ${AI_MODERATION_MODEL:gpt-4o-mini}
+      max-tokens: ${AI_MODERATION_MAX_TOKENS:300}
+      temperature: ${AI_MODERATION_TEMPERATURE:0.0}
+      rule-first: ${AI_MODERATION_RULE_FIRST:true}
+      ai-check-enabled: ${AI_MODERATION_AI_CHECK_ENABLED:true}
+
+    metrics:
+      enabled: ${AI_METRICS_ENABLED:true}
