@@ -2,7 +2,12 @@ package com.example.team3final.domain.user.repository;
 
 
 import com.example.team3final.domain.user.entity.User;
+import com.example.team3final.domain.user.enums.UserStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
 
@@ -16,4 +21,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     // 회원가입 시 닉네임 중복확인
     boolean existsByNickname(String nickname);
+
+    // Admin 유저 목록 조회
+    @Query("""
+        SELECT u
+        FROM User u
+        WHERE (:status IS NULL OR u.status = :status)
+        AND (:keyword IS NULL OR u.name LIKE %:keyword% OR u.nickname LIKE %:keyword%)
+        """)
+    Page<User> findAllByForAdmin(@Param("status") UserStatus status, @Param("keyword") String keyword, Pageable pageable);
 }
