@@ -1,5 +1,6 @@
 package com.example.team3final.domain.meet.entity;
 
+import com.example.team3final.domain.meet.enums.ExtensionStatus;
 import com.example.team3final.domain.meet.enums.VerificationStatus;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -53,11 +54,35 @@ public class MeetVerification {
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
+    // 만남 시간 15분 연장 사용 여부 (성공 1회 한정)
+    @Column(name = "is_extended", nullable = false)
+    private boolean isExtended = false;
+
+    // 연장된 최종 만남 시각 (수락 시 post.meetAt + 15분 저장)
+    @Column(name = "extended_meet_at")
+    private LocalDateTime extendedMeetAt;
+
+    // 연장 요청 처리 상태
+    @Enumerated(EnumType.STRING)
+    @Column(name = "extension_status", nullable = false, length = 20)
+    private ExtensionStatus extensionStatus = ExtensionStatus.NONE;
+
+    // 연장 요청한 유저 ID (상대방 수락 권한 판단용)
+    @Column(name = "extension_requester_id")
+    private Long extensionRequesterId;
+
+    // 연장 요청 시각 (5분 타임아웃 계산용)
+    @Column(name = "extension_requested_at")
+    private LocalDateTime extensionRequestedAt;
+
     @Builder
-    private MeetVerification(Long matchId, VerificationStatus status, Boolean isMeetVerified) {
+    private MeetVerification(Long matchId, VerificationStatus status, Boolean isMeetVerified,
+                             ExtensionStatus extensionStatus, boolean isExtended) {
         this.matchId = matchId;
         this.status = status;
         this.isMeetVerified = isMeetVerified;
+        this.extensionStatus = extensionStatus;
+        this.isExtended = isExtended;
     }
 
     public static MeetVerification createPending(Long matchId) {
@@ -65,6 +90,8 @@ public class MeetVerification {
                 .matchId(matchId)
                 .status(VerificationStatus.PENDING) // 초기 상태 = PENDING 고정
                 .isMeetVerified(false) // 초기 만남 인증 여부 = false
+                .extensionStatus(ExtensionStatus.NONE)
+                .isExtended(false)
                 .build();
     }
 
@@ -134,5 +161,42 @@ public class MeetVerification {
     public void markBothNoShow() {
         this.status = VerificationStatus.BOTH_NO_SHOW;
         this.isMeetVerified = false;
+    }
+
+    // 만남 시간 연장 관련 메서드
+    // 연장 요청 처리
+    public void requestExtension(Long requesterId) {
+        this.extensionStatus = ExtensionStatus.REQUESTED;
+        this.extensionRequesterId = requesterId;
+        this.extensionRequestedAt = LocalDateTime.now();
+    }
+
+    // 연장 수락
+    public void acceptExtension(LocalDateTime meetAt) {
+        this.extensionStatus = ExtensionStatus.ACCEPTED;
+        this.isExtended = true;
+        this.extendedMeetAt = meetAt.plusMinutes(15); // 원래 약속 시간에서 + 15분
+    }
+
+    // QR 만료 시각 15분 연장 (수락 시 함께 호출)
+    public void extendQrExpiry() {
+        if (this.qrExpiresAt != null) {
+            this.qrExpiresAt = this.qrExpiresAt.plusMinutes(15);
+        }
+    }
+
+    // 연장 거절
+    public void rejectExtension() {
+        this.extensionStatus = ExtensionStatus.REJECTED;
+    }
+
+    // 연장 요청 만료 처리 (5분 타임아웃 시 스케줄러가 호출
+    public void expireExtension() {
+        this.extensionStatus = ExtensionStatus.EXPIRED;
+    }
+
+    // 연장 요청 만료 여부 확인
+    public boolean isExtensionExpired() {
+        return this.extensionRequestedAt != null && LocalDateTime.now().isAfter(this.extensionRequestedAt.plusMinutes(5));
     }
 }
