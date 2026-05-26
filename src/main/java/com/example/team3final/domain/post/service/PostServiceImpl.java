@@ -317,4 +317,25 @@ public class PostServiceImpl implements PostService{
                         PostInfoDto::from
                 ));
     }
+
+    @Override
+    public int forceDeletePost(Long postId) {
+
+        // 게시글 조회
+        Post post = getPostById(postId);
+
+        // OPEN 상태 확인
+        if (!post.isOpen()){
+            throw new PostException(ErrorCode.POST_NOT_OPEN);
+        }
+
+        // 작성자에게 예치 포인트 전액 환불
+        int refundedPoint = post.getAuthorDeposit();
+        userPointService.refundPoint(post.getAuthorId(), refundedPoint, null);
+
+        // 게시글 삭제
+        postRepository.delete(post);
+
+        return refundedPoint;
+    }
 }

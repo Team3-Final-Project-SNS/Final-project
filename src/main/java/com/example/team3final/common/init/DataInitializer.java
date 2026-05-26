@@ -333,5 +333,51 @@ public class DataInitializer implements ApplicationRunner {
                         .description("당일 취소로 인한 패널티 차감")
                         .build()
         );
+
+        // ===================================================
+        // CASE D. OPEN 상태 게시글 (16.4 강제 삭제 테스트용)
+        // ===================================================
+        postRepository.save(
+                Post.builder()
+                        .authorId(author.getId())
+                        .meetAt(LocalDateTime.now().plusDays(1))
+                        .placeName("중앙도서관 앞")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("강제 삭제 테스트용 게시글입니다.")
+                        .authorDeposit(300)
+                        .build()
+                // match() 호출 안 함 → OPEN 상태 유지
+        );
+
+        // ===================================================
+        // CASE E. 노쇼 상태 MeetVerification (16.7 노쇼 후보군 테스트용)
+        // ===================================================
+        Post noShowPost = postRepository.save(
+                Post.builder()
+                        .authorId(author.getId())
+                        .meetAt(LocalDateTime.now().minusHours(1))
+                        .placeName("공학관 앞")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("노쇼 판정 테스트용 게시글")
+                        .authorDeposit(300)
+                        .build()
+        );
+        noShowPost.match();
+
+        Match noShowMatch = matchRepository.save(
+                Match.builder()
+                        .postId(noShowPost.getId())
+                        .applicantId(applicant.getId())
+                        .applicantDeposit(300)
+                        .build()
+        );
+
+        MeetVerification noShowVerification = MeetVerification.createPending(noShowMatch.getId());
+        noShowVerification.markAuthorNoShow(); // HOST_NO_SHOW 상태로 설정
+        meetVerificationRepository.save(noShowVerification);
     }
+
+
 }
