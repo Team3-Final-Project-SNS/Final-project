@@ -6,6 +6,8 @@ import com.example.team3final.domain.report.dto.response.CreateReportResponseDto
 import com.example.team3final.domain.report.dto.response.DeleteReportResponseDto;
 import com.example.team3final.domain.report.dto.response.GetMyReportsResponseDto;
 import com.example.team3final.domain.report.entity.Report;
+import com.example.team3final.domain.report.enums.ReportStatus;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 public interface ReportService {
@@ -27,4 +29,7 @@ public interface ReportService {
 
     // 신고 단건 조회
     Report getReportById(Long reportId);
+
+    // 신고 목록 조회
+    Page<Report> getReportsForAdmin(ReportStatus status, Pageable pageable);
 }
