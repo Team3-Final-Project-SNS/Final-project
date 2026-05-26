@@ -61,6 +61,20 @@ public class AiCallMetric extends BaseEntity {
      */
     private Integer completionTokens;
 
+
+    /**
+     * 사용된 프롬프트 템플릿 ID입니다.
+     * 프롬프트 버전별 성능/비용 분석에 사용합니다.
+     */
+    private Long promptTemplateId;
+
+    /**
+     * 사용된 프롬프트 버전입니다.
+     * 예: v1, v2, v3
+     */
+    @Column(length = 30)
+    private String promptVersion;
+
     /**
      * 전체 토큰 수입니다.
      */
