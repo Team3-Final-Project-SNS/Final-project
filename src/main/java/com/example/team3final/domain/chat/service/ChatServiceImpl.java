@@ -17,10 +17,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -35,16 +32,16 @@ public class ChatServiceImpl implements ChatService {
     // 채팅방 생성 - 매칭 확정 시 내부 호출
     @Transactional
     @Override
-    public Long createChatRoom(Long matchId, Long authorId, Long applicantId) {
+    public Long createChatRoom(Long postId, Long authorId, Long applicantId) {
 
         // 이미 채팅방이 있으면 생성 안 함
-        if (chatRoomRepository.findByMatchId(matchId).isPresent()) {
+        if (chatRoomRepository.findByPostId(postId).isPresent()) {
             throw new ServiceException(ErrorCode.CHAT_ROOM_ALREADY_EXISTS);
         }
 
         // 채팅방 생성
         ChatRoom chatRoom = ChatRoom.builder()
-                .matchId(matchId)
+                .postId(postId)
                 .build();
         ChatRoom savedChatRoom = chatRoomRepository.save(chatRoom);
 
@@ -71,8 +68,8 @@ public class ChatServiceImpl implements ChatService {
     // 채팅방 즉시 비활성화 - 취소/노쇼 시 내부 호출
     @Transactional
     @Override
-    public void deactivateChatRoom(Long matchId) {
-        ChatRoom chatRoom = chatRoomRepository.findByMatchId(matchId)
+    public void deactivateChatRoom(Long postId) {
+        ChatRoom chatRoom = chatRoomRepository.findByPostId(postId)
                 .orElseThrow(() -> new ServiceException(ErrorCode.CHAT_ROOM_NOT_FOUND));
         chatRoom.deactivateNow();
     }
@@ -80,8 +77,8 @@ public class ChatServiceImpl implements ChatService {
     // 채팅방 2시간 후 비활성화 예약 - 만남 인증 완료 시 내부 호출
     @Transactional
     @Override
-    public void scheduleChatRoomDeactivation(Long matchId) {
-        ChatRoom chatRoom = chatRoomRepository.findByMatchId(matchId)
+    public void scheduleChatRoomDeactivation(Long postId) {
+        ChatRoom chatRoom = chatRoomRepository.findByPostId(postId)
                 .orElseThrow(() -> new ServiceException(ErrorCode.CHAT_ROOM_NOT_FOUND));
         chatRoom.scheduleDeactivation();
     }
@@ -126,29 +123,11 @@ public class ChatServiceImpl implements ChatService {
         return CursorResponseDto.of(content, size, ChatMessageResponseDto::messageId);
     }
 
-    // matchId로 chatRoomId 조회 - 매칭 목록 조회에서 사용
+    // postId로 chatRoomId 조회 - 매칭 상세 조회에서 사용
     @Override
-    public Long getChatRoomIdByMatchId(Long matchId) {
-        return chatRoomRepository.findByMatchId(matchId)
+    public Long getChatRoomIdByPostId(Long postId) {
+        return chatRoomRepository.findByPostId(postId)
                 .map(ChatRoom::getId)
                 .orElse(null);
-    }
-
-    @Override
-    public Map<Long, Long> getChatRoomIdsByMatchIds(List<Long> matchIds) {
-
-        // 1. 빈 리스트 가드
-        if (matchIds == null || matchIds.isEmpty()) {
-            return Collections.emptyMap();
-        }
-
-        // 2. matchId IN (...) 으로 채팅방을 한 번에 조회
-        List<ChatRoom> rooms = chatRoomRepository.findByMatchIdIn(matchIds);
-
-        return rooms.stream()
-                .collect(Collectors.toMap(
-                        ChatRoom::getMatchId,
-                        ChatRoom::getId
-                ));
     }
 }

@@ -20,9 +20,9 @@ public class ChatRoom {
     @Column(name = "id")
     private Long id;
 
-    // 매칭 ID
-    @Column(name = "match_id", nullable = false, updatable = false)
-    private Long matchId;
+    // 게시글 ID (1:1 및 그룹 채팅방 모두 게시글 기준으로 관리)
+    @Column(name = "post_id", nullable = false, updatable = false)
+    private Long postId;
 
     // 채팅방 유형
     @Enumerated(EnumType.STRING)
@@ -42,8 +42,8 @@ public class ChatRoom {
     private LocalDateTime deactivatedAt;
 
     @Builder
-    private ChatRoom(Long matchId, ChatRoomType roomType) {
-        this.matchId = matchId;
+    private ChatRoom(Long postId, ChatRoomType roomType) {
+        this.postId = postId;
         this.roomType = (roomType != null) ? roomType : ChatRoomType.ONE_TO_ONE;
         this.isActive = true;
     }
