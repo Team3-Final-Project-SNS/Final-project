@@ -75,6 +75,10 @@ public class MeetVerification {
     @Column(name = "extension_requested_at")
     private LocalDateTime extensionRequestedAt;
 
+    // 노쇼 판정 시각
+    @Column(name = "no_show_decided_at")
+    private LocalDateTime noShowDecidedAt;
+
     @Builder
     private MeetVerification(Long matchId, VerificationStatus status, Boolean isMeetVerified,
                              ExtensionStatus extensionStatus, boolean isExtended) {
@@ -149,18 +153,21 @@ public class MeetVerification {
     public void markAuthorNoShow() {
         this.status = VerificationStatus.HOST_NO_SHOW;
         this.isMeetVerified = false;
+        this.noShowDecidedAt = LocalDateTime.now();
     }
 
     // 신청자 노쇼 판정
     public void markApplicantNoShow() {
         this.status = VerificationStatus.GUEST_NO_SHOW;
         this.isMeetVerified = false;
+        this.noShowDecidedAt = LocalDateTime.now();
     }
 
     // 양측 노쇼
     public void markBothNoShow() {
         this.status = VerificationStatus.BOTH_NO_SHOW;
         this.isMeetVerified = false;
+        this.noShowDecidedAt = LocalDateTime.now();
     }
 
     // 만남 시간 연장 관련 메서드
