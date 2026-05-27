@@ -28,8 +28,8 @@ public class Notification {
     private Long id;
 
     // 수신 유저 ID
-    @Column(name = "user_id", nullable = false, updatable = false)
-    private Long userId;
+    @Column(name = "receiver_id", nullable = false, updatable = false)
+    private Long receiverId;
 
     // 알림 유형
     @Enumerated(EnumType.STRING)
@@ -66,9 +66,9 @@ public class Notification {
     private  LocalDateTime createdAt;
 
     @Builder
-    private Notification(Long userId, NotificationType type, String title,
+    private Notification(Long receiverId, NotificationType type, String title,
                          String content, RelatedDomain relatedDomain, Long relatedId) {
-        this.userId = userId;
+        this.receiverId = receiverId;
         this.type = type;
         this.title = title;
         this.content = content;
