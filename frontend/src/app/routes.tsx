@@ -13,6 +13,7 @@ import MyMatchResultsPage from "./pages/MyMatchResultsPage";
 import PointTransactionsPage from "./pages/PointTransactionsPage";
 import QRVerificationPage from "./pages/QRVerificationPage";
 import PlaceVerificationPage from "./pages/PlaceVerificationPage";
+import MatchingAiChatPage from "./pages/MatchingAiChatPage";
 import NotFoundPage from "./pages/NotFoundPage";
 
 export const router = createBrowserRouter([
@@ -28,6 +29,7 @@ export const router = createBrowserRouter([
       { path: "posts/new", Component: PostCreatePage },
       { path: "posts/:id", Component: PostDetailPage },
       { path: "matches", Component: MatchesPage },
+      { path: "ai/matching", Component: MatchingAiChatPage },
       { path: "chat/:roomId", Component: ChatPage },
       { path: "me", Component: MyInfoPage },
       { path: "me/points", Component: PointTransactionsPage },
@@ -52,6 +54,13 @@ export const router = createBrowserRouter([
       { path: ":id", Component: ChatPage },
       { path: ":id/place-verification", Component: PlaceVerificationPage },
       { path: ":id/qr", Component: QRVerificationPage },
+    ],
+  },
+  {
+    path: "/ai",
+    Component: Layout,
+    children: [
+      { path: "matching", Component: MatchingAiChatPage },
     ],
   },
   {

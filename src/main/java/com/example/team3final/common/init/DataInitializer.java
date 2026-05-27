@@ -324,6 +324,142 @@ public class DataInitializer implements ApplicationRunner {
         );
 
         // ===================================================
+// AI 매칭 추천 테스트용 OPEN 게시글 10개
+// - hacker@korea.ac.kr 로 로그인해서 추천 테스트
+// - 작성자는 author/applicant
+// - 상태는 OPEN 유지
+// ===================================================
+        postRepository.save(
+                Post.builder()
+                        .authorId(author.getId())
+                        .meetAt(LocalDateTime.now().plusHours(1))
+                        .placeName("학생회관 1층")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("오늘 저녁 조용하게 밥 먹을 분 구합니다. 말수가 적어도 괜찮아요.")
+                        .authorDeposit(500)
+                        .maxApplicants(2)
+                        .build()
+        );
+
+        postRepository.save(
+                Post.builder()
+                        .authorId(author.getId())
+                        .meetAt(LocalDateTime.now().plusHours(2))
+                        .placeName("정문 편의점 앞")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("가볍게 저녁 먹고 빠르게 헤어질 분 찾아요.")
+                        .authorDeposit(300)
+                        .maxApplicants(2)
+                        .build()
+        );
+
+        postRepository.save(
+                Post.builder()
+                        .authorId(author.getId())
+                        .meetAt(LocalDateTime.now().plusHours(3))
+                        .placeName("도서관 앞")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("스터디 끝나고 조용히 식사하실 분 구해요.")
+                        .authorDeposit(400)
+                        .maxApplicants(2)
+                        .build()
+        );
+
+        postRepository.save(
+                Post.builder()
+                        .authorId(author.getId())
+                        .meetAt(LocalDateTime.now().plusHours(4))
+                        .placeName("후문 국밥집 앞")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("든든하게 저녁 먹을 분 찾습니다. 메뉴는 국밥 생각 중입니다.")
+                        .authorDeposit(700)
+                        .maxApplicants(2)
+                        .build()
+        );
+
+        postRepository.save(
+                Post.builder()
+                        .authorId(author.getId())
+                        .meetAt(LocalDateTime.now().plusHours(5))
+                        .placeName("공대 카페 앞")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("카페에서 간단히 샌드위치 먹으면서 이야기하실 분.")
+                        .authorDeposit(300)
+                        .maxApplicants(2)
+                        .build()
+        );
+
+        postRepository.save(
+                Post.builder()
+                        .authorId(applicant.getId())
+                        .meetAt(LocalDateTime.now().plusHours(1).plusMinutes(30))
+                        .placeName("기숙사 식당 앞")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("혼밥하기 애매해서 같이 점심 드실 분 구합니다.")
+                        .authorDeposit(400)
+                        .maxApplicants(2)
+                        .build()
+        );
+
+        postRepository.save(
+                Post.builder()
+                        .authorId(applicant.getId())
+                        .meetAt(LocalDateTime.now().plusHours(2).plusMinutes(30))
+                        .placeName("학생회관 분식집")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("떡볶이랑 김밥 가볍게 먹을 분 찾아요. 편한 분위기 좋아요.")
+                        .authorDeposit(300)
+                        .maxApplicants(2)
+                        .build()
+        );
+
+        postRepository.save(
+                Post.builder()
+                        .authorId(applicant.getId())
+                        .meetAt(LocalDateTime.now().plusHours(3).plusMinutes(30))
+                        .placeName("정문 파스타집")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("천천히 이야기하면서 저녁 먹을 분 구합니다. 너무 시끄럽지 않은 곳 선호해요.")
+                        .authorDeposit(800)
+                        .maxApplicants(2)
+                        .build()
+        );
+
+        postRepository.save(
+                Post.builder()
+                        .authorId(applicant.getId())
+                        .meetAt(LocalDateTime.now().plusHours(4).plusMinutes(30))
+                        .placeName("중앙광장")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("수업 끝나고 간단하게 밥 먹고 바로 헤어질 분.")
+                        .authorDeposit(300)
+                        .maxApplicants(2)
+                        .build()
+        );
+
+        postRepository.save(
+                Post.builder()
+                        .authorId(applicant.getId())
+                        .meetAt(LocalDateTime.now().plusHours(6))
+                        .placeName("후문 치킨집")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("저녁에 치킨 먹을 분 구해요. 활발하게 대화하는 분위기 괜찮습니다.")
+                        .authorDeposit(900)
+                        .maxApplicants(2)
+                        .build()
+        );
+
+        // ===================================================
         // CASE E. 노쇼 상태 MeetVerification
         // ===================================================
         Post noShowPost = postRepository.save(

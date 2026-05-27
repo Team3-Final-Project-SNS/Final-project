@@ -43,4 +43,12 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
 
     // 특정 게시글에 특정 상태(주로 MATCHED)인 매칭이 현재 몇 건인지 카운트
     long countByPostIdAndStatus(Long postId, MatchStatus status);
+
+
+
+
+
+    // 일단 ai db 활용을 위해서 임시로. 나중에 리팩토링할때 서비스 to 서비스로 변경 예정.
+    // 특정 게시글에 사용자가 이미 신청했는지 확인
+    boolean existsByPostIdAndApplicantId(Long postId, Long applicantId);
 }

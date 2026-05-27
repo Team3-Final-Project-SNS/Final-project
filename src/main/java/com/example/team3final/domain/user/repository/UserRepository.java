@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
@@ -30,4 +31,19 @@ public interface UserRepository extends JpaRepository<User, Long> {
         AND (:keyword IS NULL OR u.name LIKE %:keyword% OR u.nickname LIKE %:keyword%)
         """)
     Page<User> findAllByForAdmin(@Param("status") UserStatus status, @Param("keyword") String keyword, Pageable pageable);
+
+
+
+
+
+
+
+    // 일단 ai db 활용을 위해서 임시로. 나중에 리팩토링할때 서비스 to 서비스로 변경 예정.
+    @Query("""
+    SELECT u.id
+    FROM User u
+    WHERE u.universityId = :universityId
+    AND u.status = com.example.team3final.domain.user.enums.UserStatus.ACTIVE
+    """)
+    List<Long> findActiveUserIdsByUniversityId(@Param("universityId") Long universityId);
 }
