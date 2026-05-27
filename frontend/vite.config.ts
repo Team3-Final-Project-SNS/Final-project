@@ -35,4 +35,12 @@ export default defineConfig({
   },
 
   assetsInclude: ['**/*.svg', '**/*.csv'],
+
+  server: {
+    // 클라우드플레어 터널을 통한 외부 도메인 접근 허용
+    // 이 설정 없으면 Vite가 보안상 외부 도메인 요청을 403으로 차단
+    allowedHosts: [
+      'app.dogpedia.store',
+    ],
+  },
 })
