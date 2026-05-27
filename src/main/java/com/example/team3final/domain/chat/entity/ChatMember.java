@@ -1,5 +1,6 @@
 package com.example.team3final.domain.chat.entity;
 
+import com.example.team3final.common.entity.BaseTimeEntity;
 import com.example.team3final.domain.chat.enums.ChatMemberRole;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -19,7 +20,7 @@ import java.time.LocalDateTime;
         )
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class ChatMember {
+public class ChatMember extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -39,21 +40,11 @@ public class ChatMember {
     @Column(name = "role", nullable = false, length = 10)
     private ChatMemberRole role;
 
-    // 입장 시각
-    @Column(name = "joined_at", nullable = false, updatable = false)
-    private LocalDateTime joinedAt;
-
     @Builder
     private ChatMember(Long chatRoomId, Long userId, ChatMemberRole role) {
         this.chatRoomId = chatRoomId;
         this.userId = userId;
         this.role = role;
-    }
-
-    // 엔티티가 처음 저장되기 직전에 입장 시각을 자동으로 기록
-    @PrePersist
-    protected void onCreate() {
-        this.joinedAt = LocalDateTime.now();
     }
 
     // ==================== 도메인 메서드 ====================
