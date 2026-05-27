@@ -1,6 +1,7 @@
 package com.example.team3final.domain.pointTransaction.entity;
 
 
+import com.example.team3final.common.entity.BaseTimeEntity;
 import com.example.team3final.domain.pointTransaction.enums.PointTransactionType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -14,7 +15,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "point_transactions")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class PointTransaction {
+public class PointTransaction extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -37,11 +38,8 @@ public class PointTransaction {
     @Column(name = "balance_after", nullable = false) // 거래 후 잔액
     private int balanceAfter;
 
-    @Column(name = "description", length = 255)
+    @Column(name = "description")
     private String description;
-
-    @Column(name = "created_at", nullable = false, updatable = false) //  생성일
-    private LocalDateTime createdAt;
 
     @Builder
     private PointTransaction(
@@ -58,11 +56,5 @@ public class PointTransaction {
         this.transactionType = transactionType;
         this.balanceAfter = balanceAfter;
         this.description = description;
-    }
-
-    // Entity가 처음 저장되기 직전에 생성일을 자동으로 기록합니다.
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
     }
 }
