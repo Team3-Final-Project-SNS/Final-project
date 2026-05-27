@@ -20,7 +20,7 @@ import java.time.LocalDate;
 @Getter
 @Table(name = "users")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@SQLDelete(sql = "UPDATE users SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
+@SQLDelete(sql = "UPDATE posts SET deleted_at = NOW() WHERE post_id = ?")
 @SQLRestriction("deleted_at IS NULL")
 public class User extends SoftDeleteEntity {
 
