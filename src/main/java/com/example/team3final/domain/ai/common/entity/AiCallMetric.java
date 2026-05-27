@@ -1,6 +1,6 @@
 package com.example.team3final.domain.ai.common.entity;
 
-import com.example.team3final.common.entity.BaseEntity;
+import com.example.team3final.common.entity.BaseTimeEntity;
 import com.example.team3final.domain.ai.common.enums.AiCallStatus;
 import com.example.team3final.domain.ai.common.enums.AiErrorType;
 import com.example.team3final.domain.ai.common.enums.AiFeature;
@@ -19,7 +19,7 @@ import lombok.*;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
-public class AiCallMetric extends BaseEntity {
+public class AiCallMetric extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

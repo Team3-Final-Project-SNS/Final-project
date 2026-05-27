@@ -1,6 +1,6 @@
 package com.example.team3final.domain.admin.entity;
 
-import com.example.team3final.common.entity.BaseEntity;
+import com.example.team3final.common.entity.BaseTimeEntity;
 import com.example.team3final.domain.admin.enums.AdminRole;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "admins")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Admin extends BaseEntity {
+public class Admin extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

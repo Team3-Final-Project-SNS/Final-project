@@ -1,6 +1,6 @@
 package com.example.team3final.domain.ai.common.entity;
 
-import com.example.team3final.common.entity.BaseEntity;
+import com.example.team3final.common.entity.BaseTimeEntity;
 import com.example.team3final.domain.ai.common.enums.AiFeature;
 import jakarta.persistence.*;
 import lombok.*;
@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
-public class AiConversationSession extends BaseEntity {
+public class AiConversationSession extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

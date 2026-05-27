@@ -1,6 +1,6 @@
 package com.example.team3final.domain.ai.prompt.entity;
 
-import com.example.team3final.common.entity.BaseEntity;
+import com.example.team3final.common.entity.BaseTimeEntity;
 import com.example.team3final.domain.ai.common.enums.AiFeature;
 import com.example.team3final.domain.ai.common.enums.AiPromptType;
 import jakarta.persistence.*;
@@ -28,7 +28,7 @@ import lombok.*;
                 @Index(name = "idx_ai_prompt_type_active", columnList = "prompt_type, active")
         }
 )
-public class AiPromptTemplate extends BaseEntity {
+public class AiPromptTemplate extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
