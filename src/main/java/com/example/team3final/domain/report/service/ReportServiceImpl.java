@@ -158,4 +158,9 @@ public class ReportServiceImpl implements ReportService {
         return reportRepository.findById(reportId)
                 .orElseThrow(() -> new ReportException(ErrorCode.REPORT_NOT_FOUND));
     }
+
+    @Override
+    public Page<Report> getReportsForAdmin(ReportStatus status, Pageable pageable) {
+        return reportRepository.findAllByStatusFilter(status, pageable);
+    }
 }

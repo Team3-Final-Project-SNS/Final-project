@@ -13,6 +13,8 @@ import com.example.team3final.domain.auth.util.OtpGenerator;
 import com.example.team3final.domain.auth.util.OtpRedisKeyUtil;
 import com.example.team3final.domain.university.dto.response.UniversityResponseDto;
 import com.example.team3final.domain.university.service.UniversityService;
+import com.example.team3final.domain.user.dto.request.WithdrawRequestDto;
+import com.example.team3final.domain.user.dto.response.WithdrawResponseDto;
 import com.example.team3final.domain.user.entity.TermAgreement;
 import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.repository.TermAgreementRepository;
@@ -409,6 +411,27 @@ public class AuthServiceImpl implements AuthService{
 
         // 인자 2개 버전 호출 → logout은 path가 "/" 고정
         expireRefreshTokenCookie(response);
+    }
+
+    // ======== 회원 탈퇴 ========
+    @Override
+    @Transactional
+    public WithdrawResponseDto withdraw(
+            Long userId, WithdrawRequestDto request, String refreshToken, HttpServletResponse response) {
+        // 1. 비밀번호 검증 + 상태 변경
+        userService.withdrawUser(userId, request.getPassword());
+
+        // 2. Redis에서 Refresh Token 삭제 - 로그아웃과 동일한 방식으로 토큰 무효화
+        if (refreshToken != null && jwtProvider.validateToken(refreshToken)) {
+            String email = jwtProvider.getEmailFromToken(refreshToken);
+            redisTemplate.delete(REFRESH_TOKEN_KEY_PREFIX + email);
+        }
+
+        // 3. Refresh Token 쿠키 파기
+        expireRefreshTokenCookie(response);
+
+        // 4. 응답 변환
+        return WithdrawResponseDto.from(userId);
     }
 
     // ===== private 헬퍼 메서드 =====
