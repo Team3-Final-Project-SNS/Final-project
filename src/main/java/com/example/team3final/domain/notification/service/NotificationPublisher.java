@@ -7,7 +7,7 @@ package com.example.team3final.domain.notification.service;
  *   - 새 알림 추가 시 메서드 하나만 추가하면 되므로 확장도 용이함
  *
  * 사용 도메인:
- *   - 매칭(정): 매칭 신청, 매칭 취소, 노쇼
+ *   - 매칭(정): 매칭 신청, 매칭 확정, 매칭 취소, 노쇼, 만남 시간 연장
  *   - 관리자(정): 이의제기 접수 알림
  *   - 후기(최): 후기 작성 50P 지급
  *   - 결제/이의제기(류): 이의제기 결과
@@ -63,4 +63,22 @@ public interface NotificationPublisher {
 
     // 15. 문의 답변 완료 알림 - 문의 작성자에게
     void sendInquiryAnswered(Long userId, Long inquiryId);
+
+    // 16. 매칭 확정 알림 - 매칭 참여자에게
+    void sendMatchConfirmed(Long userId, Long matchId);
+
+    // 17. 이의제기 판정 결과 알림 - 이의제기 신청자에게
+    void sendDisputeResult(Long userId, Long disputeId);
+
+    // 18. 만남 시간 연장 요청 알림 - 만남 상대방에게
+    void sendMeetExtendRequested(Long userId, Long matchId);
+
+    // 19. 만남 시간 연장 수락 알림 - 연장 요청자에게
+    void sendMeetExtendAccepted(Long userId, Long matchId);
+
+    // 20. 만남 시간 연장 거절 알림 - 연장 요청자에게
+    void sendMeetExtendRejected(Long userId, Long matchId);
+
+    // 21. 만남 시간 연장 만료 알림 - 연장 요청자에게
+    void sendMeetExtendExpired(Long userId, Long matchId);
 }
