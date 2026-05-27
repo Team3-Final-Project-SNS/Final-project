@@ -21,7 +21,7 @@ public record DisputeResponseDto(
                 dispute.getReason(),
                 dispute.getStatus(),
                 dispute.getAdminComment(),
-                dispute.getSubmittedAt(),
+                dispute.getCreatedAt(),
                 dispute.getProcessedAt()
         );
     }

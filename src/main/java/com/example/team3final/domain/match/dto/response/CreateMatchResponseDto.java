@@ -47,7 +47,7 @@ public record CreateMatchResponseDto(
                 match.getApplicantDeposit(),
                 match.getStatus(),
                 chatRoomId,
-                match.getMatchedAt()
+                match.getCreatedAt()
         );
     }
 }

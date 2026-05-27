@@ -82,7 +82,7 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
                 meetVerification.getStatus(),
                 meetVerification.getAuthorPlaceVerifiedAt(),
                 meetVerification.getApplicantPlaceVerifiedAt(),
-                dispute.getSubmittedAt(),
+                dispute.getCreatedAt(),
                 chatMessages
         );
     }
