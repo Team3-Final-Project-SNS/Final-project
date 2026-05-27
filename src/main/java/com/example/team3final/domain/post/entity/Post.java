@@ -88,7 +88,7 @@ public class Post extends BaseEntity {
                 this.content = content;
                 this.authorDeposit = authorDeposit;
                 this.maxApplicants = maxApplicants > 0 ? maxApplicants : 1; // 기본값 1 (1:1 매칭)
-                this.currentApplicants = 0;
+                this.currentApplicants = 1;
                 this.status = PostStatus.OPEN;
         }
 
