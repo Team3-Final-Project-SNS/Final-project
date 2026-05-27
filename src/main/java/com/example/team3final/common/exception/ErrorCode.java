@@ -79,8 +79,6 @@ public enum ErrorCode {
     CHAT_ROOM_ALREADY_EXISTS(HttpStatus.CONFLICT, "CHAT_002", "이미 존재하는 채팅방입니다."),
     CHAT_ROOM_INACTIVE(HttpStatus.FORBIDDEN, "CHAT_003", "비활성화된 채팅방입니다."),
     CHAT_NOT_PARTICIPANT(HttpStatus.FORBIDDEN, "CHAT_004", "해당 채팅방의 참여자가 아닙니다."),
-    CHAT_ROOM_RE_ENTER_FORBIDDEN(HttpStatus.FORBIDDEN, "CHAT_005", "재입장할 수 없는 채팅방입니다."),
-    CHAT_ROOM_ACTIVE_CANNOT_LEAVE(HttpStatus.FORBIDDEN, "CHAT_006", "진행 중인 채팅방은 나갈 수 없습니다."),
     CHAT_INVALID_PAGE_SIZE(HttpStatus.BAD_REQUEST, "CHAT_007", "페이지 크기는 최대 50까지 요청할 수 있습니다."),
     CHAT_INVALID_CURSOR(HttpStatus.BAD_REQUEST, "CHAT_008", "유효하지 않은 커서 ID입니다."),
 
@@ -106,14 +104,12 @@ public enum ErrorCode {
     // Report
     REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "REPORT_001", "존재하지 않는 신고입니다."),
     REPORT_ALREADY_PROCESSED(HttpStatus.CONFLICT, "REPORT_002", "이미 처리된 신고입니다."),
-    REPORT_NOT_OWNER(HttpStatus.FORBIDDEN, "REPORT_003", "본인의 신고만 취소할 수 있습니다."),
     REPORT_TOO_SOON(HttpStatus.CONFLICT, "REPORT_004", "3일 이내 동일 게시글 재신고는 불가합니다."),
     REPORT_SELF_REPORT(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_005", "본인의 게시글은 신고할 수 없습니다."),
     REPORT_ALREADY_REPORTED(HttpStatus.CONFLICT, "REPORT_006", "이미 신고한 게시글입니다."),
     // Report - admin
     REPORT_NOT_ACCEPTED(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_007", "채택(ACCEPTED)된 신고만 게시글 삭제에 사용할 수 있습니다."),
-    REPORT_POST_ID_MISMATCH(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_008", "신고 대상 게시글과 요청 게시글이 일치하지 않습니다."),
-    REPORT_TARGET_TYPE_NOT_POST(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_009", "게시글(POST) 유형의 신고만 사용할 수 있습니다.");
+    REPORT_POST_ID_MISMATCH(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_008", "신고 대상 게시글과 요청 게시글이 일치하지 않습니다.");
 
 
     private final HttpStatus httpStatus;

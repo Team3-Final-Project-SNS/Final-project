@@ -258,7 +258,7 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new ServiceException(ErrorCode.USER_NOT_FOUND));
 
         // 2. 이미 탈퇴/정지된 계정이면 진행 불가
-        if (user.getStatus() != com.example.team3final.domain.user.enums.UserStatus.ACTIVE) {
+        if (user.getStatus() != UserStatus.ACTIVE) {
             throw new ServiceException(ErrorCode.USER_SUSPENDED_OR_WITHDRAWN);
         }
 
