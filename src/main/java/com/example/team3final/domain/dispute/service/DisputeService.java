@@ -3,6 +3,7 @@ package com.example.team3final.domain.dispute.service;
 import com.example.team3final.domain.dispute.dto.request.CreateDisputeRequestDto;
 import com.example.team3final.domain.dispute.dto.response.CreateDisputeResponseDto;
 import com.example.team3final.domain.dispute.dto.response.DisputeResponseDto;
+import com.example.team3final.domain.dispute.entity.Dispute;
 
 public interface DisputeService {
 
@@ -18,4 +19,7 @@ public interface DisputeService {
      * 내가 제출한 이의제기 상태 조회.
      */
     DisputeResponseDto getDispute(Long matchId, Long userId);
+
+    // 어드민 이의제기 상세 조회용 - disputeId 단건 조회
+    Dispute getDisputeById(Long disputeId);
 }

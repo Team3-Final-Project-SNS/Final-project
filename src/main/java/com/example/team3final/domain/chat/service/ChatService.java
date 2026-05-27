@@ -28,4 +28,7 @@ public interface ChatService {
      * postId 목록으로 chatRoomId 일괄 조회 — 매칭 목록(getMatches) N+1 방지용
      */
     Map<Long, Long> getChatRoomIdsByPostIds(List<Long> postIds);
+
+    // 참여자 검증/읽음 처리 없이 전체 메세지 조회
+    List<ChatMessageResponseDto> getChatMessagesForAdmin(Long chatRoomId);
 }
