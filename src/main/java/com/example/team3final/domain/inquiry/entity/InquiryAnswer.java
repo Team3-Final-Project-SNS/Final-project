@@ -1,4 +1,4 @@
-package com.example.team3final.domain.notification.entity;
+package com.example.team3final.domain.inquiry.entity;
 
 import com.example.team3final.common.entity.BaseTimeEntity;
 import jakarta.persistence.*;

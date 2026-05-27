@@ -1,6 +1,7 @@
 package com.example.team3final.domain.user.entity;
 
 import com.example.team3final.common.entity.BaseTimeEntity;
+import com.example.team3final.common.entity.SoftDeleteEntity;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.UserException;
 import com.example.team3final.domain.user.enums.Gender;
@@ -21,7 +22,7 @@ import java.time.LocalDate;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @SQLDelete(sql = "UPDATE users SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
 @SQLRestriction("deleted_at IS NULL")
-public class User extends BaseTimeEntity {
+public class User extends SoftDeleteEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
