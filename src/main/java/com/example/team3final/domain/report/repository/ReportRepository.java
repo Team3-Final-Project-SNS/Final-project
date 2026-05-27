@@ -5,6 +5,8 @@ import com.example.team3final.domain.report.enums.ReportStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -21,7 +23,15 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
     boolean existsByReporterIdAndTargetId(Long reporterId, Long targetId);
 
     // 관리자용 신고 목록 조회 - 상태 필터
-    Page<Report> findByStatus(ReportStatus status, Pageable pageable);
+    @Query("""
+        SELECT r FROM Report r
+        WHERE (:status IS NULL OR r.status = :status)
+        ORDER BY r.createdAt DESC
+        """)
+    Page<Report> findAllByStatusFilter(
+            @Param("status") ReportStatus status,
+            Pageable pageable
+    );
 
     // 피신고자 채택 횟수 조회 (제재 정책용)
     int countByTargetIdAndStatus(Long targetId, ReportStatus status);
