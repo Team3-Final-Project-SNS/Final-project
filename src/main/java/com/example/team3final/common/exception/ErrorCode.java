@@ -110,7 +110,15 @@ public enum ErrorCode {
     REPORT_ALREADY_PROCESSED(HttpStatus.CONFLICT, "REPORT_002", "이미 처리된 신고입니다."),
     REPORT_TOO_SOON(HttpStatus.CONFLICT, "REPORT_003", "3일 이내 동일 게시글 재신고는 불가합니다."),
     REPORT_SELF_REPORT(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_004", "본인의 게시글은 신고할 수 없습니다."),
-    REPORT_ALREADY_REPORTED(HttpStatus.CONFLICT, "REPORT_005", "이미 신고한 게시글입니다.");
+    REPORT_ALREADY_REPORTED(HttpStatus.CONFLICT, "REPORT_005", "이미 신고한 게시글입니다."),
+
+    // Dispute (노쇼 이의제기)
+    DISPUTE_NOT_NO_SHOW(HttpStatus.UNPROCESSABLE_ENTITY, "DISPUTE_001", "노쇼 예정 상태에서만 이의제기할 수 있습니다."),
+    DISPUTE_DEADLINE_EXCEEDED(HttpStatus.UNPROCESSABLE_ENTITY, "DISPUTE_002", "이의제기 가능 시간(24시간)이 초과되었습니다."),
+    DISPUTE_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "DISPUTE_003", "이미 이의제기를 제출했습니다."),
+    DISPUTE_PLACE_NOT_VERIFIED(HttpStatus.UNPROCESSABLE_ENTITY, "DISPUTE_004", "장소 인증을 완료한 유저만 이의제기할 수 있습니다."),
+    DISPUTE_NOT_FOUND(HttpStatus.NOT_FOUND, "DISPUTE_005",  "제출한 이의제기가 없습니다.");
+
 
     private final HttpStatus httpStatus;
     private final String code;

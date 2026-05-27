@@ -355,5 +355,70 @@ public class DataInitializer implements ApplicationRunner {
         userRepository.save(author);
         userRepository.save(applicant);
         userRepository.save(hacker);
+
+        // ===================================================
+        // CASE F. 이의제기 "성공" 케이스
+        //         노쇼 상태 + 양측 GPS 진입 완료
+        //         → POST /api/v1/matches/{F-matchId}/disputes 가 201 로 성공해야 함
+        // ===================================================
+        Post disputeOkPost = postRepository.save(
+                Post.builder()
+                        .authorId(author.getId())
+                        .meetAt(LocalDateTime.now().minusHours(1)) // 약속시간 지남(노쇼 맥락)
+                        .placeName("이의제기 성공 테스트 장소")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("이의제기 성공 케이스용 (노쇼 + GPS 완료)")
+                        .authorDeposit(300)
+                        .build()
+        );
+        disputeOkPost.match(); // 게시글 상태 MATCHED 로
+
+        Match disputeOkMatch = matchRepository.save(
+                Match.builder()
+                        .postId(disputeOkPost.getId())
+                        .applicantId(applicant.getId())
+                        .applicantDeposit(300)
+                        .build()
+        );
+
+        MeetVerification disputeOkVerification = MeetVerification.createPending(disputeOkMatch.getId());
+        // (1) GPS 진입 먼저 — 양측 모두 약속장소 반경 진입 처리
+        disputeOkVerification.verifyAuthorPlace();      // authorPlaceVerifiedAt = now (→ 내부에서 VERIFIED 시도)
+        disputeOkVerification.verifyApplicantPlace();   // applicantPlaceVerifiedAt = now (→ 여기서 VERIFIED 됨)
+        // (2) 그 다음 노쇼 판정 — 상태를 BOTH_NO_SHOW 로 덮어씀 (양측 노쇼 시나리오)
+        disputeOkVerification.markBothNoShow();
+        meetVerificationRepository.save(disputeOkVerification);
+
+        // ===================================================
+        // CASE G. 이의제기 "실패" 케이스 — 노쇼가 아님(VERIFIED)
+        //         → DISPUTE_001(노쇼 예정 상태 아님, 422) 확인용
+        // ===================================================
+        Post notNoShowPost = postRepository.save(
+                Post.builder()
+                        .authorId(author.getId())
+                        .meetAt(LocalDateTime.now().plusMinutes(30))
+                        .placeName("이의제기 실패(비노쇼) 테스트 장소")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("이의제기 실패 케이스용 (노쇼 아님 / VERIFIED)")
+                        .authorDeposit(300)
+                        .build()
+        );
+        notNoShowPost.match();
+
+        Match notNoShowMatch = matchRepository.save(
+                Match.builder()
+                        .postId(notNoShowPost.getId())
+                        .applicantId(applicant.getId())
+                        .applicantDeposit(300)
+                        .build()
+        );
+
+        MeetVerification verifiedOnly = MeetVerification.createPending(notNoShowMatch.getId());
+        // 양측 GPS 만 찍어 VERIFIED 상태로 둔다 (노쇼 판정은 하지 않음)
+        verifiedOnly.verifyAuthorPlace();
+        verifiedOnly.verifyApplicantPlace(); // 여기서 자동으로 VERIFIED
+        meetVerificationRepository.save(verifiedOnly);
     }
 }
