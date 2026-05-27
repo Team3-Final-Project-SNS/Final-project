@@ -1,7 +1,7 @@
 package com.example.team3final.domain.meet.service;
 
 import com.example.team3final.common.exception.ErrorCode;
-import com.example.team3final.common.exception.VerificationException;
+import com.example.team3final.common.exception.MeetException;
 import com.example.team3final.domain.chat.service.ChatService;
 import com.example.team3final.domain.location.service.UserLocationService;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
@@ -68,7 +68,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
         // matchId로 MeetVerification 조회
         MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
-                .orElseThrow(() -> new VerificationException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
+                .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
 
         // MatchInfoDto 조회
         MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
@@ -79,7 +79,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
         // 매칭 당사자가 맞는지 검증 (등록자 or 신청자인지)
         if (!matchInfo.isParticipant(userId, postInfo.authorId())) {
-            throw new VerificationException(ErrorCode.MATCH_NOT_PARTICIPANT);
+            throw new MeetException(ErrorCode.MATCH_NOT_PARTICIPANT);
         }
 
         // meetAt 기준 15분 전 ~ 1시간 범위 체크
@@ -88,17 +88,17 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         LocalDateTime verificationEndTime = postInfo.meetAt().plusMinutes(VERIFICATION_AFTER_MINUTES);
 
         if (now.isBefore(verificationStartTime) || now.isAfter(verificationEndTime)) {
-            throw new VerificationException(ErrorCode.GPS_NOT_VERIFICATION_TIME);
+            throw new MeetException(ErrorCode.GPS_NOT_VERIFICATION_TIME);
         }
 
         // 이미 본인이 인증 완료했는지 체크
         // userId 기반으로 등록저/신청자 구분하여 각각 체크
         boolean isAuthor = userId.equals(postInfo.authorId());
         if (isAuthor && meetVerification.isAuthorPlaceVerified()) {
-            throw new VerificationException(ErrorCode.GPS_ALREADY_VERIFIED);
+            throw new MeetException(ErrorCode.GPS_ALREADY_VERIFIED);
         }
         if (!isAuthor && meetVerification.isApplicantPlaceVerified()) {
-            throw new VerificationException(ErrorCode.GPS_ALREADY_VERIFIED);
+            throw new MeetException(ErrorCode.GPS_ALREADY_VERIFIED);
         }
 
         // placeLat, placeLng를 Post에서 조회
@@ -113,7 +113,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
         // 반경 60m(오차 범위 포함) 벗어났는지 체크
         if (distanceMeters > PLACE_VERIFICATION_RADIUS_METERS) {
-            throw new VerificationException(ErrorCode.GPS_OUT_OF_RANGE);
+            throw new MeetException(ErrorCode.GPS_OUT_OF_RANGE);
         }
 
         // userId 기반으로 등록자/신청자 구분하여 각각 인증 처리
@@ -133,7 +133,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     public QrResponseDto getMeetQr(Long matchId, Long userId) {
         // matchId 조회
         MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
-                .orElseThrow(() -> new VerificationException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
+                .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
 
         // MatchInfoDto -> PostInfoDto 순으로 타서 authorId 획득
         MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
@@ -141,19 +141,19 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
         // 등록자인지 확인 (QR 발급은 등록자만 가능!)
         if (!userId.equals(postInfo.authorId())) {
-            throw new VerificationException(ErrorCode.QR_NOT_AUTHOR);
+            throw new MeetException(ErrorCode.QR_NOT_AUTHOR);
         }
 
         // 장소 인증 완료된 상태인지 체크
         if (meetVerification.getStatus() != VerificationStatus.VERIFIED) {
-            throw new VerificationException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED);
+            throw new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED);
         }
 
         // QR 토큰 이미 발급했는지 확인
         if (meetVerification.getQrToken() != null) {
             // 이미 만료됐으면 예외 던지기
             if (meetVerification.isQrExpired()) {
-                throw new VerificationException(ErrorCode.QR_EXPIRED);
+                throw new MeetException(ErrorCode.QR_EXPIRED);
             }
 
             return QrResponseDto.of(matchId, meetVerification);
@@ -183,34 +183,34 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
         // matchId 조회
         MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
-                .orElseThrow(() -> new VerificationException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
+                .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
 
         // MatchInfoDto 조회로 신청자 검증
         MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
 
         // 신청자인지 확인 (QR 스캔은 신청자만 가능!)
         if (!matchInfo.isApplicant(userId)) {
-            throw new VerificationException(ErrorCode.SCAN_NOT_APPLICANT);
+            throw new MeetException(ErrorCode.SCAN_NOT_APPLICANT);
         }
 
         // DONE 상태 재스캔 차단
         if (meetVerification.getStatus() == VerificationStatus.DONE) {
-            throw new VerificationException(ErrorCode.GPS_ALREADY_VERIFIED);
+            throw new MeetException(ErrorCode.GPS_ALREADY_VERIFIED);
         }
 
         // 장소 인증 완료 상태인지 체크
         if (meetVerification.getStatus() != VerificationStatus.VERIFIED) {
-            throw new VerificationException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED);
+            throw new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED);
         }
 
         // QR 토큰 만료 여부 체크
         if (meetVerification.isQrExpired()) {
-            throw new VerificationException(ErrorCode.QR_EXPIRED);
+            throw new MeetException(ErrorCode.QR_EXPIRED);
         }
 
         // QR 토큰 일치 여부 검증
         if (!requestDto.getQrToken().equals(meetVerification.getQrToken())) {
-            throw new VerificationException(ErrorCode.SCAN_INVALID_QR_TOKEN);
+            throw new MeetException(ErrorCode.SCAN_INVALID_QR_TOKEN);
         }
 
         // 만남 인증 완료 처리
@@ -232,7 +232,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     public MeetVerificationResponseDto getMeetVerification(Long userId, Long matchId) {
 
         MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
-                .orElseThrow(() -> new VerificationException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
+                .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
 
         // MatchInfoDto → PostInfoDto 순으로 타서 authorId 획득
         MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
@@ -240,7 +240,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
         // 매칭 당사자 검증
         if (!matchInfo.isParticipant(userId, postInfo.authorId())) {
-            throw new VerificationException(ErrorCode.MATCH_NOT_PARTICIPANT);
+            throw new MeetException(ErrorCode.MATCH_NOT_PARTICIPANT);
         }
 
         return MeetVerificationResponseDto.of(matchId, meetVerification);
@@ -378,7 +378,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
         // MeetVerification 조회
         MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
-                .orElseThrow(() -> new VerificationException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
+                .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
 
         // Match, Post 정보 조회
         MatchInfoDto matchInfoDto = matchService.getMatchInfo(matchId);
@@ -386,27 +386,27 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
         // 당사자 확인
         if (!matchInfoDto.isParticipant(userId, postInfoDto.authorId())) {
-            throw new VerificationException(ErrorCode.MATCH_NOT_PARTICIPANT);
+            throw new MeetException(ErrorCode.MATCH_NOT_PARTICIPANT);
         }
 
         // MATCH 상태 확인 (노쇼 판정 이후 or 완료된 매칭엔 연장 불가)
         if (matchInfoDto.status() != MatchStatus.MATCHED) {
-            throw new VerificationException(ErrorCode.MEET_EXTEND_MATCH_NOT_MATCHED);
+            throw new MeetException(ErrorCode.MEET_EXTEND_MATCH_NOT_MATCHED);
         }
 
         // 연장 요청은 약속시간 5분 전까지만 가능
         if (!LocalDateTime.now().isBefore(postInfoDto.meetAt().minusMinutes(5))) {
-            throw new VerificationException(ErrorCode.MEET_EXTEND_BEFORE_MEET_AT);
+            throw new MeetException(ErrorCode.MEET_EXTEND_BEFORE_MEET_AT);
         }
 
         // 이미 연장 성공한 매칭인지 확인 (1회 한정)
         if (meetVerification.isExtended()) {
-            throw new VerificationException(ErrorCode.MEET_EXTEND_ALREADY_ACCEPTED);
+            throw new MeetException(ErrorCode.MEET_EXTEND_ALREADY_ACCEPTED);
         }
 
         // 이미 진행 중인 연장 요청이 있는지 확인
         if (meetVerification.getExtensionStatus() == ExtensionStatus.REQUESTED) {
-            throw new VerificationException(ErrorCode.MEET_EXTEND_ALREADY_REQUESTED);
+            throw new MeetException(ErrorCode.MEET_EXTEND_ALREADY_REQUESTED);
         }
 
         // 연장 요청 처리
@@ -424,31 +424,31 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     public AcceptMeetExtensionResponseDto acceptMeetExtension(Long userId, Long matchId) {
 
         MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
-                .orElseThrow(() -> new VerificationException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
+                .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
 
         MatchInfoDto matchInfoDto = matchService.getMatchInfo(matchId);
         PostInfoDto postInfoDto = postQueryService.getPostInfo(matchInfoDto.postId());
 
         // 당사자 확인
         if (!matchInfoDto.isParticipant(userId, postInfoDto.authorId())) {
-            throw new VerificationException(ErrorCode.MATCH_NOT_PARTICIPANT);
+            throw new MeetException(ErrorCode.MATCH_NOT_PARTICIPANT);
         }
 
         // 응답 가능한 요청이 있는지 확인
         if (meetVerification.getExtensionStatus() != ExtensionStatus.REQUESTED) {
-            throw new VerificationException(ErrorCode.MEET_EXTEND_NO_ACTIVE_REQUEST);
+            throw new MeetException(ErrorCode.MEET_EXTEND_NO_ACTIVE_REQUEST);
         }
 
         // 만료 여부 확인
         if (meetVerification.isExtensionExpired()) {
             // 만료 처리 후 예외던지기
             meetVerification.expireExtension();
-            throw new VerificationException(ErrorCode.MEET_EXTEND_EXPIRED);
+            throw new MeetException(ErrorCode.MEET_EXTEND_EXPIRED);
         }
 
         // 본인 요청은 본인이 수락 불가
         if (userId.equals(meetVerification.getExtensionRequesterId())) {
-            throw new VerificationException(ErrorCode.MEET_EXTEND_SELF_RESPONSE);
+            throw new MeetException(ErrorCode.MEET_EXTEND_SELF_RESPONSE);
         }
 
         // 수락 처리 -> meetAt + 15분을 extendedMeetAt에 저장
@@ -466,30 +466,30 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     public RejectMeetExtensionResponseDto rejectMeetExtension(Long userId, Long matchId) {
 
         MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
-                .orElseThrow(() -> new VerificationException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
+                .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
 
         MatchInfoDto matchInfoDto = matchService.getMatchInfo(matchId);
         PostInfoDto postInfoDto = postQueryService.getPostInfo(matchInfoDto.postId());
 
         // 당사자 확인
         if (!matchInfoDto.isParticipant(userId, postInfoDto.authorId())) {
-            throw new VerificationException(ErrorCode.MATCH_NOT_PARTICIPANT);
+            throw new MeetException(ErrorCode.MATCH_NOT_PARTICIPANT);
         }
 
         // 응답 가능한 요청 있는지 확인
         if (meetVerification.getExtensionStatus() != ExtensionStatus.REQUESTED) {
-            throw new VerificationException(ErrorCode.MEET_EXTEND_NO_ACTIVE_REQUEST);
+            throw new MeetException(ErrorCode.MEET_EXTEND_NO_ACTIVE_REQUEST);
         }
 
         // 만료 여부 확인
         if (meetVerification.isExtensionExpired()) {
             meetVerification.expireExtension();
-            throw new VerificationException(ErrorCode.MEET_EXTEND_EXPIRED);
+            throw new MeetException(ErrorCode.MEET_EXTEND_EXPIRED);
         }
 
         // 본인 요청은 본인이 거절 불가
         if (userId.equals(meetVerification.getExtensionRequesterId())) {
-            throw new VerificationException(ErrorCode.MEET_EXTEND_SELF_RESPONSE);
+            throw new MeetException(ErrorCode.MEET_EXTEND_SELF_RESPONSE);
         }
 
         // 거절 처리
@@ -504,14 +504,14 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     public GetMeetExtensionResponseDto getMeetExtension(Long userId, Long matchId) {
 
         MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
-                .orElseThrow(() -> new VerificationException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
+                .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
 
         MatchInfoDto matchInfoDto = matchService.getMatchInfo(matchId);
         PostInfoDto postInfoDto = postQueryService.getPostInfo(matchInfoDto.postId());
 
         // 당사자 확인
         if (!matchInfoDto.isParticipant(userId, postInfoDto.authorId())) {
-            throw new VerificationException(ErrorCode.MATCH_NOT_PARTICIPANT);
+            throw new MeetException(ErrorCode.MATCH_NOT_PARTICIPANT);
         }
 
         // NONE 상태면 아직 요청자 없음 -> 닉네임 null 처리

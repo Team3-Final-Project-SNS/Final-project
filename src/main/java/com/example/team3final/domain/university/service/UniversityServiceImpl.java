@@ -1,7 +1,7 @@
 package com.example.team3final.domain.university.service;
 
 import com.example.team3final.common.exception.ErrorCode;
-import com.example.team3final.common.exception.ServiceException;
+import com.example.team3final.common.exception.UniversityException;
 import com.example.team3final.domain.university.dto.response.UniversityResponseDto;
 import com.example.team3final.domain.university.entity.University;
 import com.example.team3final.domain.university.repository.UniversityRepository;
@@ -28,7 +28,7 @@ public class UniversityServiceImpl implements UniversityService {
 
         // 활성화된 대학이 하나도 없으면 공통 예외 응답으로 처리합니다.
         if (universities.isEmpty()) {
-            throw new ServiceException(ErrorCode.UNIVERSITY_NOT_FOUND);
+            throw new UniversityException(ErrorCode.UNIVERSITY_NOT_FOUND);
         }
 
         // Entity 목록을 Response DTO 목록으로 변환합니다.
@@ -56,7 +56,7 @@ public class UniversityServiceImpl implements UniversityService {
     @Override
     public UniversityResponseDto getUniversityByDomain(String emailDomain) {
         University university = universityRepository.findByeDomainAndIsActiveTrue(emailDomain)
-                .orElseThrow(() -> new ServiceException(ErrorCode.UNREGISTERED_UNIVERSITY));
+                .orElseThrow(() -> new UniversityException(ErrorCode.AUTH_UNREGISTERED_UNIVERSITY));
         return toUniversityResponseDto(university); // 기존 private 반환 메서드 재사용
     }
 

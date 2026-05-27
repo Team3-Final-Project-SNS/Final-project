@@ -1,7 +1,7 @@
 package com.example.team3final.domain.user.service;
 
 import com.example.team3final.common.exception.ErrorCode;
-import com.example.team3final.common.exception.ServiceException;
+import com.example.team3final.common.exception.UserException;
 import com.example.team3final.domain.user.dto.request.UpdateUserRequestDto;
 import com.example.team3final.domain.user.dto.response.GetUserResponseDto;
 import com.example.team3final.domain.user.dto.response.UpdateUserResponseDto;
@@ -48,14 +48,14 @@ public interface UserService {
     // 2. bulk 조회를 재사용하는 단건 default 메서드 (공통 로직으로 합침)
     default UserInfoDto getUserInfo(Long userId) {
         if (userId == null) {
-            throw new ServiceException(ErrorCode.USER_NOT_FOUND);
+            throw new UserException(ErrorCode.USER_NOT_FOUND);
         }
 
         // bulk 메서드 호출 후 Map에서 결과 추출
         UserInfoDto info = getUserInfos(List.of(userId)).get(userId);
 
         if (info == null) {
-            throw new ServiceException(ErrorCode.USER_NOT_FOUND);
+            throw new UserException(ErrorCode.USER_NOT_FOUND);
         }
         return info;
     }

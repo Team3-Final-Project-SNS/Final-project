@@ -1,8 +1,8 @@
 package com.example.team3final.domain.auth.service;
 
 import com.example.team3final.common.config.OtpProperties;
+import com.example.team3final.common.exception.AuthException;
 import com.example.team3final.common.exception.ErrorCode;
-import com.example.team3final.common.exception.ServiceException;
 import com.example.team3final.common.jwt.JwtProvider;
 import com.example.team3final.domain.auth.dto.request.LoginRequestDto;
 import com.example.team3final.domain.auth.dto.request.OtpRequestDto;
@@ -68,27 +68,27 @@ public class AuthServiceImpl implements AuthService{
 
 //        // 1. .ac.kr 도메인 검증
 //        if (!email.endsWith(".ac.kr")) {
-//            throw new ServiceException(ErrorCode.INVALID_EMAIL_DOMAIN);
+//            throw new AuthException(ErrorCode.AUTH_INVALID_EMAIL_DOMAIN);
 //        }
 
         // 2. 등록된 학교 도메인인지 검증 (Service to Service)
         String emailDomain = email.substring(email.indexOf("@") + 1);
         boolean isRegisteredUniversity = universityService.isRegisteredActiveUniversity(emailDomain);
         if (!isRegisteredUniversity) {
-            throw new ServiceException(ErrorCode.UNREGISTERED_UNIVERSITY);
+            throw new AuthException(ErrorCode.AUTH_UNREGISTERED_UNIVERSITY);
         }
 
         // 3. 이미 가입된 이메일인지 검증 (Service to Service)
         boolean isAlreadyRegistered = userService.isEmailAlreadyRegistered(email);
         if (isAlreadyRegistered) {
-            throw new ServiceException(ErrorCode.ALREADY_REGISTERED_EMAIL);
+            throw new AuthException(ErrorCode.AUTH_ALREADY_REGISTERED_EMAIL);
         }
 
         // 4. 재발송 쿨다운 체크 (1분 내 재발송 불가)
         String cooldownKey = OtpRedisKeyUtil.cooldownKey(email);
         Boolean isCooldown = redisTemplate.hasKey(cooldownKey);
         if (isCooldown) {
-            throw new ServiceException(ErrorCode.OTP_COOLDOWN);
+            throw new AuthException(ErrorCode.OTP_COOLDOWN);
         }
 
         // 5. 시간 내 최대 재발송 횟수 체크 (1시간 내 3회)
@@ -96,7 +96,7 @@ public class AuthServiceImpl implements AuthService{
         String countStr = redisTemplate.opsForValue().get(resendCountKey);
         int currentCount = (countStr == null) ? 0 : Integer.parseInt(countStr);
         if (currentCount >= otpProperties.getMaxResendCount()) {
-            throw new ServiceException(ErrorCode.OTP_SEND_TOO_MANY);
+            throw new AuthException(ErrorCode.OTP_SEND_TOO_MANY);
         }
 
         // 6. OTP 생성 및 Redis 저장
@@ -145,7 +145,7 @@ public class AuthServiceImpl implements AuthService{
         int attempts = (attemptsStr == null) ? 0 : Integer.parseInt(attemptsStr);
 
         if (attempts >= MAX_OTP_ATTEMPTS) {
-            throw new ServiceException(ErrorCode.OTP_MAX_ATTEMPTS_EXCEEDED);
+            throw new AuthException(ErrorCode.OTP_MAX_ATTEMPTS_EXCEEDED);
         }
 
         // 2단계: Redis에서 저장된 OTP 조회
@@ -155,7 +155,7 @@ public class AuthServiceImpl implements AuthService{
         // 3단계: OTP 만료 확인
         // Redis TTL이 지나면 키가 자동 삭제 → get()이 null 반환 = 만료
         if (storedOtp == null) {
-            throw new ServiceException(ErrorCode.OTP_EXPIRED);
+            throw new AuthException(ErrorCode.OTP_EXPIRED);
         }
 
         // 4단계: OTP 코드 일치 확인
@@ -171,7 +171,7 @@ public class AuthServiceImpl implements AuthService{
                         Duration.ofSeconds(otpProperties.getExpireSeconds()));
             }
 
-            throw new ServiceException(ErrorCode.OTP_CODE_MISMATCH);
+            throw new AuthException(ErrorCode.OTP_CODE_MISMATCH);
         }
 
         // 5단계: 검증 성공 - 사용된 키 정리
@@ -210,19 +210,19 @@ public class AuthServiceImpl implements AuthService{
         // 브라우저가 OTP 검증 시 받은 쿠키를 자동으로 이 요청에 담아서 전송
         String signupToken = extractSignupToken(httpRequest);
         if (signupToken == null) {
-            throw new ServiceException(ErrorCode.INVALID_TOKEN);
+            throw new AuthException(ErrorCode.AUTH_INVALID_TOKEN);
         }
 
         // ===== 2단계: signup_token 유효성 검증 =====
         // 만료됐거나 위조된 토큰이면 false
         if (!jwtProvider.validateToken(signupToken)) {
-            throw new ServiceException(ErrorCode.INVALID_TOKEN);
+            throw new AuthException(ErrorCode.AUTH_INVALID_TOKEN);
         }
 
         // ===== 3단계: 토큰 타입이 SIGNUP인지 확인 =====
         // ACCESS 토큰으로 회원가입 시도하는 것을 차단
         if (!"SIGNUP".equals(jwtProvider.getTokenType(signupToken))) {
-            throw new ServiceException(ErrorCode.INVALID_TOKEN);
+            throw new AuthException(ErrorCode.AUTH_INVALID_TOKEN);
         }
 
         // ===== 4단계: signup_token에서 이메일 추출 =====
@@ -233,13 +233,13 @@ public class AuthServiceImpl implements AuthService{
         // OTP 발송 ~ 회원가입 사이에 동일 이메일로 먼저 가입한 경우 차단
         // Service-to-Service: UserService 통해 확인
         if (userService.isEmailAlreadyRegistered(email)) {
-            throw new ServiceException(ErrorCode.ALREADY_REGISTERED_EMAIL);
+            throw new AuthException(ErrorCode.AUTH_ALREADY_REGISTERED_EMAIL);
         }
 
         // ===== 6단계: 닉네임 중복 확인 =====
         // Service-to-Service: UserService 통해 확인 (UserRepository 직접 접근 금지)
         if (userService.existsByNickname(request.getNickname())) {
-            throw new ServiceException(ErrorCode.NICKNAME_DUPLICATED);
+            throw new AuthException(ErrorCode.AUTH_NICKNAME_DUPLICATED);
         }
 
         // ===== 7단계: 필수 약관 동의 확인 =====
@@ -251,7 +251,7 @@ public class AuthServiceImpl implements AuthService{
                 .anyMatch(term -> !Boolean.TRUE.equals(term.agreed()));
 
         if (hasRefusedRequired) {
-            throw new ServiceException(ErrorCode.REQUIRED_TERM_NOT_AGREED);
+            throw new AuthException(ErrorCode.REQUIRED_TERM_NOT_AGREED);
         }
 
         // ===== 8단계: universityId 조회 =====
@@ -333,10 +333,10 @@ public class AuthServiceImpl implements AuthService{
             );
         } catch (DisabledException e) {
             // CustomUserDetailsService에서 disabled=true로 설정된 경우 (정지/탈퇴 계정)
-            throw new ServiceException(ErrorCode.USER_SUSPENDED_OR_WITHDRAWN);
+            throw new AuthException(ErrorCode.USER_SUSPENDED_OR_WITHDRAWN);
         } catch (BadCredentialsException e) {
             // 이메일 또는 비밀번호가 틀린 경우
-            throw new ServiceException(ErrorCode.LOGIN_FAIL);
+            throw new AuthException(ErrorCode.AUTH_LOGIN_FAIL);
         }
 
         // 인증 성공 → 유저 정보 조회
@@ -366,12 +366,12 @@ public class AuthServiceImpl implements AuthService{
 
         // 1. 토큰 형식 및 서명 검증
         if (!jwtProvider.validateToken(refreshToken)) {
-            throw new ServiceException(ErrorCode.INVALID_TOKEN);
+            throw new AuthException(ErrorCode.AUTH_INVALID_TOKEN);
         }
 
         // 2. 토큰 타입이 REFRESH인지 확인
         if (!"REFRESH".equals(jwtProvider.getTokenType(refreshToken))) {
-            throw new ServiceException(ErrorCode.INVALID_TOKEN);
+            throw new AuthException(ErrorCode.AUTH_INVALID_TOKEN);
         }
 
         // 3. 토큰에서 이메일 추출
@@ -381,7 +381,7 @@ public class AuthServiceImpl implements AuthService{
         String storedToken = redisTemplate.opsForValue().get(REFRESH_TOKEN_KEY_PREFIX + email);
         if (!refreshToken.equals(storedToken)) {
             // 이미 사용된 토큰이거나 로그아웃된 경우
-            throw new ServiceException(ErrorCode.INVALID_TOKEN);
+            throw new AuthException(ErrorCode.AUTH_INVALID_TOKEN);
         }
 
         // 5. 새 Access Token + 새 Refresh Token 발급 (RTR: 기존 토큰 폐기)
