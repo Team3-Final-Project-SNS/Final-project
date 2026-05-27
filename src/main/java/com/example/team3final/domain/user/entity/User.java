@@ -98,6 +98,7 @@ public class User extends SoftDeleteEntity {
     // 회원 탈퇴
     public void withdraw() {
         this.status = UserStatus.WITHDRAWN;
+        super.delete(); // SoftDeleteEntity의 deleted_at 세팅
     }
 
     // 계정 활성 상태인지 확인
