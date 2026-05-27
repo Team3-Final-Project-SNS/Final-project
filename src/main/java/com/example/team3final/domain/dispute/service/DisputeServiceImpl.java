@@ -109,4 +109,11 @@ public class DisputeServiceImpl implements DisputeService {
 
         return DisputeResponseDto.from(dispute);
     }
+
+    // 어드민 이의제기 상세 조회용 - disputeId 단건 조회
+    @Override
+    public Dispute getDisputeById(Long disputeId) {
+        return disputeRepository.findById(disputeId)
+                .orElseThrow(() -> new DisputeException(ErrorCode.DISPUTE_NOT_FOUND));
+    }
 }
