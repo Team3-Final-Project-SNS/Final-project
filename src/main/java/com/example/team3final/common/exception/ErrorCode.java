@@ -30,8 +30,8 @@ public enum ErrorCode {
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_001", "존재하지 않는 유저입니다."),
     USER_CURRENT_PASSWORD_MISMATCH(HttpStatus.UNAUTHORIZED, "USER_002", "현재 비밀번호가 일치하지 않습니다."),
     USER_SAME_PASSWORD(HttpStatus.BAD_REQUEST, "USER_003", "새 비밀번호가 현재 비밀번호와 동일합니다."),
-    USER_SUSPENDED_OR_WITHDRAWN(HttpStatus.FORBIDDEN, "AUTH_011", "정지 또는 탈퇴된 계정입니다."),
-    // common - Service
+    USER_SUSPENDED_OR_WITHDRAWN(HttpStatus.FORBIDDEN, "USER_004", "정지 또는 탈퇴된 계정입니다."),
+    // common
     USER_NO_FIELD_TO_UPDATE(HttpStatus.BAD_REQUEST, "COMMON_001", "수정할 필드가 한 개 이상 필요합니다."),
 
     // Post
@@ -80,8 +80,8 @@ public enum ErrorCode {
     CHAT_ROOM_ALREADY_EXISTS(HttpStatus.CONFLICT, "CHAT_002", "이미 존재하는 채팅방입니다."),
     CHAT_ROOM_INACTIVE(HttpStatus.FORBIDDEN, "CHAT_003", "비활성화된 채팅방입니다."),
     CHAT_NOT_PARTICIPANT(HttpStatus.FORBIDDEN, "CHAT_004", "해당 채팅방의 참여자가 아닙니다."),
-    CHAT_INVALID_PAGE_SIZE(HttpStatus.BAD_REQUEST, "CHAT_007", "페이지 크기는 최대 50까지 요청할 수 있습니다."),
-    CHAT_INVALID_CURSOR(HttpStatus.BAD_REQUEST, "CHAT_008", "유효하지 않은 커서 ID입니다."),
+    CHAT_INVALID_PAGE_SIZE(HttpStatus.BAD_REQUEST, "CHAT_005", "페이지 크기는 최대 50까지 요청할 수 있습니다."),
+    CHAT_INVALID_CURSOR(HttpStatus.BAD_REQUEST, "CHAT_006", "유효하지 않은 커서 ID입니다."),
 
     // University
     UNIVERSITY_NOT_FOUND(HttpStatus.NOT_FOUND, "UNIVERSITY_001", "조회 가능한 대학 목록이 없습니다."),
@@ -102,15 +102,15 @@ public enum ErrorCode {
     ADMIN_POST_NOT_OPEN(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_006", "OPEN 상태의 게시글만 삭제할 수 있습니다."),
     // Report
     ADMIN_INVALID_REPORT_STATUS(HttpStatus.BAD_REQUEST, "ADMIN_007", "ACCEPTED 또는 REJECTED만 처리 가능합니다."),
-    ADMIN_NOT_ACCEPTED(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_007", "채택(ACCEPTED)된 신고만 게시글 삭제에 사용할 수 있습니다."),
-    ADMIN_POST_ID_MISMATCH(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_008", "신고 대상 게시글과 요청 게시글이 일치하지 않습니다."),
+    ADMIN_NOT_ACCEPTED(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_008", "채택(ACCEPTED)된 신고만 게시글 삭제에 사용할 수 있습니다."),
+    ADMIN_POST_ID_MISMATCH(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_009", "신고 대상 게시글과 요청 게시글이 일치하지 않습니다."),
 
     // Report
     REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "REPORT_001", "존재하지 않는 신고입니다."),
     REPORT_ALREADY_PROCESSED(HttpStatus.CONFLICT, "REPORT_002", "이미 처리된 신고입니다."),
-    REPORT_TOO_SOON(HttpStatus.CONFLICT, "REPORT_004", "3일 이내 동일 게시글 재신고는 불가합니다."),
-    REPORT_SELF_REPORT(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_005", "본인의 게시글은 신고할 수 없습니다."),
-    REPORT_ALREADY_REPORTED(HttpStatus.CONFLICT, "REPORT_006", "이미 신고한 게시글입니다.");
+    REPORT_TOO_SOON(HttpStatus.CONFLICT, "REPORT_003", "3일 이내 동일 게시글 재신고는 불가합니다."),
+    REPORT_SELF_REPORT(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_004", "본인의 게시글은 신고할 수 없습니다."),
+    REPORT_ALREADY_REPORTED(HttpStatus.CONFLICT, "REPORT_005", "이미 신고한 게시글입니다.");
 
     private final HttpStatus httpStatus;
     private final String code;
