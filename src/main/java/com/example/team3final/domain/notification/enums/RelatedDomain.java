@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 
 @Getter
 @RequiredArgsConstructor
-public enum NotificationDomain {
+public enum RelatedDomain {
 
     MATCH("매칭"),      // 매칭 관련 알림
     MEET("만남"),       // 만남 인증/연장 관련 알림

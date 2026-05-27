@@ -1,6 +1,6 @@
 package com.example.team3final.domain.notification.entity;
 
-import com.example.team3final.domain.notification.enums.NotificationDomain;
+import com.example.team3final.domain.notification.enums.RelatedDomain;
 import com.example.team3final.domain.notification.enums.NotificationType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 
 /**
  * 알림 유형: NotificationType
- * 연관 도메인: NotificationDomain
+ * 연관 도메인: RelatedDomain
  * 읽음 여부: isRead (false = 미읽음, true = 읽음)
  */
 
@@ -47,7 +47,7 @@ public class Notification {
     // 연관 도메인
     @Enumerated(EnumType.STRING)
     @Column(name = "domain", nullable = false, updatable = false, length = 20)
-    private NotificationDomain domain;
+    private RelatedDomain relatedDomain;
 
     // 관련 도메인 ID (클릭 시 화면 이동용)
     @Column(name = "related_id", updatable = false)
@@ -67,12 +67,12 @@ public class Notification {
 
     @Builder
     private Notification(Long userId, NotificationType type, String title,
-                         String content, NotificationDomain domain, Long relatedId) {
+                         String content, RelatedDomain relatedDomain, Long relatedId) {
         this.userId = userId;
         this.type = type;
         this.title = title;
         this.content = content;
-        this.domain = domain;
+        this.relatedDomain = relatedDomain;
         this.relatedId = relatedId;
         this.isRead = false;    // 생성 시 미읽음
     }
