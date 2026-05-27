@@ -37,10 +37,6 @@ public class Match extends BaseTimeEntity {
     @Column(name = "status", nullable = false, length = 30)
     private MatchStatus status;
 
-    // 매칭 확정 시각
-    @Column(name = "matched_at", nullable = false)
-    private LocalDateTime matchedAt;
-
     // 만남 완료 시각 (QR 인증 완료 시점)
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
@@ -51,7 +47,6 @@ public class Match extends BaseTimeEntity {
         this.applicantId = applicantId;
         this.applicantDeposit = applicantDeposit;
         this.status = MatchStatus.MATCHED;
-        this.matchedAt = LocalDateTime.now();
     }
 
     // ===== 비즈니스 메서드 =====
