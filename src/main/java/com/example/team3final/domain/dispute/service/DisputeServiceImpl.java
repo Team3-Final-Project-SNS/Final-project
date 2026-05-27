@@ -68,7 +68,12 @@ public class DisputeServiceImpl implements DisputeService {
             throw new DisputeException(ErrorCode.DISPUTE_PLACE_NOT_VERIFIED);
         }
 
-        // ===== 7. 48시간 제한 검증 (DISPUTE_002, 422) =====
+        // 7. 중복 제출 검증
+        if (disputeRepository.existsByMatchIdAndSubmitterId(matchId, userId)) {
+            throw new DisputeException(ErrorCode.DISPUTE_ALREADY_SUBMITTED);
+        }
+
+        // 8. 48시간 제한 검증
         // ⚠️ 보류: 기준점이 될 '노쇼 판정 시각'이 만남 인증 쪽에 아직 없음.
         //    (markXxxNoShow 가 status 만 바꾸고 시각을 안 남김. BaseEntity 상속도 안 함)
         //    정님이 noShowDecidedAt 추가 후, 응답 DTO 에도 노출되면 아래 블록을 살린다.
@@ -79,10 +84,6 @@ public class DisputeServiceImpl implements DisputeService {
         //        throw new DisputeException(ErrorCode.DISPUTE_DEADLINE_EXCEEDED);
         //    }
 
-        // 8. 중복 제출 검증
-        if (disputeRepository.existsByMatchIdAndSubmitterId(matchId, userId)) {
-            throw new DisputeException(ErrorCode.DISPUTE_ALREADY_SUBMITTED);
-        }
 
         // 9. 저장
         Dispute dispute = Dispute.builder()
