@@ -1,5 +1,7 @@
 package com.example.team3final.domain.report.entity;
 
+import com.example.team3final.common.entity.BaseTimeEntity;
+import com.example.team3final.common.entity.SoftDeleteEntity;
 import com.example.team3final.domain.report.enums.ReportReason;
 import com.example.team3final.domain.report.enums.ReportStatus;
 import jakarta.persistence.*;
@@ -19,7 +21,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "reports")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Report {
+public class Report extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -60,10 +62,6 @@ public class Report {
     @Column(name = "processed_at")
     private LocalDateTime processedAt;
 
-    // 신고 접수 시각
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
     // 신고 취소 시각
     @Column(name = "cancelled_at")
     private LocalDateTime cancelledAt;
@@ -77,11 +75,6 @@ public class Report {
         this.detail = detail;
         this.status = ReportStatus.PENDING; // 생성 시 항상 대기 상태
         this.isRewarded = false; // 생성 시 포상 미지급
-    }
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
     }
 
     // ==================== 도메인 메서드 ====================
