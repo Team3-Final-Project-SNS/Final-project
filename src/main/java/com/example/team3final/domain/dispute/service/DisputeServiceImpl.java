@@ -4,6 +4,7 @@ import com.example.team3final.common.exception.DisputeException;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.domain.dispute.dto.request.CreateDisputeRequestDto;
 import com.example.team3final.domain.dispute.dto.response.CreateDisputeResponseDto;
+import com.example.team3final.domain.dispute.dto.response.DisputeResponseDto;
 import com.example.team3final.domain.dispute.entity.Dispute;
 import com.example.team3final.domain.dispute.repository.DisputeRepository;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
@@ -93,4 +94,19 @@ public class DisputeServiceImpl implements DisputeService {
         return CreateDisputeResponseDto.from(saved);
     }
 
+    /**
+     * 내 이의제기 상태 조회
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public DisputeResponseDto getDispute(Long matchId, Long userId) {
+
+        // 1. 매칭 존재 확인
+        matchService.getMatchInfo(matchId);
+
+        Dispute dispute = disputeRepository.findByMatchIdAndSubmitterId(matchId, userId)
+                .orElseThrow(() -> new DisputeException(ErrorCode.DISPUTE_NOT_FOUND));
+
+        return DisputeResponseDto.from(dispute);
+    }
 }
