@@ -4,6 +4,15 @@ import com.example.team3final.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
+
+/**
+ * AI 프롬프트 개선 이력을 저장하는 엔티티입니다.
+ *
+ * 프롬프트 변경 시 변경 동기, 토큰 변화, 출력 품질 변화,
+ * 다음 개선 방향을 기록하여 프롬프트 엔지니어링 과정을 문서화합니다.
+ *
+ * 발제 요구사항의 "프롬프트 개선 이력 최소 3회 기록"을 충족하기 위한 데이터입니다.
+ */
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

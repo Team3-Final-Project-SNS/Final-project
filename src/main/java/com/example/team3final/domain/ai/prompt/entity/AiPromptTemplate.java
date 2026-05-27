@@ -6,6 +6,17 @@ import com.example.team3final.domain.ai.common.enums.AiPromptType;
 import jakarta.persistence.*;
 import lombok.*;
 
+
+/**
+ * AI 프롬프트 템플릿 메타데이터 엔티티입니다.
+ *
+ * 실제 프롬프트 본문은 외부 파일 또는 classpath 리소스에 두고,
+ * 이 엔티티는 어떤 AI 기능이 어떤 프롬프트 파일과 버전을 사용할지 관리합니다.
+ *
+ * 이를 통해 프롬프트 파일명, 활성 버전, 기능 구분을 DB에서 관리할 수 있으며,
+ * 코드에 프롬프트 본문을 하드코딩하지 않는 구조를 제공합니다.
+ */
+
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

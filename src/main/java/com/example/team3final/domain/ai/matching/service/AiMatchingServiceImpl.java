@@ -25,6 +25,25 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * 매칭 AI 서비스 구현체입니다.
+ *
+ * 로그인한 사용자의 학교, 보유 포인트, 신청 이력 정보를 기준으로
+ * 모집 중인 식사팟 후보를 조회하고, 해당 후보 정보를 프롬프트에 주입하여
+ * LLM이 자연어 추천 응답을 생성하도록 처리합니다.
+ *
+ * 주요 처리 흐름:
+ * 1. 로그인 사용자 조회
+ * 2. 같은 학교의 모집 중인 게시글 후보 조회
+ * 3. 신청 가능 여부와 책임비 포인트 충족 여부 검증
+ * 4. DB에서 활성 프롬프트 템플릿을 조회하고 프롬프트 파일 렌더링
+ * 5. ChatClient를 통해 AI 추천 답변 생성
+ * 6. 성공/실패/fallback 상태를 AiCallMetric으로 저장
+ *
+ * AI 호출 또는 Tool 조회 실패 시 핵심 서비스가 중단되지 않도록
+ * fallback 응답을 반환합니다.
+ */
+
 @Service
 public class AiMatchingServiceImpl implements AiMatchingService {
 
@@ -53,9 +72,31 @@ public class AiMatchingServiceImpl implements AiMatchingService {
 
     }
 
+
+    /**
+     * 사용자의 자연어 조건에 대한 매칭 AI 응답을 생성합니다.
+     *
+     * 같은 학교의 모집 중인 식사팟 후보를 Tool로 조회한 뒤,
+     * 후보 목록과 사용자 정보를 프롬프트 변수로 주입하여 LLM 응답을 생성합니다.
+     *
+     * Tool 조회 실패, 프롬프트 로드 실패, LLM 호출 실패 상황에서는
+     * 사용자에게 자연어 fallback 응답을 반환하고, 실패 상태를 메트릭으로 저장합니다.
+     *
+     * @param email 로그인한 사용자 이메일
+     * @param request 사용자의 자연어 식사 조건 요청
+     * @return AI 추천 답변, 추천 후보 목록, fallback 사용 여부
+     */
     @Override
     public AiMatchingChatResponseDto chat(String email, AiMatchingChatRequestDto request) {
+
+        // AI 호출 1건을 추적하기 위한 고유 요청 ID입니다.
+        // 로그, 메트릭, 장애 분석에서 같은 요청 흐름을 식별하는 데 사용합니다.
+        // 이렇게 가능
+        // requestId=A / userId=3 / SUCCESS / latency=2초
+        // requestId=B / userId=3 / SUCCESS / latency=8초
+        // requestId=C / userId=3 / FALLBACK / error=TOOL_ERROR
         String requestId = UUID.randomUUID().toString();
+
         long startedAt = System.currentTimeMillis();
 
         try {
@@ -171,6 +212,13 @@ public class AiMatchingServiceImpl implements AiMatchingService {
         }
     }
 
+    /**
+     * AI 호출 결과를 메트릭으로 저장합니다.
+     *
+     * 요청 ID, 사용자 ID, 기능명, 모델명, 응답 지연 시간,
+     * 처리 상태, 에러 유형과 메시지를 저장하여
+     * 추후 비용 추적, 장애 분석, 대시보드 구성에 활용합니다.
+     */
     private void saveMetric(
             String requestId,
             Long userId,
@@ -193,6 +241,9 @@ public class AiMatchingServiceImpl implements AiMatchingService {
         );
     }
 
+    /**
+     * 메트릭에 저장할 에러 메시지를 컬럼 길이에 맞게 제한합니다.
+     */
     private String truncate(String message) {
         if (message == null) {
             return null;

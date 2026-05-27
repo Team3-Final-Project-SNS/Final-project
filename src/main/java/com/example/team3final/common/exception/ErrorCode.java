@@ -102,6 +102,8 @@ public enum ErrorCode {
     ADMIN_POST_NOT_OPEN(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_006", "OPEN 상태의 게시글만 삭제할 수 있습니다."),
     // Report
     ADMIN_INVALID_REPORT_STATUS(HttpStatus.BAD_REQUEST, "ADMIN_007", "ACCEPTED 또는 REJECTED만 처리 가능합니다."),
+    ADMIN_NOT_ACCEPTED(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_008", "채택(ACCEPTED)된 신고만 게시글 삭제에 사용할 수 있습니다."),
+    ADMIN_POST_ID_MISMATCH(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_009", "신고 대상 게시글과 요청 게시글이 일치하지 않습니다."),
 
     // Report
     REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "REPORT_001", "존재하지 않는 신고입니다."),
@@ -116,16 +118,6 @@ public enum ErrorCode {
     DISPUTE_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "DISPUTE_003", "이미 이의제기를 제출했습니다."),
     DISPUTE_PLACE_NOT_VERIFIED(HttpStatus.UNPROCESSABLE_ENTITY, "DISPUTE_004", "장소 인증을 완료한 유저만 이의제기할 수 있습니다."),
     DISPUTE_NOT_FOUND(HttpStatus.NOT_FOUND, "DISPUTE_005",  "제출한 이의제기가 없습니다."),
-
-
-
-    // Report - admin
-    REPORT_NOT_ACCEPTED(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_007", "채택(ACCEPTED)된 신고만 게시글 삭제에 사용할 수 있습니다."),
-    REPORT_POST_ID_MISMATCH(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_008", "신고 대상 게시글과 요청 게시글이 일치하지 않습니다."),
-
-
-
-
 
 
     // AI
