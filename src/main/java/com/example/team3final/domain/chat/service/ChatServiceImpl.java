@@ -170,4 +170,38 @@ public class ChatServiceImpl implements ChatService {
                         ChatRoom::getId        // Value — 채팅방 ID
                 ));
     }
+
+    // 이의 제기 상세 조회 -> 참여자 검증/읽음 처리 없이 전체 메시지 조회
+    @Override
+    public List<ChatMessageResponseDto> getChatMessagesForAdmin(Long chatRoomId) {
+
+        // 채팅방 존재 여부 확인
+        chatRoomRepository.findById(chatRoomId)
+                .orElseThrow(() -> new ChatException(ErrorCode.CHAT_ROOM_NOT_FOUND));
+
+        // 전체 메시지 오래된 순으로 조회 (대화 흐름 파악용)
+        List<ChatMessage> messages = chatMessageRepository.findByChatRoomIdOrderByIdAsc(chatRoomId);
+
+        // 발신자 ID 목록 한 번에 조회
+        List<Long> senderIds = messages.stream()
+                .map(ChatMessage::getSenderId)
+                .distinct()
+                .toList();
+
+        Map<Long, UserInfoDto> userInfoDtoMap = userService.getUserInfos(senderIds);
+
+        // DTO 변환
+        return messages.stream()
+                .map(m -> new ChatMessageResponseDto(
+                        m.getId(),
+                        chatRoomId,
+                        m.getSenderId(),
+                        userInfoDtoMap.containsKey(m.getSenderId())
+                        ? userInfoDtoMap.get(m.getSenderId()).nickname() : null,
+                        m.getContent(),
+                        m.isRead(),
+                        m.getCreatedAt()
+                ))
+                .toList();
+    }
 }
