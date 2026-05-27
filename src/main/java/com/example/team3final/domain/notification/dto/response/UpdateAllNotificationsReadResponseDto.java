@@ -6,7 +6,7 @@ import com.example.team3final.domain.notification.entity.Notification;
 public record UpdateAllNotificationsReadResponseDto(
         int updatedCount    // 읽음 처리된 알림 수
 ) {
-    public static UpdateAllNotificationsReadResponseDto of(int updatedCount) {
+    public static UpdateAllNotificationsReadResponseDto from(int updatedCount) {
         return new UpdateAllNotificationsReadResponseDto(updatedCount);
     }
 }
