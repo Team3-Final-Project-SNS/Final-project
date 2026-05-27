@@ -111,10 +111,6 @@ public enum ErrorCode {
     REPORT_TOO_SOON(HttpStatus.CONFLICT, "REPORT_003", "3일 이내 동일 게시글 재신고는 불가합니다."),
     REPORT_SELF_REPORT(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_004", "본인의 게시글은 신고할 수 없습니다."),
     REPORT_ALREADY_REPORTED(HttpStatus.CONFLICT, "REPORT_005", "이미 신고한 게시글입니다."),
-    // Report - admin
-    REPORT_NOT_ACCEPTED(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_007", "채택(ACCEPTED)된 신고만 게시글 삭제에 사용할 수 있습니다."),
-    REPORT_POST_ID_MISMATCH(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_008", "신고 대상 게시글과 요청 게시글이 일치하지 않습니다."),
-    REPORT_TARGET_TYPE_NOT_POST(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_009", "게시글(POST) 유형의 신고만 사용할 수 있습니다."),
 
     // Dispute (노쇼 이의제기)
     DISPUTE_NOT_NO_SHOW(HttpStatus.UNPROCESSABLE_ENTITY, "DISPUTE_001", "노쇼 예정 상태에서만 이의제기할 수 있습니다."),
