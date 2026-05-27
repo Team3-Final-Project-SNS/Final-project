@@ -1,6 +1,7 @@
 package com.example.team3final.domain.university.entity;
 
 
+import com.example.team3final.common.entity.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -13,7 +14,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "universities")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class University {
+public class University extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -29,9 +30,6 @@ public class University {
     @Column(name = "is_active", nullable = false) // ERD: 활성 여부
     private boolean isActive;
 
-    @Column(name = "created_at", nullable = false, updatable = false) // ERD: 생성일
-    private LocalDateTime createdAt;
-
     @Column(name = "deactivated_at") // ERD: 비활성화일
     private LocalDateTime deactivatedAt;
 
@@ -40,12 +38,6 @@ public class University {
         this.universityName = universityName;
         this.eDomain = eDomain;
         this.isActive = isActive;
-    }
-
-    // Entity가 처음 저장되기 직전에 생성일을 자동으로 기록합니다.
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
     }
 
     // 학교를 활성화합니다.
