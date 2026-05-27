@@ -1,6 +1,6 @@
 package com.example.team3final.domain.notification.entity;
 
-import com.example.team3final.common.entity.BaseEntity;
+import com.example.team3final.common.entity.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "inquiry_answers")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class InquiryAnswer extends BaseEntity {
+public class InquiryAnswer extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

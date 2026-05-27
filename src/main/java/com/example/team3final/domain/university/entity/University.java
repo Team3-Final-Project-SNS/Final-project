@@ -1,7 +1,6 @@
 package com.example.team3final.domain.university.entity;
 
 
-import com.example.team3final.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;

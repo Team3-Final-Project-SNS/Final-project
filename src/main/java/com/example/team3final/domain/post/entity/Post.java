@@ -1,6 +1,6 @@
 package com.example.team3final.domain.post.entity;
 
-import com.example.team3final.common.entity.BaseEntity;
+import com.example.team3final.common.entity.BaseTimeEntity;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.PostException;
 import com.example.team3final.domain.post.enums.PostStatus;
@@ -21,7 +21,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @SQLRestriction("deleted_at IS NULL")
 @SQLDelete(sql = "UPDATE posts SET deleted_at = NOW() WHERE post_id = ?")
-public class Post extends BaseEntity {
+public class Post extends BaseTimeEntity {
 
         // 최소 책임비 포인트
         public static  final int MIN_AUTHOR_DEPOSIT = 200;

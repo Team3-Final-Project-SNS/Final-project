@@ -1,6 +1,6 @@
 package com.example.team3final.domain.match.entity;
 
-import com.example.team3final.common.entity.BaseEntity;
+import com.example.team3final.common.entity.BaseTimeEntity;
 import com.example.team3final.domain.match.enums.MatchStatus;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 @Getter
 @Table(name = "matches") // MySQL/SQL 표준 예약어 회피
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Match extends BaseEntity {
+public class Match extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
