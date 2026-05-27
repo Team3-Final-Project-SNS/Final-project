@@ -1,7 +1,7 @@
 package com.example.team3final.domain.user.service;
 
 import com.example.team3final.common.exception.ErrorCode;
-import com.example.team3final.common.exception.ServiceException;
+import com.example.team3final.common.exception.UserException;
 import com.example.team3final.domain.pointTransaction.entity.PointTransaction;
 import com.example.team3final.domain.pointTransaction.enums.PointTransactionType;
 import com.example.team3final.domain.pointTransaction.repository.PointTransactionRepository;
@@ -40,7 +40,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public Long getUserIdByEmail(String email) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ServiceException(ErrorCode.USER_NOT_FOUND));
+                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
         return user.getId();
     }
 
@@ -54,7 +54,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public User findByEmail(String email) {
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ServiceException(ErrorCode.USER_NOT_FOUND));
+                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
     }
 
     // 닉네임 중복확인
@@ -117,7 +117,7 @@ public class UserServiceImpl implements UserService {
 
         // userId로 User 조회
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ServiceException(ErrorCode.USER_NOT_FOUND));
+                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
 
         // Entity → ResponseDto 변환 후 반환
         return GetUserResponseDto.of(user);
@@ -136,12 +136,12 @@ public class UserServiceImpl implements UserService {
                         request.getMajor() == null;
 
         if (hasNothingToUpdate) {
-            throw new ServiceException(ErrorCode.USER_NO_FIELD_TO_UPDATE);
+            throw new UserException(ErrorCode.USER_NO_FIELD_TO_UPDATE);
         }
 
         // 2단계: userId로 User 조회
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ServiceException(ErrorCode.USER_NOT_FOUND));
+                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
 
         // 비밀번호 변경 여부를 추적하는 플래그
         boolean passwordChanged = false;
@@ -152,7 +152,7 @@ public class UserServiceImpl implements UserService {
 
             // 현재 비밀번호 확인 - newPassword가 있으면 currentPassword는 필수
             if (request.getCurrentPassword() == null) {
-                throw new ServiceException(ErrorCode.USER_CURRENT_PASSWORD_MISMATCH);
+                throw new UserException(ErrorCode.USER_CURRENT_PASSWORD_MISMATCH);
             }
 
             // BCrypt 비교: passwordEncoder.matches(입력한 평문, DB의 암호화된 값)
@@ -161,7 +161,7 @@ public class UserServiceImpl implements UserService {
                     passwordEncoder.matches(request.getCurrentPassword(), user.getPassword());
 
             if (!isCurrentPasswordCorrect) {
-                throw new ServiceException(ErrorCode.USER_CURRENT_PASSWORD_MISMATCH);
+                throw new UserException(ErrorCode.USER_CURRENT_PASSWORD_MISMATCH);
             }
 
             // 새 비밀번호가 현재 비밀번호와 동일한지 확인
@@ -169,7 +169,7 @@ public class UserServiceImpl implements UserService {
                     passwordEncoder.matches(request.getNewPassword(), user.getPassword());
 
             if (isSamePassword) {
-                throw new ServiceException(ErrorCode.USER_SAME_PASSWORD);
+                throw new UserException(ErrorCode.USER_SAME_PASSWORD);
             }
 
             // 새 비밀번호 암호화 후 엔티티 메서드로 변경
@@ -187,7 +187,7 @@ public class UserServiceImpl implements UserService {
             boolean isDifferentNickname = !request.getNickname().equals(user.getNickname());
 
             if (isDifferentNickname && userRepository.existsByNickname(request.getNickname())) {
-                throw new ServiceException(ErrorCode.NICKNAME_DUPLICATED);
+                throw new UserException(ErrorCode.AUTH_NICKNAME_DUPLICATED);
             }
 
             user.updateNickname(request.getNickname()); // 엔티티 도메인 메서드 호출
@@ -224,11 +224,11 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public void suspendUser(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ServiceException(ErrorCode.USER_NOT_FOUND));
+                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
 
         // 이미 정지된 계정이면 예외
         if (user.getStatus() == UserStatus.SUSPENDED) {
-            throw new ServiceException(ErrorCode.ADMIN_USER_ALREADY_SUSPENDED);
+            throw new UserException(ErrorCode.ADMIN_USER_ALREADY_SUSPENDED);
         }
 
         // 더티체킹으로 자동 업데이트
@@ -255,17 +255,17 @@ public class UserServiceImpl implements UserService {
 
         // 1. 유저 조회 — 없으면 USER_NOT_FOUND 예외
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ServiceException(ErrorCode.USER_NOT_FOUND));
+                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
 
         // 2. 이미 탈퇴/정지된 계정이면 진행 불가
         if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new ServiceException(ErrorCode.USER_SUSPENDED_OR_WITHDRAWN);
+            throw new UserException(ErrorCode.USER_SUSPENDED_OR_WITHDRAWN);
         }
 
         // 3. 비밀번호 일치 여부 확인
         boolean isPasswordCorrect = passwordEncoder.matches(rawPassword, user.getPassword());
         if (!isPasswordCorrect) {
-            throw new ServiceException(ErrorCode.USER_CURRENT_PASSWORD_MISMATCH);
+            throw new UserException(ErrorCode.USER_CURRENT_PASSWORD_MISMATCH);
         }
 
         // 4. 상태를 WITHDRAWN으로 변경

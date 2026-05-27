@@ -13,7 +13,7 @@ public record AdminNoShowCandidateResponseDto (
         String guestNickname,         // Match.applicantId -> User.nickname
         LocalDateTime meetAt,
         boolean hasDispute,           // TODO: Dispute 도메인 구현되면 실제 조회로 변경
-        LocalDateTime disputeDeadline // meetAt 24시간
+        LocalDateTime disputeDeadline // 노쇼 판정 시각 기준
 ) {
     public static AdminNoShowCandidateResponseDto of (
             MeetVerification meetVerification,
@@ -28,7 +28,8 @@ public record AdminNoShowCandidateResponseDto (
                 guestNickname,
                 meetAt,
                 hasDispute,
-                meetAt.plusHours(24) // 이의제기 마감 -> 노쇼 판정 후 24시간
+                meetVerification.getNoShowDecidedAt()
+                        != null ? meetVerification.getNoShowDecidedAt().plusHours(24) : null
         );
     }
 }

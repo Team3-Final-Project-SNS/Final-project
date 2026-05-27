@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router';
-import { User, Bell } from 'lucide-react';
+import { User, Bell, Sparkles } from 'lucide-react';
 import { getUserMe } from '../../api/userApi';
 
 export default function Layout() {
@@ -55,6 +55,13 @@ export default function Layout() {
                   className={`text-sm ${isActive('/matches') ? 'text-[#d84315] font-semibold' : 'text-[#424242]'}`}
               >
                 매칭
+              </Link>
+              <Link
+                  to="/ai/matching"
+                  className={`flex items-center gap-1 text-sm ${isActive('/ai/matching') ? 'text-[#d84315] font-semibold' : 'text-[#424242]'}`}
+              >
+                <Sparkles size={15} />
+                AI 추천
               </Link>
             </nav>
 

@@ -54,12 +54,12 @@ public class AdminPostServiceImpl implements AdminPostService {
 
         // 신고의 targetId가 요청 postId와 일치하는지 확인
         if (!report.getTargetId().equals(postId)) {
-            throw new AdminException(ErrorCode.REPORT_POST_ID_MISMATCH);
+            throw new AdminException(ErrorCode.ADMIN_POST_ID_MISMATCH);
         }
 
         // 신고가 ACCEPTE 상태인지 확인
         if (report.getStatus() != ReportStatus.ACCEPTED) {
-            throw new AdminException(ErrorCode.REPORT_NOT_ACCEPTED);
+            throw new AdminException(ErrorCode.ADMIN_NOT_ACCEPTED);
         }
 
         // PostService 통해서 강제 삭제 + 환불 처리

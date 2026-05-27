@@ -324,6 +324,142 @@ public class DataInitializer implements ApplicationRunner {
         );
 
         // ===================================================
+// AI 매칭 추천 테스트용 OPEN 게시글 10개
+// - hacker@korea.ac.kr 로 로그인해서 추천 테스트
+// - 작성자는 author/applicant
+// - 상태는 OPEN 유지
+// ===================================================
+        postRepository.save(
+                Post.builder()
+                        .authorId(author.getId())
+                        .meetAt(LocalDateTime.now().plusHours(1))
+                        .placeName("학생회관 1층")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("오늘 저녁 조용하게 밥 먹을 분 구합니다. 말수가 적어도 괜찮아요.")
+                        .authorDeposit(500)
+                        .maxApplicants(2)
+                        .build()
+        );
+
+        postRepository.save(
+                Post.builder()
+                        .authorId(author.getId())
+                        .meetAt(LocalDateTime.now().plusHours(2))
+                        .placeName("정문 편의점 앞")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("가볍게 저녁 먹고 빠르게 헤어질 분 찾아요.")
+                        .authorDeposit(300)
+                        .maxApplicants(2)
+                        .build()
+        );
+
+        postRepository.save(
+                Post.builder()
+                        .authorId(author.getId())
+                        .meetAt(LocalDateTime.now().plusHours(3))
+                        .placeName("도서관 앞")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("스터디 끝나고 조용히 식사하실 분 구해요.")
+                        .authorDeposit(400)
+                        .maxApplicants(2)
+                        .build()
+        );
+
+        postRepository.save(
+                Post.builder()
+                        .authorId(author.getId())
+                        .meetAt(LocalDateTime.now().plusHours(4))
+                        .placeName("후문 국밥집 앞")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("든든하게 저녁 먹을 분 찾습니다. 메뉴는 국밥 생각 중입니다.")
+                        .authorDeposit(700)
+                        .maxApplicants(2)
+                        .build()
+        );
+
+        postRepository.save(
+                Post.builder()
+                        .authorId(author.getId())
+                        .meetAt(LocalDateTime.now().plusHours(5))
+                        .placeName("공대 카페 앞")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("카페에서 간단히 샌드위치 먹으면서 이야기하실 분.")
+                        .authorDeposit(300)
+                        .maxApplicants(2)
+                        .build()
+        );
+
+        postRepository.save(
+                Post.builder()
+                        .authorId(applicant.getId())
+                        .meetAt(LocalDateTime.now().plusHours(1).plusMinutes(30))
+                        .placeName("기숙사 식당 앞")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("혼밥하기 애매해서 같이 점심 드실 분 구합니다.")
+                        .authorDeposit(400)
+                        .maxApplicants(2)
+                        .build()
+        );
+
+        postRepository.save(
+                Post.builder()
+                        .authorId(applicant.getId())
+                        .meetAt(LocalDateTime.now().plusHours(2).plusMinutes(30))
+                        .placeName("학생회관 분식집")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("떡볶이랑 김밥 가볍게 먹을 분 찾아요. 편한 분위기 좋아요.")
+                        .authorDeposit(300)
+                        .maxApplicants(2)
+                        .build()
+        );
+
+        postRepository.save(
+                Post.builder()
+                        .authorId(applicant.getId())
+                        .meetAt(LocalDateTime.now().plusHours(3).plusMinutes(30))
+                        .placeName("정문 파스타집")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("천천히 이야기하면서 저녁 먹을 분 구합니다. 너무 시끄럽지 않은 곳 선호해요.")
+                        .authorDeposit(800)
+                        .maxApplicants(2)
+                        .build()
+        );
+
+        postRepository.save(
+                Post.builder()
+                        .authorId(applicant.getId())
+                        .meetAt(LocalDateTime.now().plusHours(4).plusMinutes(30))
+                        .placeName("중앙광장")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("수업 끝나고 간단하게 밥 먹고 바로 헤어질 분.")
+                        .authorDeposit(300)
+                        .maxApplicants(2)
+                        .build()
+        );
+
+        postRepository.save(
+                Post.builder()
+                        .authorId(applicant.getId())
+                        .meetAt(LocalDateTime.now().plusHours(6))
+                        .placeName("후문 치킨집")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("저녁에 치킨 먹을 분 구해요. 활발하게 대화하는 분위기 괜찮습니다.")
+                        .authorDeposit(900)
+                        .maxApplicants(2)
+                        .build()
+        );
+
+        // ===================================================
         // CASE E. 노쇼 상태 MeetVerification
         // ===================================================
         Post noShowPost = postRepository.save(
@@ -355,5 +491,70 @@ public class DataInitializer implements ApplicationRunner {
         userRepository.save(author);
         userRepository.save(applicant);
         userRepository.save(hacker);
+
+        // ===================================================
+        // CASE F. 이의제기 "성공" 케이스
+        //         노쇼 상태 + 양측 GPS 진입 완료
+        //         → POST /api/v1/matches/{F-matchId}/disputes 가 201 로 성공해야 함
+        // ===================================================
+        Post disputeOkPost = postRepository.save(
+                Post.builder()
+                        .authorId(author.getId())
+                        .meetAt(LocalDateTime.now().minusHours(1)) // 약속시간 지남(노쇼 맥락)
+                        .placeName("이의제기 성공 테스트 장소")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("이의제기 성공 케이스용 (노쇼 + GPS 완료)")
+                        .authorDeposit(300)
+                        .build()
+        );
+        disputeOkPost.match(); // 게시글 상태 MATCHED 로
+
+        Match disputeOkMatch = matchRepository.save(
+                Match.builder()
+                        .postId(disputeOkPost.getId())
+                        .applicantId(applicant.getId())
+                        .applicantDeposit(300)
+                        .build()
+        );
+
+        MeetVerification disputeOkVerification = MeetVerification.createPending(disputeOkMatch.getId());
+        // (1) GPS 진입 먼저 — 양측 모두 약속장소 반경 진입 처리
+        disputeOkVerification.verifyAuthorPlace();      // authorPlaceVerifiedAt = now (→ 내부에서 VERIFIED 시도)
+        disputeOkVerification.verifyApplicantPlace();   // applicantPlaceVerifiedAt = now (→ 여기서 VERIFIED 됨)
+        // (2) 그 다음 노쇼 판정 — 상태를 BOTH_NO_SHOW 로 덮어씀 (양측 노쇼 시나리오)
+        disputeOkVerification.markBothNoShow();
+        meetVerificationRepository.save(disputeOkVerification);
+
+        // ===================================================
+        // CASE G. 이의제기 "실패" 케이스 — 노쇼가 아님(VERIFIED)
+        //         → DISPUTE_001(노쇼 예정 상태 아님, 422) 확인용
+        // ===================================================
+        Post notNoShowPost = postRepository.save(
+                Post.builder()
+                        .authorId(author.getId())
+                        .meetAt(LocalDateTime.now().plusMinutes(30))
+                        .placeName("이의제기 실패(비노쇼) 테스트 장소")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("이의제기 실패 케이스용 (노쇼 아님 / VERIFIED)")
+                        .authorDeposit(300)
+                        .build()
+        );
+        notNoShowPost.match();
+
+        Match notNoShowMatch = matchRepository.save(
+                Match.builder()
+                        .postId(notNoShowPost.getId())
+                        .applicantId(applicant.getId())
+                        .applicantDeposit(300)
+                        .build()
+        );
+
+        MeetVerification verifiedOnly = MeetVerification.createPending(notNoShowMatch.getId());
+        // 양측 GPS 만 찍어 VERIFIED 상태로 둔다 (노쇼 판정은 하지 않음)
+        verifiedOnly.verifyAuthorPlace();
+        verifiedOnly.verifyApplicantPlace(); // 여기서 자동으로 VERIFIED
+        meetVerificationRepository.save(verifiedOnly);
     }
 }

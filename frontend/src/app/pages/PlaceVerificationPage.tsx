@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router';
-import { MapPin, Navigation, Check, AlertCircle, Loader2 } from 'lucide-react';
-import { createPlaceVerification, updateMyLocation, getLocations, getMeetVerification } from '../../api/meetApi';
-import { getMatchDetail } from '../../api/matchApi';
+// src/pages/PlaceVerificationPage.tsx (또는 기존 경로 유지)
+import {useState, useEffect, useRef} from 'react';
+import {useParams, useNavigate} from 'react-router';
+import {MapPin, Check, Loader2} from 'lucide-react';
+import {createPlaceVerification, updateMyLocation, getLocations, getMeetVerification} from '../../api/meetApi';
+import {getMatchDetail} from '../../api/matchApi';
 
+// ── 타입 정의 (기존과 동일) ──────────────────────────────
 interface Position {
     latitude: number;
     longitude: number;
@@ -15,10 +17,10 @@ interface VerificationStatus {
 }
 
 export default function PlaceVerificationPage() {
-    const { id } = useParams();
+    const {id} = useParams();
     const navigate = useNavigate();
 
-    // 상태 관리
+    // ── 기존 상태 (그대로 유지) ──────────────────────────
     const [meetingPlace, setMeetingPlace] = useState<{
         name: string;
         time: string;
@@ -36,29 +38,19 @@ export default function PlaceVerificationPage() {
         applicantVerified: false,
     });
     const [locationError, setLocationError] = useState<string | null>(null);
-    const [isTracking, setIsTracking] = useState(true);
     const [useSimulation, setUseSimulation] = useState(false);
-
-    // 상대방 위치 상태
     const [opponentPosition, setOpponentPosition] = useState<Position | null>(null);
 
-    // 두 좌표 간 거리 계산 (Haversine formula)
-    const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-        const R = 6371e3;
-        const φ1 = (lat1 * Math.PI) / 180;
-        const φ2 = (lat2 * Math.PI) / 180;
-        const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-        const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+    // ── KakaoMap 관련 ref (리렌더링돼도 인스턴스 유지) ──
+    // ref에 담는 이유: useState로 담으면 setMap 호출마다 리렌더링 → 지도 깜빡임 발생
+    const mapContainerRef = useRef<HTMLDivElement>(null); // 지도 DOM 컨테이너
+    const mapRef = useRef<kakao.maps.Map | null>(null);          // 카카오 Map 인스턴스
+    const placeMarkerRef = useRef<kakao.maps.Marker | null>(null);      // 약속 장소 고정 마커
+    const placeCircleRef = useRef<kakao.maps.Circle | null>(null);      // 50m 반경 원
+    const myOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null); // 내 위치 파란 점
+    const opponentOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null); // 상대 위치 점
 
-        const a =
-            Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-            Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-        return R * c;
-    };
-
-    // 1. 마운트 시 매칭 정보 1회 조회
+    // ── 1. 매칭 정보 조회 (기존과 동일) ─────────────────
     useEffect(() => {
         if (!id) return;
 
@@ -85,16 +77,71 @@ export default function PlaceVerificationPage() {
         fetchMatch();
     }, [id]);
 
-    // 2. GPS 위치 추적 (watchPosition)
+    // ── 2. KakaoMap 초기화 ───────────────────────────────
+    // meetingPlace가 세팅된 후에만 지도를 그릴 수 있으므로 의존성 배열에 포함
     useEffect(() => {
-        if (!isTracking || !meetingPlace) return;
+        // meetingPlace 없으면 아직 API 응답 전 → 건너뜀
+        if (!meetingPlace || !mapContainerRef.current) return;
+
+        // window.kakao 없으면 SDK 로드 실패 → fallback 처리
+        if (!window.kakao || !window.kakao.maps) {
+            console.error('KakaoMap SDK 로드 실패');
+            return;
+        }
+
+        // autoload=false이므로 kakao.maps.load() 콜백 안에서만 초기화해야 안전
+        // 이유: DOM이 준비되기 전에 new kakao.maps.Map() 호출하면 에러
+        // 이미 초기화된 경우 중복 실행 방지
+        if (mapRef.current) return;
+        const center = new window.kakao.maps.LatLng(
+            meetingPlace.latitude,
+            meetingPlace.longitude
+        );
+        const map = new window.kakao.maps.Map(mapContainerRef.current!, {
+            center,
+            level: 3,
+        });
+        mapRef.current = map;
+
+        const placeMarker = new window.kakao.maps.Marker({
+            map,
+            position: center,
+        });
+        placeMarkerRef.current = placeMarker;
+
+        const circle = new window.kakao.maps.Circle({
+            map,
+            center,
+            radius: 50,
+            strokeWeight: 2,
+            strokeColor: '#d84315',
+            strokeOpacity: 0.8,
+            fillColor: '#ff7043',
+            fillOpacity: 0.15,
+        });
+        placeCircleRef.current = circle;
+
+
+        // 컴포넌트 언마운트 시 지도 인스턴스 참조 초기화
+        // (SDK 자체가 DOM을 관리하므로 별도 destroy 불필요)
+        return () => {
+            mapRef.current = null;
+            myOverlayRef.current = null;
+            opponentOverlayRef.current = null;
+        };
+    }, [meetingPlace]); // meetingPlace가 세팅된 후 1회 실행
+
+    // ── 3. GPS 위치 추적 (기존 로직 유지, 거리 계산만 교체) ─
+    useEffect(() => {
+        if (!meetingPlace) return;
 
         if (useSimulation) {
+            // 테스트 모드: 80m → 0m 시뮬레이션
             let simulatedDistance = 80;
             const interval = setInterval(() => {
                 simulatedDistance = Math.max(0, simulatedDistance - 10);
                 const pos: Position = {
-                    latitude: meetingPlace.latitude + (simulatedDistance / 111000),
+                    latitude: meetingPlace.latitude + simulatedDistance / 111000,
                     longitude: meetingPlace.longitude,
                 };
                 setCurrentPosition(pos);
@@ -105,6 +152,7 @@ export default function PlaceVerificationPage() {
             return () => clearInterval(interval);
         }
 
+        // 실제 GPS 추적
         const watchId = navigator.geolocation.watchPosition(
             (position) => {
                 const pos = {
@@ -112,7 +160,26 @@ export default function PlaceVerificationPage() {
                     longitude: position.coords.longitude,
                 };
                 setCurrentPosition(pos);
-                const dist = calculateDistance(pos.latitude, pos.longitude, meetingPlace.latitude, meetingPlace.longitude);
+
+                // KakaoMap SDK geometry로 거리 계산
+                // SDK 로드 전이면 fallback으로 Haversine 직접 계산
+                let dist: number;
+                if (window.kakao?.maps?.geometry?.Sphere) {
+                    const from = new window.kakao.maps.LatLng(pos.latitude, pos.longitude);
+                    const to = new window.kakao.maps.LatLng(
+                        meetingPlace.latitude,
+                        meetingPlace.longitude
+                    );
+                    // computeDistanceBetween: 두 LatLng 간 직선거리(미터) 반환
+                    dist = window.kakao.maps.geometry.Sphere.computeDistanceBetween(from, to);
+                } else {
+                    // SDK 미로드 시 기존 Haversine 공식으로 fallback
+                    dist = calculateDistanceFallback(
+                        pos.latitude, pos.longitude,
+                        meetingPlace.latitude, meetingPlace.longitude
+                    );
+                }
+
                 setDistance(dist);
                 setIsWithinRange(dist <= 50);
                 setLocationError(null);
@@ -121,28 +188,99 @@ export default function PlaceVerificationPage() {
                 console.error('위치 추적 오류:', error);
                 setLocationError('위치 정보를 가져올 수 없습니다. GPS를 켜주세요.');
             },
-            { enableHighAccuracy: true }
+            {enableHighAccuracy: true}
         );
 
         return () => navigator.geolocation.clearWatch(watchId);
-    }, [isTracking, useSimulation, meetingPlace]);
+    }, [useSimulation, meetingPlace]);
 
-    // 3. 내 위치 전송 + 상대방 위치/인증 상태 폴링 (1초 주기)
+    // ── 4. 내 위치 마커 업데이트 ─────────────────────────
+    // currentPosition이 바뀔 때마다 지도 위 내 위치 오버레이를 갱신
+    useEffect(() => {
+        // 지도 미초기화면 건너뜀
+        if (!mapRef.current || !currentPosition) return;
+
+        const latlng = new window.kakao.maps.LatLng(
+            currentPosition.latitude,
+            currentPosition.longitude
+        );
+
+        if (myOverlayRef.current) {
+            // 이미 오버레이가 있으면 위치만 이동 (새로 생성하면 깜빡임 발생)
+            myOverlayRef.current.setPosition(latlng);
+        } else {
+            // 첫 위치 수신 시 오버레이 생성
+            // content: HTML 문자열로 파란 원 마커 표현
+            const myOverlay = new window.kakao.maps.CustomOverlay({
+                map: mapRef.current,
+                position: latlng,
+                // 파란 원 + 흰 테두리 디자인
+                content: `
+                  <div style="
+                    width: 16px; height: 16px;
+                    background: #2196f3;
+                    border: 3px solid white;
+                    border-radius: 50%;
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                  "></div>
+                `,
+                yAnchor: 0.5, // 원의 중심이 좌표에 정확히 위치
+                xAnchor: 0.5,
+            });
+            myOverlayRef.current = myOverlay;
+        }
+    }, [currentPosition]);
+
+    // ── 5. 상대방 위치 마커 업데이트 ─────────────────────
+    useEffect(() => {
+        if (!mapRef.current || !opponentPosition) return;
+
+        const latlng = new window.kakao.maps.LatLng(
+            opponentPosition.latitude,
+            opponentPosition.longitude
+        );
+
+        if (opponentOverlayRef.current) {
+            // 상대방도 기존 오버레이 위치만 갱신
+            opponentOverlayRef.current.setPosition(latlng);
+        } else {
+            // 상대방 마커 (회색 원으로 구분)
+            const opponentOverlay = new window.kakao.maps.CustomOverlay({
+                map: mapRef.current,
+                position: latlng,
+                content: `
+                  <div style="
+                    width: 16px; height: 16px;
+                    background: #9e9e9e;
+                    border: 3px solid white;
+                    border-radius: 50%;
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                  "></div>
+                `,
+                yAnchor: 0.5,
+                xAnchor: 0.5,
+            });
+            opponentOverlayRef.current = opponentOverlay;
+        }
+    }, [opponentPosition]);
+
+    // ── 6. 위치 전송 + 상대방 위치/인증 상태 폴링 (기존과 동일) ─
     useEffect(() => {
         if (!id || !currentPosition) return;
         const matchId = Number(id);
 
         const intervalId = setInterval(async () => {
-            // 내 위치 전송
-            updateMyLocation(matchId, currentPosition.latitude, currentPosition.longitude).catch(console.error);
+            // 내 위치 서버 전송 (5초마다)
+            updateMyLocation(matchId, currentPosition.latitude, currentPosition.longitude)
+                .catch(console.error);
 
-            // 상대방 정보 폴링
             try {
                 const [locRes, verRes] = await Promise.all([
                     getLocations(matchId),
-                    getMeetVerification(matchId)
+                    getMeetVerification(matchId),
                 ]);
-                
+
+                // 상대방 위치 갱신 → useEffect [opponentPosition]이 마커 업데이트
                 const locData = locRes.data.data;
                 if (locData.opponentLocation) {
                     setOpponentPosition({
@@ -151,12 +289,13 @@ export default function PlaceVerificationPage() {
                     });
                 }
 
+                // 인증 상태 갱신
                 const verData = verRes.data.data;
                 setVerificationStatus({
                     authorVerified: verData.authorPlaceVerifiedAt !== null,
                     applicantVerified: verData.applicantPlaceVerifiedAt !== null,
                 });
-                
+
                 if (verData.verificationStatus === 'DONE') {
                     navigate('/matches');
                 } else if (verData.verificationStatus === 'VERIFIED') {
@@ -165,22 +304,39 @@ export default function PlaceVerificationPage() {
             } catch (err) {
                 console.error('상태 조회 실패:', err);
             }
-        }, 1000);
+        }, 1000); // API 명세서 기준 1초 폴링
 
         return () => clearInterval(intervalId);
     }, [id, currentPosition, navigate]);
 
-    // 장소 인증 수행
+    // ── SDK 미로드 시 fallback 거리 계산 (Haversine) ────
+    const calculateDistanceFallback = (
+        lat1: number, lon1: number,
+        lat2: number, lon2: number
+    ): number => {
+        const R = 6371e3;
+        const φ1 = (lat1 * Math.PI) / 180;
+        const φ2 = (lat2 * Math.PI) / 180;
+        const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+        const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+        const a =
+            Math.sin(Δφ / 2) ** 2 +
+            Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    };
+
+    // ── 장소 인증 (기존과 동일) ──────────────────────────
     const handleVerify = async () => {
         if (!isWithinRange || !currentPosition) return;
-
         try {
             const res = await createPlaceVerification(Number(id), {
                 currentLat: currentPosition.latitude,
-                currentLng: currentPosition.longitude
+                currentLng: currentPosition.longitude,
             });
-
-            if (res.data.data.verificationStatus === 'VERIFIED' || res.data.data.verificationStatus === 'PENDING') {
+            if (
+                res.data.data.verificationStatus === 'VERIFIED' ||
+                res.data.data.verificationStatus === 'PENDING'
+            ) {
                 setIsVerified(true);
             }
         } catch (err: any) {
@@ -188,14 +344,13 @@ export default function PlaceVerificationPage() {
         }
     };
 
-    const handleGoToQR = () => {
-        navigate(`/matches/${id}/qr`);
-    };
+    const handleGoToQR = () => navigate(`/matches/${id}/qr`);
 
+    // ── 로딩 화면 ─────────────────────────────────────────
     if (loading || !meetingPlace) {
         return (
             <div className="flex flex-col items-center justify-center py-20">
-                <Loader2 className="animate-spin text-[#d84315] mb-4" size={40} />
+                <Loader2 className="animate-spin text-[#d84315] mb-4" size={40}/>
                 <p className="text-[#616161]">정보를 불러오는 중...</p>
             </div>
         );
@@ -203,12 +358,15 @@ export default function PlaceVerificationPage() {
 
     const bothVerified = verificationStatus.authorVerified && verificationStatus.applicantVerified;
 
+    // ── 렌더링 ────────────────────────────────────────────
     return (
         <div className="max-w-2xl mx-auto p-4">
             <div className="bg-white rounded-2xl shadow-lg p-8">
+
+                {/* 헤더 */}
                 <div className="text-center mb-6">
                     <div className="flex items-center justify-center gap-2 mb-3">
-                        <MapPin size={24} className="text-[#d84315]" />
+                        <MapPin size={24} className="text-[#d84315]"/>
                         <h1 className="text-2xl font-bold text-[#212121]">장소 인증</h1>
                     </div>
                     <p className={`text-lg font-semibold ${isWithinRange ? 'text-[#4caf50]' : 'text-[#ef5350]'}`}>
@@ -218,61 +376,64 @@ export default function PlaceVerificationPage() {
                         <p className="font-semibold text-[#212121]">{meetingPlace.name}</p>
                         <p className="text-sm">약속 시간: {meetingPlace.time}</p>
                     </div>
+                    {locationError && (
+                        <p className="text-sm text-[#ef5350] mt-2">{locationError}</p>
+                    )}
                 </div>
 
-                <div className="relative bg-[#fafafa] rounded-2xl p-8 mb-6 border-2 border-[#e0e0e0]">
-                    <div className="relative w-full h-64 flex items-center justify-center">
-                        <svg viewBox="0 0 300 300" className="w-full h-full">
-                            <circle cx="150" cy="150" r="120" fill="none" stroke="#e0e0e0" strokeWidth="2" strokeDasharray="5,5" />
-                            <circle cx="150" cy="150" r="8" fill="#d84315" />
-                            {currentPosition && distance !== null && (
-                                <circle cx={150} cy={150} r="5" fill="#2196f3" />
-                            )}
-                        </svg>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                            <Navigation size={48} className="text-[#d84315] mb-2 animate-pulse" />
-                            <p className="text-xs text-[#9e9e9e]">실시간 위치 추적 중</p>
-                        </div>
-                    </div>
-                </div>
+                {/*
+                  ★ 핵심 변경 포인트 ★
+                  기존: <svg> 원형 맵
+                  변경: div ref에 KakaoMap SDK가 지도를 직접 그려줌
+                  - 높이를 고정(h-64 = 256px)으로 줘야 지도가 정상 렌더링됨
+                  - 높이 없으면 지도 영역이 0px → 빈 화면
+                */}
+                <div
+                    ref={mapContainerRef}
+                    className="w-full h-64 rounded-2xl overflow-hidden mb-6 border-2 border-[#e0e0e0]"
+                    // KakaoMap은 이 div의 크기를 기준으로 지도를 렌더링
+                />
 
+                {/* 거리 바 (기존과 동일) */}
                 {distance !== null && (
                     <div className="mb-6">
                         <div className="flex items-center justify-between mb-2">
                             <span className="text-sm text-[#616161]">현재 거리</span>
-                            <span className={`text-lg font-bold ${isWithinRange ? 'text-[#4caf50]' : 'text-[#ef5350]'}`}>
+                            <span
+                                className={`text-lg font-bold ${isWithinRange ? 'text-[#4caf50]' : 'text-[#ef5350]'}`}>
                                 {distance.toFixed(1)}m / 50m
                             </span>
                         </div>
                         <div className="relative w-full h-3 bg-[#e0e0e0] rounded-full overflow-hidden">
                             <div
                                 className={`h-full transition-all duration-300 ${isWithinRange ? 'bg-[#4caf50]' : 'bg-[#ef5350]'}`}
-                                style={{ width: `${Math.min((distance / 50) * 100, 100)}%` }}
-                            ></div>
+                                style={{width: `${Math.min((distance / 50) * 100, 100)}%`}}
+                            />
                         </div>
                     </div>
                 )}
 
+                {/* 인증 현황 (기존과 동일) */}
                 <div className="bg-gradient-to-br from-[#f5f5f5] to-white rounded-xl p-5 mb-6 border border-[#e0e0e0]">
-                    <h3 className="font-semibold text-[#212121] mb-4 flex items-center gap-2">
-                        인증 현황
-                    </h3>
+                    <h3 className="font-semibold text-[#212121] mb-4">인증 현황</h3>
                     <div className="space-y-3">
                         <div className="flex items-center justify-between bg-white rounded-lg p-3">
                             <span className="text-sm font-medium text-[#212121]">등록자</span>
                             <span className={verificationStatus.authorVerified ? 'text-[#4caf50]' : 'text-[#9e9e9e]'}>
-                                {verificationStatus.authorVerified ? '완료' : '대기'}
+                                {verificationStatus.authorVerified ? '완료 ✅' : '대기'}
                             </span>
                         </div>
                         <div className="flex items-center justify-between bg-white rounded-lg p-3">
                             <span className="text-sm font-medium text-[#212121]">신청자</span>
-                            <span className={verificationStatus.applicantVerified ? 'text-[#4caf50]' : 'text-[#9e9e9e]'}>
-                                {verificationStatus.applicantVerified ? '완료' : '대기'}
+                            <span
+                                className={verificationStatus.applicantVerified ? 'text-[#4caf50]' : 'text-[#9e9e9e]'}>
+                                {verificationStatus.applicantVerified ? '완료 ✅' : '대기'}
                             </span>
                         </div>
                     </div>
                 </div>
 
+                {/* 버튼 (기존과 동일) */}
                 {bothVerified ? (
                     <button
                         onClick={handleGoToQR}
@@ -296,12 +457,15 @@ export default function PlaceVerificationPage() {
                             </button>
                         ) : (
                             <div className="bg-[#e8f5e9] border border-[#4caf50] rounded-xl px-4 py-4 text-center">
-                                <p className="text-[#2e7d32] font-semibold">장소 인증 완료! 상대방을 기다려주세요.</p>
+                                <p className="text-[#2e7d32] font-semibold">
+                                    장소 인증 완료! 상대방을 기다려주세요.
+                                </p>
                             </div>
                         )}
                     </div>
                 )}
 
+                {/* 테스트 모드 (기존과 동일) */}
                 <div className="mt-6 pt-4 border-t border-[#e0e0e0]">
                     <label className="flex items-center gap-2 cursor-pointer">
                         <input
@@ -313,6 +477,7 @@ export default function PlaceVerificationPage() {
                         <span className="text-[#ef6c00] text-xs">테스트 모드 (시뮬레이션)</span>
                     </label>
                 </div>
+
             </div>
         </div>
     );

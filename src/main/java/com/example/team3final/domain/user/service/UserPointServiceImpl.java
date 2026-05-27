@@ -1,7 +1,7 @@
 package com.example.team3final.domain.user.service;
 
 import com.example.team3final.common.exception.ErrorCode;
-import com.example.team3final.common.exception.ServiceException;
+import com.example.team3final.common.exception.PointTransactionException;
 import com.example.team3final.domain.pointTransaction.entity.PointTransaction;
 import com.example.team3final.domain.pointTransaction.enums.PointTransactionType;
 import com.example.team3final.domain.pointTransaction.repository.PointTransactionRepository;
@@ -79,7 +79,7 @@ public class UserPointServiceImpl implements UserPointService{
     // ===== private 헬퍼 =====
     private User getUserOrThrow(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new ServiceException(ErrorCode.USER_NOT_FOUND));
+                .orElseThrow(() -> new PointTransactionException(ErrorCode.USER_NOT_FOUND));
     }
 
     private void saveTransaction(Long userId, Long matchId, int amount,

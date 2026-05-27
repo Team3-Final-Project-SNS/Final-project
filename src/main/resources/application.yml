@@ -84,15 +84,16 @@ admin:
 
 app:
   ai:
-    enabled: ${AI_ENABLED:true}
-    timeout-ms: ${AI_TIMEOUT_MS:5000}
+    enabled: ${AI_ENABLED}
+    timeout-ms: ${AI_TIMEOUT_MS}
 
     matching:
-      model: ${AI_MATCHING_MODEL:gpt-4o-mini}
-      max-tokens: ${AI_MATCHING_MAX_TOKENS:800}
-      temperature: ${AI_MATCHING_TEMPERATURE:0.4}
-      memory-window-size: ${AI_MATCHING_MEMORY_WINDOW_SIZE:10}
-      stream-enabled: ${AI_MATCHING_STREAM_ENABLED:true}
+      model: ${AI_MATCHING_MODEL}
+      max-tokens: ${AI_MATCHING_MAX_TOKENS}
+      temperature: ${AI_MATCHING_TEMPERATURE}
+#      나중에 도입
+#      memory-window-size: ${AI_MATCHING_MEMORY_WINDOW_SIZE:10}
+#      stream-enabled: ${AI_MATCHING_STREAM_ENABLED:true}
       rag:
         top-k: ${AI_MATCHING_RAG_TOP_K:5}
         similarity-threshold: ${AI_MATCHING_RAG_SIMILARITY_THRESHOLD:0.65}

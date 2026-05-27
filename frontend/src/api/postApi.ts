@@ -50,6 +50,7 @@ export interface CreatePostRequest {
     placeLng: number;
     content?: string;
     authorDeposit: number;
+    maxApplicants: number;
 }
 
 export interface UpdatePostRequest {

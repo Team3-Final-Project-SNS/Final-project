@@ -6,8 +6,20 @@
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <title>한끼팟</title>
       <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
+      <!--
+  KakaoMap JavaScript SDK 로드
+  - autoload=false : SDK 로드 후 자동 실행하지 않음
+    → React의 useEffect 안에서 kakao.maps.load() 콜백으로 직접 초기화
+    → DOM이 준비된 시점에 초기화할 수 있어서 안전
+  - libraries=services,geometry
+    → geometry : 두 좌표 간 거리 계산(Sphere.computeDistanceBetween)에 필요
+    → services  : 장소 검색 등 부가 기능 (미래 확장용)
+-->
+      <script
+              type="text/javascript"
+              src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=1e79f120fd9151db28c4df86b37cab4f&libraries=services,geometry"
+      ></script>
     </head>
-
     <body>
       <div id="root"></div>
       <script type="module" src="/src/main.tsx"></script>

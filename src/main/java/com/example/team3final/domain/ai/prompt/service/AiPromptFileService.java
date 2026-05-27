@@ -9,9 +9,11 @@ import com.example.team3final.domain.ai.prompt.entity.AiPromptTemplate;
 import com.example.team3final.domain.ai.prompt.repository.AiPromptTemplateRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.prompt.PromptTemplate;
-import org.springframework.ai.template.st.StTemplateRenderer;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
@@ -28,18 +30,9 @@ public class AiPromptFileService {
                 .orElseThrow(() -> new AiException(ErrorCode.AI_PROMPT_TEMPLATE_NOT_FOUND));
 
         try {
-            Path path = Path.of(
-                    aiProperties.getPrompt().getBasePath(),
-                    promptTemplate.getFileName()
-            );
-
-            String templateContent = Files.readString(path);
+            String templateContent = loadTemplateContent(promptTemplate.getFileName());
 
             PromptTemplate template = PromptTemplate.builder()
-                    .renderer(StTemplateRenderer.builder()
-                            .startDelimiterToken('<')
-                            .endDelimiterToken('>')
-                            .build())
                     .template(templateContent)
                     .build();
 
@@ -47,5 +40,26 @@ public class AiPromptFileService {
         } catch (Exception e) {
             throw new AiException(ErrorCode.AI_PROMPT_FILE_READ_FAILED);
         }
+    }
+
+    private String loadTemplateContent(String fileName) throws IOException {
+        Path externalPath = Path.of(
+                aiProperties.getPrompt().getBasePath(),
+                fileName
+        );
+
+        if (Files.exists(externalPath)) {
+            return Files.readString(externalPath);
+        }
+
+        if (aiProperties.getPrompt().isFallbackToClasspath()) {
+            ClassPathResource resource = new ClassPathResource("prompts/" + fileName);
+
+            if (resource.exists()) {
+                return resource.getContentAsString(StandardCharsets.UTF_8);
+            }
+        }
+
+        throw new IOException("AI prompt file not found: " + fileName);
     }
 }
