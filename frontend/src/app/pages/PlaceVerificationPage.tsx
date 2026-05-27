@@ -146,7 +146,7 @@ export default function PlaceVerificationPage() {
                 };
                 setCurrentPosition(pos);
                 setDistance(simulatedDistance);
-                setIsWithinRange(simulatedDistance <= 50);
+                setIsWithinRange(simulatedDistance <= 60);
                 if (simulatedDistance === 0) clearInterval(interval);
             }, 1000);
             return () => clearInterval(interval);
@@ -401,13 +401,13 @@ export default function PlaceVerificationPage() {
                             <span className="text-sm text-[#616161]">현재 거리</span>
                             <span
                                 className={`text-lg font-bold ${isWithinRange ? 'text-[#4caf50]' : 'text-[#ef5350]'}`}>
-                                {distance.toFixed(1)}m / 50m
+                                {distance.toFixed(1)}m / 60m
                             </span>
                         </div>
                         <div className="relative w-full h-3 bg-[#e0e0e0] rounded-full overflow-hidden">
                             <div
                                 className={`h-full transition-all duration-300 ${isWithinRange ? 'bg-[#4caf50]' : 'bg-[#ef5350]'}`}
-                                style={{width: `${Math.min((distance / 50) * 100, 100)}%`}}
+                                style={{width: `${Math.min((distance / 60) * 100, 100)}%`}}
                             />
                         </div>
                     </div>
