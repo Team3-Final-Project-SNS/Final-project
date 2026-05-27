@@ -1,10 +1,15 @@
 package com.example.team3final.domain.inquiry.entity;
 
 import com.example.team3final.common.entity.BaseEntity;
+import com.example.team3final.domain.inquiry.enums.InquiryAnswerStatus;
+import com.example.team3final.domain.inquiry.enums.InquiryType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
 
 @Getter
 @Entity
