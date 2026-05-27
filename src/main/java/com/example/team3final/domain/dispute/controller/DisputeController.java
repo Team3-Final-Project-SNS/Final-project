@@ -3,6 +3,7 @@ package com.example.team3final.domain.dispute.controller;
 import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.domain.dispute.dto.request.CreateDisputeRequestDto;
 import com.example.team3final.domain.dispute.dto.response.CreateDisputeResponseDto;
+import com.example.team3final.domain.dispute.dto.response.DisputeResponseDto;
 import com.example.team3final.domain.dispute.service.DisputeService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
 import jakarta.validation.Valid;
@@ -45,5 +46,17 @@ public class DisputeController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponseDto.success(response));
+    }
+
+    @GetMapping("/{matchId}/disputes/me")
+    public ResponseEntity<ApiResponseDto<DisputeResponseDto>> getDispute(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @PathVariable Long matchId
+    ) {
+        Long userId = userDetails.getUserId();
+
+        DisputeResponseDto response = disputeService.getDispute(matchId, userId);
+
+        return ResponseEntity.ok(ApiResponseDto.success(response));
     }
 }
