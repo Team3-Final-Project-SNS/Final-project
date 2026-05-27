@@ -80,7 +80,7 @@ public class DisputeServiceImpl implements DisputeService {
         // TODO(노쇼 판정 시각 확정 후 활성화):
         //    LocalDateTime decidedAt = meet.noShowDecidedAt();
         //    if (decidedAt == null
-        //            || Duration.between(decidedAt, LocalDateTime.now()).toHours() >= 48L) {
+        //            || Duration.between(decidedAt, LocalDateTime.now()).toHours() >= 24L) {
         //        throw new DisputeException(ErrorCode.DISPUTE_DEADLINE_EXCEEDED);
         //    }
 
