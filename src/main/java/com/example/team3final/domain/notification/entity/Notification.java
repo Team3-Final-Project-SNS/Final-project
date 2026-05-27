@@ -66,9 +66,9 @@ public class Notification {
     private  LocalDateTime createdAt;
 
     @Builder
-    private Notification(Long receiverId, NotificationType type, String title,
+    private Notification(Long receiveId, NotificationType type, String title,
                          String content, RelatedDomain relatedDomain, Long relatedId) {
-        this.receiverId = receiverId;
+        this.receiverId = receiveId;
         this.type = type;
         this.title = title;
         this.content = content;
