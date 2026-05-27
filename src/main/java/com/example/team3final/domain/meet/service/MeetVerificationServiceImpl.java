@@ -542,6 +542,12 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
     }
 
+    @Override
+    public MeetVerification getByMatchId(Long matchId) {
+        return meetVerificationRepository.findByMatchId(matchId)
+                .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
+    }
+
     private static final List<VerificationStatus> NO_SHOW_STATUSES = List.of(
             VerificationStatus.HOST_NO_SHOW,
             VerificationStatus.GUEST_NO_SHOW,

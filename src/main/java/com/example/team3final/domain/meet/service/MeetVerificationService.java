@@ -53,4 +53,7 @@ public interface MeetVerificationService {
 
     // 스케줄러 -> 5분 타임아웃 된 연장 요청 일괄 EXPIRED 처리
     void expireTimeoutExtensions();
+
+    // 이의제기 상세 조회 - matchId로 단건 조회
+    MeetVerification getByMatchId(Long matchId);
 }
