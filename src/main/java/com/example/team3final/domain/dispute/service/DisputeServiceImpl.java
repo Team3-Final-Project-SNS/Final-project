@@ -17,6 +17,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 public class DisputeServiceImpl implements DisputeService {
@@ -74,16 +77,10 @@ public class DisputeServiceImpl implements DisputeService {
         }
 
         // 8. 48시간 제한 검증
-        // ⚠️ 보류: 기준점이 될 '노쇼 판정 시각'이 만남 인증 쪽에 아직 없음.
-        //    (markXxxNoShow 가 status 만 바꾸고 시각을 안 남김. BaseEntity 상속도 안 함)
-        //    정님이 noShowDecidedAt 추가 후, 응답 DTO 에도 노출되면 아래 블록을 살린다.
-        // TODO(노쇼 판정 시각 확정 후 활성화):
-        //    LocalDateTime decidedAt = meet.noShowDecidedAt();
-        //    if (decidedAt == null
-        //            || Duration.between(decidedAt, LocalDateTime.now()).toHours() >= 24L) {
-        //        throw new DisputeException(ErrorCode.DISPUTE_DEADLINE_EXCEEDED);
-        //    }
-
+        LocalDateTime decidedAt = meet.noShowDecidedAt();
+        if (decidedAt == null || Duration.between(decidedAt, LocalDateTime.now()).toHours() >= 24L) {
+                throw new DisputeException(ErrorCode.DISPUTE_DEADLINE_EXCEEDED);
+        }
 
         // 9. 저장
         Dispute dispute = Dispute.builder()
