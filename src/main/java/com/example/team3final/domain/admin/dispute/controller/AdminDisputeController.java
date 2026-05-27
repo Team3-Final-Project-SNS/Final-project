@@ -19,7 +19,7 @@ public class AdminDisputeController {
 
     private final AdminDisputeService adminDisputeService;
 
-    // 이의제기 상제 조회
+    // 이의제기 상세 조회
     @GetMapping("/disputes/{disputeId}")
     public ResponseEntity<ApiResponseDto<GetAdminDisputeResponseDto>> getDispute(
             @PathVariable Long disputeId,
