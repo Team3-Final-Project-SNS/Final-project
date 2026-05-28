@@ -1,6 +1,5 @@
-package com.example.team3final.domain.inquiry.entity;
+package com.example.team3final.domain.admin.inquiryAnswer.entity;
 
-import com.example.team3final.common.entity.BaseTimeEntity;
 import com.example.team3final.common.entity.BaseUpdateEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
