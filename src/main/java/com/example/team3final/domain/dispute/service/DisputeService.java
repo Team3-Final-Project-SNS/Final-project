@@ -8,6 +8,9 @@ import com.example.team3final.domain.dispute.enums.DisputeStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
+import java.util.Set;
+
 public interface DisputeService {
 
     /**
@@ -28,4 +31,7 @@ public interface DisputeService {
 
     // 어드민 목록 조회용 — status null이면 전체 조회
     Page<Dispute> getDisputesForAdmin(DisputeStatus status, Pageable pageable);
+
+    // 노쇼 후보군 조회용
+    Set<Long> getMatchIdsWithDispute(List<Long> matchIds);
 }

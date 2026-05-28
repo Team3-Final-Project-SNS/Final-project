@@ -39,4 +39,7 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
     // 기각된 신고에 대해 3일 이내 재신고 확인
     boolean existsByReporterIdAndTargetIdAndStatusAndCreatedAtAfter(
             Long reporterId, Long targetId, ReportStatus status, LocalDateTime after);
+
+    // 기각된 신고 단건 조회
+    Optional<Report> findByReporterIdAndTargetIdAndStatus(Long reporterId, Long targetId, ReportStatus status);
 }
