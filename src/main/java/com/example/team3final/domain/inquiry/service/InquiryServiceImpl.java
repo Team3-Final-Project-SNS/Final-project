@@ -25,7 +25,7 @@ public class InquiryServiceImpl implements InquiryService{
     private final StringRedisTemplate stringRedisTemplate;
     private final UserService userService;
 
-    private static final int MAX_DAILY_INQUIRY_COUNT = 5; // 하루 최대 문의 접수 횟수
+    private static final int MAX_DAILY_INQUIRY_COUNT = 20; // 하루 최대 문의 접수 횟수
     private static final Duration COOLDOWN_DURATION =  Duration.ofMinutes(1); // 문의 간 최소 대기 시간
 
     private static final String DAILY_COUNT_KEY_PREFIX = "inquiry:daily:";
@@ -42,7 +42,7 @@ public class InquiryServiceImpl implements InquiryService{
         // 1분 쿨다운 확인
         validateCooldown(userId);
 
-        // 하루 5개 제한 확인
+        // 하루 20개 제한 확인
         validateDailyLimit(userId);
 
         // 검증 완료 문의 엔티티 생성
@@ -73,7 +73,7 @@ public class InquiryServiceImpl implements InquiryService{
         }
     }
 
-    // 하루 5개 제한
+    // 하루 20개 제한
     private void validateDailyLimit(Long userId) {
         String dailyKey = DAILY_COUNT_KEY_PREFIX + userId;
         String countStr = stringRedisTemplate.opsForValue().get(dailyKey);
