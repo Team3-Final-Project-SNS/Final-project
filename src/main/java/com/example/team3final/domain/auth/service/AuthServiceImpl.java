@@ -201,7 +201,6 @@ public class AuthServiceImpl implements AuthService{
 
     // ======== 회원가입 ========
     @Override
-    @Transactional
     public SignupResponseDto signup(SignupRequestDto request,
                                     HttpServletRequest httpRequest,
                                     HttpServletResponse httpResponse) {
@@ -415,7 +414,6 @@ public class AuthServiceImpl implements AuthService{
 
     // ======== 회원 탈퇴 ========
     @Override
-    @Transactional
     public WithdrawResponseDto withdraw(
             Long userId, WithdrawRequestDto request, String refreshToken, HttpServletResponse response) {
         // 1. 비밀번호 검증 + 상태 변경
