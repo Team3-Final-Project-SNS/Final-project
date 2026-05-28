@@ -83,7 +83,7 @@ public class MatchController {
         Pageable pageable = PageRequest.of(
                 page,
                 safeSize,
-                Sort.by("matchedAt").descending()
+                Sort.by("createdAt").descending()
         );
 
         PageResponseDto<GetMatchesResponseDto> response =
