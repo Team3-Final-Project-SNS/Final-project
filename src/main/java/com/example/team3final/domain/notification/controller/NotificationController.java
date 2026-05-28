@@ -3,6 +3,7 @@ package com.example.team3final.domain.notification.controller;
 import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.domain.notification.dto.response.GetNotificationsResponseDto;
+import com.example.team3final.domain.notification.dto.response.UpdateAllNotificationsReadResponseDto;
 import com.example.team3final.domain.notification.dto.response.UpdateNotificationReadResponseDto;
 import com.example.team3final.domain.notification.enums.NotificationType;
 import com.example.team3final.domain.notification.service.NotificationService;
@@ -49,6 +50,17 @@ public class NotificationController {
         Long receiverId = userDetails.getUserId();
         UpdateNotificationReadResponseDto response =
                 notificationService.updateNotificationRead(receiverId, notificationId);
+        return ResponseEntity.ok(ApiResponseDto.success(response));
+    }
+
+    // 전체 읽음 처리
+    @PatchMapping("/read-all")
+    public ResponseEntity<ApiResponseDto<UpdateAllNotificationsReadResponseDto>> updateAllNotificationsRead(
+            @AuthenticationPrincipal UserDetailsImpl userDetails // JWT 토큰에서 인증된 유저 정보
+    ) {
+        Long receiverId = userDetails.getUserId();
+        UpdateAllNotificationsReadResponseDto response =
+                notificationService.updateAllNotificationsRead(receiverId);
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
 }
