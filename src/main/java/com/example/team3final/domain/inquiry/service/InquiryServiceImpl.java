@@ -20,6 +20,11 @@ public class InquiryServiceImpl implements InquiryService{
     @Override
     @Transactional
     public CreateInquiryResponseDto createInquiry(Long userId, CreateInquiryRequestDto request) {
+
+        if (!userRepository.existsById(userId)) {
+            throw new IllegalArgumentException("존재하지 않는 회원입니다. id=" + userId);
+        }
+
         Inquiry inquiry = Inquiry.builder()
                 .userId(userId)
                 .title(request.getTitle())
