@@ -119,7 +119,7 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
                 nicknameMap.getOrDefault(dispute.getSubmitterId(), null),
                 dispute.getReason(),
                 dispute.getStatus(),
-                dispute.getSubmittedAt()
+                dispute.getCreatedAt()
         ));
 
         return PageResponseDto.from(response);
