@@ -10,7 +10,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
@@ -27,9 +26,6 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     Page<Notification> findByReceiverIdAndIsReadAndTypeOrderByCreatedAtDesc(Long receiverId, boolean isRead,
                                                                             NotificationType type, Pageable pageable);
 
-    // 단건 조회 (본인 알림만)
-    Optional<Notification> findByIdAndReceiverId(Long id, Long receiverId);
-
     // 미확인 알림 카운트
     long countByReceiverIdAndIsRead(Long receiverId, boolean isRead);
 
@@ -44,3 +40,4 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     void deleteByCreatedAtBefore(@Param("cutoff") LocalDateTime cutoff);
 
 }
+

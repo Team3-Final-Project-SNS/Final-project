@@ -1,10 +1,8 @@
 package com.example.team3final.domain.notification.service;
 
 import com.example.team3final.common.dto.response.PageResponseDto;
-import com.example.team3final.common.exception.ErrorCode;
-import com.example.team3final.common.exception.ServiceException;
 import com.example.team3final.domain.notification.dto.response.GetNotificationsResponseDto;
-import com.example.team3final.domain.notification.dto.response.UpdateNotificationReadResponseDto;
+import com.example.team3final.domain.notification.dto.response.UpdateAllNotificationsReadResponseDto;
 import com.example.team3final.domain.notification.entity.Notification;
 import com.example.team3final.domain.notification.enums.NotificationType;
 import com.example.team3final.domain.notification.repository.NotificationRepository;
@@ -13,6 +11,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 
 @Service
 @Transactional(readOnly = true)
@@ -49,29 +49,17 @@ public class NotificationServiceImpl implements NotificationService{
         return PageResponseDto.from(page.map(GetNotificationsResponseDto::from));
     }
 
-    // 단건 읽음 처리
-    @Transactional
+    // 전체 읽음 처리
     @Override
-    public UpdateNotificationReadResponseDto updateNotificationRead(Long receiverId, Long notificationId) {
+    @Transactional
+    public UpdateAllNotificationsReadResponseDto updateAllNotificationsRead(Long receiverId) {
 
-        // 알림 존재 여부 확인
-        Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new ServiceException(ErrorCode.NOTIFICATION_NOT_FOUND));
+        // 벌크 업데이트 - 미읽은 알림 전체 읽음 처리
+        // 별도 검증 불필요
+        // - receiverId 조건으로 본인 알림만 업데이트 (타인 알림 접근 불가)
+        int updatedCount = notificationRepository.markAllAsRead(receiverId, LocalDateTime.now());
 
-        // 본인 알림 확인
-        if (!notification.getReceiverId().equals(receiverId)) {
-            throw new ServiceException(ErrorCode.NOTIFICATION_NOT_OWNER);
-        }
-
-        // 이미 읽은 알림이면 그냥 반환
-        if (notification.isRead()) {
-            return UpdateNotificationReadResponseDto.from(notification);
-        }
-
-        // 읽음 처리
-        notification.markAsRead();
-
-        return UpdateNotificationReadResponseDto.from(notification);
+        return UpdateAllNotificationsReadResponseDto.from(updatedCount);
     }
 }
 

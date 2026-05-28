@@ -3,7 +3,7 @@ package com.example.team3final.domain.notification.controller;
 import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.domain.notification.dto.response.GetNotificationsResponseDto;
-import com.example.team3final.domain.notification.dto.response.UpdateNotificationReadResponseDto;
+import com.example.team3final.domain.notification.dto.response.UpdateAllNotificationsReadResponseDto;
 import com.example.team3final.domain.notification.enums.NotificationType;
 import com.example.team3final.domain.notification.service.NotificationService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
@@ -40,15 +40,14 @@ public class NotificationController {
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
 
-    // 단건 읽음 처리
-    @PatchMapping("/{notificationId}/read")
-    public ResponseEntity<ApiResponseDto<UpdateNotificationReadResponseDto>> updateNotificationRead(
-            @AuthenticationPrincipal UserDetailsImpl userDetails, // JWT 토큰에서 인증된 유저 정보
-            @PathVariable Long notificationId                     // 읽음 처리할 알림 ID
+    // 전체 읽음 처리 - 알림 목록 진입 시 프론트에서 자동 호출
+    @PatchMapping("/read-all")
+    public ResponseEntity<ApiResponseDto<UpdateAllNotificationsReadResponseDto>> updateAllNotificationsRead(
+            @AuthenticationPrincipal UserDetailsImpl userDetails // JWT 토큰에서 인증된 유저 정보
     ) {
         Long receiverId = userDetails.getUserId();
-        UpdateNotificationReadResponseDto response =
-                notificationService.updateNotificationRead(receiverId, notificationId);
+        UpdateAllNotificationsReadResponseDto response =
+                notificationService.updateAllNotificationsRead(receiverId);
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
 }
