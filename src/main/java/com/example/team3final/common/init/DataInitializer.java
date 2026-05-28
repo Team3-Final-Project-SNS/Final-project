@@ -115,8 +115,8 @@ public class DataInitializer implements ApplicationRunner {
 
         User hacker = userRepository.save(
                 User.builder()
-                        .email("hacker@korea.ac.kr")
-                        .password(passwordEncoder.encode("password123!"))
+                        .email("dalsun_rin@naver.com")
+                        .password(passwordEncoder.encode("ansgpfls79"))
                         .name("나해커")
                         .nickname("정당한참여자아님")
                         .universityId(university.getId())
