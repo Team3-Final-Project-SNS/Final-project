@@ -7,14 +7,16 @@ import com.example.team3final.domain.admin.inquiryAnswer.entity.InquiryAnswer;
 import com.example.team3final.domain.admin.inquiryAnswer.service.InquiryAnswerService;
 import com.example.team3final.domain.inquiry.dto.request.CreateInquiryRequestDto;
 import com.example.team3final.domain.inquiry.dto.response.CreateInquiryResponseDto;
-import com.example.team3final.domain.inquiry.dto.response.GetInquiryResponseDto;
-import com.example.team3final.domain.inquiry.dto.response.GetMyInquiriesResponseDto;
+import com.example.team3final.domain.inquiry.dto.response.GetAllInquiriesResponseDto;
+import com.example.team3final.domain.inquiry.dto.response.GetOneInquiryResponseDto;
 import com.example.team3final.domain.inquiry.entity.Inquiry;
 import com.example.team3final.domain.inquiry.enums.InquiryAnswerStatus;
 import com.example.team3final.domain.inquiry.enums.InquiryType;
 import com.example.team3final.domain.inquiry.repository.InquiryRepository;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -74,9 +76,9 @@ public class InquiryServiceImpl implements InquiryService{
         return CreateInquiryResponseDto.from(savedInquiry);
     }
 
-    // 문의 상세(답변) 조회
+    // 내 문의 상세(답변) 조회
     @Override
-    public GetInquiryResponseDto getInquiry(Long userId, Long inquiryId) {
+    public GetOneInquiryResponseDto getOneInquiry(Long userId, Long inquiryId) {
 
         // 1. 문의 존재 여부 확인
         // orElseThrow: 없으면 즉시 예외 발생 → GlobalExceptionHandler가 404로 변환
@@ -93,7 +95,20 @@ public class InquiryServiceImpl implements InquiryService{
         InquiryAnswer answer = inquiryAnswerService.getByInquiryId(inquiryId)
                 .orElse(null);
 
-        return GetInquiryResponseDto.of(inquiry, answer);
+        return GetOneInquiryResponseDto.of(inquiry, answer);
+    }
+
+    // 내 문의 목록 조회
+    public PageResponseDto<GetAllInquiriesResponseDto> getAllInquiries(Long userId, Pageable pageable) {
+
+        // 1. userId로 본인 문의만 최신순 페이징 조회
+        Page<Inquiry> inquiryPage = inquiryRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
+
+        // 2. page<Inquiry> -> page<GetAllInquiriesResponseDto> 변환
+        Page<GetAllInquiriesResponseDto> dtoPage = inquiryPage.map(GetAllInquiriesResponseDto::from);
+
+        // 3. 팀 공통 페이징 응답 포맷으로 한번 더 변환
+        return PageResponseDto.from(dtoPage);
     }
 
     // ===== private 검증 메서드 =====
@@ -124,7 +139,7 @@ public class InquiryServiceImpl implements InquiryService{
         // List.of()는 불변 리스트 → 실수로 수정되지 않아 안전
         List<InquiryAnswerStatus> activeStatuses = List.of(
                 InquiryAnswerStatus.PENDING,
-                InquiryAnswerStatus.IN_PROGRESS
+                InquiryAnswerStatus.READ
         );
 
         // Repository에 DB 조회 위임: 해당 유저 + 카테고리 + 처리중 상태가 존재하는지 확인

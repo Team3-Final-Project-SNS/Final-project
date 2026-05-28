@@ -1,13 +1,17 @@
 package com.example.team3final.domain.inquiry.controller;
 
 import com.example.team3final.common.dto.response.ApiResponseDto;
+import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.domain.inquiry.dto.request.CreateInquiryRequestDto;
 import com.example.team3final.domain.inquiry.dto.response.CreateInquiryResponseDto;
-import com.example.team3final.domain.inquiry.dto.response.GetInquiryResponseDto;
+import com.example.team3final.domain.inquiry.dto.response.GetAllInquiriesResponseDto;
+import com.example.team3final.domain.inquiry.dto.response.GetOneInquiryResponseDto;
 import com.example.team3final.domain.inquiry.service.InquiryService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -38,13 +42,30 @@ public class InquiryController {
 
     // 내 문의 상세(답변포함) 조회
     @GetMapping("/{inquiryId}")
-    public ResponseEntity<ApiResponseDto<GetInquiryResponseDto>> getInquiry(
+    public ResponseEntity<ApiResponseDto<GetOneInquiryResponseDto>> getOneInquiry(
             @AuthenticationPrincipal UserDetailsImpl userDetails,
             @PathVariable Long inquiryId
     ) {
         Long userId = userDetails.getUserId();
 
-        GetInquiryResponseDto response = inquiryService.getInquiry(userId, inquiryId);
+        GetOneInquiryResponseDto response = inquiryService.getOneInquiry(userId, inquiryId);
+
+        return ResponseEntity.ok(ApiResponseDto.success(response));
+    }
+
+    // 내 문의 목록 조회
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponseDto<PageResponseDto<GetAllInquiriesResponseDto>>> getAllInquiries(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        Long userId = userDetails.getUserId(); // jwt 토큰에서 userId 추철
+
+        // PageRequest.of(page, size): Pageable 구현체 생성
+        Pageable pageable = PageRequest.of(page, size);
+
+        PageResponseDto<GetAllInquiriesResponseDto> response = inquiryService.getAllInquiries(userId, pageable);
 
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }

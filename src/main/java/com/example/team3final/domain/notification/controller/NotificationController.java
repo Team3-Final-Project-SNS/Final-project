@@ -11,9 +11,11 @@ import com.example.team3final.domain.user.service.UserDetailsImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @RestController
 @RequestMapping("/api/v1/notifications")
@@ -50,6 +52,16 @@ public class NotificationController {
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
 
+    // SSE 연결 - 클라이언트가 실시간 알림 수신을 위해 호출
+    @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter subscribe(
+            @AuthenticationPrincipal UserDetailsImpl userDetails // JWT 토큰에서 인증된 유저 정보
+    ) {
+        Long userId = userDetails.getUserId();
+        return notificationService.subscribe(userId);
+    }
+
+    // 미확인 알림 카운트 조회
     @GetMapping("/unread-count")
     public ResponseEntity<ApiResponseDto<GetUnreadCountResponseDto>> getUnreadCount(
             @AuthenticationPrincipal UserDetailsImpl userDetails // JWT 토큰에서 인증된 유저 정보

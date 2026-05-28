@@ -16,11 +16,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -371,4 +373,21 @@ public class PostServiceImpl implements PostService{
 
         return refundedPoint;
     }
+
+
+    @Override
+    public List<Post> findAiMatchingCandidatePosts(
+            List<Long> authorIds,
+            Sort sort
+    ) {
+        Page<Post> posts = postRepository.findByAuthorIdInAndStatusAndMeetAtAfter(
+                authorIds,
+                PostStatus.OPEN,
+                LocalDateTime.now(),
+                PageRequest.of(0, 20, sort)
+        );
+
+        return posts.getContent();
+    }
+
 }

@@ -12,6 +12,7 @@ import com.example.team3final.domain.report.dto.response.GetMyReportsResponseDto
 import com.example.team3final.domain.report.entity.Report;
 import com.example.team3final.domain.report.enums.ReportStatus;
 import com.example.team3final.domain.report.repository.ReportRepository;
+import com.example.team3final.domain.user.service.UserPointService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,6 +28,10 @@ public class ReportServiceImpl implements ReportService {
 
     private final ReportRepository reportRepository;
     private final PostService postService;
+    private final UserPointService userPointService;
+
+    // 포상 지급 포인트
+    private static final int REPORT_REWARD_POINT = 50;
 
     // 신고 접수
     @Override
@@ -46,13 +51,23 @@ public class ReportServiceImpl implements ReportService {
         }
 
         // 기각된 신고에 대해 3일 이내 재신고 제한
-        // TODO: 수정 게시글은 재신고 가능 - post.getUpdatedAt()과 기각 시각 비교 필요
-        if (reportRepository.existsByReporterIdAndTargetIdAndStatusAndCreatedAtAfter(
-                reporterId, request.getTargetId(),
-                ReportStatus.REJECTED,
-                LocalDateTime.now().minusDays(3))) {
-            throw new ReportException(ErrorCode.REPORT_TOO_SOON);
-        }
+        // 단, 게시글이 기각 이후에 수정됐으면 재신고 허용
+        reportRepository.findByReporterIdAndTargetIdAndStatus(reporterId, request.getTargetId(), ReportStatus.REJECTED)
+                .ifPresent(rejectReport -> {
+
+                    // 기각 시각이 3일 이내인지 확인
+                    boolean isWithin3Days = rejectReport.getProcessedAt()
+                            .isAfter(LocalDateTime.now().minusDays(3));
+
+                    // 게시글이 기각 이후에 수정됐는지 확인
+                    boolean isPostUpdatedAfterRejection = post.getUpdatedAt() != null && post.getUpdatedAt()
+                            .isAfter(rejectReport.getProcessedAt());
+
+                    // 3일 이내이고 게시글 수정도 없으면 재신고 차단
+                    if (isWithin3Days && !isPostUpdatedAfterRejection) {
+                        throw new ReportException(ErrorCode.REPORT_TOO_SOON);
+                    }
+                });
 
         // 신고 저장
         Report report = Report.builder()
@@ -119,8 +134,7 @@ public class ReportServiceImpl implements ReportService {
         int acceptedCount = reportRepository.countByTargetIdAndStatus(
                 report.getTargetId(), ReportStatus.ACCEPTED);
 
-        // TODO: 신고자에게 포상 50P 지급 (류 담당 UserPointService 준비 후 연동)
-        // userPointService.rewardPoint(report.getReporterId(), 50, reportId);
+        userPointService.rewardPoint(report.getReporterId(), REPORT_REWARD_POINT);
 
         // TODO: 채택 횟수에 따른 피신고자 제재 처리
         // userService.suspendUser(userId, days) 시그니처 확정 후 연동 (정 담당자 협의 필요)
