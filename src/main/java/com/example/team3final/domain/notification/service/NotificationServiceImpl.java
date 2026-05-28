@@ -1,7 +1,10 @@
 package com.example.team3final.domain.notification.service;
 
 import com.example.team3final.common.dto.response.PageResponseDto;
+import com.example.team3final.common.exception.ErrorCode;
+import com.example.team3final.common.exception.ServiceException;
 import com.example.team3final.domain.notification.dto.response.GetNotificationsResponseDto;
+import com.example.team3final.domain.notification.dto.response.UpdateNotificationReadResponseDto;
 import com.example.team3final.domain.notification.entity.Notification;
 import com.example.team3final.domain.notification.enums.NotificationType;
 import com.example.team3final.domain.notification.repository.NotificationRepository;
@@ -44,6 +47,31 @@ public class NotificationServiceImpl implements NotificationService{
         }
 
         return PageResponseDto.from(page.map(GetNotificationsResponseDto::from));
+    }
+
+    // 단건 읽음 처리
+    @Transactional
+    @Override
+    public UpdateNotificationReadResponseDto updateNotificationRead(Long receiverId, Long notificationId) {
+
+        // 알림 존재 여부 확인
+        Notification notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new ServiceException(ErrorCode.NOTIFICATION_NOT_FOUND));
+
+        // 본인 알림 확인
+        if (!notification.getReceiverId().equals(receiverId)) {
+            throw new ServiceException(ErrorCode.NOTIFICATION_NOT_OWNER);
+        }
+
+        // 이미 읽은 알림이면 그냥 반환
+        if (notification.isRead()) {
+            return UpdateNotificationReadResponseDto.from(notification);
+        }
+
+        // 읽음 처리
+        notification.markAsRead();
+
+        return UpdateNotificationReadResponseDto.from(notification);
     }
 }
 
