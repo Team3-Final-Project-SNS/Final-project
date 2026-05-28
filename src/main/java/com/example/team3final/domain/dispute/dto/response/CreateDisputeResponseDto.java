@@ -16,7 +16,7 @@ public record CreateDisputeResponseDto(
                 dispute.getId(),
                 dispute.getMatchId(),
                 dispute.getStatus(),
-                dispute.getSubmittedAt()
+                dispute.getCreatedAt()
         );
     }
 }

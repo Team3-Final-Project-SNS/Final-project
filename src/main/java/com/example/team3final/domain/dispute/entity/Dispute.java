@@ -1,5 +1,6 @@
 package com.example.team3final.domain.dispute.entity;
 
+import com.example.team3final.common.entity.BaseTimeEntity;
 import com.example.team3final.domain.dispute.enums.DisputeStatus;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -13,7 +14,7 @@ import java.time.LocalDateTime;
 @Getter
 @Table(name = "disputes")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Dispute {
+public class Dispute extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -44,10 +45,6 @@ public class Dispute {
     @Column(name = "admin_comment", columnDefinition = "TEXT")
     private String adminComment;
 
-    // 이의제기 제출 시각
-    @Column(name = "submitted_at", nullable = false)
-    private LocalDateTime submittedAt;
-
     // 관리자 처리 완료 시각
     @Column(name = "processed_at")
     private LocalDateTime processedAt;
@@ -57,8 +54,7 @@ public class Dispute {
         this.matchId = matchId;
         this.submitterId = submitterId;
         this.reason = reason;
-        this.status = DisputeStatus.SUBMITTED;  // 이의제기는 항상 SUBMITTED 로 시작
-        this.submittedAt = LocalDateTime.now(); // 제출 시각 = 생성 시각
+        this.status = DisputeStatus.SUBMITTED;  // 이의제기는 항상 SUBMITTED로 시작
     }
 
     // ===== 비즈니스 메서드 =====

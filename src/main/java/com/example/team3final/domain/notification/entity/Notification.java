@@ -1,5 +1,6 @@
 package com.example.team3final.domain.notification.entity;
 
+import com.example.team3final.common.entity.BaseTimeEntity;
 import com.example.team3final.domain.notification.enums.RelatedDomain;
 import com.example.team3final.domain.notification.enums.NotificationType;
 import jakarta.persistence.*;
@@ -20,7 +21,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "notifications")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Notification {
+public class Notification extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -61,10 +62,6 @@ public class Notification {
     @Column(name = "read_at")
     private LocalDateTime readAt;
 
-    // 생성일
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private  LocalDateTime createdAt;
-
     @Builder
     private Notification(Long receiverId, NotificationType type, String title,
                          String content, RelatedDomain relatedDomain, Long relatedId) {
@@ -75,11 +72,6 @@ public class Notification {
         this.relatedDomain = relatedDomain;
         this.relatedId = relatedId;
         this.isRead = false;    // 생성 시 미읽음
-    }
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
     }
 
     // ==================== 도메인 메서드 ====================

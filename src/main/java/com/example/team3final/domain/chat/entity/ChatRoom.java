@@ -1,5 +1,6 @@
 package com.example.team3final.domain.chat.entity;
 
+import com.example.team3final.common.entity.BaseTimeEntity;
 import com.example.team3final.domain.chat.enums.ChatRoomType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -13,7 +14,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "chat_rooms")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class ChatRoom {
+public class ChatRoom extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -33,10 +34,6 @@ public class ChatRoom {
     @Column(name = "is_active", nullable = false)
     private boolean isActive;
 
-    // 생성일
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
     // 비활성화 시각
     @Column(name = "deactivated_at")
     private LocalDateTime deactivatedAt;
@@ -46,11 +43,6 @@ public class ChatRoom {
         this.postId = postId;
         this.roomType = (roomType != null) ? roomType : ChatRoomType.ONE_TO_ONE;
         this.isActive = true;
-    }
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
     }
 
     // ==================== 도메인 메서드 ====================

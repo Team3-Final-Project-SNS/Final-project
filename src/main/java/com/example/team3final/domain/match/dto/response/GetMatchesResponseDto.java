@@ -48,7 +48,7 @@ public record GetMatchesResponseDto(
                 myDeposit,
                 match.getStatus(),
                 chatRoomId,
-                match.getMatchedAt(),
+                match.getCreatedAt(),
                 match.getCompletedAt()
         );
     }

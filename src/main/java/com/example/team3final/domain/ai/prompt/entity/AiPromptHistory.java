@@ -1,6 +1,6 @@
 package com.example.team3final.domain.ai.prompt.entity;
 
-import com.example.team3final.common.entity.BaseEntity;
+import com.example.team3final.common.entity.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -19,7 +19,7 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 @Table(name = "ai_prompt_histories")
-public class AiPromptHistory extends BaseEntity {
+public class AiPromptHistory extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

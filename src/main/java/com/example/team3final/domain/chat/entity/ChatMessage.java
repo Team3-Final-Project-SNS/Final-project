@@ -1,5 +1,6 @@
 package com.example.team3final.domain.chat.entity;
 
+import com.example.team3final.common.entity.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -12,7 +13,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "chat_messages")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class ChatMessage {
+public class ChatMessage extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -35,22 +36,12 @@ public class ChatMessage {
     @Column(name = "is_read", nullable = false)
     private boolean isRead;
 
-    // 생성일
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
     @Builder
     private ChatMessage(Long chatRoomId, Long senderId, String content) {
         this.chatRoomId = chatRoomId;
         this.senderId = senderId;
         this.content = content;
         this.isRead = false;
-    }
-
-    // 엔티티가 처음 저장되기 직전에 생성일을 자동으로 기록
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
     }
 
     // ==================== 도메인 메서드 ====================

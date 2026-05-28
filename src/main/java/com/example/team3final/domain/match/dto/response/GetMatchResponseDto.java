@@ -73,7 +73,7 @@ public record GetMatchResponseDto(
                 match.getApplicantDeposit(),
                 match.getStatus(),
                 chatRoomId,
-                match.getMatchedAt(),
+                match.getCreatedAt(),
                 match.getCompletedAt()
         );
     }

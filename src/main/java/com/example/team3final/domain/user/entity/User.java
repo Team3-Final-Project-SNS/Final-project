@@ -1,6 +1,7 @@
 package com.example.team3final.domain.user.entity;
 
-import com.example.team3final.common.entity.BaseEntity;
+import com.example.team3final.common.entity.BaseTimeEntity;
+import com.example.team3final.common.entity.SoftDeleteEntity;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.UserException;
 import com.example.team3final.domain.user.enums.Gender;
@@ -19,9 +20,9 @@ import java.time.LocalDate;
 @Getter
 @Table(name = "users")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@SQLDelete(sql = "UPDATE users SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
+@SQLDelete(sql = "UPDATE posts SET deleted_at = NOW() WHERE post_id = ?")
 @SQLRestriction("deleted_at IS NULL")
-public class User extends BaseEntity {
+public class User extends SoftDeleteEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -97,6 +98,7 @@ public class User extends BaseEntity {
     // 회원 탈퇴
     public void withdraw() {
         this.status = UserStatus.WITHDRAWN;
+        super.delete(); // SoftDeleteEntity의 deleted_at 세팅
     }
 
     // 계정 활성 상태인지 확인
