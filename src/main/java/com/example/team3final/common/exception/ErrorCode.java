@@ -90,6 +90,14 @@ public enum ErrorCode {
     POINT_TRANSACTION_INVALID_PAGE(HttpStatus.BAD_REQUEST, "POINT_001", "페이지 요청 값이 올바르지 않습니다."),
     POINT_NOT_ENOUGH(HttpStatus.UNPROCESSABLE_ENTITY, "POINT_002", "보유 포인트가 부족합니다."),
 
+    // Payment (결제 / 포인트 충전)
+    PAY_MIN_CHARGE(HttpStatus.BAD_REQUEST, "PAY_001", "최소 충전 금액은 1,000P 입니다."),
+    PAY_NOT_FOUND(HttpStatus.NOT_FOUND, "PAY_002", "존재하지 않는 결제 건입니다."),
+    PAY_AMOUNT_MISMATCH(HttpStatus.UNPROCESSABLE_ENTITY, "PAY_003", "결제 금액이 일치하지 않습니다. (위변조 감지)"),
+    PAY_ALREADY_PROCESSED(HttpStatus.CONFLICT, "PAY_004", "이미 처리된 결제 건입니다."),
+    PAY_VERIFICATION_FAILED(HttpStatus.UNPROCESSABLE_ENTITY, "PAY_005", "PortOne 결제 검증에 실패했습니다."),
+    PAY_NOT_OWNER(HttpStatus.FORBIDDEN, "PAY_006", "본인의 결제 건만 취소할 수 있습니다."),
+
     // Admin
     // 인증
     ADMIN_LOGIN_FAIL(HttpStatus.UNAUTHORIZED, "ADMIN_001", "이메일 또는 비밀번호가 일치하지 않습니다."),

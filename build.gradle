@@ -62,10 +62,15 @@ dependencies {
 
     implementation 'io.micrometer:micrometer-registry-prometheus'
 
-
     // Spring Ai
     implementation 'org.springframework.ai:spring-ai-openai'
     implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+
+    // 포트원 V2 서버 SDK (JVM) — 결제 조회/취소/웹훅 검증
+    // (작성 시점 0.12.0. 의존성 충돌 시 :all classifier 의 shading 버전 사용)
+    implementation 'io.portone:server-sdk:0.12.0'
+    // 충돌 날 경우 대안:
+    // implementation 'io.portone:server-sdk:0.12.0:all'
 
 
 
