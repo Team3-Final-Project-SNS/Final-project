@@ -7,8 +7,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum InquiryAnswerStatus {
 
-    PENDING("대기"),
-    IN_PROGRESS("처리중"),
+    PENDING("접수완료"),
+    IN_PROGRESS("확인함"),
     ANSWERED("답변완료"),
     CLOSED("종결"),
     WITHDRAWN("취소");

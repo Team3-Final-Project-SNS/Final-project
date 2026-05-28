@@ -7,10 +7,12 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum InquiryType {
 
-    ACCOUNT("계정"),
-    POINT("포인트"),
-    MATCH("매칭"),
-    REPORT("신고"),
+    ACCOUNT("계정/인증"),
+    PAYMENT("결제/포인트"),
+    USAGE("이용방법/기능"),
+    HISTORY("이용내역"),
+    MATCH("매칭오류/장애"),
+    REPORT("신고/불량이용"),
     OTHER("기타");
 
     private final String description;
