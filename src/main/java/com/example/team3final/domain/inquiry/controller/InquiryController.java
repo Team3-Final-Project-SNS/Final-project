@@ -3,6 +3,7 @@ package com.example.team3final.domain.inquiry.controller;
 import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.domain.inquiry.dto.request.CreateInquiryRequestDto;
+import com.example.team3final.domain.inquiry.dto.response.CancelInquiryResponseDto;
 import com.example.team3final.domain.inquiry.dto.response.CreateInquiryResponseDto;
 import com.example.team3final.domain.inquiry.dto.response.GetAllInquiriesResponseDto;
 import com.example.team3final.domain.inquiry.dto.response.GetOneInquiryResponseDto;
@@ -66,6 +67,19 @@ public class InquiryController {
         Pageable pageable = PageRequest.of(page, size);
 
         PageResponseDto<GetAllInquiriesResponseDto> response = inquiryService.getAllInquiries(userId, pageable);
+
+        return ResponseEntity.ok(ApiResponseDto.success(response));
+    }
+
+    // 고객 문의 취소
+    @DeleteMapping("/{inquiryId}")
+    public ResponseEntity<ApiResponseDto<CancelInquiryResponseDto>> cancelInquiry(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @PathVariable Long inquiryId
+    ) {
+        Long userId = userDetails.getUserId();
+
+        CancelInquiryResponseDto response = inquiryService.cancelInquiry(userId, inquiryId);
 
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }

@@ -6,6 +6,7 @@ import com.example.team3final.common.exception.InquiryException;
 import com.example.team3final.domain.admin.inquiryAnswer.entity.InquiryAnswer;
 import com.example.team3final.domain.admin.inquiryAnswer.service.InquiryAnswerService;
 import com.example.team3final.domain.inquiry.dto.request.CreateInquiryRequestDto;
+import com.example.team3final.domain.inquiry.dto.response.CancelInquiryResponseDto;
 import com.example.team3final.domain.inquiry.dto.response.CreateInquiryResponseDto;
 import com.example.team3final.domain.inquiry.dto.response.GetAllInquiriesResponseDto;
 import com.example.team3final.domain.inquiry.dto.response.GetOneInquiryResponseDto;
@@ -109,6 +110,35 @@ public class InquiryServiceImpl implements InquiryService{
 
         // 3. 팀 공통 페이징 응답 포맷으로 한번 더 변환
         return PageResponseDto.from(dtoPage);
+    }
+
+    // 고객 문의 취소
+    @Override
+    @Transactional
+    public CancelInquiryResponseDto cancelInquiry(Long userId, Long inquiryId) {
+
+        // 1. 문의 존재 여부 확인
+        Inquiry inquiry = inquiryRepository.findById(inquiryId)
+                .orElseThrow(() -> new InquiryException(ErrorCode.INQUIRY_NOT_FOUND));
+
+        //2. 본인 문의인지 확인
+        if (!inquiry.getUserId().equals(userId)) {
+            throw new InquiryException(ErrorCode.INQUIRY_ACCESS_DENIED);
+        }
+
+        // 3. 취소 가능 한 상태인지 확인
+        InquiryAnswerStatus status = inquiry.getAnswerStatus();
+        boolean isCancellable = status == InquiryAnswerStatus.PENDING
+                || status == InquiryAnswerStatus.READ;
+
+        if (!isCancellable) {
+            throw new InquiryException(ErrorCode.INQUIRY_CANCEL_FORBIDDEN);
+        }
+
+        // 4. 취소 처리
+        inquiry.withdraw();
+
+        return CancelInquiryResponseDto.from(inquiry);
     }
 
     // ===== private 검증 메서드 =====
