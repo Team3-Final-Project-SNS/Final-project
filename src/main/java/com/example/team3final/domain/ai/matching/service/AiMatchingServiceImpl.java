@@ -18,6 +18,7 @@ import com.example.team3final.domain.ai.matching.tool.AiMatchingToolResultConver
 import com.example.team3final.domain.ai.prompt.service.AiPromptFileService;
 import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.service.UserService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
@@ -44,6 +45,7 @@ import java.util.UUID;
  * fallback 응답을 반환합니다.
  */
 
+@Slf4j
 @Service
 public class AiMatchingServiceImpl implements AiMatchingService {
 
@@ -120,6 +122,9 @@ public class AiMatchingServiceImpl implements AiMatchingService {
 
                 toolResults = "모집글 조회 도구 호출 성공";
             } catch (Exception e) {
+                log.error("[AiMatchingService] 모집글 조회 Tool 호출 실패", e);
+
+
                 toolFallbackUsed = true;
                 candidates = List.of();
                 candidatePosts = "모집글 후보를 조회하지 못했습니다.";

@@ -6,6 +6,7 @@ import com.example.team3final.domain.notification.dto.response.GetUnreadCountRes
 import com.example.team3final.domain.notification.dto.response.UpdateAllNotificationsReadResponseDto;
 import com.example.team3final.domain.notification.enums.NotificationType;
 import org.springframework.data.domain.Pageable;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 public interface NotificationService {
 
@@ -18,5 +19,8 @@ public interface NotificationService {
 
     // 미확인 알림 카운트
     GetUnreadCountResponseDto getUnreadCount(Long receiverId);
+
+    // SSE 연결
+    SseEmitter subscribe(Long userId);
 }
 

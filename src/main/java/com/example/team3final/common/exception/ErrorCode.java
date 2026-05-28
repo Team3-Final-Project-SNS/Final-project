@@ -116,9 +116,15 @@ public enum ErrorCode {
     // Report
     REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "REPORT_001", "존재하지 않는 신고입니다."),
     REPORT_ALREADY_PROCESSED(HttpStatus.CONFLICT, "REPORT_002", "이미 처리된 신고입니다."),
-    REPORT_TOO_SOON(HttpStatus.CONFLICT, "REPORT_003", "3일 이내 동일 게시글 재신고는 불가합니다."),
-    REPORT_SELF_REPORT(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_004", "본인의 게시글은 신고할 수 없습니다."),
-    REPORT_ALREADY_REPORTED(HttpStatus.CONFLICT, "REPORT_005", "이미 신고한 게시글입니다."),
+    REPORT_NOT_OWNER(HttpStatus.FORBIDDEN, "REPORT_003", "본인의 신고만 취소할 수 있습니다."),
+    REPORT_TOO_SOON(HttpStatus.CONFLICT, "REPORT_004", "3일 이내 동일 게시글 재신고는 불가합니다."),
+    REPORT_SELF_REPORT(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_005", "본인의 게시글은 신고할 수 없습니다."),
+    REPORT_ALREADY_REPORTED(HttpStatus.CONFLICT, "REPORT_006", "이미 신고한 게시글입니다."),
+
+    // AI
+    AI_PROMPT_TEMPLATE_NOT_FOUND(HttpStatus.NOT_FOUND, "AI_001", "활성화된 AI 프롬프트 템플릿을 찾을 수 없습니다."),
+    AI_PROMPT_FILE_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AI_002", "AI 프롬프트 파일을 읽을 수 없습니다."),
+
 
     // Dispute (노쇼 이의제기)
     DISPUTE_NOT_NO_SHOW(HttpStatus.UNPROCESSABLE_ENTITY, "DISPUTE_001", "노쇼 예정 상태에서만 이의제기할 수 있습니다."),
@@ -127,9 +133,6 @@ public enum ErrorCode {
     DISPUTE_PLACE_NOT_VERIFIED(HttpStatus.UNPROCESSABLE_ENTITY, "DISPUTE_004", "장소 인증을 완료한 유저만 이의제기할 수 있습니다."),
     DISPUTE_NOT_FOUND(HttpStatus.NOT_FOUND, "DISPUTE_005",  "제출한 이의제기가 없습니다."),
 
-    // AI
-    AI_PROMPT_TEMPLATE_NOT_FOUND(HttpStatus.NOT_FOUND, "AI_001", "활성화된 AI 프롬프트 템플릿을 찾을 수 없습니다."),
-    AI_PROMPT_FILE_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AI_002", "AI 프롬프트 파일을 읽을 수 없습니다."),
 
     // Notification
     NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTI_001", "존재하지 않는 알림입니다."),
