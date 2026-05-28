@@ -64,7 +64,8 @@ public interface UserService {
     Page<User> getUsersForAdmin(UserStatus status, String keyword, Pageable pageable);
 
     // Admin 유저 계정 정지
-    void suspendUser(Long userId);
+    // days: 정지 일수 (null = 영구정지)
+    void suspendUser(Long userId, Integer days);
 
     // Admin 도메인에서 사용할 userId 목록을 닉네임 Map으로 반환 (N+1 방지 배치 조회)
     Map<Long, String> getUserNicknameMap(List<Long> userIds);

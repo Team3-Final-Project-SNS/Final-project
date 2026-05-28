@@ -15,6 +15,7 @@ import org.hibernate.annotations.SQLRestriction;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Getter
@@ -62,6 +63,12 @@ public class User extends SoftDeleteEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "status",nullable = false, length = 20)
     private UserStatus status; // 유저의 계정 상태
+
+    // 정지 만료 시각
+    // null = 만료 날짜 없음 = 영구정지
+    // 값 있음 = 해당 날짜까지만 정지
+    @Column(name = "suspended_until")
+    private LocalDateTime suspendedUntil;
 
     // 매너온도
     // BigDecimal -> 십진수 그대로 저장하기 때문에 오차가 매우 적음
@@ -131,8 +138,12 @@ public class User extends SoftDeleteEntity {
     }
 
     // 계정 정지 (관리자)
-    public void suspend() {
+    // days: 정지 일수 (null = 영구정지)
+    public void suspend(Integer days) {
         this.status = UserStatus.SUSPENDED;
+        this.suspendedUntil = (days != null)
+                ? LocalDateTime.now().plusDays(days) // days일 후 만료
+                : null;                              // 만료 날짜 없음 = 영구정지
     }
 
     // 매너 온도 증가

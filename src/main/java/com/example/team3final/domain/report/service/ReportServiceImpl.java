@@ -3,6 +3,7 @@ package com.example.team3final.domain.report.service;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.ReportException;
+import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.service.PostService;
 import com.example.team3final.domain.report.dto.request.CreateReportRequestDto;
@@ -13,6 +14,7 @@ import com.example.team3final.domain.report.entity.Report;
 import com.example.team3final.domain.report.enums.ReportStatus;
 import com.example.team3final.domain.report.repository.ReportRepository;
 import com.example.team3final.domain.user.service.UserPointService;
+import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -29,9 +31,22 @@ public class ReportServiceImpl implements ReportService {
     private final ReportRepository reportRepository;
     private final PostService postService;
     private final UserPointService userPointService;
+    private final UserService userService;
+    private final NotificationPublisher notificationPublisher;
 
     // 포상 지급 포인트
     private static final int REPORT_REWARD_POINT = 50;
+
+    // 제재 정책 - 채택 누적 횟수에 따른 정지 일수
+    // 1~2회: 경고 (정지 없음)
+    // 3회: 3일 정지
+    // 4회: 10일 정지
+    // 5회: 30일 정지
+    // 6회 이상: 영구정지 (null)
+    private static final int SUSPEND_WARNING_THRESHOLD = 2;   // 이하: 경고
+    private static final int SUSPEND_3DAY_THRESHOLD = 3;      // 3일 정지
+    private static final int SUSPEND_10DAY_THRESHOLD = 4;     // 10일 정지
+    private static final int SUSPEND_30DAY_THRESHOLD = 5;     // 30일 정지
 
     // 신고 접수
     @Override
@@ -136,15 +151,34 @@ public class ReportServiceImpl implements ReportService {
 
         userPointService.rewardPoint(report.getReporterId(), REPORT_REWARD_POINT);
 
-        // TODO: 채택 횟수에 따른 피신고자 제재 처리
-        // userService.suspendUser(userId, days) 시그니처 확정 후 연동 (정 담당자 협의 필요)
-        // 1회 → 경고, 2회 → 경고, 3회 → 3일 정지
-        // 4회 → 10일 정지, 5회 → 30일 정지, 6회 이상 → 영구 정지
-        // userService.applyPenalty(report.getTargetId(), acceptedCount);
+        // 채택 횟수에 따른 피신고자 제재 처리
+        // 1. acceptedCount가 2보다 크면 (3회 이상이면) 제재 시작
+        if (acceptedCount > SUSPEND_WARNING_THRESHOLD) {
 
-        // TODO: 신고자/피신고자 알림 발송 (NotificationPublisher 구현체 완성 후 연동)
-        // notificationPublisher.sendReportResult(report.getReporterId(), reportId);
-        // notificationPublisher.sendReportResult(report.getTargetId(), reportId);
+            // 2. 정지 일수 담을 변수 선언 (아직 값 없음)
+            Integer days;
+
+            // 3. 횟수에 따라 days 값 결정
+            if (acceptedCount == SUSPEND_3DAY_THRESHOLD) {
+                days = 3;       // 3회 → 3일 정지
+            } else if (acceptedCount == SUSPEND_10DAY_THRESHOLD) {
+                days = 10;      // 4회 → 10일 정지
+            } else if (acceptedCount == SUSPEND_30DAY_THRESHOLD) {
+                days = 30;      // 5회 → 30일 정지
+            } else {
+                days = null;    // 6회 이상 → 영구정지
+            }
+
+            // 4. days 값으로 제재 처리
+            userService.suspendUser(report.getTargetId(), days);
+        }
+
+        // 신고자에게 채택 알림 + 포상 포인트 알림
+        notificationPublisher.sendReportResult(report.getReporterId(), reportId);
+        notificationPublisher.sendReportAcceptedPoint(report.getReporterId(), reportId);
+
+        // 피신고자에게 신고 처리 결과 알림
+        notificationPublisher.sendReportResult(report.getTargetId(), reportId);
     }
 
     // 신고 기각 - 관리자 호출용
@@ -163,8 +197,8 @@ public class ReportServiceImpl implements ReportService {
         // 기각 처리
         report.reject(adminId);
 
-        // TODO: 신고자 알림 발송
-        // notificationPublisher.sendReportResult(report.getReporterId(), reportId);
+        // 신고자에게 기각 알림
+        notificationPublisher.sendReportResult(report.getReporterId(), reportId);
     }
 
     @Override
