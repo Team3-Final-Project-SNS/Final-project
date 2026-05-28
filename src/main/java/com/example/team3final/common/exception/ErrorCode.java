@@ -123,6 +123,11 @@ public enum ErrorCode {
     AI_PROMPT_TEMPLATE_NOT_FOUND(HttpStatus.NOT_FOUND, "AI_001", "활성화된 AI 프롬프트 템플릿을 찾을 수 없습니다."),
     AI_PROMPT_FILE_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AI_002", "AI 프롬프트 파일을 읽을 수 없습니다."),
 
+    // Notification
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTI_001", "존재하지 않는 알림입니다."),
+    NOTIFICATION_NOT_OWNER(HttpStatus.FORBIDDEN, "NOTI_002", "본인의 알림만 읽음 처리할 수 있습니다.");
+    AI_PROMPT_FILE_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AI_002", "AI 프롬프트 파일을 읽을 수 없습니다."),
+
     // Inquiry (고객문의)
     INQUIRY_NOT_FOUND(HttpStatus.NOT_FOUND, "INQUIRY_001", "존재하지 않는 문의입니다."),
     INQUIRY_ACCESS_DENIED(HttpStatus.FORBIDDEN, "INQUIRY_003", "본인의 문의만 조회할 수 있습니다."),
