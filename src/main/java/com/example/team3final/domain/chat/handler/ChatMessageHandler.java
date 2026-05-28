@@ -10,6 +10,8 @@ import com.example.team3final.domain.chat.pubsub.RedisMessagePublisher;
 import com.example.team3final.domain.chat.repository.ChatMemberRepository;
 import com.example.team3final.domain.chat.repository.ChatMessageRepository;
 import com.example.team3final.domain.chat.repository.ChatRoomRepository;
+import com.example.team3final.domain.chat.service.BadWordFilterService;
+import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +35,8 @@ public class ChatMessageHandler {
     private final ChatMemberRepository chatMemberRepository;
     private final RedisMessagePublisher redisMessagePublisher;
     private final UserService userService;
+    private final BadWordFilterService badWordFilterService;     // 욕설 필터링
+    private final NotificationPublisher notificationPublisher;   // 알림 발송
 
     // 메시지 전송
     // 클라이언트가 /pub/chat/rooms/{chatRoomId} 로 메시지 보내면 여기서 처리
@@ -79,11 +83,13 @@ public class ChatMessageHandler {
             return;
         }
 
-        // 메시지 DB 저장
+        // 욕설 필터링 후 메시지 DB 저장
+        String filteredContent = badWordFilterService.filter(request.getContent());
+
         ChatMessage chatMessage = ChatMessage.builder()
                 .chatRoomId(chatRoomId)
                 .senderId(senderId)
-                .content(request.getContent())
+                .content(filteredContent) // 필터링된 메시지 저장
                 .build();
         chatMessageRepository.save(chatMessage);
 
@@ -102,6 +108,12 @@ public class ChatMessageHandler {
                 chatMessage.getCreatedAt()
         );
         redisMessagePublisher.publish(chatRoomId, response);
+
+        // 채팅방 참여자에게 메시지 수신 알림 발송 (발신자 제외)
+        chatMemberRepository.findByChatRoomId(chatRoomId).stream()
+                .filter(member -> !member.getUserId().equals(senderId)) // 발신자 제외
+                .forEach(member ->
+                        notificationPublisher.sendChatReceived(member.getUserId(), chatRoomId));
 
     }
 }
