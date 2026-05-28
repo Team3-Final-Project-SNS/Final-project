@@ -36,7 +36,7 @@ public class BadWordFilterService {
     public void loadBadWords() {
         try {
             // ClassPathResource: resources 폴더의 파일을 classpath에서 읽어옴
-            ClassPathResource resource = new ClassPathResource("badwords.txt");
+            ClassPathResource resource = new ClassPathResource("yok/badwords.txt");
 
             // UTF-8로 읽기 (한글 깨짐 방지)
             BufferedReader reader = new BufferedReader(
