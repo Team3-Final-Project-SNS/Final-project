@@ -12,8 +12,8 @@ public record AdminNoShowCandidateResponseDto (
         String hostNickname,          // Post.authorId -> User.nickname
         String guestNickname,         // Match.applicantId -> User.nickname
         LocalDateTime meetAt,
-        boolean hasDispute,           // TODO: Dispute 도메인 구현되면 실제 조회로 변경
-        LocalDateTime disputeDeadline // 노쇼 판정 시각 기준
+        boolean hasDispute,           // 해당 matchId로 이의제기 제출 여부 (DisputeService에서 조회)
+        LocalDateTime disputeDeadline // 노쇼 판정 시각 + 24시간
 ) {
     public static AdminNoShowCandidateResponseDto of (
             MeetVerification meetVerification,
