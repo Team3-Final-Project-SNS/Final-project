@@ -124,7 +124,14 @@ public enum ErrorCode {
     AI_PROMPT_FILE_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AI_002", "AI 프롬프트 파일을 읽을 수 없습니다."),
 
     // Notification
-    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTI_001", "존재하지 않는 알림입니다.");
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTI_001", "존재하지 않는 알림입니다."),
+
+    // Inquiry (고객문의)
+    INQUIRY_NOT_FOUND(HttpStatus.NOT_FOUND, "INQUIRY_001", "존재하지 않는 문의입니다."),
+    INQUIRY_DAILY_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "INQUIRY_005", "하루 최대 5개의 문의만 접수할 수 있습니다."),
+    INQUIRY_COOLDOWN(HttpStatus.TOO_MANY_REQUESTS, "INQUIRY_006", "문의 접수 후 1분 뒤에 다시 접수할 수 있습니다."),
+    INQUIRY_ACCESS_DENIED(HttpStatus.FORBIDDEN, "INQUIRY_003", "본인의 문의만 조회할 수 있습니다."),
+    INQUIRY_CANCEL_FORBIDDEN(HttpStatus.CONFLICT, "INQUIRY_004", "처리가 시작된 문의는 취소할 수 없습니다.");
 
 
     private final HttpStatus httpStatus;
