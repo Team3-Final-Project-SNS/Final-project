@@ -52,16 +52,6 @@ public class Admin extends BaseUpdateEntity {
                 .build();
     }
 
-    // 계정 비활성화
-    public void deactivate() {
-        this.isActive = false;
-    }
-
-    // 계정 재활성화
-    public void reActivate() {
-        this.isActive = true;
-    }
-
     // 활성화된 Admin 계정인지 확인
     public boolean isActiveAdmin() {
         return this.isActive();
@@ -72,8 +62,20 @@ public class Admin extends BaseUpdateEntity {
         return this.role == AdminRole.SUPER_ADMIN;
     }
 
-    // 위 두 로직을 한꺼번에 처리
+    // 위 두 로직을 한꺼번에 처리 -> 로그인에서 사용
     public boolean isActiveAndSuperAdmin() {
         return isActiveAdmin() && isSuperAdmin();
+    }
+
+    // 추후 어드민 확장성을 위한 메서드
+
+    // 관리자 계정 비활성화
+    public void deactivate() {
+        this.isActive = false;
+    }
+
+    // 관리자 계정 재활성화
+    public void reActivate() {
+        this.isActive = true;
     }
 }
