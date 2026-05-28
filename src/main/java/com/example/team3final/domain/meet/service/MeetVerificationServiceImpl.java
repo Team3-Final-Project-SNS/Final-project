@@ -130,7 +130,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
     @Override
     @Transactional
-    public QrResponseDto getMeetQr(Long matchId, Long userId) {
+    public QrResponseDto getMeetQr(Long userId, Long matchId) {
         // matchId 조회
         MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
                 .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
@@ -177,6 +177,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         return QrResponseDto.of(matchId, meetVerification);
     }
 
+    // QR 스캔
     @Override
     @Transactional
     public QrScanResponseDto createQrScan(Long userId, Long matchId, QrScanRequestDto requestDto) {
