@@ -220,9 +220,10 @@ public class UserServiceImpl implements UserService {
     }
 
     // Admin 도메인에서 사용할 유저 계정 정지
+    // days: 정지 일수 (null = 영구정지)
     @Override
     @Transactional
-    public void suspendUser(Long userId) {
+    public void suspendUser(Long userId, Integer days) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
 
@@ -232,7 +233,7 @@ public class UserServiceImpl implements UserService {
         }
 
         // 더티체킹으로 자동 업데이트
-        user.suspend();
+        user.suspend(days);
     }
 
     // userId 목록을 닉네임 Map으로 반환
