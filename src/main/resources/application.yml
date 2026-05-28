@@ -122,3 +122,11 @@ app:
 
     metrics:
       enabled: ${AI_METRICS_ENABLED:true}
+
+portone:
+  # V2 API Secret — 서버가 PortOne 결제조회/취소 API 호출 시 인증.
+  api-secret: ${PORTONE_API_SECRET}
+  # Store ID — 상점 식별자(store-...). 민감하지 않지만 일관되게 환경변수로 관리.
+  store-id: ${PORTONE_STORE_ID}
+  # Webhook Secret — 웹훅 진위 검증용. webhook 브랜치에서 사용. (지금은 미사용이어도 미리 선언)
+  webhook-secret: ${PORTONE_WEBHOOK_SECRET:}
