@@ -4,6 +4,9 @@ import com.example.team3final.domain.dispute.dto.request.CreateDisputeRequestDto
 import com.example.team3final.domain.dispute.dto.response.CreateDisputeResponseDto;
 import com.example.team3final.domain.dispute.dto.response.DisputeResponseDto;
 import com.example.team3final.domain.dispute.entity.Dispute;
+import com.example.team3final.domain.dispute.enums.DisputeStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface DisputeService {
 
@@ -22,4 +25,7 @@ public interface DisputeService {
 
     // 어드민 이의제기 상세 조회용 - disputeId 단건 조회
     Dispute getDisputeById(Long disputeId);
+
+    // 어드민 목록 조회용 — status null이면 전체 조회
+    Page<Dispute> getDisputesForAdmin(DisputeStatus status, Pageable pageable);
 }

@@ -6,6 +6,7 @@ import com.example.team3final.domain.dispute.dto.request.CreateDisputeRequestDto
 import com.example.team3final.domain.dispute.dto.response.CreateDisputeResponseDto;
 import com.example.team3final.domain.dispute.dto.response.DisputeResponseDto;
 import com.example.team3final.domain.dispute.entity.Dispute;
+import com.example.team3final.domain.dispute.enums.DisputeStatus;
 import com.example.team3final.domain.dispute.repository.DisputeRepository;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.service.MatchService;
@@ -15,6 +16,8 @@ import com.example.team3final.domain.meet.service.MeetVerificationService;
 import com.example.team3final.domain.post.dto.response.PostInfoDto;
 import com.example.team3final.domain.post.service.PostService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -115,5 +118,14 @@ public class DisputeServiceImpl implements DisputeService {
     public Dispute getDisputeById(Long disputeId) {
         return disputeRepository.findById(disputeId)
                 .orElseThrow(() -> new DisputeException(ErrorCode.DISPUTE_NOT_FOUND));
+    }
+
+    @Override
+    public Page<Dispute> getDisputesForAdmin(DisputeStatus status, Pageable pageable) {
+        // status가 null이면 전체 조회, 있으면 해당 status만 필터링
+        if (status == null) {
+            return disputeRepository.findAll(pageable);
+        }
+        return disputeRepository.findAllByStatus(status, pageable);
     }
 }

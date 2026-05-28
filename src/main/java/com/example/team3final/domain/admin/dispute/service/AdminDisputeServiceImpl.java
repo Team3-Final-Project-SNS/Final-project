@@ -1,8 +1,10 @@
 package com.example.team3final.domain.admin.dispute.service;
 
+import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.AdminException;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.domain.admin.dispute.dto.response.GetAdminDisputeResponseDto;
+import com.example.team3final.domain.admin.dispute.dto.response.GetAdminDisputesResponseDto;
 import com.example.team3final.domain.admin.repository.AdminRepository;
 import com.example.team3final.domain.chat.dto.response.ChatMessageResponseDto;
 import com.example.team3final.domain.chat.service.ChatService;
@@ -14,10 +16,13 @@ import com.example.team3final.domain.meet.entity.MeetVerification;
 import com.example.team3final.domain.meet.service.MeetVerificationService;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -86,4 +91,39 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
                 chatMessages
         );
     }
+
+    @Override
+    public PageResponseDto<GetAdminDisputesResponseDto> getDisputes(Long adminId, DisputeStatus status, Pageable pageable) {
+
+        // 어드민 존재 여부 확인
+        adminRepository.findById(adminId)
+                .orElseThrow( () -> new AdminException(ErrorCode.ADMIN_NOT_FOUND));
+
+        // status null이면 전체 조회, 있으면 해당 status만 필터링
+        Page<Dispute> disputes = disputeService.getDisputesForAdmin(status, pageable);
+
+        // submitterId 목록 한 번에 추출 (N+1 방지)
+        List<Long> submitterIds = disputes.getContent().stream()
+                .map(Dispute::getSubmitterId)
+                .distinct()
+                .toList();
+
+        // submitterId -> nickname 벌크 조회 (N+1 방지)
+        Map<Long, String> nicknameMap = userService.getUserNicknameMap(submitterIds);
+
+        // DTO 변환
+        Page<GetAdminDisputesResponseDto> response = disputes.map(dispute -> GetAdminDisputesResponseDto.of(
+                dispute.getId(),
+                dispute.getMatchId(),
+                // getOrDefault -> 있으면 dispute.getSubmitterId(), 없으면 null 반환
+                nicknameMap.getOrDefault(dispute.getSubmitterId(), null),
+                dispute.getReason(),
+                dispute.getStatus(),
+                dispute.getSubmittedAt()
+        ));
+
+        return PageResponseDto.from(response);
+    }
+
+
 }
