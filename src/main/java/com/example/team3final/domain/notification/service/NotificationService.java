@@ -3,7 +3,6 @@ package com.example.team3final.domain.notification.service;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.domain.notification.dto.response.GetNotificationsResponseDto;
 import com.example.team3final.domain.notification.dto.response.UpdateAllNotificationsReadResponseDto;
-import com.example.team3final.domain.notification.dto.response.UpdateNotificationReadResponseDto;
 import com.example.team3final.domain.notification.enums.NotificationType;
 import org.springframework.data.domain.Pageable;
 
@@ -13,10 +12,7 @@ public interface NotificationService {
     PageResponseDto<GetNotificationsResponseDto> getNotifications(Long receiverId, Boolean isRead,
                                                                   NotificationType type, Pageable pageable);
 
-    // 단건 읽음 처리
-    UpdateNotificationReadResponseDto updateNotificationRead(Long receiverId, Long notificationId);
-
-    // 전체 읽음 처리
+   // 전체 읽음 처리
     UpdateAllNotificationsReadResponseDto updateAllNotificationsRead(Long receiverId);
 }
 

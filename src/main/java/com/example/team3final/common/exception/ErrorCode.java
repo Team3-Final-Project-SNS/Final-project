@@ -124,8 +124,7 @@ public enum ErrorCode {
     AI_PROMPT_FILE_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AI_002", "AI 프롬프트 파일을 읽을 수 없습니다."),
 
     // Notification
-    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTI_001", "존재하지 않는 알림입니다."),
-    NOTIFICATION_NOT_OWNER(HttpStatus.FORBIDDEN, "NOTI_002", "본인의 알림만 읽음 처리할 수 있습니다.");
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTI_001", "존재하지 않는 알림입니다.");
 
 
     private final HttpStatus httpStatus;
