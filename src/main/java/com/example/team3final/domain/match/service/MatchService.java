@@ -75,7 +75,7 @@ public interface MatchService {
      * 내 매칭 목록 조회 — Controller 직접 호출 (명세서 5.4)
      *
      * @param status null이면 전체 조회
-     * @param pageable 페이징 + 정렬 (Controller에서 matchedAt DESC로 생성)
+     * @param pageable 페이징 + 정렬 (Controller에서 createdAt DESC로 생성)
      */
     PageResponseDto<GetMatchesResponseDto> getMatches(Long userId, MatchStatus status, Pageable pageable);
 

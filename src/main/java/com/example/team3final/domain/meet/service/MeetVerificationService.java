@@ -11,19 +11,19 @@ public interface MeetVerificationService {
 
     // GPS 장소 인증
     PlaceVerificationResponseDto createPlaceVerification(
-            Long matchId,
             Long userId,
+            Long matchId,
             PlaceVerificationRequestDto requestDto
     );
 
     // QR 토큰 발급/조회
-    QrResponseDto getMeetQr(Long matchId, Long userId);
+    QrResponseDto getMeetQr(Long userId, Long matchId);
 
     // QR 스캔
-    QrScanResponseDto createQrScan(Long matchId, Long userId, QrScanRequestDto requestDto);
+    QrScanResponseDto createQrScan(Long userId, Long matchId, QrScanRequestDto requestDto);
 
     // 인증 상태 조회
-    MeetVerificationResponseDto getMeetVerification(Long matchId, Long userId);
+    MeetVerificationResponseDto getMeetVerification(Long userId, Long matchId);
 
     // 매칭 생성 시 MeetVerification 초기 레코드 생성
     void createPendingVerification(Long matchId);
@@ -39,17 +39,17 @@ public interface MeetVerificationService {
     // HOST_NO_SHOW, GUEST_NO_SHOW, BOTH_NO_SHOW
     Page<MeetVerification> getNoShowCandidates(Pageable pageable);
 
-    // 연장 요청
-    CreateMeetExtensionResponseDto createMeetExtension(Long matchId, Long userId);
+    // 만남 시간 연장 요청
+    CreateMeetExtensionResponseDto createMeetExtension(Long userId, Long matchId);
 
-    // 연장 수락
-    AcceptMeetExtensionResponseDto acceptMeetExtension(Long matchId, Long userId);
+    // 만남 시간 연장 수락
+    AcceptMeetExtensionResponseDto acceptMeetExtension(Long userId, Long matchId);
 
-    // 연장 거절
-    RejectMeetExtensionResponseDto rejectMeetExtension(Long matchId, Long userId);
+    // 만남 시간 연장 거절
+    RejectMeetExtensionResponseDto rejectMeetExtension(Long userId, Long matchId);
 
-    // 연장 상태 조회
-    GetMeetExtensionResponseDto getMeetExtension(Long matchId, Long userId);
+    // 만남 시간 연장 상태 조회
+    GetMeetExtensionResponseDto getMeetExtension(Long userId, Long matchId);
 
     // 스케줄러 -> 5분 타임아웃 된 연장 요청 일괄 EXPIRED 처리
     void expireTimeoutExtensions();

@@ -77,6 +77,16 @@ public class MeetVerificationController {
                 .body(ApiResponseDto.success(meetVerificationService.createMeetExtension(userId, matchId)));
     }
 
+    // 만남 시간 연장 수락
+    @PatchMapping("/{matchId}/extension/accept")
+    public ResponseEntity<ApiResponseDto<AcceptMeetExtensionResponseDto>> acceptMeetExtension(
+            @PathVariable Long matchId,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+
+        Long userId = userDetails.getUserId();
+        return ResponseEntity.ok(ApiResponseDto.success(meetVerificationService.acceptMeetExtension(userId, matchId)));
+    }
+
     // 만남 시간 연장 거절
     @PatchMapping("/{matchId}/extension/reject")
     public ResponseEntity<ApiResponseDto<RejectMeetExtensionResponseDto>> rejectMeetExtension(
