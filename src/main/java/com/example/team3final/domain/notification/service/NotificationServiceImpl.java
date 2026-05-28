@@ -7,20 +7,24 @@ import com.example.team3final.domain.notification.dto.response.UpdateAllNotifica
 import com.example.team3final.domain.notification.entity.Notification;
 import com.example.team3final.domain.notification.enums.NotificationType;
 import com.example.team3final.domain.notification.repository.NotificationRepository;
+import com.example.team3final.domain.notification.sse.SseEmitterRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
-public class NotificationServiceImpl implements NotificationService{
+public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepository;
+    private final SseEmitterRepository sseEmitterRepository;
 
     // 알림 목록 조회
     @Override
@@ -72,6 +76,34 @@ public class NotificationServiceImpl implements NotificationService{
         long unreadCount = notificationRepository.countByReceiverIdAndIsRead(receiverId, false);
 
         return GetUnreadCountResponseDto.from(unreadCount);
+    }
+
+    // SSE 연결
+    @Override
+    public SseEmitter subscribe(Long userId) {
+
+        // SSE 타임아웃 30분 설정
+        SseEmitter emitter = new SseEmitter(30 * 60 * 1000L);
+
+        // Emitter 저장
+        sseEmitterRepository.save(userId, emitter);
+
+        // 연결 종료 시 Emitter 삭제
+        emitter.onCompletion(() -> sseEmitterRepository.deleteByUserId(userId));  // 정상 종료
+        emitter.onTimeout(() -> sseEmitterRepository.deleteByUserId(userId));     // 타임아웃
+        emitter.onError(e -> sseEmitterRepository.deleteByUserId(userId));        // 에러
+
+        // 연결 직후 더미 이벤트 전송 (SSE 연결 확인용)
+        // 브라우저는 첫 이벤트를 받아야 연결이 완료됨
+        try {
+            emitter.send(SseEmitter.event()
+                    .name("connect")
+                    .data("SSE 연결 완료"));
+        } catch (IOException e) {
+            sseEmitterRepository.deleteByUserId(userId);
+        }
+
+        return emitter;
     }
 }
 
