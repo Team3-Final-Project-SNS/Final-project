@@ -3,6 +3,7 @@ package com.example.team3final.domain.notification.controller;
 import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.domain.notification.dto.response.GetNotificationsResponseDto;
+import com.example.team3final.domain.notification.dto.response.GetUnreadCountResponseDto;
 import com.example.team3final.domain.notification.dto.response.UpdateAllNotificationsReadResponseDto;
 import com.example.team3final.domain.notification.enums.NotificationType;
 import com.example.team3final.domain.notification.service.NotificationService;
@@ -34,8 +35,7 @@ public class NotificationController {
         int safeSize = Math.min(size, 50);         // 최대 50개로 제한
         Pageable pageable = PageRequest.of(page, safeSize);
 
-        PageResponseDto<GetNotificationsResponseDto> response =
-                notificationService.getNotifications(receiverId, isRead, type, pageable);
+        PageResponseDto<GetNotificationsResponseDto> response = notificationService.getNotifications(receiverId, isRead, type, pageable);
 
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
@@ -46,8 +46,16 @@ public class NotificationController {
             @AuthenticationPrincipal UserDetailsImpl userDetails // JWT 토큰에서 인증된 유저 정보
     ) {
         Long receiverId = userDetails.getUserId();
-        UpdateAllNotificationsReadResponseDto response =
-                notificationService.updateAllNotificationsRead(receiverId);
+        UpdateAllNotificationsReadResponseDto response = notificationService.updateAllNotificationsRead(receiverId);
+        return ResponseEntity.ok(ApiResponseDto.success(response));
+    }
+
+    @GetMapping("/unread-count")
+    public ResponseEntity<ApiResponseDto<GetUnreadCountResponseDto>> getUnreadCount(
+            @AuthenticationPrincipal UserDetailsImpl userDetails // JWT 토큰에서 인증된 유저 정보
+    ) {
+        Long receiverId = userDetails.getUserId(); // JWT에서 수신자 ID 추출
+        GetUnreadCountResponseDto response = notificationService.getUnreadCount(receiverId);
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
 }

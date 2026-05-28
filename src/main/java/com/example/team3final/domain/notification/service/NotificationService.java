@@ -2,6 +2,7 @@ package com.example.team3final.domain.notification.service;
 
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.domain.notification.dto.response.GetNotificationsResponseDto;
+import com.example.team3final.domain.notification.dto.response.GetUnreadCountResponseDto;
 import com.example.team3final.domain.notification.dto.response.UpdateAllNotificationsReadResponseDto;
 import com.example.team3final.domain.notification.enums.NotificationType;
 import org.springframework.data.domain.Pageable;
@@ -14,5 +15,8 @@ public interface NotificationService {
 
    // 전체 읽음 처리
     UpdateAllNotificationsReadResponseDto updateAllNotificationsRead(Long receiverId);
+
+    // 미확인 알림 카운트
+    GetUnreadCountResponseDto getUnreadCount(Long receiverId);
 }
 
