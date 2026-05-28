@@ -7,7 +7,7 @@ import com.example.team3final.domain.inquiry.enums.InquiryType;
 
 import java.time.LocalDateTime;
 
-public record GetInquiryResponseDto(
+public record GetOneInquiryResponseDto(
         Long inquiryId,
         String title,
         String content,          // 상세 조회에서만 content 포함 (목록에는 없음)
@@ -34,8 +34,8 @@ public record GetInquiryResponseDto(
 
     // Inquiry + InquiryAnswer(nullable)를 받아서 DTO 조립
     // answer가 null이면 AnswerDto도 null → 미답변 상태로 응답
-    public static GetInquiryResponseDto of(Inquiry inquiry, InquiryAnswer answer) {
-        return new GetInquiryResponseDto(
+    public static GetOneInquiryResponseDto of(Inquiry inquiry, InquiryAnswer answer) {
+        return new GetOneInquiryResponseDto(
                 inquiry.getId(),
                 inquiry.getTitle(),
                 inquiry.getContent(),

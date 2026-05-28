@@ -6,15 +6,15 @@ import com.example.team3final.domain.inquiry.enums.InquiryType;
 
 import java.time.LocalDateTime;
 
-public record GetMyInquiriesResponseDto (
+public record GetAllInquiriesResponseDto(
         Long inquiryId,
         String title,
         InquiryType type,
         InquiryAnswerStatus answerStatus,
         LocalDateTime createdAt
 ) {
-    public static GetMyInquiriesResponseDto from(Inquiry inquiry) {
-        return new GetMyInquiriesResponseDto(
+    public static GetAllInquiriesResponseDto from(Inquiry inquiry) {
+        return new GetAllInquiriesResponseDto(
                 inquiry.getId(),
                 inquiry.getTitle(),
                 inquiry.getInquiryType(),
