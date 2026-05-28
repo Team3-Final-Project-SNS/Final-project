@@ -7,7 +7,6 @@ import com.example.team3final.domain.inquiry.dto.response.CreateInquiryResponseD
 import com.example.team3final.domain.inquiry.entity.Inquiry;
 import com.example.team3final.domain.inquiry.repository.InquiryRepository;
 import com.example.team3final.domain.user.service.UserService;
-import jdk.jfr.Registered;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -57,6 +56,9 @@ public class InquiryServiceImpl implements InquiryService{
         // DB에 저장
         Inquiry savedInquiry = inquiryRepository.save(inquiry);
 
+        // Redis 업데이트
+        updateRedisAfterCreate(userId);
+
         return CreateInquiryResponseDto.from(savedInquiry);
     }
 
@@ -66,7 +68,7 @@ public class InquiryServiceImpl implements InquiryService{
     private void validateCooldown(Long userId) {
         String cooldownKey = COOLDOWN_KEY_PREFIX + userId;
         Boolean hasCooldown = stringRedisTemplate.hasKey(cooldownKey);
-        if (Boolean.TRUE.equals(hasCooldown)) {
+        if (hasCooldown) {
             throw new InquiryException(ErrorCode.INQUIRY_COOLDOWN);
         }
     }
