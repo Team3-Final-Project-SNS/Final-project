@@ -2,6 +2,7 @@ package com.example.team3final.domain.notification.service;
 
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.domain.notification.dto.response.GetNotificationsResponseDto;
+import com.example.team3final.domain.notification.dto.response.GetUnreadCountResponseDto;
 import com.example.team3final.domain.notification.dto.response.UpdateAllNotificationsReadResponseDto;
 import com.example.team3final.domain.notification.entity.Notification;
 import com.example.team3final.domain.notification.enums.NotificationType;
@@ -60,6 +61,17 @@ public class NotificationServiceImpl implements NotificationService{
         int updatedCount = notificationRepository.markAllAsRead(receiverId, LocalDateTime.now());
 
         return UpdateAllNotificationsReadResponseDto.from(updatedCount);
+    }
+
+    // 미확인 알림 카운트
+    @Override
+    public GetUnreadCountResponseDto getUnreadCount(Long receiverId) {
+
+        // 별도 검증 불필요
+        // - receiverId 조건으로 본인 알림만 카운트 (타인 알림 접근 불가)
+        long unreadCount = notificationRepository.countByReceiverIdAndIsRead(receiverId, false);
+
+        return GetUnreadCountResponseDto.from(unreadCount);
     }
 }
 
