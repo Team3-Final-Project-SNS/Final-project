@@ -23,5 +23,13 @@ export interface MatchingChatRequest {
     message: string;
 }
 
+const AI_MATCHING_CHAT_TIMEOUT_MS = 20000;
+
 export const requestMatchingChat = (data: MatchingChatRequest) =>
-    axiosInstance.post<ApiResponse<MatchingChatResponse>>("/api/v1/ai/matching/chat", data);
+    axiosInstance.post<ApiResponse<MatchingChatResponse>>(
+        "/api/v1/ai/matching/chat",
+        data,
+        {
+            timeout: AI_MATCHING_CHAT_TIMEOUT_MS,
+        }
+    );

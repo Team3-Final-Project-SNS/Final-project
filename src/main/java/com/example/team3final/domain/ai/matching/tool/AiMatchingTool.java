@@ -3,19 +3,22 @@ package com.example.team3final.domain.ai.matching.tool;
 
 import com.example.team3final.domain.match.repository.MatchRepository;
 import com.example.team3final.domain.post.entity.Post;
-import com.example.team3final.domain.post.enums.PostStatus;
-import com.example.team3final.domain.post.repository.PostRepository;
+import com.example.team3final.domain.post.service.PostService;
 import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.repository.UserRepository;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Component;
 
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Component;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 /**
@@ -34,7 +37,7 @@ public class AiMatchingTool {
 
     private final UserService userService;
     private final UserRepository userRepository;
-    private final PostRepository postRepository;
+    private final PostService postService;
     private final MatchRepository matchRepository;
 
 
@@ -64,14 +67,19 @@ public class AiMatchingTool {
             return List.of();
         }
 
-        Page<Post> posts = postRepository.findByAuthorIdInAndStatus(
+        SearchCondition searchCondition = SearchCondition.from(condition);
+
+        List<Post> posts = postService.findAiMatchingCandidatePosts(
                 sameUniversityUserIds,
-                PostStatus.OPEN,
-                PageRequest.of(0, 5)
+                searchCondition.sort()
         );
 
         return posts.stream()
                 .filter(post -> !post.isAuthor(userId))
+                .filter(searchCondition::matchesMenu)
+                .filter(searchCondition::matchesTime)
+                .sorted(searchCondition.comparator())
+                .limit(5)
                 .map(post -> {
                     boolean alreadyApplied =
                             matchRepository.existsByPostIdAndApplicantId(post.getId(), userId);
@@ -154,8 +162,7 @@ public class AiMatchingTool {
     ) {
         User user = userService.findByEmail(email);
 
-        Post post = postRepository.findById(postId)
-                .orElseThrow();
+        Post post = postService.getPostById(postId);
 
         boolean alreadyApplied =
                 matchRepository.existsByPostIdAndApplicantId(post.getId(), user.getId());
@@ -217,4 +224,266 @@ public class AiMatchingTool {
 
         return null;
     }
+
+
+
+    /**
+     * AI 매칭 후보 조회에서 사용하는 간단한 검색 조건입니다.
+     *
+     * 사용자의 자연어 조건에서 책임비 정렬 조건과 음식 키워드를 추출하여
+     * 게시글 후보 조회와 정렬에 사용합니다.
+     */
+    private record SearchCondition(
+            Sort sort,
+            Comparator<Post> comparator,
+            List<String> menuKeywords,
+            TimeRange timeRange
+    ) {
+
+        private static SearchCondition from(String condition) {
+            String normalized = normalize(condition);
+            Sort sort = resolveSort(normalized);
+            Comparator<Post> comparator = resolveComparator(normalized);
+            List<String> menuKeywords = resolveMenuKeywords(normalized);
+            TimeRange timeRange = resolveTimeRange(normalized);
+
+            return new SearchCondition(sort, comparator, menuKeywords,timeRange);
+        }
+
+        private record TimeRange(
+                LocalDateTime startAt,
+                LocalDateTime endAt
+        ) {
+            private boolean contains(LocalDateTime target) {
+                return !target.isBefore(startAt) && !target.isAfter(endAt);
+            }
+        }
+
+        private boolean matchesMenu(Post post) {
+            if (menuKeywords.isEmpty()) {
+                return true;
+            }
+
+
+            String searchableText = normalize(post.getPlaceName() + " " + post.getContent());
+
+            return menuKeywords.stream().anyMatch(searchableText::contains);
+        }
+
+        private boolean matchesTime(Post post) {
+            if (timeRange == null) {
+                return true;
+            }
+
+            return timeRange.contains(post.getMeetAt());
+        }
+
+        private static Sort resolveSort(String normalized) {
+            if (isHighDepositCondition(normalized)) {
+                return Sort.by(Sort.Direction.DESC, "authorDeposit")
+                        .and(Sort.by(Sort.Direction.ASC, "meetAt"));
+            }
+
+            if (isLowDepositCondition(normalized)) {
+                return Sort.by(Sort.Direction.ASC, "authorDeposit")
+                        .and(Sort.by(Sort.Direction.ASC, "meetAt"));
+            }
+
+            return Sort.by(Sort.Direction.ASC, "meetAt");
+        }
+
+        private static Comparator<Post> resolveComparator(String normalized) {
+            Comparator<Post> meetAtAsc = Comparator.comparing(Post::getMeetAt);
+
+            if (isHighDepositCondition(normalized)) {
+                return Comparator.comparingInt(Post::getAuthorDeposit).reversed()
+                        .thenComparing(meetAtAsc);
+            }
+
+            if (isLowDepositCondition(normalized)) {
+                return Comparator.comparingInt(Post::getAuthorDeposit)
+                        .thenComparing(meetAtAsc);
+            }
+
+            return meetAtAsc;
+        }
+
+        private static List<String> resolveMenuKeywords(String normalized) {
+            if (containsAny(normalized, "치킨", "닭")) {
+                return List.of("치킨", "닭");
+            }
+
+            if (containsAny(normalized, "국밥")) {
+                return List.of("국밥");
+            }
+
+            if (containsAny(normalized, "파스타", "양식")) {
+                return List.of("파스타", "양식", "샌드위치", "카페");
+            }
+
+            if (containsAny(normalized, "분식", "떡볶이", "김밥")) {
+                return List.of("분식", "떡볶이", "김밥");
+            }
+
+            if (containsAny(normalized, "샌드위치", "카페")) {
+                return List.of("샌드위치", "카페");
+            }
+
+            if (containsAny(normalized, "튀김")) {
+                return List.of("튀김", "치킨", "돈까스", "분식", "떡볶이");
+            }
+
+            return List.of();
+        }
+
+        private static TimeRange resolveTimeRange(String normalized) {
+            TimeRange hourRange = resolveHourRange(normalized);
+
+            if (hourRange != null) {
+                return hourRange;
+            }
+
+            LocalDate today = LocalDate.now();
+
+            if (containsAny(normalized, "오늘")) {
+                return new TimeRange(
+                        today.atStartOfDay(),
+                        today.atTime(23, 59, 59)
+                );
+            }
+
+            if (containsAny(normalized, "내일")) {
+                LocalDate tomorrow = today.plusDays(1);
+
+                return new TimeRange(
+                        tomorrow.atStartOfDay(),
+                        tomorrow.atTime(23, 59, 59)
+                );
+            }
+
+            if (containsAny(normalized, "점심", "런치")) {
+                return new TimeRange(
+                        today.atTime(11, 0),
+                        today.atTime(14, 0)
+                );
+            }
+
+            if (containsAny(normalized, "저녁", "퇴근후")) {
+                return new TimeRange(
+                        today.atTime(17, 0),
+                        today.atTime(21, 0)
+                );
+            }
+
+            if (containsAny(normalized, "밤", "야식")) {
+                return new TimeRange(
+                        today.atTime(21, 0),
+                        today.plusDays(1).atTime(1, 0)
+                );
+            }
+
+            return null;
+        }
+
+        private static TimeRange resolveHourRange(String normalized) {
+            Pattern pattern = Pattern.compile("(\\d{1,2})시");
+            Matcher matcher = pattern.matcher(normalized);
+
+            if (!matcher.find()) {
+                return null;
+            }
+
+            int hour = Integer.parseInt(matcher.group(1));
+
+            boolean hasAm = containsAny(normalized, "오전");
+            boolean hasPm = containsAny(normalized, "오후");
+
+            if (hasPm && hour >= 1 && hour <= 11) {
+                hour += 12;
+            }
+
+            if (hasAm && hour == 12) {
+                hour = 0;
+            }
+
+            if (hour < 0 || hour > 23) {
+                return null;
+            }
+
+            LocalDate today = LocalDate.now();
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime center = today.atTime(hour, 0);
+
+// 오전/오후 표현이 없고 1~11시라면, 다가오는 오후 시간을 우선 해석
+            if (!hasAm && !hasPm && hour >= 1 && hour <= 11) {
+                LocalDateTime pmCenter = today.atTime(hour + 12, 0);
+
+                if (!pmCenter.plusHours(1).isBefore(now)) {
+                    center = pmCenter;
+                }
+            }
+
+// 이미 지난 시간이면 다음 날 같은 시간으로 해석
+            if (center.plusHours(1).isBefore(now)) {
+                center = center.plusDays(1);
+            }
+
+            return new TimeRange(
+                    center.minusHours(1),
+                    center.plusHours(1)
+            );
+        }
+
+
+        private static boolean isHighDepositCondition(String normalized) {
+            return containsAny(
+                    normalized,
+                    "책임비가장높",
+                    "책임비가가장높",
+                    "책임비제일높",
+                    "책임비가제일높",
+                    "가장높",
+                    "제일높",
+                    "높은순",
+                    "비싼"
+            );
+        }
+
+        private static boolean isLowDepositCondition(String normalized) {
+            return containsAny(
+                    normalized,
+                    "책임비낮",
+                    "책임비가낮",
+                    "책임비가장낮",
+                    "책임비가가장낮",
+                    "책임비제일낮",
+                    "낮은순",
+                    "가장낮",
+                    "제일낮",
+                    "저렴",
+                    "싼"
+            );
+        }
+
+        private static boolean containsAny(String text, String... keywords) {
+            for (String keyword : keywords) {
+                if (text.contains(keyword)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static String normalize(String text) {
+            if (text == null) {
+                return "";
+            }
+
+            return text.replace(" ", "").toLowerCase();
+        }
+    }
+
+
+
 }

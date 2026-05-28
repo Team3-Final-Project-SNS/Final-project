@@ -63,6 +63,10 @@ public class DataInitializer implements ApplicationRunner {
     @Transactional
     public void run(ApplicationArguments args) {
 
+        if (universityRepository.existsByeDomainAndIsActiveTrue("korea.ac.kr")) {
+            return;
+        }
+
         // ===================================================
         // 1. 대학교 생성
         // ===================================================
