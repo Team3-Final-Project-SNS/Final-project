@@ -1,6 +1,5 @@
 package com.example.team3final.domain.user.entity;
 
-import com.example.team3final.common.entity.BaseTimeEntity;
 import com.example.team3final.common.entity.SoftDeleteEntity;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.UserException;
@@ -14,6 +13,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity
@@ -63,6 +63,12 @@ public class User extends SoftDeleteEntity {
     @Column(name = "status",nullable = false, length = 20)
     private UserStatus status; // 유저의 계정 상태
 
+    // 매너온도
+    // BigDecimal -> 십진수 그대로 저장하기 때문에 오차가 매우 적음
+    // double -> 부동 소수점 방식으로 숫자를 저장, 이진수로 변환하는 과정에서 근사값으로 저장됨 -> 오차 발생
+    @Column(name = "manner_temperature", nullable = false)
+    private BigDecimal mannerTemperature;
+
     @Builder
     private User(String email, String password, String name, String nickname,
                  Long universityId, String major, String studentNumber,
@@ -78,6 +84,7 @@ public class User extends SoftDeleteEntity {
         this.gender = gender;
         this.point = 0;                  // 기본값 0, 가입 보너스는 서비스에서 별도 처리
         this.status = UserStatus.ACTIVE; // 가입 시 기본 상태
+        this.mannerTemperature = new BigDecimal("36.5");
     }
 
     // 닉네임 변경
@@ -126,6 +133,16 @@ public class User extends SoftDeleteEntity {
     // 계정 정지 (관리자)
     public void suspend() {
         this.status = UserStatus.SUSPENDED;
+    }
+
+    // 매너 온도 증가
+    public void addMannerTemperature(BigDecimal amount) {
+        this.mannerTemperature = this.mannerTemperature.add(amount);
+    }
+
+    // 매너 온도 감소
+    public void deductMannerTemperature(BigDecimal amount) {
+        this.mannerTemperature = this.mannerTemperature.subtract(amount);
     }
 
 

@@ -76,6 +76,21 @@ public class UserPointServiceImpl implements UserPointService{
                 user.getPoint());
     }
 
+    // 포상 포인트 지급
+    @Override
+    public void rewardPoint(Long userId, int amount) {
+
+        // 유저 조회
+        User user = getUserOrThrow(userId);
+
+        // 포인트 적립
+        user.addPoint(amount);
+
+        // PointTransaction 기록 -> REPORT_REWARD 적립, matchId는 신고에 없으므로 -> null
+        saveTransaction(user.getId(), null, amount, PointTransactionType.REPORT_REWARD, user.getPoint());
+
+    }
+
     // ===== private 헬퍼 =====
     private User getUserOrThrow(Long userId) {
         return userRepository.findById(userId)
