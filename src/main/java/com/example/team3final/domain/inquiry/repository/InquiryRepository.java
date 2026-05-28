@@ -3,6 +3,8 @@ package com.example.team3final.domain.inquiry.repository;
 import com.example.team3final.domain.inquiry.entity.Inquiry;
 import com.example.team3final.domain.inquiry.enums.InquiryAnswerStatus;
 import com.example.team3final.domain.inquiry.enums.InquiryType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -40,5 +42,8 @@ public interface InquiryRepository extends JpaRepository<Inquiry, Long> {
             @Param("inquiryType") InquiryType inquiryType,
             @Param("statuses") List<InquiryAnswerStatus> statuses
     );
+
+    // 특정 유저의 문의 목록을 최신순으로 페이징 조회
+    Page<Inquiry> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
 }
