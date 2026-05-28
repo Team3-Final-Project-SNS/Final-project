@@ -30,7 +30,7 @@ public class AiPromptDataInitializer implements ApplicationRunner {
                         .promptType(AiPromptType.MATCHING_CHAT)
                         .feature(AiFeature.MATCHING)
                         .version("v1")
-                        .fileName("matching-chat.st")
+                        .fileName("matching-chat-v1.st")
                         .active(true)
                         .description("한끼팟 매칭 AI 기본 프롬프트")
                         .build()
