@@ -63,6 +63,7 @@ public class DataInitializer implements ApplicationRunner {
     @Transactional
     public void run(ApplicationArguments args) {
 
+        // 데이터 중복을 피하기 위해서. 설정.
         if (universityRepository.existsByeDomainAndIsActiveTrue("korea.ac.kr")) {
             return;
         }
