@@ -4,6 +4,7 @@ import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.AdminException;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.domain.admin.meet.dto.response.AdminNoShowCandidateResponseDto;
+import com.example.team3final.domain.dispute.service.DisputeService;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.service.MatchService;
 import com.example.team3final.domain.meet.entity.MeetVerification;
@@ -20,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +32,7 @@ public class AdminMeetVerificationServiceImpl implements AdminMeetVerificationSe
     private final MatchService matchService;
     private final PostService postService;
     private final UserService userService;
+    private final DisputeService disputeService;
 
     // 노쇼 후보군 조회
     @Override
@@ -68,6 +71,9 @@ public class AdminMeetVerificationServiceImpl implements AdminMeetVerificationSe
         Map<Long, String> nicknameMap = userService.getUserNicknameMap(
                 userIds.stream().distinct().toList());
 
+        // matchId 목록으로 이의제기 존재 여부를 한 번에 조회 (N+1 방지)
+        Set<Long> matchIdsWithDispute = disputeService.getMatchIdsWithDispute(matchIds);
+
         // DTO 조립
         Page<AdminNoShowCandidateResponseDto> result = meetVerificationPage.map(meetVerification -> {
 
@@ -94,8 +100,8 @@ public class AdminMeetVerificationServiceImpl implements AdminMeetVerificationSe
                 throw new AdminException(ErrorCode.USER_NOT_FOUND);
             }
 
-            // TODO: Disputes 도메인 구현 후 실제 이의제기 존재 여부로 교체
-            boolean hasDispute = false;
+            // Set.contains() → 이 매칭에 이의제기가 있으면 true
+            boolean hasDispute = matchIdsWithDispute.contains(meetVerification.getMatchId());
 
             return AdminNoShowCandidateResponseDto.of(
                     meetVerification,

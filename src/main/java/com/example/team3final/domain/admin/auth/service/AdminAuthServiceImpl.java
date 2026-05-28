@@ -14,13 +14,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+@Transactional
 public class AdminAuthServiceImpl implements AdminAuthService {
 
     private final AdminRepository adminRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
 
+    // 로그인
     @Override
     public AdminLoginResponseDto login(AdminLoginRequestDto requestDto) {
 
@@ -34,7 +35,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         }
 
         // 계정 활성화 여부 체크
-        if (!admin.isActiveAdmin()) {
+        if (!admin.isActiveAndSuperAdmin()) {
             throw new AdminException(ErrorCode.ADMIN_ACCOUNT_INACTIVE);
         }
 

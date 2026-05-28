@@ -13,4 +13,6 @@ public interface AdminDisputeService {
 
     // 이의 제기 목록조회
     PageResponseDto<GetAdminDisputesResponseDto> getDisputes(Long adminId, DisputeStatus status, Pageable pageable);
+
+    // TODO: 이의제기 최종 판정
 }

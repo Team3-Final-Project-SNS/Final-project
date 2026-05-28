@@ -43,4 +43,6 @@ public class AdminDisputeController {
         Pageable pageable = PageRequest.of(page, size);
         return ResponseEntity.ok(ApiResponseDto.success(adminDisputeService.getDisputes(adminId, status, pageable)));
     }
+
+    // TODO: 이의제기 최종 판정
 }
