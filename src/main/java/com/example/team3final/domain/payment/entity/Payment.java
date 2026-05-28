@@ -1,6 +1,7 @@
 package com.example.team3final.domain.payment.entity;
 
 import com.example.team3final.common.entity.BaseTimeEntity;
+import com.example.team3final.domain.payment.enums.ChargePackage;
 import com.example.team3final.domain.payment.enums.PaymentStatus;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -35,7 +36,12 @@ public class Payment extends BaseTimeEntity {
     @Column(name = "merchant_uid", nullable = false, updatable = false, length = 100)
     private String merchantUid;
 
-    // 충전할 포인트
+    // 어떤 충전 패키지였는지 (이력/분석용). STRING 저장.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "charge_package", nullable = false, updatable = false, length = 20)
+    private ChargePackage chargePackage;
+
+    // 적립 포인트 스냅샷
     @Column(name = "charge_point", nullable = false, updatable = false)
     private int chargePoint;
 
@@ -66,11 +72,12 @@ public class Payment extends BaseTimeEntity {
      * status 는 항상 READY 로 시작하므로 내부에서 세팅.
      */
     @Builder
-    private Payment(Long userId, String merchantUid, int chargePoint, int amount, String payMethod) {
+    private Payment(Long userId, String merchantUid, ChargePackage chargePackage, String payMethod) {
         this.userId = userId;
         this.merchantUid = merchantUid;
-        this.chargePoint = chargePoint;
-        this.amount = amount;
+        this.chargePackage = chargePackage;
+        this.chargePoint = chargePackage.getPoint(); // 패키지에서 적립 포인트 스냅샷
+        this.amount = chargePackage.getAmount();     // 패키지에서 결제 금액 스냅샷
         this.payMethod = payMethod;
         this.status = PaymentStatus.READY;  // 준비 상태로 시작
     }
