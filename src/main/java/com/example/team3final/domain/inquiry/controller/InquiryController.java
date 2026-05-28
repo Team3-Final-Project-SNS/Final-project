@@ -42,7 +42,7 @@ public class InquiryController {
 
     // 내 문의 상세(답변포함) 조회
     @GetMapping("/{inquiryId}")
-    public ResponseEntity<ApiResponseDto<GetOneInquiryResponseDto>> getInquiry(
+    public ResponseEntity<ApiResponseDto<GetOneInquiryResponseDto>> getOneInquiry(
             @AuthenticationPrincipal UserDetailsImpl userDetails,
             @PathVariable Long inquiryId
     ) {
