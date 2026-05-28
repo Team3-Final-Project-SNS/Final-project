@@ -1,9 +1,14 @@
 package com.example.team3final.domain.inquiry.service;
 
+import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.InquiryException;
+import com.example.team3final.domain.admin.inquiryAnswer.entity.InquiryAnswer;
+import com.example.team3final.domain.admin.inquiryAnswer.service.InquiryAnswerService;
 import com.example.team3final.domain.inquiry.dto.request.CreateInquiryRequestDto;
 import com.example.team3final.domain.inquiry.dto.response.CreateInquiryResponseDto;
+import com.example.team3final.domain.inquiry.dto.response.GetInquiryResponseDto;
+import com.example.team3final.domain.inquiry.dto.response.GetMyInquiriesResponseDto;
 import com.example.team3final.domain.inquiry.entity.Inquiry;
 import com.example.team3final.domain.inquiry.enums.InquiryAnswerStatus;
 import com.example.team3final.domain.inquiry.enums.InquiryType;
@@ -27,6 +32,7 @@ public class InquiryServiceImpl implements InquiryService{
     private final InquiryRepository inquiryRepository;
     private final StringRedisTemplate stringRedisTemplate;
     private final UserService userService;
+    private final InquiryAnswerService inquiryAnswerService;
 
     private static final int MAX_DAILY_INQUIRY_COUNT = 20; // 하루 최대 문의 접수 횟수
     private static final Duration COOLDOWN_DURATION =  Duration.ofMinutes(1); // 문의 간 최소 대기 시간
@@ -66,6 +72,28 @@ public class InquiryServiceImpl implements InquiryService{
         updateRedisAfterCreate(userId);
 
         return CreateInquiryResponseDto.from(savedInquiry);
+    }
+
+    // 문의 상세(답변) 조회
+    @Override
+    public GetInquiryResponseDto getInquiry(Long userId, Long inquiryId) {
+
+        // 1. 문의 존재 여부 확인
+        // orElseThrow: 없으면 즉시 예외 발생 → GlobalExceptionHandler가 404로 변환
+        Inquiry inquiry = inquiryRepository.findById(inquiryId)
+                .orElseThrow(() -> new InquiryException(ErrorCode.INQUIRY_NOT_FOUND));
+
+        // 2. 본인 문의인지 확인 (userId 일치 여부)
+        // inquiry.getUserId(): 이 문의를 접수한 유저 ID
+        if (!inquiry.getUserId().equals(userId)) {
+            throw new InquiryException(ErrorCode.INQUIRY_ACCESS_DENIED); // 403
+        }
+
+        // 3. 답변 조회 (없을 수 있으므로 Optional 사용)
+        InquiryAnswer answer = inquiryAnswerService.getByInquiryId(inquiryId)
+                .orElse(null);
+
+        return GetInquiryResponseDto.of(inquiry, answer);
     }
 
     // ===== private 검증 메서드 =====
