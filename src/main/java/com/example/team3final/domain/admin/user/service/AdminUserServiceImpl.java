@@ -54,8 +54,7 @@ public class AdminUserServiceImpl implements AdminUserService {
                 universityNameMap.computeIfAbsent(user.getUniversityId(), id -> {
                     throw new AdminException(ErrorCode.UNIVERSITY_NOT_FOUND);
                 }),
-                // TODO: User 엔티티에 mannerTemperature 필드 추가 후 user.getMannerTemperature()로 교체 예정
-                0.0
+                user.getMannerTemperature().doubleValue()
                 )
         );
 
