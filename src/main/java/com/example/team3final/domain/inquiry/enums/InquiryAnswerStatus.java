@@ -10,7 +10,6 @@ public enum InquiryAnswerStatus {
     PENDING("접수완료"),
     READ("열람"),
     ANSWERED("답변완료"),
-    CLOSED("종결"),
     WITHDRAWN("취소");
 
     private final String description;
