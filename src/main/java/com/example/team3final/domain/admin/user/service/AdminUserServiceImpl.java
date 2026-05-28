@@ -76,7 +76,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         }
 
         // 계정 정지 처리
-        userService.suspendUser(userId, requestDto.getDays());
+        userService.suspendUser(userId, null); // 영구정지 (관리자 수동 정지)
 
         return new AdminSuspendUserResponseDto(
                 userId,
