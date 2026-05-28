@@ -5,7 +5,10 @@ import com.example.team3final.domain.dispute.enums.DisputeStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface DisputeRepository extends JpaRepository<Dispute, Long> {
@@ -18,4 +21,12 @@ public interface DisputeRepository extends JpaRepository<Dispute, Long> {
 
     // status 필터링 + 페이징 조회 — 어드민 목록 조회용
     Page<Dispute> findAllByStatus(DisputeStatus status, Pageable pageable);
+
+    // matchId만으로 이의제기 존재 여부 확인 (노쇼 후보군 조회용 벌크)
+    @Query("""
+           SELECT d.matchId
+           FROM Dispute d
+           WHERE d.matchId IN :matchIds
+           """)
+    List<Long> findMatchIdsByMatchIdIn(@Param("matchIds") List<Long> matchIds);
 }

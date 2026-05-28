@@ -23,6 +23,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -127,5 +131,18 @@ public class DisputeServiceImpl implements DisputeService {
             return disputeRepository.findAll(pageable);
         }
         return disputeRepository.findAllByStatus(status, pageable);
+    }
+
+    // 관리자 - 노쇼 후보군 조회
+    // matchId 목록으로 이의제기 존재 여부를 한 번에 조회 (N+1 방지)
+    @Override
+    public Set<Long> getMatchIdsWithDispute(List<Long> matchIds) {
+
+        if (matchIds == null || matchIds.isEmpty()) {
+            return Collections.emptySet();
+        }
+
+        // List -> Set 변환
+        return new HashSet<>(disputeRepository.findMatchIdsByMatchIdIn(matchIds));
     }
 }
