@@ -125,5 +125,7 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
         return PageResponseDto.from(response);
     }
 
+    // TODO: 이의제기 최종 판정
+
 
 }
