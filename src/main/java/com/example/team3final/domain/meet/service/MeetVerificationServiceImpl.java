@@ -220,7 +220,8 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         userLocationService.deleteLocationsByMatchId(matchId);
 
         // 만남 인증 완료 되는 순간 채팅방 비활성화 실행
-        chatService.scheduleChatRoomDeactivation(matchId);
+        Long postId = matchInfo.postId();
+        chatService.scheduleChatRoomDeactivation(postId);
 
         // Match 상태 COMPLETED로 변경
         matchService.completeMatch(matchId);
@@ -272,21 +273,21 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         }
 
         // 각 verification에서 matchId만 추출
-        List<Long> matchId = pendingList.stream()
+        List<Long> matchIds = pendingList.stream()
                 .map(MeetVerification::getMatchId)
                 .toList();
 
         // Match 도메인에 한 번에 조회 요청 (벌크 조회)
-        Map<Long, MatchInfoDto> matchInfoDtoMap = matchService.getMatchInfos(matchId);
+        Map<Long, MatchInfoDto> matchInfoDtoMap = matchService.getMatchInfos(matchIds);
 
         // 위에서 받은 MatchInfo들에서 postId만 추출
-        List<Long> postId = matchInfoDtoMap.values()
+        List<Long> postIds = matchInfoDtoMap.values()
                 .stream()
                 .map(MatchInfoDto::postId)
                 .toList();
 
         // Post 도메인에 한 번에 조회 요청
-        Map<Long, PostInfoDto> postInfoDtoMap = postQueryService.getPostInfos(postId);
+        Map<Long, PostInfoDto> postInfoDtoMap = postQueryService.getPostInfos(postIds);
 
         for (MeetVerification meetVerification : pendingList) {
             // 만약, 누락 된 matchId가 Map에 없을 수 있으므로, 이러한 경우 null 반환
@@ -296,7 +297,8 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                 continue;
             }
 
-            PostInfoDto postInfoDto = postInfoDtoMap.get(meetVerification.getMatchId());
+            Long currentPostId = matchInfoDto.postId();
+            PostInfoDto postInfoDto = postInfoDtoMap.get(currentPostId);
             if (postInfoDto == null) {
                 continue;
             }
@@ -317,20 +319,20 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                 meetVerification.markBothNoShow();
                 matchService.markBothNoShow(meetVerification.getMatchId());
                 userLocationService.deleteLocationsByMatchId(meetVerification.getMatchId());
-                chatService.deactivateChatRoom(meetVerification.getMatchId());
+                chatService.deactivateChatRoom(currentPostId);
 
             } else if (authorVerified && !applicantVerified) {
                 // 신청자가 노쇼 -> GUEST_NO_SHOW
                 meetVerification.markApplicantNoShow();
                 matchService.markApplicantNoShow(meetVerification.getMatchId());
                 userLocationService.deleteLocationsByMatchId(meetVerification.getMatchId());
-                chatService.deactivateChatRoom(meetVerification.getMatchId());
+                chatService.deactivateChatRoom(currentPostId);
             } else if (!authorVerified) {
                 // 등록자 노쇼 -> HOST_NO_SHOW
                 meetVerification.markAuthorNoShow();
                 matchService.markAuthorNoShow(meetVerification.getMatchId());
                 userLocationService.deleteLocationsByMatchId(meetVerification.getMatchId());
-                chatService.deactivateChatRoom(meetVerification.getMatchId());
+                chatService.deactivateChatRoom(currentPostId);
             }
         }
     }
@@ -350,8 +352,25 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             return;
         }
 
+        // matchId 목록 추출
+        List<Long> matchIds = expiresList.stream()
+                .map(MeetVerification::getMatchId)
+                .toList();
+
+        Map<Long, MatchInfoDto> matchInfoDtoMap = matchService.getMatchInfos(matchIds);
+
         // QR단계에서 만료된 건 -> 신청자가 스캔을 안 한 케이스 -> 일괄 신청자 노쇼
         for (MeetVerification meetVerification : expiresList) {
+
+            // matchId → MatchInfoDto → postId 추출
+            MatchInfoDto matchInfoDto = matchInfoDtoMap.get(meetVerification.getMatchId());
+            if (matchInfoDto == null) {
+                // 데이터 정합성 이슈 → 해당 건 스킵
+                continue;
+            }
+
+            Long postId = matchInfoDto.postId();
+
             // 자신의 상태를 신청자 노쇼로 변경
             meetVerification.markApplicantNoShow();
 
@@ -362,7 +381,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             userLocationService.deleteLocationsByMatchId(meetVerification.getMatchId());
 
             // 채팅방 비활성화
-            chatService.deactivateChatRoom(meetVerification.getMatchId());
+            chatService.deactivateChatRoom(postId);
         }
     }
 
