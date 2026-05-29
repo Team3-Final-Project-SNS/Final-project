@@ -57,8 +57,7 @@ public class AuthServiceImpl implements AuthService{
     private static final List<String> REQUIRED_TERM_VERSIONS = List.of(
             "v1.0-service",
             "v1.0-privacy",
-            "v1.0-location",  // 추가된 위치 정보 약관
-            "v1.0-marketing"  // 추가된 마케팅 약관
+            "v1.0-location"  // 추가된 위치 정보 약관
     );
 
     // ======== OTP 발송 ======================
