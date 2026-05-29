@@ -34,6 +34,20 @@ export interface MeetVerificationResponse {
     completedAt: string | null;
 }
 
+export type ExtensionStatus = "NONE" | "REQUESTED" | "ACCEPTED" | "REJECTED" | "EXPIRED";
+
+export interface MeetExtensionResponse {
+    matchId: number;
+    extensionStatus: ExtensionStatus;
+    requesterId: number | null;
+    requesterNickname: string | null;
+    isMyRequest?: boolean;
+    originalMeetAt: string;
+    expectedMeetAt: string;
+    requestedAt: string | null;
+    expiresAt: string | null;
+}
+
 export interface SingleLocationResponse {
     latitude: number;
     longitude: number;
@@ -65,6 +79,16 @@ export const createQrScan = (matchId: number, qrToken: string) => {
 // 인증 상태 조회 API
 export const getMeetVerification = (matchId: number) => {
     return axiosInstance.get<ApiResponse<MeetVerificationResponse>>(`/api/v1/matches/${matchId}/verification`);
+};
+
+// 만남 시간 연장 요청
+export const createMeetExtension = (matchId: number) => {
+    return axiosInstance.post<ApiResponse<MeetExtensionResponse>>(`/api/v1/matches/${matchId}/extension/request`);
+};
+
+// 만남 시간 연장 상태 조회
+export const getMeetExtension = (matchId: number) => {
+    return axiosInstance.get<ApiResponse<MeetExtensionResponse>>(`/api/v1/matches/${matchId}/extension`);
 };
 
 // ────────────────────────────────────────
