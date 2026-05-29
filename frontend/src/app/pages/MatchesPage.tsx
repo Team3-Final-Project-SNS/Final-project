@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router';
-import { MapPin, Clock, MessageCircle, QrCode, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-import { getMyMatches, GetMatchesItemResponse, MatchStatus } from '../../api/matchApi';
+import { MapPin, Clock, MessageCircle, AlertCircle, Loader2, XCircle } from 'lucide-react';
+import { getMyMatches, GetMatchesItemResponse, MatchStatus, updateMatchCancel } from '../../api/matchApi';
 
 type FilterStatus = MatchStatus | '전체';
 
@@ -51,6 +51,21 @@ export default function MatchesPage() {
   const getTimeAgo = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const handleCancelMatch = async (matchId: number) => {
+    const ok = window.confirm('매칭을 취소하시겠습니까? 취소 시 책임비 일부가 차감될 수 있습니다.');
+    if (!ok) return;
+
+    try {
+      await updateMatchCancel(matchId, '사용자 요청');
+      setMatches((prev) =>
+          prev.map((match) => match.matchId === matchId ? { ...match, status: 'CANCELLED' } : match)
+      );
+      alert('매칭이 취소되었습니다.');
+    } catch (err: any) {
+      alert(err.response?.data?.message || '매칭 취소에 실패했습니다.');
+    }
   };
 
   return (
@@ -142,6 +157,13 @@ export default function MatchesPage() {
                             {(match.status === 'MATCHED' || match.status === 'DISPUTED') && (
                                 <>
                                   <Link
+                                      to={`/matches/${match.matchId}/place-verification`}
+                                      className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#d84315] text-white rounded-lg text-sm font-semibold hover:bg-[#bf360c] transition-colors"
+                                  >
+                                    <MapPin size={16} />
+                                    인증/지도
+                                  </Link>
+                                  <Link
                                       to={`/chat/${match.chatRoomId}`}
                                       state={{ matchId: match.matchId }}
                                       className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white border border-[#e0e0e0] rounded-lg text-sm font-semibold text-[#616161] hover:bg-[#f5f5f5] transition-colors"
@@ -149,13 +171,14 @@ export default function MatchesPage() {
                                     <MessageCircle size={16} />
                                     채팅
                                   </Link>
-                                  <Link
-                                      to={`/matches/${match.matchId}/place-verification`}
-                                      className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#d84315] text-white rounded-lg text-sm font-semibold hover:bg-[#bf360c] transition-colors"
+                                  <button
+                                      type="button"
+                                      onClick={() => handleCancelMatch(match.matchId)}
+                                      className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white border border-[#ef5350] rounded-lg text-sm font-semibold text-[#c62828] hover:bg-[#ffebee] transition-colors"
                                   >
-                                    <MapPin size={16} />
-                                    인증/지도
-                                  </Link>
+                                    <XCircle size={16} />
+                                    매칭 취소
+                                  </button>
                                 </>
                             )}
                             {match.status === 'COMPLETED' && (

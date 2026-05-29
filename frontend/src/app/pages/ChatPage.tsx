@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useLocation } from 'react-router';
-import { ArrowLeft, Send, MapPin, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Send, MapPin, Loader2, AlertCircle, Clock } from 'lucide-react';
 import { getChatMessages, ChatMessageResponse, getChatRooms } from '../../api/chatApi';
 import { getMatchDetail, GetMatchResponse } from '../../api/matchApi';
+import { createMeetExtension } from '../../api/meetApi';
 import { getUserMe } from '../../api/userApi';
 import SockJS from 'sockjs-client';
 import { Client } from '@stomp/stompjs';
@@ -51,6 +52,7 @@ export default function ChatPage() {
   const [cursor, setCursor] = useState<number | null>(null);
   const [hasNext, setHasNext] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [extensionLoading, setExtensionLoading] = useState(false);
 
   const stompClient = useRef<Client | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -184,6 +186,20 @@ export default function ChatPage() {
     setMessage('');
   };
 
+  const handleExtendMeetTime = async () => {
+    if (!matchInfo || extensionLoading) return;
+
+    try {
+      setExtensionLoading(true);
+      await createMeetExtension(matchInfo.matchId);
+      alert('시간 연장 요청을 보냈습니다. 상대방이 수락하면 15분 연장됩니다.');
+    } catch (err: any) {
+      alert(err.response?.data?.message || '시간 연장 요청에 실패했습니다.');
+    } finally {
+      setExtensionLoading(false);
+    }
+  };
+
   const loadMore = async () => {
     if (!hasNext || !cursor || !chatRoomId) return;
     try {
@@ -229,13 +245,24 @@ export default function ChatPage() {
             )}
             {/* 장소 인증 버튼 */}
             {matchInfo ? (
-                <Link
-                    to={`/matches/${matchInfo.matchId}/place-verification`}
-                    className="px-5 py-2.5 bg-[#d84315] text-white rounded-xl text-sm font-semibold hover:bg-[#bf360c] transition-all shadow-md flex items-center gap-2"
-                >
-                  <MapPin size={16} />
-                  장소 인증
-                </Link>
+                <>
+                  <Link
+                      to={`/matches/${matchInfo.matchId}/place-verification`}
+                      className="px-5 py-2.5 bg-[#d84315] text-white rounded-xl text-sm font-semibold hover:bg-[#bf360c] transition-all shadow-md flex items-center gap-2"
+                  >
+                    <MapPin size={16} />
+                    장소 인증
+                  </Link>
+                  <button
+                      type="button"
+                      onClick={handleExtendMeetTime}
+                      disabled={extensionLoading}
+                      className="px-5 py-2.5 bg-white border border-[#d84315] text-[#d84315] rounded-xl text-sm font-semibold hover:bg-[#fff3e0] transition-all shadow-sm flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {extensionLoading ? <Loader2 size={16} className="animate-spin" /> : <Clock size={16} />}
+                    시간 연장
+                  </button>
+                </>
             ) : (
                 <button
                     type="button"
