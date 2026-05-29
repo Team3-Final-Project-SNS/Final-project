@@ -121,6 +121,27 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                         .convert(candidates, List.class);
 
                 toolResults = "모집글 조회 도구 호출 성공";
+                // Tool 조회는 정상적으로 끝났지만 조건에 맞는 모집글 후보가 없는 경우.
+                // 이 상태에서 LLM을 호출하면 후보에 없는 게시글을 생성해 추천할 수 있으므로,
+                // LLM 호출 전에 바로 "추천 결과 없음" 응답을 반환하여 환각을 방지한다.
+                // recommendedPosts도 빈 목록으로 내려가므로 프론트는 게시글 바로가기 버튼을 만들지 않는다.
+                if (candidates.isEmpty()) {
+                    saveMetric(
+                            requestId,
+                            user.getId(),
+                            startedAt,
+                            AiCallStatus.SUCCESS,
+                            null,
+                            null
+                    );
+
+                    return new AiMatchingChatResponseDto(
+                            request.conversationId(),
+                            "현재 조건에 맞는 식사팟을 찾지 못했어요. 시간대, 메뉴, 분위기 조건을 조금 넓혀보면 더 많은 모집글을 찾을 수 있어요.",
+                            List.of(),
+                            false
+                    );
+                }
             } catch (Exception e) {
                 log.error("[AiMatchingService] 모집글 조회 Tool 호출 실패", e);
 
