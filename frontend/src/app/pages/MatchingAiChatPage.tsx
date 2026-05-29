@@ -1,6 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { Link } from 'react-router';
-import { AlertCircle, Bot, CalendarClock, CheckCircle2, Coins, Loader2, Send, Sparkles, XCircle } from 'lucide-react';
+import { AlertCircle, ArrowRight, Bot, CalendarClock, CheckCircle2, Coins, Loader2, Send, Sparkles, XCircle } from 'lucide-react';
 import { RecommendedPost, requestMatchingChat } from '../../api/aiApi';
 
 const EXAMPLE_QUESTIONS = [
@@ -178,6 +178,7 @@ export default function MatchingAiChatPage() {
 
 function ChatBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === 'user';
+  const displayRecommendedPosts = getDisplayRecommendedPosts(message);
 
   return (
       <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -201,32 +202,63 @@ function ChatBubble({ message }: { message: ChatMessage }) {
                   AI 추천이 일부 제한된 상태입니다.
                 </div>
             )}
+
+            {!isUser && displayRecommendedPosts.length > 0 && (
+                <div className="mt-4 border-t border-[#eeeeee] pt-3">
+                  <p className="mb-2 text-xs font-bold text-[#616161]">추천 게시글 바로가기</p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {displayRecommendedPosts.map((post) => (
+                        <Link
+                            key={post.postId}
+                            to={`/posts/${post.postId}`}
+                            className="group flex min-w-0 items-center justify-between gap-2 rounded-xl border border-[#e0e0e0] bg-white px-3 py-2 text-xs font-bold text-[#424242] transition-all hover:border-[#d84315] hover:bg-[#fff8f3] hover:text-[#d84315]"
+                        >
+                          <span className="min-w-0 truncate">
+                            {post.placeName} · {post.deposit.toLocaleString()}P
+                          </span>
+                          <ArrowRight size={13} className="shrink-0 transition-transform group-hover:translate-x-0.5" />
+                        </Link>
+                    ))}
+                  </div>
+                </div>
+            )}
           </div>
 
-          {!isUser && message.recommendedPosts && message.recommendedPosts.length > 0 && (
+          {!isUser && displayRecommendedPosts.length === 0 && hasRecommendedAnswer(message) && (
               <div className="mt-3 rounded-2xl border border-[#eeeeee] bg-white p-3">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-bold text-[#212121]">
-                      {isLimitedRecommendation(message) ? '조건을 넓혀볼 만한 후보' : '추천 게시글'}
-                    </p>
-                    <p className="mt-0.5 text-xs text-[#9e9e9e]">AI가 최대 5개의 후보 게시글을 비교했어요.</p>
-                  </div>
-                  <span className="rounded-full bg-[#fff3e0] px-2.5 py-1 text-xs font-bold text-[#d84315]">
-                    {message.recommendedPosts.length}개
-                  </span>
-                </div>
-
-                <div className="grid gap-2 md:grid-cols-2">
-                  {message.recommendedPosts.map((post) => (
-                      <RecommendedPostCard key={post.postId} post={post} />
-                  ))}
-                </div>
+                <p className="text-sm font-bold text-[#212121]">게시글에서 직접 확인하기</p>
+                <p className="mt-0.5 text-xs text-[#9e9e9e]">
+                  추천 후보 카드가 없는 응답입니다. 게시글 목록에서 조건에 맞는 모집글을 확인해보세요.
+                </p>
+                <Link
+                    to="/posts"
+                    className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#d84315] px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-[#bf360c]"
+                >
+                  게시글 목록으로 이동
+                  <ArrowRight size={13} />
+                </Link>
               </div>
           )}
         </div>
       </div>
   );
+}
+
+function getDisplayRecommendedPosts(message: ChatMessage) {
+  const posts = message.recommendedPosts ?? [];
+
+  if (posts.length === 0) {
+    return [];
+  }
+
+  const answerText = normalizeForMatching(message.content);
+  const mentionedPosts = posts.filter((post) => {
+    const placeName = normalizeForMatching(post.placeName);
+
+    return placeName.length > 0 && answerText.includes(placeName);
+  });
+
+  return mentionedPosts.length > 0 ? mentionedPosts : posts;
 }
 
 function isLimitedRecommendation(message: ChatMessage) {
@@ -237,13 +269,23 @@ function isLimitedRecommendation(message: ChatMessage) {
   );
 }
 
+function hasRecommendedAnswer(message: ChatMessage) {
+  if (message.fallbackUsed) return false;
+
+  return ['찾았어요', '후보', '추천', '신청 가능'].some((keyword) => message.content.includes(keyword));
+}
+
+function normalizeForMatching(value: string) {
+  return value.replace(/\s/g, '').toLowerCase();
+}
+
 function RecommendedPostCard({ post }: { post: RecommendedPost }) {
   const canApply = post.applicationAvailable && post.pointAffordable;
 
   return (
       <Link
           to={`/posts/${post.postId}`}
-          className="block rounded-xl border border-[#e0e0e0] bg-[#fffdfb] p-3 transition-all hover:border-[#d84315] hover:shadow-md"
+          className="group block rounded-xl border border-[#e0e0e0] bg-[#fffdfb] p-3 transition-all hover:border-[#d84315] hover:bg-[#fff8f3] hover:shadow-md"
       >
         <div className="mb-2 flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -284,10 +326,11 @@ function RecommendedPostCard({ post }: { post: RecommendedPost }) {
           )}
         </div>
 
-        <div className={`mt-3 rounded-lg px-3 py-2 text-center text-xs font-bold ${
-            canApply ? 'bg-[#d84315] text-white' : 'bg-[#f5f5f5] text-[#757575]'
+        <div className={`mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-center text-xs font-bold transition-colors ${
+            canApply ? 'bg-[#d84315] text-white group-hover:bg-[#bf360c]' : 'bg-[#f5f5f5] text-[#757575] group-hover:bg-[#eeeeee]'
         }`}>
           {canApply ? '게시글 확인하고 신청하기' : '게시글 상태 확인하기'}
+          <ArrowRight size={13} />
         </div>
       </Link>
   );
