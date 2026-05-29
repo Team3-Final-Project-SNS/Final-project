@@ -476,6 +476,40 @@ export default function PlaceVerificationPage() {
                         />
                         <span className="text-[#ef6c00] text-xs">테스트 모드 (시뮬레이션)</span>
                     </label>
+
+                    {useSimulation && (
+                        <button
+                            onClick={async () => {
+                                try {
+                                    // axiosInstance 직접 호출 대신, 이미 import된 createPlaceVerification 재사용.
+                                    // id: useParams()에서 받은 matchId (이 파일에서 쓰는 변수명은 'id')
+                                    // 좌표: match 7 → post 18의 실제 만남 장소 좌표를 그대로 전송
+                                    //        → 백엔드가 같은 좌표로 거리를 재므로 거리 ≈ 0m → 60m 이내 → 통과
+                                    const res = await createPlaceVerification(Number(id), {
+                                        currentLat: 37.5979281,  // post 18 PLACE_LAT (인천검단26단지아파트)
+                                        currentLng: 126.7159515, // post 18 PLACE_LNG
+                                    });
+
+                                    // 백엔드 응답의 verificationStatus로 인증 완료 여부 판단
+                                    // (기존 handleVerify와 동일한 응답 구조를 그대로 활용)
+                                    const status = res.data.data.verificationStatus;
+                                    if (status === 'VERIFIED' || status === 'PENDING') {
+                                        setIsVerified(true);
+                                    }
+                                    console.log("장소 인증 성공 — 백엔드 status 갱신됨:", status);
+
+                                } catch (e: unknown) {
+                                    // e가 unknown 타입이므로 axios 에러인지 타입 체크 후 메시지 추출
+                                    // (기존 handleVerify의 패턴과 동일하게 맞춤)
+                                    const err = e as { response?: { data?: { message?: string } } };
+                                    console.error("장소 인증 실패:", err?.response?.data ?? e);
+                                }
+                            }}
+                            className="mt-3 w-full bg-[#ef6c00] text-white py-2 rounded-lg text-sm font-semibold hover:bg-[#e65100] transition-all"
+                        >
+                            🧪 GPS 인증 강제 완료 (테스트용)
+                        </button>
+                    )}
                 </div>
 
             </div>
