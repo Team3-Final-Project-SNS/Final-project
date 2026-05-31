@@ -18,6 +18,10 @@ public interface UserPointService {
     // matchId가 없는 포상 -> null
     void rewardPoint(Long userId, int amount);
 
+    // UserPointService 인터페이스에 추가
+    void deductPointForEdit(Long userId, int amount, Long postId);  // EDIT_DEPOSIT 타입으로 차감
+    void refundPointForEdit(Long userId, int amount, Long postId);  // EDIT_DEPOSIT 타입으로 환원
+
     /**
      * 유료 포인트 충전 — 결제 완료 시 호출.
      * @param userId    사용자
