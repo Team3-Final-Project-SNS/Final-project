@@ -21,18 +21,42 @@ public class AiPromptDataInitializer implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        if (aiPromptTemplateRepository.existsByPromptTypeAndVersion(AiPromptType.MATCHING_CHAT, "v1")) {
+        saveIfMissing(
+                AiPromptType.MATCHING_CHAT,
+                AiFeature.MATCHING,
+                "v1",
+                "matching-chat-v1.st",
+                "한끼팟 매칭 AI 기본 프롬프트"
+        );
+
+        saveIfMissing(
+                AiPromptType.REPORT_SUMMARY,
+                AiFeature.REPORT,
+                "v1",
+                "report-summary-v1.st",
+                "관리자 신고 AI 분석 프롬프트"
+        );
+    }
+
+    private void saveIfMissing(
+            AiPromptType promptType,
+            AiFeature feature,
+            String version,
+            String fileName,
+            String description
+    ) {
+        if (aiPromptTemplateRepository.existsByPromptTypeAndVersion(promptType, version)) {
             return;
         }
 
         aiPromptTemplateRepository.save(
                 AiPromptTemplate.builder()
-                        .promptType(AiPromptType.MATCHING_CHAT)
-                        .feature(AiFeature.MATCHING)
-                        .version("v1")
-                        .fileName("matching-chat-v1.st")
+                        .promptType(promptType)
+                        .feature(feature)
+                        .version(version)
+                        .fileName(fileName)
                         .active(true)
-                        .description("한끼팟 매칭 AI 기본 프롬프트")
+                        .description(description)
                         .build()
         );
     }
