@@ -3,6 +3,7 @@ package com.example.team3final.domain.user.service;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.UserException;
 import com.example.team3final.domain.pointTransaction.entity.PointTransaction;
+import com.example.team3final.domain.pointTransaction.enums.PointSource;
 import com.example.team3final.domain.pointTransaction.enums.PointTransactionType;
 import com.example.team3final.domain.pointTransaction.repository.PointTransactionRepository;
 import com.example.team3final.domain.user.dto.request.UpdateUserRequestDto;
@@ -92,7 +93,7 @@ public class UserServiceImpl implements UserService {
 
         // 3단계: 가입 보너스 포인트 지급
         // 엔티티 내부 메서드를 통해서만 필드를 변경 (직접 필드 접근 금지)
-        savedUser.addPoint(SIGNUP_BONUS_POINT);
+        savedUser.addFreePoint(SIGNUP_BONUS_POINT);
         // 더티체킹: @Transactional 안에서 엔티티 필드 변경 → 트랜잭션 종료 시 자동 UPDATE
 
         // 4단계: PointTransaction 기록
@@ -102,7 +103,8 @@ public class UserServiceImpl implements UserService {
                 .matchId(null)                      // 회원가입 보너스는 매칭과 무관 → null
                 .amount(SIGNUP_BONUS_POINT)         // +10,000 (양수 = 적립)
                 .transactionType(PointTransactionType.JOIN_BONUS) // 가입 보너스 타입
-                .balanceAfter(savedUser.getPoint()) // 지급 후 잔액 (10,000)
+                .balanceAfter(savedUser.getTotalPoint()) // 지급 후 잔액 (10,000)
+                .pointSource(PointSource.FREE) // 가입 보너스는 무료 포인트 명시
                 .description("회원가입 보너스")
                 .build();
 

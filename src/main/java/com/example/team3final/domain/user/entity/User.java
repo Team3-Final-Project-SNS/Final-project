@@ -21,12 +21,13 @@ import java.time.LocalDateTime;
 @Getter
 @Table(name = "users")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@SQLDelete(sql = "UPDATE posts SET deleted_at = NOW() WHERE post_id = ?")
+@SQLDelete(sql = "UPDATE users SET deleted_at = NOW() WHERE user_id = ?")
 @SQLRestriction("deleted_at IS NULL")
 public class User extends SoftDeleteEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "user_id")
     private Long id;
 
     @Column(name = "email",nullable = false, unique = true)
@@ -57,8 +58,11 @@ public class User extends SoftDeleteEntity {
     @Column(name = "gender",nullable = false, length = 10)
     private Gender gender; // 성별
 
-    @Column(name = "point",nullable = false)
-    private int point; // 보유 포인트
+    @Column(name = "free_point",nullable = false)
+    private int freePoint; // 무료 포인트: 가입 보너스, 신고 채택 보상, 후기 포상 등. 환불 불가
+
+    @Column(name = "paid_point", nullable = false)
+    private int paidPoint; // 유료 포인트: 현금 결제로 충전된 잔액. 환불 가능(결제 취소 시)
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status",nullable = false, length = 20)
@@ -89,9 +93,15 @@ public class User extends SoftDeleteEntity {
         this.studentNumber = studentNumber;
         this.birthDate = birthDate;
         this.gender = gender;
-        this.point = 0;                  // 기본값 0, 가입 보너스는 서비스에서 별도 처리
+        this.freePoint = 0;      // 가입 보너스는 createUser 서비스에서 별도 처리
+        this.paidPoint = 0;      // 충전 전엔 0
         this.status = UserStatus.ACTIVE; // 가입 시 기본 상태
         this.mannerTemperature = new BigDecimal("36.5");
+    }
+
+    // 포인트 차감 결과
+    public record DeductResult(int fromFree, int fromPaid) {
+        public int total() { return fromFree + fromPaid; }
     }
 
     // 닉네임 변경
@@ -121,20 +131,71 @@ public class User extends SoftDeleteEntity {
     }
 
     // ==================== Service to Service 구현 영역 ====================
-    // 포인트 증가 (가입 보너스, 환불 등)
-    // 트랜잭션 안에서 호출 — 호출 측에서 PointTransaction도 함께 저장해야 함
-    public void addPoint(int amount) {
-        this.point += amount;
+
+    // 무료 포인트 적립 — 가입 보너스, 신고/후기 포상, 환불 시 free 환원 등
+    public void addFreePoint(int amount) {
+        if (amount < 0) {
+            throw new IllegalArgumentException("적립 금액은 음수일 수 없습니다: " + amount);
+        }
+        this.freePoint += amount;
     }
 
-    // 포인트 차감 (예치, 패널티 등)
-    // 잔액 부족이면 예외 — 호출 측에서 사전 검증하거나 이 메서드에서 던짐
-    public void deductPoint(int amount) {
-        if (this.point < amount) {
-            throw new UserException(ErrorCode.POINT_NOT_ENOUGH
-            );
+    // 유료 포인트 적립 — 현금 결제로 충전된 경우에만 호출
+    public void addPaidPoint(int amount) {
+        if (amount < 0) {
+            throw new IllegalArgumentException("적립 금액은 음수일 수 없습니다: " + amount);
         }
-        this.point -= amount;
+        this.paidPoint += amount;
+    }
+
+    /**
+     * 포인트 차감 — 무료 먼저, 부족분은 유료에서.
+     * 반환값: 실제로 무료에서 차감된 금액, 유료에서 차감된 금액 (호출 측이 PointTransaction에 기록)
+     *
+     * @throws UserException 잔액이 총량보다 부족하면
+     */
+    public DeductResult deduct(int amount) {
+        if (amount < 0) {
+            throw new IllegalArgumentException("차감 금액은 음수일 수 없습니다: " + amount);
+        }
+        int total = this.freePoint + this.paidPoint;
+        if (total < amount) {
+            // 잔액 부족 — 무료/유료 어느 쪽에도 시도 전에 차단
+            throw new UserException(ErrorCode.POINT_NOT_ENOUGH);
+        }
+
+        // 무료 먼저 — 무료 잔액과 차감액 중 작은 쪽이 무료에서 빠짐
+        int fromFree = Math.min(this.freePoint, amount);
+        // 나머지를 유료에서
+        int fromPaid = amount - fromFree;
+
+        this.freePoint -= fromFree;
+        this.paidPoint -= fromPaid;
+
+        // 호출 측이 PointTransaction을 어떻게 기록할지 결정할 수 있도록 분해된 값을 돌려줌
+        return new DeductResult(fromFree, fromPaid);
+    }
+
+    /**
+     * 유료 포인트 회수 — 결제 취소 시 사용.
+     * "충전한 만큼" 회수하되, 사용된 만큼은 회수 불가(음수 방지).
+     * 반환값: 실제로 회수된 금액 (충전액보다 적을 수 있음 — 이미 일부 사용한 경우)
+     */
+    public int withdrawPaid(int requestedAmount) {
+        if (requestedAmount < 0) {
+            throw new IllegalArgumentException("회수 금액은 음수일 수 없습니다: " + requestedAmount);
+        }
+        // 현재 paidPoint가 회수 요청보다 적으면, 가능한 만큼만 회수
+        // (이미 책임비로 사용된 paid는 회수 불가 — 사용자 차익 방지)
+        int actual = Math.min(this.paidPoint, requestedAmount);
+        this.paidPoint -= actual;
+        return actual;
+    }
+
+    // 호환성: 기존 코드가 user.getPoint()로 총잔액을 보던 곳을 위한 메서드
+// 새 코드는 freePoint/paidPoint를 명시적으로 다루는 게 권장
+    public int getTotalPoint() {
+        return this.freePoint + this.paidPoint;
     }
 
     // 계정 정지 (관리자)
