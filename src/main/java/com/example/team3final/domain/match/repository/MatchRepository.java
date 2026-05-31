@@ -23,8 +23,16 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
      * - p.authorId = :userId  : 내가 등록자인 매칭
      * - m.applicantId = :userId : 내가 신청자인 매칭
      */
-    @Query("SELECT m FROM Match m JOIN Post p ON m.postId = p.id " +
-            "WHERE p.authorId = :userId OR m.applicantId = :userId")
+    @Query(
+            value = "SELECT m.* FROM matches m " +
+                    "JOIN posts p ON m.post_id = p.post_id " +
+                    "WHERE p.author_id = :userId OR m.applicant_id = :userId",
+            countQuery =
+                    "SELECT COUNT(*) FROM matches m " +
+                    "JOIN posts p ON m.post_id = p.post_id " +
+                    "WHERE p.author_id = :userId OR m.applicant_id = :userId",
+            nativeQuery = true
+    )
     Page<Match> findAllByUserId(@Param("userId") Long userId, Pageable pageable);
 
     /**
@@ -32,12 +40,21 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
      *
      * findAllByUserId와 동일하되 status 조건 추가
      */
-    @Query("SELECT m FROM Match m JOIN Post p ON m.postId = p.id " +
-            "WHERE (p.authorId = :userId OR m.applicantId = :userId) " +
-            "AND m.status = :status")
+    @Query(
+            value = "SELECT m.* FROM matches m " +
+                    "JOIN posts p ON m.post_id = p.post_id " +
+                    "WHERE (p.author_id = :userId OR m.applicant_id = :userId) " +
+                    "AND m.status = :status",
+            countQuery =
+                    "SELECT COUNT(*) FROM matches m " +
+                    "JOIN posts p ON m.post_id = p.post_id " +
+                    "WHERE (p.author_id = :userId OR m.applicant_id = :userId) " +
+                    "AND m.status = :status",
+            nativeQuery = true
+    )
     Page<Match> findAllByUserIdAndStatus(
             @Param("userId") Long userId,
-            @Param("status") MatchStatus status,
+            @Param("status") String status,
             Pageable pageable
     );
 
