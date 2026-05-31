@@ -52,6 +52,7 @@ public enum ErrorCode {
     MATCH_POST_CLOSED(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_005", "모집이 종료된 게시글입니다."),
     MATCH_INVALID_STATUS(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_006", "현재 상태의 매칭은 취소할 수 없습니다."),
     MATCH_AFTER_MEET_TIME(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_007", "약속 시간 이후에는 취소할 수 없습니다."),
+    MATCH_DUPLICATE_APPLY(HttpStatus.BAD_REQUEST, "MATCH_008", "중복된 매칭입니다."),
 
     // Verification
     MEET_VERIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "VERIFY_001", "인증 정보를 찾을 수 없습니다"),
