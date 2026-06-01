@@ -76,19 +76,45 @@ public class UserPointServiceImpl implements UserPointService{
                 user.getPoint());
     }
 
-    // 포상 포인트 지급
+    // 신고 채택 포상 포인트 지급.
+    // 이때 매칭이 Null인 이유: 신고는 매칭id가 중요하지 않음. 신고, 채팅, 유저 신고 등이 존재하기 때문.
     @Override
-    public void rewardPoint(Long userId, int amount) {
-
-        // 유저 조회
+    public void rewardReportPoint(Long userId, int amount) {
+        rewardPoint(
+                userId,
+                amount,
+                null,
+                PointTransactionType.REPORT_REWARD
+        );
+    }
+   // 후기 작성 포인트
+    @Override
+    public void rewardReviewPoint(Long userId, int amount, Long matchId) {
+        rewardPoint(
+                userId,
+                amount,
+                matchId,
+                PointTransactionType.REVIEW_REWARD
+        );
+    }
+    // 공통 처리 로직.
+    private void rewardPoint(
+            Long userId,
+            int amount,
+            Long matchId,
+            PointTransactionType type
+    ) {
         User user = getUserOrThrow(userId);
 
-        // 포인트 적립
         user.addPoint(amount);
 
-        // PointTransaction 기록 -> REPORT_REWARD 적립, matchId는 신고에 없으므로 -> null
-        saveTransaction(user.getId(), null, amount, PointTransactionType.REPORT_REWARD, user.getPoint());
-
+        saveTransaction(
+                user.getId(),
+                matchId,
+                amount,
+                type,
+                user.getPoint()
+        );
     }
 
     // ===== private 헬퍼 =====

@@ -21,6 +21,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
@@ -285,5 +286,52 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
 
         return AdminUserInfoDto.from(user);
+    }
+
+
+    /**
+     * 두 사용자가 같은 학교 소속인지 확인합니다.
+     *
+     * 후기 조회 정책에서 본인이 아니더라도 같은 학교 유저의 후기는 조회할 수 있으므로,
+     * Review 도메인에서 직접 UserRepository를 참조하지 않고 UserService를 통해 검증합니다.
+     */
+    @Override
+    public boolean isSameUniversity(Long userId, Long otherUserId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
+        User otherUser = userRepository.findById(otherUserId)
+                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
+
+        return user.getUniversityId().equals(otherUser.getUniversityId());
+    }
+
+
+    /**
+     * 후기 집계 결과로 사용자의 매너 온도를 갱신합니다.
+     *
+     * 매너 온도 계산은 Review 도메인에서 수행하고,
+     * User 엔티티의 실제 값 변경은 UserService를 통해 처리합니다.
+     */
+    @Override
+    @Transactional
+    public void updateMannerTemperature(Long userId, BigDecimal mannerTemperature) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
+
+        user.updateMannerTemperature(mannerTemperature);
+    }
+
+
+    /**
+     * 사용자의 현재 매너 온도를 조회합니다.
+     *
+     * 받은 후기 목록 응답에서 최신 매너 온도를 함께 내려주기 위해 사용합니다.
+     */
+    @Override
+    public BigDecimal getMannerTemperature(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
+
+        return user.getMannerTemperature();
     }
 }

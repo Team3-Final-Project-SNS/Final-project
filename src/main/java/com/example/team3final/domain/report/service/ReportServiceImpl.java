@@ -138,8 +138,7 @@ public class ReportServiceImpl implements ReportService {
         int acceptedCount = reportRepository.countByTargetIdAndStatus(
                 report.getTargetId(), ReportStatus.ACCEPTED);
 
-        // 신고자에게 포상 포인트 지급
-        userPointService.rewardPoint(report.getReporterId(), REPORT_REWARD_POINT);
+        userPointService.rewardReportPoint(report.getReporterId(), REPORT_REWARD_POINT);
 
         // 채택 횟수에 따른 피신고자 제재 및 알림 처리
         // case 1~2: 경고 (계정 정지 없음)

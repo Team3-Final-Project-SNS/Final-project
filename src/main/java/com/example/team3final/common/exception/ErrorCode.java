@@ -54,6 +54,13 @@ public enum ErrorCode {
     MATCH_INVALID_STATUS(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_006", "현재 상태의 매칭은 취소할 수 없습니다."),
     MATCH_AFTER_MEET_TIME(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_007", "약속 시간 이후에는 취소할 수 없습니다."),
 
+    // Review
+    REVIEW_NOT_COMPLETED_MATCH(HttpStatus.UNPROCESSABLE_ENTITY, "REVIEW_001", "만남 완료 상태의 매칭만 후기를 작성할 수 있습니다."),
+    REVIEW_ALREADY_EXISTS(HttpStatus.CONFLICT, "REVIEW_002", "이미 후기를 작성했습니다."),
+    REVIEW_INVALID_TAG(HttpStatus.BAD_REQUEST, "REVIEW_003", "후기 태그 선택이 올바르지 않습니다."),
+    REVIEW_PERIOD_EXPIRED(HttpStatus.UNPROCESSABLE_ENTITY, "REVIEW_004", "후기 작성 가능 기간(7일)이 초과되었습니다."),
+    REVIEW_ACCESS_DENIED(HttpStatus.FORBIDDEN, "REVIEW_005", "후기를 조회할 수 있는 권한이 없습니다."),
+
     // Verification
     MEET_VERIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "VERIFY_001", "인증 정보를 찾을 수 없습니다"),
     // MeetVerification - GPS 장소 인증 에러 코드
