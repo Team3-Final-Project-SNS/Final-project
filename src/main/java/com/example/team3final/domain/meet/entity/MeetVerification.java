@@ -79,6 +79,18 @@ public class MeetVerification {
     @Column(name = "no_show_decided_at")
     private LocalDateTime noShowDecidedAt;
 
+    // 30분 전 알림 발송 여부 (중복 발송 방지)
+    @Column(name = "reminder30_sent", nullable = false)
+    private boolean reminder30Sent = false;
+
+    // 15분 전 알림 발송 여부 (중복 발송 방지)
+    @Column(name = "reminder15_sent", nullable = false)
+    private boolean reminder15Sent = false;
+
+    // 만남 임박 알림 발송 여부 (중복 발송 방지)
+    @Column(name = "imminent_sent", nullable = false)
+    private boolean imminentSent = false;
+
     @Builder
     private MeetVerification(Long matchId, VerificationStatus status, Boolean isMeetVerified,
                              ExtensionStatus extensionStatus, boolean isExtended) {
@@ -205,5 +217,20 @@ public class MeetVerification {
     // 연장 요청 만료 여부 확인
     public boolean isExtensionExpired() {
         return this.extensionRequestedAt != null && LocalDateTime.now().isAfter(this.extensionRequestedAt.plusMinutes(5));
+    }
+
+    // 30분 전 알림 발송 완료 처리
+    public void markReminder30Sent() {
+        this.reminder30Sent = true;
+    }
+
+    // 15분 전 알림 발송 완료 처리
+    public void markReminder15Sent() {
+        this.reminder15Sent = true;
+    }
+
+    // 임박 알림 발송 완료 처리
+    public void markImminentSent() {
+        this.imminentSent = true;
     }
 }
