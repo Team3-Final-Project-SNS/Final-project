@@ -149,7 +149,7 @@ public class ReportServiceImpl implements ReportService {
         int acceptedCount = reportRepository.countByTargetIdAndStatus(
                 report.getTargetId(), ReportStatus.ACCEPTED);
 
-        userPointService.rewardPoint(report.getReporterId(), REPORT_REWARD_POINT);
+        userPointService.rewardReportPoint(report.getReporterId(), REPORT_REWARD_POINT);
 
         // 채택 횟수에 따른 피신고자 제재 처리
         // 1. acceptedCount가 2보다 크면 (3회 이상이면) 제재 시작
