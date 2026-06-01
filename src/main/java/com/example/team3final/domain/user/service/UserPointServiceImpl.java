@@ -123,14 +123,41 @@ public class UserPointServiceImpl implements UserPointService{
                 PointTransactionType.REPORT_REWARD, user.getTotalPoint(), PointSource.FREE);
     }
 
+    // 게시글 수정 시 책임비 차액 차감 — EDIT_DEPOSIT 타입으로 기록
     @Override
-    public void deductPointForEdit(Long userId, int amount, Long postId) {
+    public void deductEditDeposit(Long userId, int amount) {
+        // 유저 조회
+        User user = getUserOrThrow(userId);
 
+        // 무료 먼저, 부족분은 유료 — 잔액 부족 시 예외
+        User.DeductResult result = user.deduct(amount);
+
+        // 무료에서 차감된 부분 기록
+        if (result.fromFree() > 0) {
+            saveTransaction(user.getId(), null, -result.fromFree(),
+                    PointTransactionType.EDIT_DEPOSIT, user.getTotalPoint(), PointSource.FREE);
+        }
+
+        // 유료에서 차감된 부분 기록
+        if (result.fromPaid() > 0) {
+            saveTransaction(user.getId(), null, -result.fromPaid(),
+                    PointTransactionType.EDIT_DEPOSIT, user.getTotalPoint(), PointSource.PAID);
+        }
     }
 
+    // 게시글 수정 시 책임비 차액 환불 — EDIT_DEPOSIT 타입으로 기록
     @Override
-    public void refundPointForEdit(Long userId, int amount, Long postId) {
+    public void refundEditDeposit(Long userId, int amount) {
+        // 1. 유저 조회
+        User user = getUserOrThrow(userId);
 
+        // 2. 포인트 지급 — user.addPoint()가 내부에서 잔액에 더함
+        user.addFreePoint(amount);
+
+        // 3. PointTransaction 기록 — EDIT_DEPOSIT 타입, amount는 양수(지급 표현)
+        //    matchId 없음: 게시글 수정은 매칭 시점이 아니므로 null
+        saveTransaction(user.getId(), null, amount, PointTransactionType.EDIT_DEPOSIT,
+                user.getTotalPoint(),PointSource.FREE);
     }
 
     // ===== private 헬퍼 =====

@@ -18,9 +18,35 @@ public interface UserPointService {
     // matchId가 없는 포상 -> null
     void rewardPoint(Long userId, int amount);
 
-    // UserPointService 인터페이스에 추가
-    void deductPointForEdit(Long userId, int amount, Long postId);  // EDIT_DEPOSIT 타입으로 차감
-    void refundPointForEdit(Long userId, int amount, Long postId);  // EDIT_DEPOSIT 타입으로 환원
+    /**
+     * 게시글 수정 시 책임비 차액 차감 — EDIT_DEPOSIT 타입으로 기록
+     *
+     * 사용처: PostServiceImpl.updatePost() — authorDeposit 증액 시
+     *
+     * deductPoint()와 동일한 차감 로직이지만 PointTransactionType이 다름
+     *   - deductPoint → DEPOSIT  (게시글 최초 작성/매칭 신청 예치)
+     *   - deductEditDeposit → EDIT_DEPOSIT  (수정으로 인한 추가 예치)
+     * 거래 내역에서 "최초 예치"와 "수정 예치"를 구분할 수 있어야
+     * 사용자 입장에서 포인트 변동 이력이 명확해짐
+     *
+     * @param userId  차감 대상 유저 ID
+     * @param amount  차감할 금액 (양수, 내부에서 음수 변환하여 기록)
+     */
+    void deductEditDeposit(Long userId, int amount);
+
+    /**
+     * 게시글 수정 시 책임비 차액 환불 — EDIT_DEPOSIT 타입으로 기록
+     *
+     * 사용처: PostServiceImpl.updatePost() — authorDeposit 감액 시
+     *
+     * refundPoint()와 동일한 지급 로직이지만 PointTransactionType이 다름
+     *   - refundPoint → REFUND  (게시글 삭제/만남 완료 후 전액 환불)
+     *   - refundEditDeposit → EDIT_DEPOSIT  (수정으로 인한 차액 환불)
+     *
+     * @param userId  환불 대상 유저 ID
+     * @param amount  환불할 금액 (양수)
+     */
+    void refundEditDeposit(Long userId, int amount);
 
     /**
      * 유료 포인트 충전 — 결제 완료 시 호출.

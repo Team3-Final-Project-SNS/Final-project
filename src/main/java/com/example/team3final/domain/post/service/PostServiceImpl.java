@@ -109,10 +109,10 @@ public class PostServiceImpl implements PostService{
 
             if (diff > 0) {
                 // 증액: diff만큼 추가 차감
-                 userPointService.deductPoint(userId, diff, null);
+                 userPointService.deductEditDeposit(userId, diff);
             } else if (diff < 0) {
                 // 감액: |diff|만큼 환불
-                 userPointService.refundPoint(userId, Math.abs(diff), null);
+                 userPointService.refundEditDeposit(userId, Math.abs(diff));
             }
             // diff == 0이면 아무것도 안 함
         }
@@ -373,8 +373,18 @@ public class PostServiceImpl implements PostService{
 
         userPointService.refundPoint(post.getAuthorId(), refundedPoint, null);
 
-        // 게시글 삭제
-        postRepository.delete(post);
+        // 게시글 소프트 삭제
+        //    postRepository.delete(post) 대신 post.delete() 호출
+        //
+        //    이유: postRepository.delete()는 JPA가 내부적으로 @SQLDelete 어노테이션의
+        //    "UPDATE posts SET deleted_at = NOW() WHERE post_id = ?"를 실행하긴 하지만,
+        //    코드만 보면 "hard delete처럼 보임" → 가독성 저하 + 실수 위험
+        //
+        //    post.delete()를 명시적으로 호출하면:
+        //    - SoftDeleteEntity.delete()가 deletedAt = LocalDateTime.now() 세팅
+        //    - @Transactional + 더티 체킹으로 트랜잭션 종료 시 자동 UPDATE 쿼리 실행
+        //    - 일반 유저 deletePost()와 동일한 방식 → 코드 일관성 유지
+        post.delete();
 
         return refundedPoint;
     }
