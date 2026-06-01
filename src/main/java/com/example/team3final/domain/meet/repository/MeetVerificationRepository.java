@@ -1,5 +1,6 @@
 package com.example.team3final.domain.meet.repository;
 
+import com.example.team3final.domain.meet.dto.response.MeetReminderResponseDto;
 import com.example.team3final.domain.meet.entity.MeetVerification;
 import com.example.team3final.domain.meet.enums.ExtensionStatus;
 import com.example.team3final.domain.meet.enums.VerificationStatus;
@@ -34,4 +35,54 @@ public interface MeetVerificationRepository extends JpaRepository<MeetVerificati
     // 만료 처리가 필요한 연장 요청 조회
     List<MeetVerification> findAllByExtensionStatusAndExtensionRequestedAtBefore(
             ExtensionStatus status, LocalDateTime dateTime);
+
+    // ==================== 만남 시간 알림용 쿼리 ====================
+
+    // 30분 전 알림 미발송 조회 - MeetVerification + Match + Post JOIN으로 N+1 방지
+    @Query("""
+           SELECT new com.example.team3final.domain.meet.dto.response.MeetReminderResponseDto(
+               mv.id, mv.matchId, p.authorId, m.applicantId)
+           FROM MeetVerification mv
+           JOIN Match m ON mv.matchId = m.id
+           JOIN Post p ON m.postId = p.id
+           WHERE m.status = 'MATCHED'
+           AND mv.reminder30Sent = false
+           AND p.meetAt BETWEEN :from AND :to
+           """)
+    List<MeetReminderResponseDto> findForReminder30(
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to
+    );
+
+    // 15분 전 알림 미발송 조회
+    @Query("""
+           SELECT new com.example.team3final.domain.meet.dto.response.MeetReminderResponseDto(
+               mv.id, mv.matchId, p.authorId, m.applicantId)
+           FROM MeetVerification mv
+           JOIN Match m ON mv.matchId = m.id
+           JOIN Post p ON m.postId = p.id
+           WHERE m.status = 'MATCHED'
+           AND mv.reminder15Sent = false
+           AND p.meetAt BETWEEN :from AND :to
+           """)
+    List<MeetReminderResponseDto> findForReminder15(
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to
+    );
+
+    // 임박 알림 미발송 조회
+    @Query("""
+           SELECT new com.example.team3final.domain.meet.dto.response.MeetReminderResponseDto(
+               mv.id, mv.matchId, p.authorId, m.applicantId)
+           FROM MeetVerification mv
+           JOIN Match m ON mv.matchId = m.id
+           JOIN Post p ON m.postId = p.id
+           WHERE m.status = 'MATCHED'
+           AND mv.imminentSent = false
+           AND p.meetAt BETWEEN :from AND :to
+           """)
+    List<MeetReminderResponseDto> findForImminent(
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to
+    );
 }
