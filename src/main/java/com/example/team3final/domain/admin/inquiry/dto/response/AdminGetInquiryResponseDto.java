@@ -7,26 +7,43 @@ import com.example.team3final.domain.inquiry.enums.InquiryType;
 
 import java.time.LocalDateTime;
 
-public record AdminGetInquiryResponseDto (
+public record AdminGetInquiryResponseDto(
 
         Long inquiryId,
-        String userNickname,      // 작성자 닉네임
-        String userEmail,         // 작성자 이메일 (관리자 전용 필드)
-        String universityName,    // 소속 대학교 이름 (관리자 전용 필드)
+        String userNickname,
+        String userEmail,
+        String universityName,
         String title,
         String content,
-        InquiryType type,         // ACCOUNT / POINT / MATCH / REPORT / OTHER
-        InquiryAnswerStatus answerStatus,  // PENDING / ANSWERED / ...
-        AdminInquiryAnswerDto answer,      // 답변 없으면 null, 있으면 DTO
+        InquiryType type,
+        InquiryAnswerStatus answerStatus,
+        AnswerDto answer,          // 내부 레코드 타입으로 변경
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
+    // 내부 레코드로 이동
+    public record AnswerDto(
+            Long answerId,
+            String adminName,
+            String content,
+            LocalDateTime createdAt
+    ) {
+        public static AnswerDto from(InquiryAnswer inquiryAnswer) {
+            return new AnswerDto(
+                    inquiryAnswer.getId(),
+                    inquiryAnswer.getAdminName(),
+                    inquiryAnswer.getContent(),
+                    inquiryAnswer.getCreatedAt()
+            );
+        }
+    }
+
     public static AdminGetInquiryResponseDto of(
             Inquiry inquiry,
             String userNickname,
             String userEmail,
             String universityName,
-            InquiryAnswer answer        // null 가능
+            InquiryAnswer answer
     ) {
         return new AdminGetInquiryResponseDto(
                 inquiry.getId(),
@@ -35,12 +52,11 @@ public record AdminGetInquiryResponseDto (
                 universityName,
                 inquiry.getTitle(),
                 inquiry.getContent(),
-                inquiry.getInquiryType(),         // enum 그대로 반환 (직렬화 시 STRING)
+                inquiry.getInquiryType(),
                 inquiry.getAnswerStatus(),
-                // answer가 null이면 null, 아니면 DTO로 변환
-                answer != null ? AdminInquiryAnswerDto.from(answer) : null,
+                answer != null ? AnswerDto.from(answer) : null,
                 inquiry.getCreatedAt(),
-                inquiry.getUpdatedAt()            // BaseUpdateEntity의 updatedAt
+                inquiry.getUpdatedAt()
         );
     }
 }
