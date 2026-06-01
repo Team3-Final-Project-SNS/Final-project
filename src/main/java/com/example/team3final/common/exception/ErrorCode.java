@@ -112,6 +112,10 @@ public enum ErrorCode {
     ADMIN_INVALID_REPORT_STATUS(HttpStatus.BAD_REQUEST, "ADMIN_007", "ACCEPTED 또는 REJECTED만 처리 가능합니다."),
     ADMIN_NOT_ACCEPTED(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_008", "채택(ACCEPTED)된 신고만 게시글 삭제에 사용할 수 있습니다."),
     ADMIN_POST_ID_MISMATCH(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_009", "신고 대상 게시글과 요청 게시글이 일치하지 않습니다."),
+    // Dispute
+    ADMIN_DISPUTE_ALREADY_PROCESSED(HttpStatus.CONFLICT, "ADMIN_010", "이미 판정이 완료된 이의제기입니다."),
+    ADMIN_DISPUTE_NOT_UNDER_REVIEW(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_011", "UNDER_REVIEW 상태에서만 판정 가능합니다."),
+    ADMIN_DISPUTE_INVALID_STATUS(HttpStatus.BAD_REQUEST, "ADMIN_012", "유효하지 않은 판정 상태입니다."),
 
     // Report
     REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "REPORT_001", "존재하지 않는 신고입니다."),
@@ -143,7 +147,8 @@ public enum ErrorCode {
     INQUIRY_COOLDOWN(HttpStatus.TOO_MANY_REQUESTS, "INQUIRY_006", "문의 접수 후 1분 뒤에 다시 접수할 수 있습니다."),
     INQUIRY_DUPLICATE_TYPE(HttpStatus.CONFLICT, "INQUIRY_002", "해당 카테고리에 처리 중인 문의가 이미 존재합니다."),
     INQUIRY_ACCESS_DENIED(HttpStatus.FORBIDDEN, "INQUIRY_003", "본인의 문의만 조회할 수 있습니다."),
-    INQUIRY_CANCEL_FORBIDDEN(HttpStatus.CONFLICT, "INQUIRY_004", "처리가 시작된 문의는 취소할 수 없습니다.");
+    INQUIRY_CANCEL_FORBIDDEN(HttpStatus.CONFLICT, "INQUIRY_004", "처리가 시작된 문의는 취소할 수 없습니다."),
+    INQUIRY_ALREADY_ANSWERED(HttpStatus.CONFLICT, "INQUIRY_007", "이미 답변이 완료된 문의입니다.");
 
 
     private final HttpStatus httpStatus;
