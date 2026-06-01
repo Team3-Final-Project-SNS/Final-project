@@ -6,6 +6,7 @@ import com.example.team3final.common.exception.ReviewException;
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.service.MatchService;
+import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.dto.response.PostMatchInfoDto;
 import com.example.team3final.domain.post.service.PostService;
 import com.example.team3final.domain.review.dto.request.CreateReviewRequestDto;
@@ -84,6 +85,7 @@ public class ReviewServiceImpl implements ReviewService {
      */
     private static final BigDecimal MAX_MANNER_TEMPERATURE = new BigDecimal("99.0");
 
+    private final NotificationPublisher notificationPublisher;
     private final ReviewRepository reviewRepository;
     private final ReviewGoodTagRepository reviewGoodTagRepository;
     private final ReviewBadTagRepository reviewBadTagRepository;
@@ -138,6 +140,8 @@ public class ReviewServiceImpl implements ReviewService {
                 Review.REVIEW_REWARD_POINT,
                 match.getId()
         );
+       // 14번 알림 - 후기 작성자에게 포인트 지급 알림 발송// reviewId: 저장된 후기
+        notificationPublisher.sendReviewPoint(review.getWriterId(), review.getId());
 
         Long targetId = resolveTargetId(match, post.authorId(), writerId);
         updateTargetMannerTemperature(targetId);
@@ -449,4 +453,9 @@ public class ReviewServiceImpl implements ReviewService {
 
         return new LinkedHashSet<>(values).stream().toList();
     }
+
+
+
+
+
 }
