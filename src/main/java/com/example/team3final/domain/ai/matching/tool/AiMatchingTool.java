@@ -35,6 +35,8 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class AiMatchingTool {
 
+    private static final int MAX_RECOMMENDATION_CANDIDATES = 3;
+
     private final UserService userService;
     private final UserRepository userRepository;
     private final PostService postService;
@@ -79,7 +81,7 @@ public class AiMatchingTool {
                 .filter(searchCondition::matchesMenu)
                 .filter(searchCondition::matchesTime)
                 .sorted(searchCondition.comparator())
-                .limit(5)
+                .limit(MAX_RECOMMENDATION_CANDIDATES)
                 .map(post -> {
                     boolean alreadyApplied =
                             matchRepository.existsByPostIdAndApplicantId(post.getId(), userId);

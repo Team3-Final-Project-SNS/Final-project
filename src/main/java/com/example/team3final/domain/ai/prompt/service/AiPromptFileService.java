@@ -36,6 +36,12 @@ public class AiPromptFileService {
     private final AiPromptTemplateRepository aiPromptTemplateRepository;
     private final AiProperties aiProperties;
 
+    public record RenderedPrompt(
+            String content,
+            Long promptTemplateId,
+            String version
+    ) {
+    }
 
     /**
      * 프롬프트 타입에 해당하는 활성 템플릿을 조회하고,
@@ -47,6 +53,16 @@ public class AiPromptFileService {
      * @throws AiException 활성 템플릿이 없거나 프롬프트 파일을 읽지 못한 경우
      */
     public String render(AiPromptType type, Map<String, Object> variables) {
+        return renderWithMetadata(type, variables).content();
+    }
+
+    /**
+     * 프롬프트 렌더링 결과와 사용된 템플릿 메타데이터를 함께 반환합니다.
+     *
+     * AI 분석 결과나 호출 메트릭에 promptTemplateId, promptVersion을 저장해야 하는
+     * 기능에서 사용합니다.
+     */
+    public RenderedPrompt renderWithMetadata(AiPromptType type, Map<String, Object> variables) {
         AiPromptTemplate promptTemplate = aiPromptTemplateRepository.findByPromptTypeAndActiveTrue(type)
                 .orElseThrow(() -> new AiException(ErrorCode.AI_PROMPT_TEMPLATE_NOT_FOUND));
 
@@ -57,7 +73,11 @@ public class AiPromptFileService {
                     .template(templateContent)
                     .build();
 
-            return template.render(variables);
+            return new RenderedPrompt(
+                    template.render(variables),
+                    promptTemplate.getId(),
+                    promptTemplate.getVersion()
+            );
         } catch (Exception e) {
             throw new AiException(ErrorCode.AI_PROMPT_FILE_READ_FAILED);
         }

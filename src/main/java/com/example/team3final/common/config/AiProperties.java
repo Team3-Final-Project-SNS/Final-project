@@ -31,9 +31,9 @@ public class AiProperties {
     @Getter
     @Setter
     public static class Feature {
-        private String model = "gpt-4o-mini";
-        private Integer maxTokens = 700;
-        private Double temperature = 0.3;
+        private String model;
+        private Integer maxTokens;
+        private Double temperature;
     }
 
     @Getter
