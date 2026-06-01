@@ -144,6 +144,10 @@ public enum ErrorCode {
     DISPUTE_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "DISPUTE_003", "이미 이의제기를 제출했습니다."),
     DISPUTE_PLACE_NOT_VERIFIED(HttpStatus.UNPROCESSABLE_ENTITY, "DISPUTE_004", "장소 인증을 완료한 유저만 이의제기할 수 있습니다."),
     DISPUTE_NOT_FOUND(HttpStatus.NOT_FOUND, "DISPUTE_005",  "제출한 이의제기가 없습니다."),
+    DISPUTE_HOLD_NOT_FOUND(HttpStatus.NOT_FOUND, "DISPUTE_006", "HOLD 상태인 이의제기가 없습니다."),
+    DISPUTE_NOT_RESUBMITTABLE(HttpStatus.UNPROCESSABLE_ENTITY, "DISPUTE_007", "HOLD 상태의 이의제기만 재신청할 수 있습니다."),
+    DISPUTE_TYPE_MISMATCH(HttpStatus.UNPROCESSABLE_ENTITY, "DISPUTE_008", "같은 유형의 이의제기만 재신청할 수 있습니다."),
+    DISPUTE_HOLD_DEADLINE_EXCEEDED(HttpStatus.UNPROCESSABLE_ENTITY, "DISPUTE_009", "HOLD 판정 후 24시간이 초과되어 재신청이 불가합니다."),
 
 
     // Notification
