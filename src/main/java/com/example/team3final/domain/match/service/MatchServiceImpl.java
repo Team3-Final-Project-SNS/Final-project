@@ -9,6 +9,7 @@ import com.example.team3final.domain.match.dto.response.*;
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.repository.MatchRepository;
+import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.dto.response.PostMatchInfoDto;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
@@ -38,6 +39,7 @@ public class MatchServiceImpl implements MatchService{
     private final UserPointService userPointService;
     private final UserService userService;
     private final PostService postService;
+    private final NotificationPublisher notificationPublisher;  // 알림 발송용
 
     @Override
     @Transactional
@@ -103,6 +105,13 @@ public class MatchServiceImpl implements MatchService{
         // 양측 닉네임 조회
         String authorNickname = userService.getUserInfo(post.getAuthorId()).nickname();
         String applicantNickname = userService.getUserInfo(applicantId).nickname();
+
+        // 1번 알림 - 게시글 작성자에게 신청 알림 발송
+        notificationPublisher.sendMatchApplied(post.getAuthorId(), savedMatch.getId());
+
+        // 16번 알림 - 신청자에게 매칭 확정 알림 발송
+        notificationPublisher.sendMatchConfirmed(applicantId, savedMatch.getId());
+
 
         return CreateMatchResponseDto.of(
                 savedMatch,
@@ -249,6 +258,9 @@ public class MatchServiceImpl implements MatchService{
             post.cancel();
             chatService.deactivateChatRoom(match.getPostId());
         }
+
+        // 2번 알림 - 상대방에게 매칭 취소 알림 발송
+        notificationPublisher.sendMatchCancelled(opponentId, matchId);
 
         return CancelMatchResponseDto.of(
                 match.getId(),

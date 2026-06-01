@@ -218,4 +218,10 @@ public class User extends SoftDeleteEntity {
     }
 
 
+    // 리뷰 도매인에서 사용.
+    // 후기 집계 결과로 매너 온도를 재설정합니다.
+    public void updateMannerTemperature(BigDecimal mannerTemperature) {
+        this.mannerTemperature = mannerTemperature;
+    }
+
 }

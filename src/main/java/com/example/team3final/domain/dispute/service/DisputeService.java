@@ -21,6 +21,9 @@ public interface DisputeService {
      */
     CreateDisputeResponseDto createDispute(Long matchId, Long userId, CreateDisputeRequestDto request);
 
+    // 재이의제기 제출 신청
+    CreateDisputeResponseDto reCreateDispute(Long matchId, Long userId, CreateDisputeRequestDto request);
+
     /**
      * 내가 제출한 이의제기 상태 조회.
      */

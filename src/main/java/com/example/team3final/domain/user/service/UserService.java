@@ -14,6 +14,7 @@ import com.example.team3final.domain.user.enums.UserStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -81,4 +82,16 @@ public interface UserService {
 
     // email, university를 포함한 관리자용 단건 조회
     AdminUserInfoDto getAdminUserInfo(Long userId);
+
+
+
+    // 리뷰 도매인에서 활용.
+    // 도메인 간 호출용: 두 유저가 같은 학교인지 확인
+    boolean isSameUniversity(Long userId, Long otherUserId);
+
+    // 도메인 간 호출용: 후기 집계 결과로 매너 온도 재설정
+    void updateMannerTemperature(Long userId, BigDecimal mannerTemperature);
+
+    // 도메인 간 호출용: 현재 매너 온도 조회
+    BigDecimal getMannerTemperature(Long userId);
 }

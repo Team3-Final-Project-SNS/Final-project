@@ -3,6 +3,7 @@ package com.example.team3final.domain.admin.dispute.controller;
 import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.domain.admin.dispute.dto.request.AdminJudgeDisputeRequestDto;
+import com.example.team3final.domain.admin.dispute.dto.request.AdminOverrideDisputeStatusRequestDto;
 import com.example.team3final.domain.admin.dispute.dto.response.AdminJudgeDisputeResponseDto;
 import com.example.team3final.domain.admin.dispute.dto.response.GetAdminDisputeResponseDto;
 import com.example.team3final.domain.admin.dispute.dto.response.GetAdminDisputesResponseDto;
@@ -56,5 +57,16 @@ public class AdminDisputeController {
 
         Long adminId = adminDetails.getAdminId();
         return ResponseEntity.ok(ApiResponseDto.success(adminDisputeService.judgeDispute(adminId ,disputeId, requestDto)));
+    }
+
+    // 이의제기 상태 강제변경 (오판정 정정용)
+    @PatchMapping("/disputes/{disputeId}/override")
+    public ResponseEntity<ApiResponseDto<AdminJudgeDisputeResponseDto>> overrideDisputeStatus(
+            @AuthenticationPrincipal AdminDetailsImpl adminDetails,
+            @PathVariable Long disputeId,
+            @Valid @RequestBody AdminOverrideDisputeStatusRequestDto requestDto) {
+
+        Long adminId = adminDetails.getAdminId();
+        return ResponseEntity.ok(ApiResponseDto.success(adminDisputeService.overrideDisputeStatus(adminId ,disputeId, requestDto)));
     }
 }

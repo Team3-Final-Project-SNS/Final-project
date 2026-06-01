@@ -59,4 +59,16 @@ public class DisputeController {
 
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
+
+    // 재이의제기 제출
+    @PostMapping("/{matchId}/disputes/resubmit")
+    public ResponseEntity<ApiResponseDto<CreateDisputeResponseDto>> reCreateDispute(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @PathVariable Long matchId,
+            @Valid @RequestBody CreateDisputeRequestDto request
+    ) {
+        Long userId = userDetails.getUserId();
+        CreateDisputeResponseDto response = disputeService.reCreateDispute(matchId, userId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponseDto.success(response));
+    }
 }
