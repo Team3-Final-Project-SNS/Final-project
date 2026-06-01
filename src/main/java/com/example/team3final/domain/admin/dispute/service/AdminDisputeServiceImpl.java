@@ -3,6 +3,8 @@ package com.example.team3final.domain.admin.dispute.service;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.AdminException;
 import com.example.team3final.common.exception.ErrorCode;
+import com.example.team3final.domain.admin.dispute.dto.request.AdminJudgeDisputeRequestDto;
+import com.example.team3final.domain.admin.dispute.dto.response.AdminJudgeDisputeResponseDto;
 import com.example.team3final.domain.admin.dispute.dto.response.GetAdminDisputeResponseDto;
 import com.example.team3final.domain.admin.dispute.dto.response.GetAdminDisputesResponseDto;
 import com.example.team3final.domain.admin.repository.AdminRepository;
@@ -11,9 +13,14 @@ import com.example.team3final.domain.chat.service.ChatService;
 import com.example.team3final.domain.dispute.entity.Dispute;
 import com.example.team3final.domain.dispute.enums.DisputeStatus;
 import com.example.team3final.domain.dispute.service.DisputeService;
+import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.service.MatchService;
 import com.example.team3final.domain.meet.entity.MeetVerification;
 import com.example.team3final.domain.meet.service.MeetVerificationService;
+import com.example.team3final.domain.notification.service.NotificationPublisher;
+import com.example.team3final.domain.post.dto.response.PostMatchInfoDto;
+import com.example.team3final.domain.post.service.PostService;
+import com.example.team3final.domain.user.service.UserPointService;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -35,6 +42,9 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
     private final MatchService matchService;
     private final MeetVerificationService meetVerificationService;
     private final ChatService chatService;
+    private final PostService postService;
+    private final UserPointService userPointService;
+    private final NotificationPublisher notificationPublisher;
 
     // 이의제기 상세 조회 API
     @Override
@@ -43,7 +53,7 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
 
         // 어드민 존재 여부 확인
         adminRepository.findById(adminId)
-                .orElseThrow( () -> new AdminException(ErrorCode.ADMIN_NOT_FOUND));
+                .orElseThrow(() -> new AdminException(ErrorCode.ADMIN_NOT_FOUND));
 
         // 이의 제기 조회
         Dispute dispute = disputeService.getDisputeById(disputeId);
@@ -97,7 +107,7 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
 
         // 어드민 존재 여부 확인
         adminRepository.findById(adminId)
-                .orElseThrow( () -> new AdminException(ErrorCode.ADMIN_NOT_FOUND));
+                .orElseThrow(() -> new AdminException(ErrorCode.ADMIN_NOT_FOUND));
 
         // status null이면 전체 조회, 있으면 해당 status만 필터링
         Page<Dispute> disputes = disputeService.getDisputesForAdmin(status, pageable);
@@ -125,7 +135,70 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
         return PageResponseDto.from(response);
     }
 
-    // TODO: 이의제기 최종 판정
+    // 이의제기 최종 판정
+    @Override
+    @Transactional
+    public AdminJudgeDisputeResponseDto judgeDispute(Long adminId, Long disputeId, AdminJudgeDisputeRequestDto requestDto) {
 
+        // 어드민 존재 여부 확인
+        adminRepository.findById(adminId)
+                .orElseThrow(() -> new AdminException(ErrorCode.ADMIN_NOT_FOUND));
 
+        // 이의제기 조회
+        Dispute dispute = disputeService.getDisputeById(disputeId);
+
+        // 이미 종결된 이의제기 인지 확인
+        if (dispute.getStatus().isClosed()) {
+            throw new AdminException(ErrorCode.ADMIN_DISPUTE_ALREADY_PROCESSED);
+        }
+
+        // UNDER_REVIEW 상태가 맞는지 확인
+        if (dispute.getStatus() != DisputeStatus.UNDER_REVIEW) {
+            throw new AdminException(ErrorCode.ADMIN_DISPUTE_NOT_UNDER_REVIEW);
+        }
+
+        // 매칭 정보 조회
+        Match match = matchService.getMatchById(dispute.getMatchId());
+
+        // Post 정보 조회
+        PostMatchInfoDto postMatchInfo = postService.getPostMatchInfo(match.getPostId());
+
+        // submitterId = authorId 이면 등록자, 아니면 신청자
+        boolean submitterIsAuthor = dispute.getSubmitterId().equals(postMatchInfo.authorId());
+
+        // 이의제기자의 예치금 결정
+        int deposited = submitterIsAuthor ? postMatchInfo.authorDeposit() : match.getApplicantDeposit();
+
+        // 판정 결과에 따른 포인트 처리
+        int refundedPoint = switch (requestDto.getStatus()) {
+
+            case ACCEPTED -> {
+                // 전액 100% 반환
+                userPointService.refundPoint(dispute.getSubmitterId(), deposited, dispute.getMatchId());
+                yield deposited;
+            }
+
+            case PARTIALLY_ACCEPTED -> {
+                // 50%만 반환
+                userPointService.partialRefundPoint(dispute.getSubmitterId(), deposited, dispute.getMatchId());
+                yield deposited / 2;
+            }
+
+            case REJECTED -> {
+                // 반환값 없음
+                yield 0;
+            }
+
+            default -> throw new AdminException(ErrorCode.ADMIN_DISPUTE_INVALID_STATUS);
+        };
+
+        // Dispute 상태 전이
+        dispute.process(requestDto.getStatus(), adminId, requestDto.getComment());
+
+        // 이의제기자에게 판정 결과 알림 발송
+        notificationPublisher.sendDisputeResult(dispute.getSubmitterId(), disputeId);
+
+        // DTO 반환
+        return AdminJudgeDisputeResponseDto.of(dispute, refundedPoint);
+    }
 }
