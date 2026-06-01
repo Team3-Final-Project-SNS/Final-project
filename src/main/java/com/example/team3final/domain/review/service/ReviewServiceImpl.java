@@ -146,6 +146,9 @@ public class ReviewServiceImpl implements ReviewService {
         Long targetId = resolveTargetId(match, post.authorId(), writerId);
         updateTargetMannerTemperature(targetId, review.getTagScoreDelta());
 
+        // 27번 알림 - 후기 대상자에게 매너 온도 변경 알림 발송
+        notificationPublisher.sendMannerTemperatureChanged(targetId);
+
         UserInfoDto targetInfo = userService.getUserInfo(targetId);
 
         return CreateReviewResponseDto.of(

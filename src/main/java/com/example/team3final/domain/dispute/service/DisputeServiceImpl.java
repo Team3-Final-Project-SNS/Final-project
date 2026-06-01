@@ -2,6 +2,7 @@ package com.example.team3final.domain.dispute.service;
 
 import com.example.team3final.common.exception.DisputeException;
 import com.example.team3final.common.exception.ErrorCode;
+import com.example.team3final.domain.admin.service.AdminService;
 import com.example.team3final.domain.dispute.dto.request.CreateDisputeRequestDto;
 import com.example.team3final.domain.dispute.dto.response.CreateDisputeResponseDto;
 import com.example.team3final.domain.dispute.dto.response.DisputeResponseDto;
@@ -13,6 +14,7 @@ import com.example.team3final.domain.match.service.MatchService;
 import com.example.team3final.domain.meet.dto.response.MeetVerificationResponseDto;
 import com.example.team3final.domain.meet.enums.VerificationStatus;
 import com.example.team3final.domain.meet.service.MeetVerificationService;
+import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.dto.response.PostInfoDto;
 import com.example.team3final.domain.post.service.PostService;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +38,8 @@ public class DisputeServiceImpl implements DisputeService {
     private final MatchService matchService;
     private final PostService postService;
     private final MeetVerificationService meetVerificationService;
+    private final AdminService adminService;
+    private final NotificationPublisher notificationPublisher;
 
     /**
      * 이의제기 제출
@@ -102,6 +106,12 @@ public class DisputeServiceImpl implements DisputeService {
                 .parentDisputeId(null)
                 .build();
         Dispute saved = disputeRepository.save(dispute);
+
+        // 11번 알림 - 관리자에게 이의제기 접수 알림 발송
+        Long adminId = adminService.getAdminId();
+        if (adminId != null) {
+            notificationPublisher.sendDisputeSubmitted(adminId, saved.getId());
+        }
 
         return CreateDisputeResponseDto.from(saved);
     }
@@ -217,6 +227,12 @@ public class DisputeServiceImpl implements DisputeService {
                 .parentDisputeId(parentDispute.getId()) // 원본 이의제기 ID 연결
                 .build();
         Dispute savedReDispute = disputeRepository.save(reDispute);
+
+        // 11번 알림 - 관리자에게 재이의제기 접수 알림 발송
+        Long adminId = adminService.getAdminId();
+        if (adminId != null) {
+            notificationPublisher.sendDisputeSubmitted(adminId, savedReDispute.getId());
+        }
 
         return CreateDisputeResponseDto.from(savedReDispute);
     }

@@ -283,4 +283,38 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 "이의제기가 보류 처리되었습니다. 24시간 이내에 추가 증거를 제출해 주세요.",
                 RelatedDomain.DISPUTE, disputeId);
     }
+
+    // 25. 신고 접수 알림 - 관리자에게
+    // 신규 신고 접수 시 발송 → 전체 관리자에게 순회 발송
+    @Override
+    @Async
+    public void sendReportSubmitted(Long adminId, Long reportId) {
+        saveAndSend(adminId, NotificationType.REPORT_SUBMITTED,
+                "새로운 신고가 접수되었습니다.",
+                "새로운 신고가 접수되었습니다. 검토해 주세요.",
+                RelatedDomain.REPORT, reportId);
+    }
+
+    // 26. 문의 접수 알림 - 관리자에게
+    // 신규 문의 접수 시 발송 → 전체 관리자에게 순회 발송
+    @Override
+    @Async
+    public void sendInquirySubmitted(Long adminId, Long inquiryId) {
+        saveAndSend(adminId, NotificationType.INQUIRY_SUBMITTED,
+                "새로운 문의가 접수되었습니다.",
+                "새로운 문의가 접수되었습니다. 검토해 주세요.",
+                RelatedDomain.INQUIRY, inquiryId);
+    }
+
+    // 27. 매너 온도 변경 알림 - 후기 대상자에게
+    // 후기 작성으로 매너 온도가 변경되었을 때 발송
+    // relatedId = null → 클릭 시 마이페이지로 이동 (프론트에서 처리)
+    @Override
+    @Async
+    public void sendMannerTemperatureChanged(Long userId) {
+        saveAndSend(userId, NotificationType.MANNER_TEMPERATURE_CHANGED,
+                "매너 온도가 변경되었습니다.",
+                "새로운 후기가 작성되어 매너 온도가 변경되었습니다. 마이페이지에서 확인해 보세요.",
+                RelatedDomain.SYSTEM, null);
+    }
 }
