@@ -12,6 +12,7 @@ import com.example.team3final.domain.chat.dto.response.ChatMessageResponseDto;
 import com.example.team3final.domain.chat.service.ChatService;
 import com.example.team3final.domain.dispute.entity.Dispute;
 import com.example.team3final.domain.dispute.enums.DisputeStatus;
+import com.example.team3final.domain.dispute.enums.DisputeType;
 import com.example.team3final.domain.dispute.service.DisputeService;
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.service.MatchService;
@@ -63,16 +64,16 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
             dispute.startReview(adminId);
         }
 
-        // submitterId를 nickname으로 조회
+        // 제출자 닉네임 조회
         String applicantNickname = userService.getUserInfo(dispute.getSubmitterId()).nickname();
 
         // matchId는 postId로 조회
         Long postId = matchService.getMatchInfo(dispute.getMatchId()).postId();
 
-        // matchId는 MeetVerification으로 조회
+        // 만남인증 정보 조회 (GPS 인증 시각 포함)
         MeetVerification meetVerification = meetVerificationService.getByMatchId(dispute.getMatchId());
 
-        // postId -> chatRoomId 조회 후 채팅 내역 조회
+        // 채팅 내역 조회 — chatRoomId 없으면 빈 리스트
         Long chatRoomId = chatService.getChatRoomIdByPostId(postId);
         List<ChatMessageResponseDto> messages =
                 chatRoomId != null ? chatService.getChatMessagesForAdmin(chatRoomId) : List.of();
@@ -92,6 +93,7 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
                 dispute.getId(),
                 dispute.getMatchId(),
                 applicantNickname,
+                dispute.getDisputeType(),
                 dispute.getReason(),
                 dispute.getStatus(),
                 meetVerification.getStatus(),
