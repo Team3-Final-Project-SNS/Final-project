@@ -84,17 +84,22 @@ public class DisputeServiceImpl implements DisputeService {
             throw new DisputeException(ErrorCode.DISPUTE_ALREADY_SUBMITTED);
         }
 
-        // 8. 48시간 제한 검증
+        // 8. 24시간 제한 검증
         LocalDateTime decidedAt = meet.noShowDecidedAt();
         if (decidedAt == null || Duration.between(decidedAt, LocalDateTime.now()).toHours() >= 24L) {
                 throw new DisputeException(ErrorCode.DISPUTE_DEADLINE_EXCEEDED);
         }
 
         // 9. 저장
+        // evidenceUrl은 S3도입 전까지 null로 고정
         Dispute dispute = Dispute.builder()
                 .matchId(matchId)
                 .submitterId(userId)
+                .disputeType(request.getDisputeType())
                 .reason(request.getReason())
+                // TODO: 추 후 S3 도입 이후에 변경 예정
+                .evidenceUrl(null)
+                .parentDisputeId(null)
                 .build();
         Dispute saved = disputeRepository.save(dispute);
 
@@ -114,7 +119,20 @@ public class DisputeServiceImpl implements DisputeService {
         Dispute dispute = disputeRepository.findByMatchIdAndSubmitterId(matchId, userId)
                 .orElseThrow(() -> new DisputeException(ErrorCode.DISPUTE_NOT_FOUND));
 
-        return DisputeResponseDto.from(dispute);
+        // HOLD 상태일 때만 holdAt + 24시간, 아니면 null
+        LocalDateTime holdDeadlineAt = dispute.getHoldAt()
+                != null ? dispute.getHoldAt().plusHours(24) : null;
+
+        return DisputeResponseDto.of(dispute.getId(),
+                dispute.getMatchId(),
+                dispute.getDisputeType(),
+                dispute.getReason(),
+                dispute.getStatus(),
+                dispute.getAdminComment(),
+                dispute.getCreatedAt(),
+                dispute.getProcessedAt(),
+                holdDeadlineAt
+        );
     }
 
     // 어드민 이의제기 상세 조회용 - disputeId 단건 조회
