@@ -19,7 +19,13 @@ export default function PostCreatePage() {
     const [placeName, setPlaceName] = useState('');
     const [placeLat, setPlaceLat] = useState<number | null>(null);
     const [placeLng, setPlaceLng] = useState<number | null>(null);
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [date, setDate] = useState(() => {
+        // UTC 시간에 9시간(540분)을 더해서 한국 시간으로 변환
+        const kstOffset = 9 * 60 * 60 * 1000; // 9시간을 밀리초로 변환
+        const kstDate = new Date(Date.now() + kstOffset);
+        // toISOString()은 항상 UTC 기준이지만, 위에서 +9시간 했으므로 결과는 KST 날짜
+        return kstDate.toISOString().split('T')[0]; // "2026-06-01"
+    });
     const [time, setTime] = useState('12:30');
     const [content, setContent] = useState('');
     const [points, setPoints] = useState(1000);
