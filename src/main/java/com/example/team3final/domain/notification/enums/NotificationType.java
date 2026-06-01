@@ -19,8 +19,11 @@ public enum NotificationType {
     DISPUTE_RESULT("이의제기 결과"),             // 17. 이의제기 판정 결과
     DISPUTE_PENDING("이의제기 보류"),            // 24. 이의제기 보류 - 추가 증거 제출 요청
     POINT_CHANGED("포인트 변동"),               // 13/14. 신고 채택/후기 포인트 지급
+    MANNER_TEMPERATURE_CHANGED("매너 온도 변경"), // 27. 후기 작성으로 매너 온도 변경 시 대상자에게
     REPORT_RESULT("신고 처리 결과"),             // 10. 신고 처리 결과 알림
     DISPUTE_SUBMITTED("이의제기 접수"),          // 11. 관리자에게 이의제기가 왔을 때
+    REPORT_SUBMITTED("신고 접수"),              // 25. 신고 접수 시 관리자에게
+    INQUIRY_SUBMITTED("문의 접수"),             // 26. 문의 접수 시 관리자에게
     INQUIRY_ANSWERED("문의 답변 완료"),          // 15. 문의 답변 완료
     MEET_EXTEND_REQUESTED("만남 시간 연장 요청"), // 18. 만남 시간 연장 요청이 왔을 때
     MEET_EXTEND_ACCEPTED("만남 시간 연장 수락"),  // 19. 만남 시간 연장이 수락되었을 때

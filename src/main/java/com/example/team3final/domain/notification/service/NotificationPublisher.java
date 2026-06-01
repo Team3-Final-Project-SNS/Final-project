@@ -8,9 +8,9 @@ package com.example.team3final.domain.notification.service;
  *
  * 사용 도메인:
  *   - 매칭(정): 매칭 신청, 매칭 확정, 매칭 취소, 노쇼, 만남 시간 연장
- *   - 관리자(정): 이의제기 접수 알림
+ *   - 관리자(정): 이의제기 접수 알림, 신고 접수 알림, 문의 접수 알림
  *   - 후기(최): 후기 작성 50P 지급
- *   - 결제/이의제기(류): 이의제기 결과
+ *   - 결제/이의제기(류): 이의제기 결과, 이의제기 보류
  *   - 신고(박): 신고 처리 결과, 신고 채택 포인트 지급
  *   - 채팅(박): 채팅 메시지 수신 알림
  *   - 고객문의(문): 문의 답변 완료 알림
@@ -86,4 +86,15 @@ public interface NotificationPublisher {
 
     // 24. 이의제기 보류 알림 - 이의제기 신청자에게
     void sendDisputePending(Long userId, Long disputeId);
+
+    // 25. 신고 접수 알림 - 관리자에게
+    void sendReportSubmitted(Long adminId, Long reportId);
+
+    // 26. 문의 접수 알림 - 관리자에게
+    void sendInquirySubmitted(Long adminId, Long inquiryId);
+
+    // 27. 매너 온도 변경 알림 - 후기 대상자에게
+    // 후기 작성으로 매너 온도가 변경되었을 때 발송
+    // 클릭 시 마이페이지로 이동 (relatedId = null)
+    void sendMannerTemperatureChanged(Long userId);
 }

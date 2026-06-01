@@ -3,6 +3,7 @@ package com.example.team3final.domain.report.service;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.ReportException;
+import com.example.team3final.domain.admin.service.AdminService;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.service.PostService;
@@ -33,6 +34,7 @@ public class ReportServiceImpl implements ReportService {
     private final UserPointService userPointService;
     private final UserService userService;
     private final NotificationPublisher notificationPublisher;
+    private final AdminService adminService;
 
     // 포상 지급 포인트
     private static final int REPORT_REWARD_POINT = 50;
@@ -81,7 +83,16 @@ public class ReportServiceImpl implements ReportService {
                 .detail(request.getDetail())
                 .build();
 
-        return CreateReportResponseDto.from(reportRepository.save(report));
+        Report savedReport = reportRepository.save(report);
+
+        // 25번 알림 - 관리자에게 신고 접수 알림 발송
+        // adminId가 null이면 활성 관리자 없음 → 알림 스킵
+        Long adminId = adminService.getAdminId();
+        if (adminId != null) {
+            notificationPublisher.sendReportSubmitted(adminId, savedReport.getId());
+        }
+
+        return CreateReportResponseDto.from(savedReport);
     }
 
     // 내 신고 내역 조회

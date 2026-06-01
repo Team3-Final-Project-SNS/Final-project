@@ -5,6 +5,7 @@ import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.InquiryException;
 import com.example.team3final.domain.admin.inquiryAnswer.entity.InquiryAnswer;
 import com.example.team3final.domain.admin.inquiryAnswer.service.InquiryAnswerService;
+import com.example.team3final.domain.admin.service.AdminService;
 import com.example.team3final.domain.inquiry.dto.request.CreateInquiryRequestDto;
 import com.example.team3final.domain.inquiry.dto.response.CancelInquiryResponseDto;
 import com.example.team3final.domain.inquiry.dto.response.CreateInquiryResponseDto;
@@ -14,6 +15,7 @@ import com.example.team3final.domain.inquiry.entity.Inquiry;
 import com.example.team3final.domain.inquiry.enums.InquiryAnswerStatus;
 import com.example.team3final.domain.inquiry.enums.InquiryType;
 import com.example.team3final.domain.inquiry.repository.InquiryRepository;
+import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -36,6 +38,8 @@ public class InquiryServiceImpl implements InquiryService{
     private final StringRedisTemplate stringRedisTemplate;
     private final UserService userService;
     private final InquiryAnswerService inquiryAnswerService;
+    private final AdminService adminService;
+    private final NotificationPublisher notificationPublisher;
 
     private static final int MAX_DAILY_INQUIRY_COUNT = 20; // 하루 최대 문의 접수 횟수
     private static final Duration COOLDOWN_DURATION =  Duration.ofMinutes(1); // 문의 간 최소 대기 시간
@@ -73,6 +77,13 @@ public class InquiryServiceImpl implements InquiryService{
 
         // Redis 업데이트
         updateRedisAfterCreate(userId);
+
+        // 26번 알림 - 관리자에게 문의 접수 알림 발송
+        // adminId가 null이면 활성 관리자 없음 → 알림 스킵
+        Long adminId = adminService.getAdminId();
+        if (adminId != null) {
+            notificationPublisher.sendInquirySubmitted(adminId, savedInquiry.getId());
+        }
 
         return CreateInquiryResponseDto.from(savedInquiry);
     }

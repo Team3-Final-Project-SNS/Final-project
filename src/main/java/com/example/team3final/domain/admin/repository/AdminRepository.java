@@ -12,4 +12,7 @@ public interface AdminRepository extends JpaRepository<Admin, Long> {
 
     // 이메일 중복 확인
     boolean existsByEmail(String email);
+
+    // 활성 관리자 단건 조회 - 신고/문의/이의제기 접수 시 관리자 알림 발송용
+    Optional<Admin> findFirstByIsActiveTrue();
 }
