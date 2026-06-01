@@ -42,6 +42,11 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     // 특정 작성자(authorId)의 게시글만 페이징 조회
     Page<Post> findByAuthorId(Long authorId, Pageable pageable);
 
+    // status 조건 없이 학교 필터만 적용한 게시글 조회 (전체 상태 조회용)
+    // getPosts()에서 status가 null일 때 사용
+    Page<Post> findByAuthorIdIn(List<Long> authorIds, Pageable pageable);
+
+
     /**
      * 만료 벌크 업데이트
      *

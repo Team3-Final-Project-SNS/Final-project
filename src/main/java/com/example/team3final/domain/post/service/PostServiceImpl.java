@@ -183,25 +183,20 @@ public class PostServiceImpl implements PostService{
         }
 
         // 1. 현재 유저의 학교 ID 조회
-        // TODO: User 도메인 머지 후 실제 호출로 교체
-        // Long universityId = userService.getUserInfo(currentUserId)...; // 학교 조회 메서드 필요
-        Long universityId = 1L; // 임시값
+        // getUserInfo()는 UserInfoDto를 반환 — universityId 포함
+        UserInfoDto currentUser = userService.getUserInfo(currentUserId);
+        Long universityId = currentUser.universityId(); //
 
         // 2. 같은 학교 유저 ID 목록 조회
-        // TODO: User 도메인 머지 후 실제 호출로 교체
-        List<Long> sameUniversityUserIds = null; // null로 두고 아래에서 분기
+        List<Long> sameUniversityUserIds = userService.getUserIdsByUniversityId(universityId);
 
         // 3. 게시글 조회
         Page<Post> postPage;
-        if (sameUniversityUserIds == null) {
-            // 임시 분기: User 도메인 머지 전까지 학교 필터 없이 전체 조회
-            postPage = postRepository.findAll(
-                    PageRequest.of(
-                            pageable.getPageNumber(),
-                            pageable.getPageSize(),
-                            pageable.getSort()
-                    )
-            );
+        if (status == null) {
+            // status 없으면 해당 학교 전체 게시글 (상태 무관)
+            postPage = postRepository.findByAuthorIdIn(sameUniversityUserIds, PageRequest.of(
+                    pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort()
+            ));
         } else {
             postPage = postRepository.findByAuthorIdInAndStatus(
                     sameUniversityUserIds,
@@ -227,11 +222,9 @@ public class PostServiceImpl implements PostService{
             UserInfoDto authorInfo = authorMap.get(post.getAuthorId());
 
             // 방어 코드: 혹시 작성자가 빠졌다면(탈퇴/삭제 등) NPE 대신 안전 처리
-            // TODO: 탈퇴 유저 표기 정책이 정해지면 그에 맞게 보완 (예: "(알 수 없음)")
             if (authorInfo == null) {
                 return GetPostsItemResponseDto.from(post, null, null, null);
             }
-
             return GetPostsItemResponseDto.from(
                     post,
                     authorInfo.nickname(),
@@ -298,23 +291,25 @@ public class PostServiceImpl implements PostService{
         Post post = getPostById(postId);
 
         // 2. 같은 학교 게시글인지 검증
-        // TODO: User 도메인 머지 후 활성화
+        // 현재 유저와 게시글 작성자의 universityId가 다르면 403
+        UserInfoDto currentUser = userService.getUserInfo(currentUserId);
+        UserInfoDto author = userService.getUserInfo(post.getAuthorId());
 
-        // 3. isMine 결정 — 조회자가 작성자 본인이면 true
+        // 작성자가 탈퇴한 경우에도 게시글은 조회 가능하게 허용
+        // (탈퇴 유저 게시글을 완전히 막으면 이미 매칭된 상대방도 못 보는 문제)
+        if (author != null && !currentUser.universityId().equals(author.universityId())) {
+            throw new PostException(ErrorCode.POST_FORBIDDEN_UNIVERSITY);
+        }
+
+        // 3. isMine 결정
         boolean isMine = post.isAuthor(currentUserId);
 
-        // 4. 작성자 정보 조회 (null 방어)
-        Map<Long, UserInfoDto> authorMap = userService.getUserInfos(List.of(post.getAuthorId()));
-        UserInfoDto authorInfo = authorMap.get(post.getAuthorId()); // 탈퇴 유저면 null
-
-        // 5. DTO 조립
-        //    authorInfo가 null이면 nickname/major/studentNumber 모두 null로 내려감
-        //    클라이언트는 null 체크 후 "(알 수 없음)" 등으로 표기 가능
+        // 4. 작성자 정보 (null 방어 — 탈퇴 유저 게시글 처리)
         return GetPostResponseDto.from(
                 post,
-                authorInfo != null ? authorInfo.nickname()       : null,
-                authorInfo != null ? authorInfo.major()          : null,
-                authorInfo != null ? authorInfo.studentNumber()  : null,
+                author != null ? author.nickname()       : null,
+                author != null ? author.major()          : null,
+                author != null ? author.studentNumber()  : null,
                 isMine
         );
     }
