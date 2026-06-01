@@ -19,6 +19,7 @@ public interface UserPointService {
 
     // 후기 작성 포상 포인트 지급
     void rewardReviewPoint(Long userId, int amount, Long matchId);
+
     // 신고 채택 포상 / 후기 작성 포상 등 보상 포인트 지급
     // matchId가 없는 포상 -> null
     void rewardPoint(Long userId, int amount);

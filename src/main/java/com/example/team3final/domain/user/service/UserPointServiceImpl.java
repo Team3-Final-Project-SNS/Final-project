@@ -50,11 +50,11 @@ public class UserPointServiceImpl implements UserPointService{
         User user = getUserOrThrow(userId);
 
         // 2. 포인트 지급
-        user.addPaidPoint(amount);
+        user.addFreePoint(amount);
 
         // 3. PointTransaction 기록
         saveTransaction(userId, matchId, amount,
-                PointTransactionType.REFUND, user.getTotalPoint(), PointSource.PAID);
+                PointTransactionType.REFUND, user.getTotalPoint(), PointSource.FREE);
     }
 
     // 결제 충전 — paid_point로
@@ -71,6 +71,8 @@ public class UserPointServiceImpl implements UserPointService{
     @Override
     public int withdrawChargedPoint(Long userId, int amount, Long paymentId) {
         User user = getUserOrThrow(userId);
+        // withdrawPaid(): 현재 paidPoint 잔액 한도 내에서만 회수
+        // 이미 책임비로 사용된 paidPoint는 회수 불가 → min(paidPoint, 요청금액)
         int actual = user.withdrawPaid(amount);
         if (actual > 0) {
             saveTransaction(userId, paymentId, -actual,
@@ -88,8 +90,8 @@ public class UserPointServiceImpl implements UserPointService{
         // 2. 50% 계산
         int refundAmount = amount / 2;
 
-        // 3. 포인트 지급
-        user.addPaidPoint(refundAmount);
+        // 3. 환불은 freePoint로 지급하는 것이 정책 (PointSource.FREE와 일치)
+        user.addFreePoint(refundAmount);
 
         // 4. PointTransaction 기록 — PARTIAL_REFUND 타입
         saveTransaction(userId, matchId, refundAmount, PointTransactionType.PARTIAL_REFUND,
@@ -119,6 +121,7 @@ public class UserPointServiceImpl implements UserPointService{
                 PointTransactionType.REPORT_REWARD
         );
     }
+
    // 후기 작성 포인트
     @Override
     public void rewardReviewPoint(Long userId, int amount, Long matchId) {
@@ -129,7 +132,10 @@ public class UserPointServiceImpl implements UserPointService{
                 PointTransactionType.REVIEW_REWARD
         );
     }
-    // 공통 처리 로직.
+
+    // ===== private 헬퍼 =====
+
+    // 보상 포인트 공통 처리 — freePoint로 지급
     private void rewardPoint(
             Long userId,
             int amount,
@@ -142,8 +148,14 @@ public class UserPointServiceImpl implements UserPointService{
         user.addFreePoint(amount);
 
         // PointTransaction 기록 -> REPORT_REWARD 적립, matchId는 신고에 없으므로 -> null
-        saveTransaction(userId, null, amount,
+        saveTransaction(userId, matchId, amount,
                 PointTransactionType.REPORT_REWARD, user.getTotalPoint(), PointSource.FREE);
+    }
+
+    // matchId 없는 보상(신고 채택 등)에서 호출 — 내부적으로 private rewardPoint로 위임
+    @Override
+    public void rewardPoint(Long userId, int amount) {
+        rewardPoint(userId, amount, null, PointTransactionType.REPORT_REWARD);
     }
 
     // 게시글 수정 시 책임비 차액 차감 — EDIT_DEPOSIT 타입으로 기록
@@ -183,7 +195,6 @@ public class UserPointServiceImpl implements UserPointService{
                 user.getTotalPoint(),PointSource.FREE);
     }
 
-    // ===== private 헬퍼 =====
     private User getUserOrThrow(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new PointTransactionException(ErrorCode.USER_NOT_FOUND));
