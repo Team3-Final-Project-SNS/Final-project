@@ -40,6 +40,15 @@ public class AiPromptDataInitializer implements ApplicationRunner {
         );
 
         saveIfMissing(
+                AiPromptType.SUPPORT_CHAT,
+                AiFeature.SUPPORT,
+                "v1",
+                "support-chat-v1.st",
+                true,
+                "한끼팟 고객센터 AI 기본 프롬프트"
+        );
+
+        saveIfMissing(
                 AiPromptType.REPORT_SUMMARY,
                 AiFeature.REPORT,
                 "v1",
@@ -59,6 +68,11 @@ public class AiPromptDataInitializer implements ApplicationRunner {
     ) {
         if (aiPromptTemplateRepository.existsByPromptTypeAndVersion(promptType, version)) {
             return;
+        }
+
+        if (active) {
+            aiPromptTemplateRepository.findByPromptType(promptType)
+                    .forEach(AiPromptTemplate::deactivate);
         }
 
         aiPromptTemplateRepository.save(

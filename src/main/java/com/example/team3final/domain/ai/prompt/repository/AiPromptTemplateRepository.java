@@ -4,6 +4,7 @@ import com.example.team3final.domain.ai.common.enums.AiPromptType;
 import com.example.team3final.domain.ai.prompt.entity.AiPromptTemplate;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 
@@ -20,6 +21,8 @@ import java.util.Optional;
 public interface AiPromptTemplateRepository extends JpaRepository<AiPromptTemplate, Long> {
 
     Optional<AiPromptTemplate> findByPromptTypeAndActiveTrue(AiPromptType promptType);
+
+    List<AiPromptTemplate> findByPromptType(AiPromptType promptType);
 
     boolean existsByPromptTypeAndVersion(AiPromptType promptType, String version);
 }
