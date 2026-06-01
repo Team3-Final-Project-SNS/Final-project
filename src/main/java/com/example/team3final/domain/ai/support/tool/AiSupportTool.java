@@ -167,7 +167,7 @@ public class AiSupportTool {
                 userInfo.nickname(),
                 userInfo.major(),
                 userInfo.studentNumber(),
-                user.getPoint(),
+                user.getTotalPoint(),
                 user.getStatus().name()
         );
     }

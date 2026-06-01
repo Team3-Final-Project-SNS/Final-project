@@ -2,6 +2,7 @@ package com.example.team3final.domain.user.service;
 
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.UserException;
+import com.example.team3final.domain.post.service.PostServiceImpl;
 import com.example.team3final.domain.user.dto.request.UpdateUserRequestDto;
 import com.example.team3final.domain.user.dto.response.AdminUserInfoDto;
 import com.example.team3final.domain.user.dto.response.GetUserResponseDto;
@@ -23,6 +24,10 @@ public interface UserService {
     // 이메일로 사용자 ID를 조회합니다.
     // 다른 도메인에서 로그인 사용자의 userId가 필요할 때 사용합니다.
     Long getUserIdByEmail(String email);
+
+    // 같은 학교 활성 사용자 ID 목록 조회
+    // 사용처: PostServiceImpl.getPosts() — 학교 필터 적용
+    List<Long> getUserIdsByUniversityId(Long universityId);
 
     // 회원가입 시 가입되어있는 이메일인지 검증
     boolean isEmailAlreadyRegistered(String email);

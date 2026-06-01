@@ -2,6 +2,7 @@ package com.example.team3final.domain.pointTransaction.entity;
 
 
 import com.example.team3final.common.entity.BaseTimeEntity;
+import com.example.team3final.domain.pointTransaction.enums.PointSource;
 import com.example.team3final.domain.pointTransaction.enums.PointTransactionType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -38,8 +39,13 @@ public class PointTransaction extends BaseTimeEntity {
     @Column(name = "balance_after", nullable = false) // 거래 후 잔액
     private int balanceAfter;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "point_source", nullable = false, length = 10)
+    private PointSource pointSource;
+
     @Column(name = "description")
     private String description;
+
 
     @Builder
     private PointTransaction(
@@ -48,6 +54,7 @@ public class PointTransaction extends BaseTimeEntity {
             int amount,
             PointTransactionType transactionType,
             int balanceAfter,
+            PointSource pointSource,
             String description
     ) {
         this.userId = userId;
@@ -55,6 +62,7 @@ public class PointTransaction extends BaseTimeEntity {
         this.amount = amount;
         this.transactionType = transactionType;
         this.balanceAfter = balanceAfter;
+        this.pointSource = pointSource;
         this.description = description;
     }
 }

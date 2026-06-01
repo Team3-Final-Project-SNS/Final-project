@@ -6,7 +6,8 @@ import lombok.Getter;
 public enum PointTransactionType {
 
     JOIN_BONUS("회원가입 보너스 지급"),         // 가입 시 10,000P 지급
-    CHARGE("포인트 충전"),                    // 결제(현금)로 포인트 충전 -> 잔액 증가
+    CHARGE("유료 포인트 충전"),                // 결제(현금)로 포인트 충전 -> 잔액 증가
+    CHARGE_CANCELLED("유료 포인트 환불"),      // 결제 취소로 paid_point 회수
     DEPOSIT("책임비 포인트 예치"),             // 게시글 작성 또는 매칭 신청 시 포인트 차감
     EDIT_DEPOSIT("책임비 포인트 변경"),        // 게시글 수정으로 예치 포인트가 변경된 경우
     REFUND("포인트 전액 반환"),                // 정상 완료 또는 취소로 전액 반환

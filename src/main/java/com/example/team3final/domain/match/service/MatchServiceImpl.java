@@ -63,7 +63,16 @@ public class MatchServiceImpl implements MatchService{
             throw new MatchException(ErrorCode.MATCH_POST_CLOSED);
         }
 
-        // 2-1. 활성 매칭 정원 검증 (그룹 매칭 지원)
+        // 2-1. 중복 신청 차단 (같은 게시글에 같은 사용자 두 번 신청 불가)
+        //   그룹 매칭에서 의미가 생김 — 1:1에선 본인 게시글 차단(2-1)에 흡수되지만,
+        //   그룹에선 별도 신청자가 두 번 들어오는 걸 막아야 함.
+        //   MATCHED/CANCELLED 등 상태 무관하게 같은 (postId, applicantId) 조합 존재 여부만 봄
+        //   → 취소 후 재신청을 막을지는 정책 확인 필요. 일단 막는 방향.
+        if (matchRepository.existsByPostIdAndApplicantId(postId, applicantId)) {
+            throw new MatchException(ErrorCode.MATCH_DUPLICATE_APPLY);
+        }
+
+        // 2-2. 활성 매칭 정원 검증 (그룹 매칭 지원)
         if (post.isFull()) {
             throw new MatchException(ErrorCode.MATCH_ALREADY_MATCHED);
         }
@@ -236,8 +245,19 @@ public class MatchServiceImpl implements MatchService{
 
         match.cancel();
         post.decreaseCurrentApplicants(); // 참여 인원 감소
-        post.cancel();
-        chatService.deactivateChatRoom(match.getPostId());
+        if (cancelerIsApplicant) {
+            // GUEST(신청자) 취소 — 게시글은 OPEN으로 복구, 채팅방은 유지
+            // post 상태가 MATCHED였다면 OPEN으로 되돌림 (정원이 비었으니 다시 받아야 함)
+            if (post.isMatched()) {
+                post.reopen();  // ★ Post 엔티티에 reopen() 메서드 새로 추가 필요
+            }
+            // 채팅방 비활성화 X — 그룹 매칭이면 나머지 사람들 채팅 유지
+            chatService.deactivateChatRoom(match.getPostId());
+        } else {
+            // HOST(작성자) 취소 — 게시글 CANCELLED + 채팅방 비활성화
+            post.cancel();
+            chatService.deactivateChatRoom(match.getPostId());
+        }
 
         // 2번 알림 - 상대방에게 매칭 취소 알림 발송
         notificationPublisher.sendMatchCancelled(opponentId, matchId);
@@ -297,7 +317,7 @@ public class MatchServiceImpl implements MatchService{
         // 0. 매칭 목록 조회 (기존 그대로) — 쿼리 1번
         Page<Match> matchPage = (status == null)
                 ? matchRepository.findAllByUserId(userId, pageable)
-                : matchRepository.findAllByUserIdAndStatus(userId, status, pageable);
+                : matchRepository.findAllByUserIdAndStatus(userId, status.name(), pageable);
 
         // 현재 페이지의 실제 매칭 리스트 (ID 수집·룩업에 사용)
         List<Match> matches = matchPage.getContent();

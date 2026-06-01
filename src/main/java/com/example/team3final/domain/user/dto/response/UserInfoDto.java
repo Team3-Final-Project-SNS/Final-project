@@ -7,14 +7,16 @@ public record UserInfoDto(
         Long userId,
         String nickname,
         String major,
-        String studentNumber
+        String studentNumber,
+        Long universityId
 ) {
     public static UserInfoDto from(User user) {
         return new UserInfoDto(
                 user.getId(),
                 user.getNickname(),
                 user.getMajor(),
-                user.getStudentNumber()
+                user.getStudentNumber(),
+                user.getUniversityId()
         );
     }
 }

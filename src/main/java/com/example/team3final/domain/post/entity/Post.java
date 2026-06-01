@@ -112,6 +112,17 @@ public class Post extends SoftDeleteEntity {
                 this.status = PostStatus.MATCHED;
         }
 
+        // 게시글 만료 처리 — meetAt이 지났고 OPEN 상태일 때 스케줄러가 호출
+        // OPEN → EXPIRED 전이만 허용 (다른 상태에서 호출되면 무시해도 되지만 명시적 방어)
+        public void expire() {
+                // isOpen() = this.status == PostStatus.OPEN
+                // OPEN이 아닌 게시글은 만료 처리 대상이 아님
+                if (!isOpen()) {
+                        throw new PostException(ErrorCode.POST_NOT_OPEN);
+                }
+                this.status = PostStatus.EXPIRED;
+        }
+
         // 만남 정상 완료
         public void complete() {
                 // 상태 전이 규칙 검증: MATCHED가 아니면 완료 처리 불가
@@ -124,6 +135,14 @@ public class Post extends SoftDeleteEntity {
         // 게시글 취소 (작성자 삭제 / 매칭 취소)
         public void cancel() {
                 this.status = PostStatus.CANCELLED;
+        }
+
+        // 매칭 취소 시 OPEN으로 복구 — MATCHED 상태에서 신청자 취소 등으로 정원이 빈 경우
+        public void reopen() {
+                if (this.status != PostStatus.MATCHED) {
+                        throw new PostException(ErrorCode.POST_NOT_MATCHED);
+                }
+                this.status = PostStatus.OPEN;
         }
 
         // 소프트 삭제 — 실제 행 삭제 대신 deleted_at 만 찍음

@@ -32,6 +32,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
         """)
     Page<User> findAllByForAdmin(@Param("status") UserStatus status, @Param("keyword") String keyword, Pageable pageable);
 
+    // 같은 학교(universityId)에 속한 활성 유저(ACTIVE) ID 목록 조회
+    // - ACTIVE 조건: 탈퇴(WITHDRAWN), 정지(SUSPENDED) 유저는 게시글 목록에서 제외
+    // - @SQLRestriction("deleted_at IS NULL")이 자동으로 적용되므로
+    //   soft delete된 유저도 자동 제외됨
+    @Query("SELECT u.id FROM User u WHERE u.universityId = :universityId AND u.status = 'ACTIVE'")
+    List<Long> findIdsByUniversityId(@Param("universityId") Long universityId);
+
 
 
 
