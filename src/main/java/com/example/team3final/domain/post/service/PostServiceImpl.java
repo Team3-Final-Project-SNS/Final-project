@@ -303,16 +303,18 @@ public class PostServiceImpl implements PostService{
         // 3. isMine 결정 — 조회자가 작성자 본인이면 true
         boolean isMine = post.isAuthor(currentUserId);
 
-        // 4. 작성자 정보 조회
-        // getUserInfo 한 번으로 nickname/major/studentNumber 모두 확보 (호출 1회로 N+1 방지)
-        UserInfoDto authorInfo = userService.getUserInfo(post.getAuthorId());
+        // 4. 작성자 정보 조회 (null 방어)
+        Map<Long, UserInfoDto> authorMap = userService.getUserInfos(List.of(post.getAuthorId()));
+        UserInfoDto authorInfo = authorMap.get(post.getAuthorId()); // 탈퇴 유저면 null
 
         // 5. DTO 조립
+        //    authorInfo가 null이면 nickname/major/studentNumber 모두 null로 내려감
+        //    클라이언트는 null 체크 후 "(알 수 없음)" 등으로 표기 가능
         return GetPostResponseDto.from(
                 post,
-                authorInfo.nickname(),
-                authorInfo.major(),
-                authorInfo.studentNumber(),
+                authorInfo != null ? authorInfo.nickname()       : null,
+                authorInfo != null ? authorInfo.major()          : null,
+                authorInfo != null ? authorInfo.studentNumber()  : null,
                 isMine
         );
     }
