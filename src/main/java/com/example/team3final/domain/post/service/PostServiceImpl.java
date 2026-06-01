@@ -3,6 +3,7 @@ package com.example.team3final.domain.post.service;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.PostException;
+import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.dto.request.CreatePostRequestDto;
 import com.example.team3final.domain.post.dto.request.UpdatePostRequestDto;
 import com.example.team3final.domain.post.dto.response.*;
@@ -35,6 +36,7 @@ public class PostServiceImpl implements PostService{
     private final PostRepository postRepository;
     private final UserService userService;
     private final UserPointService userPointService;
+    private final NotificationPublisher notificationPublisher;
 
 
     @Override
@@ -370,6 +372,13 @@ public class PostServiceImpl implements PostService{
 
         // 게시글 삭제
         postRepository.delete(post);
+
+        // 22번 알림 - 게시글 작성자에게 강제 삭제 안내 발송
+        notificationPublisher.sendSystem(
+                post.getAuthorId(),
+                "게시글이 삭제되었습니다.",
+                "해당 게시물이 신고 접수 및 관리자 판단에 의해 삭제되었습니다. 자세한 사항은 고객센터를 확인해 주세요."
+        );
 
         return refundedPoint;
     }

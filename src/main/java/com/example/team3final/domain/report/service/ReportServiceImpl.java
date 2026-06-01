@@ -37,17 +37,6 @@ public class ReportServiceImpl implements ReportService {
     // 포상 지급 포인트
     private static final int REPORT_REWARD_POINT = 50;
 
-    // 제재 정책 - 채택 누적 횟수에 따른 정지 일수
-    // 1~2회: 경고 (정지 없음)
-    // 3회: 3일 정지
-    // 4회: 10일 정지
-    // 5회: 30일 정지
-    // 6회 이상: 영구정지 (null)
-    private static final int SUSPEND_WARNING_THRESHOLD = 2;   // 이하: 경고
-    private static final int SUSPEND_3DAY_THRESHOLD = 3;      // 3일 정지
-    private static final int SUSPEND_10DAY_THRESHOLD = 4;     // 10일 정지
-    private static final int SUSPEND_30DAY_THRESHOLD = 5;     // 30일 정지
-
     // 신고 접수
     @Override
     @Transactional
@@ -149,28 +138,43 @@ public class ReportServiceImpl implements ReportService {
         int acceptedCount = reportRepository.countByTargetIdAndStatus(
                 report.getTargetId(), ReportStatus.ACCEPTED);
 
+        // 신고자에게 포상 포인트 지급
         userPointService.rewardPoint(report.getReporterId(), REPORT_REWARD_POINT);
 
-        // 채택 횟수에 따른 피신고자 제재 처리
-        // 1. acceptedCount가 2보다 크면 (3회 이상이면) 제재 시작
-        if (acceptedCount > SUSPEND_WARNING_THRESHOLD) {
+        // 채택 횟수에 따른 피신고자 제재 및 알림 처리
+        // case 1~2: 경고 (계정 정지 없음)
+        // case 3: 3일 정지 / case 4: 10일 정지 / case 5: 30일 정지
+        // default(6회 이상): 영구 정지
+        switch (acceptedCount) {
+            case 1 -> notificationPublisher.sendSystem(report.getTargetId(), "서비스 이용 경고",
+                    "신고가 채택되었습니다. 서비스 이용 규정을 준수해 주세요.");
 
-            // 2. 정지 일수 담을 변수 선언 (아직 값 없음)
-            Integer days;
+            case 2 -> notificationPublisher.sendSystem(report.getTargetId(), "서비스 이용 경고",
+                    "두 번째 경고입니다. 재발 시 계정이 정지될 수 있습니다.");
 
-            // 3. 횟수에 따라 days 값 결정
-            if (acceptedCount == SUSPEND_3DAY_THRESHOLD) {
-                days = 3;       // 3회 → 3일 정지
-            } else if (acceptedCount == SUSPEND_10DAY_THRESHOLD) {
-                days = 10;      // 4회 → 10일 정지
-            } else if (acceptedCount == SUSPEND_30DAY_THRESHOLD) {
-                days = 30;      // 5회 → 30일 정지
-            } else {
-                days = null;    // 6회 이상 → 영구정지
+            case 3 -> {
+                userService.suspendUser(report.getTargetId(), 3);
+                notificationPublisher.sendSystem(report.getTargetId(), "서비스 이용 제재 안내",
+                        "세 번째 규정 위반으로 계정이 3일간 정지되었습니다.");
             }
-
-            // 4. days 값으로 제재 처리
-            userService.suspendUser(report.getTargetId(), days);
+            case 4 -> {
+                userService.suspendUser(report.getTargetId(), 10);
+                notificationPublisher.sendSystem(report.getTargetId(), "서비스 이용 제재 안내",
+                        "네 번째 규정 위반으로 계정이 10일간 정지되었습니다.");
+            }
+            case 5 -> {
+                userService.suspendUser(report.getTargetId(), 30);
+                notificationPublisher.sendSystem(report.getTargetId(), "서비스 이용 제재 안내",
+                        "다섯 번째 규정 위반으로 계정이 30일간 정지되었습니다.");
+            }
+            default -> {
+                // 6회 이상 → 영구정지
+                if (acceptedCount >= 6) {
+                    userService.suspendUser(report.getTargetId(), null);
+                    notificationPublisher.sendSystem(report.getTargetId(), "서비스 이용 제재 안내",
+                            "지속적인 규정 위반으로 계정이 영구 정지되었습니다.");
+                }
+            }
         }
 
         // 신고자에게 채택 알림 + 포상 포인트 알림

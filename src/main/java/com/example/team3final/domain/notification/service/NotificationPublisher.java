@@ -53,6 +53,7 @@ public interface NotificationPublisher {
     void sendDisputeSubmitted(Long adminId, Long disputeId);
 
     // 12. 시스템 공지 알림 - 전체/대상 사용자에게
+    // 용도: 공지 / 게시글 삭제 안내 / 게시글 만료 안내 / 제재 안내
     void sendSystem(Long userId, String title, String content);
 
     // 13. 신고 채택 포인트 지급 알림 - 신고자에게
@@ -68,6 +69,7 @@ public interface NotificationPublisher {
     void sendMatchConfirmed(Long userId, Long matchId);
 
     // 17. 이의제기 판정 결과 알림 - 이의제기 신청자에게
+    // 용도: 관리자 승인/거절 시 + 보류 24시간 초과 자동 거절 시 발송
     void sendDisputeResult(Long userId, Long disputeId);
 
     // 18. 만남 시간 연장 요청 알림 - 만남 상대방에게
@@ -81,4 +83,7 @@ public interface NotificationPublisher {
 
     // 21. 만남 시간 연장 만료 알림 - 연장 요청자에게
     void sendMeetExtendExpired(Long userId, Long matchId);
+
+    // 24. 이의제기 보류 알림 - 이의제기 신청자에게
+    void sendDisputePending(Long userId, Long disputeId);
 }

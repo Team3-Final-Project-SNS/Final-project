@@ -134,6 +134,12 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
         boolean bothVerified = meetVerification.getStatus() == VerificationStatus.VERIFIED;
 
+        // 4번 알림 - 상대방에게 장소 인증 완료 알림 발송
+        // isAuthor면 상대방은 신청자(applicantId), 아니면 등록자(authorId)
+        Long opponentId = isAuthor ? matchInfo.applicantId() : postInfo.authorId();
+        notificationPublisher.sendPlaceVerified(opponentId, matchId);
+
+
         return PlaceVerificationResponseDto.of(meetVerification, distanceMeters, bothVerified);
     }
 
@@ -342,9 +348,9 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                 matchService.markBothNoShow(meetVerification.getMatchId());
                 userLocationService.deleteLocationsByMatchId(meetVerification.getMatchId());
                 chatService.deactivateChatRoom(currentPostId);
-                // 양측 모두에게 노쇼 판정 알림 발송
-                // notificationPublisher
-                // notificationPublisher
+                // 양측 모두에게 노쇼 예정 알림 발송
+                notificationPublisher.sendNoShowWarning(postInfoDto.authorId(), meetVerification.getMatchId());
+                notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), meetVerification.getMatchId());
 
             } else if (authorVerified && !applicantVerified) {
                 // 신청자가 노쇼 -> GUEST_NO_SHOW
@@ -352,16 +358,16 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                 matchService.markApplicantNoShow(meetVerification.getMatchId());
                 userLocationService.deleteLocationsByMatchId(meetVerification.getMatchId());
                 chatService.deactivateChatRoom(currentPostId);
-                // 신청자에게 노쇼 판정 알림 발송
-                // notificationPublisher
+                // 신청자에게 노쇼 예정 알림 발송
+                notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), meetVerification.getMatchId());
             } else if (!authorVerified) {
                 // 등록자 노쇼 -> HOST_NO_SHOW
                 meetVerification.markAuthorNoShow();
                 matchService.markAuthorNoShow(meetVerification.getMatchId());
                 userLocationService.deleteLocationsByMatchId(meetVerification.getMatchId());
                 chatService.deactivateChatRoom(currentPostId);
-                // 등록자에게 노쇼 판정 알림 발송
-                // notificationPublisher
+                // 등록자에게 노쇼 예정 알림 발송
+                notificationPublisher.sendNoShowWarning(postInfoDto.authorId(), meetVerification.getMatchId());
             }
         }
     }
@@ -411,6 +417,10 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
             // 채팅방 비활성화
             chatService.deactivateChatRoom(postId);
+
+            // 신청자에게 노쇼 예정 알림 발송
+            // matchInfoDto에서 applicantId 꺼내서 발송
+            notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), meetVerification.getMatchId());
         }
     }
 
