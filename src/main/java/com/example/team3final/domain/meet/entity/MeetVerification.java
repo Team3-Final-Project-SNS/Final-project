@@ -179,16 +179,16 @@ public class MeetVerification {
     }
 
     // 연장 수락
-    public void acceptExtension(LocalDateTime meetAt) {
+    public void acceptExtension(LocalDateTime meetAt, long extensionMinutes) {
         this.extensionStatus = ExtensionStatus.ACCEPTED;
         this.isExtended = true;
-        this.extendedMeetAt = meetAt.plusMinutes(15); // 원래 약속 시간에서 + 15분
+        this.extendedMeetAt = meetAt.plusMinutes(extensionMinutes); // 원래 약속 시간에서 + 15분
     }
 
     // QR 만료 시각 15분 연장 (수락 시 함께 호출)
-    public void extendQrExpiry() {
+    public void extendQrExpiry(long extensionMinutes) {
         if (this.qrExpiresAt != null) {
-            this.qrExpiresAt = this.qrExpiresAt.plusMinutes(15);
+            this.qrExpiresAt = this.qrExpiresAt.plusMinutes(extensionMinutes);
         }
     }
 
