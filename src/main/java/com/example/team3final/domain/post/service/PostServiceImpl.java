@@ -352,8 +352,11 @@ public class PostServiceImpl implements PostService{
         if (postIds == null || postIds.isEmpty()) {
             return Collections.emptyMap();
         }
-        // 2. postId IN (...) 단일 쿼리로 게시글 일괄 조회
-        List<Post> posts = postRepository.findAllById(postIds);
+        // 2. soft delete된 게시글 포함 조회
+        //    이유: 매칭은 게시글이 삭제되어도 살아있어야 함 (매칭 이력 보존)
+        //          findAllById()는 @SQLRestriction으로 삭제된 게시글을 제외하므로
+        //          매칭 목록 조회 전용인 findAllByIdIncludingDeleted()를 사용
+        List<Post> posts = postRepository.findAllByIdIncludingDeleted(postIds);
 
         return posts.stream()
                 .collect(Collectors.toMap(

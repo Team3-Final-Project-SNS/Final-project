@@ -14,6 +14,25 @@ import java.util.List;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
 
+    /**
+     * soft delete된 게시글 포함 IN 조회 — 매칭 목록 조회 전용
+     *
+     * [왜 이 메서드가 필요한가]
+     *   - 기본 findAllById()는 @SQLRestriction("deleted_at IS NULL") 때문에
+     *     soft delete된 게시글을 결과에서 제외함
+     *   - 매칭은 게시글이 삭제되어도 살아있음 (매칭 이력 보존)
+     *   - 따라서 getMatches()에서 매칭에 엮인 postId로 게시글 정보를 조회할 때,
+     *     삭제된 게시글도 포함해서 가져와야 postInfo가 null이 되지 않음
+     *   - soft delete 필터(@SQLRestriction)를 우회하기 위해 @Query로 직접 작성
+     *
+     * [쿼리 설명]
+     *   FROM Post p    : Post 엔티티 (deleted_at 컬럼 포함)
+     *   WHERE p.id IN :postIds  : 주어진 ID 목록으로 일괄 조회
+     *   (deleted_at 조건 없음 → soft delete 필터 우회)*
+     */
+    @Query("SELECT p FROM Post p WHERE p.id IN :postIds")
+    List<Post> findAllByIdIncludingDeleted(@Param("postIds")List<Long> postIds);
+
     Page<Post> findByAuthorIdInAndStatus(
             List<Long> authorIds,
             PostStatus status,
