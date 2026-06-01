@@ -61,18 +61,18 @@ public class MatchServiceImpl implements MatchService{
             throw new MatchException(ErrorCode.MATCH_POST_CLOSED);
         }
 
-        // 2-1. 활성 매칭 정원 검증 (그룹 매칭 지원)
-        if (post.isFull()) {
-            throw new MatchException(ErrorCode.MATCH_ALREADY_MATCHED);
-        }
-
-        // 2-2. 중복 신청 차단 (같은 게시글에 같은 사용자 두 번 신청 불가)
+        // 2-1. 중복 신청 차단 (같은 게시글에 같은 사용자 두 번 신청 불가)
         //   그룹 매칭에서 의미가 생김 — 1:1에선 본인 게시글 차단(2-1)에 흡수되지만,
         //   그룹에선 별도 신청자가 두 번 들어오는 걸 막아야 함.
         //   MATCHED/CANCELLED 등 상태 무관하게 같은 (postId, applicantId) 조합 존재 여부만 봄
         //   → 취소 후 재신청을 막을지는 정책 확인 필요. 일단 막는 방향.
         if (matchRepository.existsByPostIdAndApplicantId(postId, applicantId)) {
             throw new MatchException(ErrorCode.MATCH_DUPLICATE_APPLY);
+        }
+
+        // 2-2. 활성 매칭 정원 검증 (그룹 매칭 지원)
+        if (post.isFull()) {
+            throw new MatchException(ErrorCode.MATCH_ALREADY_MATCHED);
         }
 
         // 3. 신청자 포인트 차감 — 잔액 부족 시 예외 → 트랜잭션 전체 롤백
