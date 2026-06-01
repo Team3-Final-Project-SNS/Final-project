@@ -67,4 +67,9 @@ public class Inquiry extends BaseUpdateEntity {
     public boolean isWithdrawable() {
         return this.answerStatus == InquiryAnswerStatus.PENDING;
     }
+
+    // 관리자 답변 완료 처리
+    public void answer() {
+        this.answerStatus = InquiryAnswerStatus.ANSWERED;
+    }
 }
