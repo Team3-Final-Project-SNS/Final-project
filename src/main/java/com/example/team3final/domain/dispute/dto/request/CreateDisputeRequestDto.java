@@ -1,6 +1,8 @@
 package com.example.team3final.domain.dispute.dto.request;
 
+import com.example.team3final.domain.dispute.enums.DisputeType;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Builder;
 import lombok.Getter;
@@ -9,6 +11,10 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor
 public class CreateDisputeRequestDto {
+
+    // 이의제기 사유 타입
+    @NotNull(message = "이의제기 유형은 필수입니다.")
+    private DisputeType disputeType;
 
     /**
      * 이의제기 사유.
@@ -19,8 +25,8 @@ public class CreateDisputeRequestDto {
     @Size(max = 1000, message = "이의제기 사유는 최대 1000자까지 입력할 수 있습니다.")
     private String reason;
 
-    @Builder
-    private CreateDisputeRequestDto(String reason) {
-        this.reason = reason;
-    }
+//    @Builder
+//    private CreateDisputeRequestDto(String reason) {
+//        this.reason = reason;
+//    }
 }
