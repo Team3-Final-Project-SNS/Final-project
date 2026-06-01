@@ -6,6 +6,7 @@ import com.example.team3final.domain.pointTransaction.entity.PointTransaction;
 import com.example.team3final.domain.pointTransaction.enums.PointTransactionType;
 import com.example.team3final.domain.pointTransaction.repository.PointTransactionRepository;
 import com.example.team3final.domain.user.dto.request.UpdateUserRequestDto;
+import com.example.team3final.domain.user.dto.response.AdminUserInfoDto;
 import com.example.team3final.domain.user.dto.response.GetUserResponseDto;
 import com.example.team3final.domain.user.dto.response.UpdateUserResponseDto;
 import com.example.team3final.domain.user.dto.response.UserInfoDto;
@@ -274,5 +275,16 @@ public class UserServiceImpl implements UserService {
 
         // 5. 더티 체킹: @Transactional 범위 안에서 엔티티 변경 → 트랜잭션 종료 시 자동 UPDATE
         // save()를 명시적으로 호출하지 않아도 됨
+    }
+
+    // email, university를 포함한 관리자용 단건 조회
+
+    @Override
+    public AdminUserInfoDto getAdminUserInfo(Long userId) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
+
+        return AdminUserInfoDto.from(user);
     }
 }
