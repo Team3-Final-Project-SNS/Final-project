@@ -23,10 +23,6 @@ import lombok.NoArgsConstructor;
                         name = "uk_reviews_match_writer",
                         columnNames = {"match_id", "writer_id"}
                 )
-        },
-        indexes = {
-                @Index(name = "idx_reviews_match_writer", columnList = "match_id, writer_id"),
-                @Index(name = "idx_reviews_writer_created", columnList = "writer_id, created_at")
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
