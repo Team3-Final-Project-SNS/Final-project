@@ -14,6 +14,7 @@ import com.example.team3final.domain.match.repository.MatchRepository;
 import com.example.team3final.domain.meet.entity.MeetVerification;
 import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
 import com.example.team3final.domain.pointTransaction.entity.PointTransaction;
+import com.example.team3final.domain.pointTransaction.enums.PointSource;
 import com.example.team3final.domain.pointTransaction.enums.PointTransactionType;
 import com.example.team3final.domain.pointTransaction.repository.PointTransactionRepository;
 import com.example.team3final.domain.post.entity.Post;
@@ -147,9 +148,9 @@ public class DataInitializer implements ApplicationRunner {
         int hackerBonus = 10000;
 
         // 엔티티 내부의 addPoint 메서드를 사용하여 포인트 반영
-        author.addPoint(authorBonus);
-        applicant.addPoint(applicantBonus);
-        hacker.addPoint(hackerBonus);
+        author.addFreePoint(authorBonus);
+        applicant.addFreePoint(applicantBonus);
+        hacker.addFreePoint(hackerBonus);
 
         pointTransactionRepository.save(
                 PointTransaction.builder()
@@ -157,6 +158,7 @@ public class DataInitializer implements ApplicationRunner {
                         .amount(authorBonus)
                         .transactionType(PointTransactionType.JOIN_BONUS)
                         .balanceAfter(authorBonus)
+                        .pointSource(PointSource.FREE)
                         .description("회원가입 보너스 지급")
                         .build()
         );
@@ -167,6 +169,7 @@ public class DataInitializer implements ApplicationRunner {
                         .amount(applicantBonus)
                         .transactionType(PointTransactionType.JOIN_BONUS)
                         .balanceAfter(applicantBonus)
+                        .pointSource(PointSource.FREE)
                         .description("회원가입 보너스 지급")
                         .build()
         );
@@ -177,6 +180,7 @@ public class DataInitializer implements ApplicationRunner {
                         .amount(hackerBonus)
                         .transactionType(PointTransactionType.JOIN_BONUS)
                         .balanceAfter(hackerBonus)
+                        .pointSource(PointSource.FREE)
                         .description("회원가입 보너스 지급")
                         .build()
         );
@@ -205,7 +209,7 @@ public class DataInitializer implements ApplicationRunner {
                         .build()
         );
         // CASE A: 게시글 작성이므로 방장(author) 책임비 예치금 차감 적용
-        author.deductPoint(300);
+        author.deduct(300);
 
         pointTransactionRepository.save(
                 PointTransaction.builder()
@@ -214,6 +218,7 @@ public class DataInitializer implements ApplicationRunner {
                         .amount(-300)
                         .transactionType(PointTransactionType.DEPOSIT)
                         .balanceAfter(authorBonus - 300)
+                        .pointSource(PointSource.FREE)
                         .description("게시글 작성 책임비 예치")
                         .build()
         );
@@ -272,6 +277,7 @@ public class DataInitializer implements ApplicationRunner {
                         .amount(300)
                         .transactionType(PointTransactionType.REFUND)
                         .balanceAfter(authorBonus)
+                        .pointSource(PointSource.PAID)
                         .description("만남 인증 완료로 인한 책임비 환급")
                         .build()
         );
@@ -300,7 +306,7 @@ public class DataInitializer implements ApplicationRunner {
         );
 
         // CASE C: 당일 취소로 인한 지원자(applicant)의 패널티 차감 적용
-        applicant.deductPoint(500);
+        applicant.deduct(500);
 
         pointTransactionRepository.save(
                 PointTransaction.builder()
@@ -309,6 +315,7 @@ public class DataInitializer implements ApplicationRunner {
                         .amount(-500)
                         .transactionType(PointTransactionType.PENALTY)
                         .balanceAfter(applicantBonus - 500)
+                        .pointSource(PointSource.FREE)
                         .description("당일 취소로 인한 패널티 차감")
                         .build()
         );
