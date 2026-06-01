@@ -177,13 +177,13 @@ public class User extends SoftDeleteEntity {
     }
 
     /**
-     * 유료 포인트 회수 — 결제 취소 시 사용.
-     * "충전한 만큼" 회수하되, 사용된 만큼은 회수 불가(음수 방지).
+     * 유료 포인트 환불 — 결제 취소 시 사용.
+     * "충전한 만큼" 환불하되, 사용된 만큼은 회수 불가(음수 방지).
      * 반환값: 실제로 회수된 금액 (충전액보다 적을 수 있음 — 이미 일부 사용한 경우)
      */
     public int withdrawPaid(int requestedAmount) {
-        if (requestedAmount < 0) {
-            throw new IllegalArgumentException("회수 금액은 음수일 수 없습니다: " + requestedAmount);
+        if (requestedAmount < 1000) {
+            throw new IllegalArgumentException("환불 포인트는 1000P 미만일 수 없습니다: " + requestedAmount);
         }
         // 현재 paidPoint가 회수 요청보다 적으면, 가능한 만큼만 회수
         // (이미 책임비로 사용된 paid는 회수 불가 — 사용자 차익 방지)
