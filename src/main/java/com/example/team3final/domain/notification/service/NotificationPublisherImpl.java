@@ -173,6 +173,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     }
 
     // 12. 시스템 공지 알림
+    // 용도: 공지 / 게시글 삭제 안내 / 게시글 만료 안내 / 제재 안내
     @Override
     @Async
     public void sendSystem(Long userId, String title, String content) {
@@ -222,6 +223,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     }
 
     // 17. 이의제기 판정 결과 알림
+    // 용도: 관리자 승인/거절 시 + 보류 24시간 초과 자동 거절 시 발송
     @Override
     @Async
     public void sendDisputeResult(Long userId, Long disputeId) {
@@ -269,5 +271,16 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 "만남 시간 연장 요청이 만료되었습니다.",
                 "만남 시간 연장 요청이 만료되었습니다.",
                 RelatedDomain.MEET, matchId);
+    }
+
+    // 24. 이의제기 보류 알림 - 이의제기 신청자에게
+    // 관리자가 보류 처리 시 발송
+    @Override
+    @Async
+    public void sendDisputePending(Long userId, Long disputeId) {
+        saveAndSend(userId, NotificationType.DISPUTE_PENDING,
+                "이의제기가 보류 처리되었습니다.",
+                "이의제기가 보류 처리되었습니다. 24시간 이내에 추가 증거를 제출해 주세요.",
+                RelatedDomain.DISPUTE, disputeId);
     }
 }

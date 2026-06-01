@@ -18,9 +18,11 @@ import lombok.NoArgsConstructor;
 @Getter
 @Table(
         name = "reviews",
-        indexes = {
-                @Index(name = "idx_reviews_match_writer", columnList = "match_id, writer_id"),
-                @Index(name = "idx_reviews_writer_created", columnList = "writer_id, created_at")
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_reviews_match_writer",
+                        columnNames = {"match_id", "writer_id"}
+                )
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

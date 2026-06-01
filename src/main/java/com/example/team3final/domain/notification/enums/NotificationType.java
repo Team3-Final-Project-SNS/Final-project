@@ -17,6 +17,7 @@ public enum NotificationType {
     NO_SHOW_WARNING("노쇼 예정"),               // 9. 노쇼 예정 알림
     NO_SHOW_CONFIRMED("노쇼 확정"),             // 8. 노쇼 확정 안내
     DISPUTE_RESULT("이의제기 결과"),             // 17. 이의제기 판정 결과
+    DISPUTE_PENDING("이의제기 보류"),            // 24. 이의제기 보류 - 추가 증거 제출 요청
     POINT_CHANGED("포인트 변동"),               // 13/14. 신고 채택/후기 포인트 지급
     REPORT_RESULT("신고 처리 결과"),             // 10. 신고 처리 결과 알림
     DISPUTE_SUBMITTED("이의제기 접수"),          // 11. 관리자에게 이의제기가 왔을 때
@@ -25,8 +26,7 @@ public enum NotificationType {
     MEET_EXTEND_ACCEPTED("만남 시간 연장 수락"),  // 19. 만남 시간 연장이 수락되었을 때
     MEET_EXTEND_REJECTED("만남 시간 연장 거절"),  // 20. 만남 시간 연장이 거절되었을 때
     MEET_EXTEND_EXPIRED("만남 시간 연장 만료"),   // 21. 만남 시간 연장 요청이 만료되었을 때
-    SYSTEM("시스템 공지");                      // 12. 공지가 왔을 때
-
+    SYSTEM("시스템 공지");                      // 12. 공지 / 22. 게시글 삭제 / 23. 게시글 만료 / 제재 안내
 
     private final String description;
 }
