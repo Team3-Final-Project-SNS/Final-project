@@ -20,6 +20,8 @@ import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.metadata.Usage;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -100,9 +102,14 @@ public class AiMatchingServiceImpl implements AiMatchingService {
         String requestId = UUID.randomUUID().toString();
 
         long startedAt = System.currentTimeMillis();
+        Long userId = null;
+        Integer promptTokens = null;
+        Integer completionTokens = null;
+        Integer totalTokens = null;
 
         try {
             User user = userService.findByEmail(email);
+            userId = user.getId();
 
             String candidatePosts;
             String toolResults;
@@ -128,9 +135,12 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                 if (candidates.isEmpty()) {
                     saveMetric(
                             requestId,
-                            user.getId(),
+                            userId,
                             startedAt,
                             AiCallStatus.SUCCESS,
+                            null,
+                            null,
+                            null,
                             null,
                             null
                     );
@@ -165,12 +175,18 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                     )
             );
 
-            String answer = chatClient.prompt()
+            ChatResponse chatResponse = chatClient.prompt()
                     .system(systemPrompt)
                     .user(request.message())
 //                    .tools(aiMatchingTool)
                     .call()
-                    .content();
+                    .chatResponse();
+
+            String answer = extractContent(chatResponse);
+            TokenUsage tokenUsage = extractTokenUsage(chatResponse);
+            promptTokens = tokenUsage.promptTokens();
+            completionTokens = tokenUsage.completionTokens();
+            totalTokens = tokenUsage.totalTokens();
 
             List<RecommendedPostDto> recommendedPosts = candidates.stream()
                     .map(candidate -> new RecommendedPostDto(
@@ -190,7 +206,10 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                     startedAt,
                     toolFallbackUsed ? AiCallStatus.FALLBACK : AiCallStatus.SUCCESS,
                     toolFallbackUsed ? AiErrorType.TOOL_ERROR : null,
-                    toolFallbackUsed ? "모집글 조회 도구 호출 실패" : null
+                    toolFallbackUsed ? "모집글 조회 도구 호출 실패" : null,
+                    promptTokens,
+                    completionTokens,
+                    totalTokens
             );
 
             return new AiMatchingChatResponseDto(
@@ -204,11 +223,14 @@ public class AiMatchingServiceImpl implements AiMatchingService {
 
             saveMetric(
                     requestId,
-                    null,
+                    userId,
                     startedAt,
                     AiCallStatus.FALLBACK,
                     AiErrorType.PROMPT_LOAD_ERROR,
-                    e.getMessage()
+                    e.getMessage(),
+                    promptTokens,
+                    completionTokens,
+                    totalTokens
             );
 
             return new AiMatchingChatResponseDto(
@@ -222,11 +244,14 @@ public class AiMatchingServiceImpl implements AiMatchingService {
 
             saveMetric(
                     requestId,
-                    null,
+                    userId,
                     startedAt,
                     AiCallStatus.FALLBACK,
-                    AiErrorType.SERVER_ERROR,
-                    e.getMessage()
+                    resolveErrorType(e),
+                    e.getMessage(),
+                    promptTokens,
+                    completionTokens,
+                    totalTokens
             );
 
             return new AiMatchingChatResponseDto(
@@ -251,7 +276,10 @@ public class AiMatchingServiceImpl implements AiMatchingService {
             long startedAt,
             AiCallStatus status,
             AiErrorType errorType,
-            String errorMessage
+            String errorMessage,
+            Integer promptTokens,
+            Integer completionTokens,
+            Integer totalTokens
     ) {
         aiCallMetricRepository.save(
                 AiCallMetric.builder()
@@ -259,12 +287,80 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                         .userId(userId)
                         .feature(AiFeature.MATCHING)
                         .model(aiProperties.getMatching().getModel())
+                        .promptTokens(promptTokens)
+                        .completionTokens(completionTokens)
+                        .totalTokens(totalTokens)
                         .latencyMs(System.currentTimeMillis() - startedAt)
                         .status(status)
                         .errorType(errorType)
                         .errorMessage(truncate(errorMessage))
                         .build()
         );
+    }
+
+    private String extractContent(ChatResponse chatResponse) {
+        if (chatResponse == null || chatResponse.getResult() == null || chatResponse.getResult().getOutput() == null) {
+            return "AI 응답을 생성하지 못했습니다. 잠시 후 다시 시도해주세요.";
+        }
+
+        return chatResponse.getResult().getOutput().getText();
+    }
+
+    private TokenUsage extractTokenUsage(ChatResponse chatResponse) {
+        if (chatResponse == null || chatResponse.getMetadata() == null) {
+            return TokenUsage.empty();
+        }
+
+        Usage usage = chatResponse.getMetadata().getUsage();
+        if (usage == null) {
+            return TokenUsage.empty();
+        }
+
+        return new TokenUsage(
+                usage.getPromptTokens(),
+                usage.getCompletionTokens(),
+                usage.getTotalTokens()
+        );
+    }
+
+    private AiErrorType resolveErrorType(Exception e) {
+        if (e instanceof AiException) {
+            return AiErrorType.PROMPT_LOAD_ERROR;
+        }
+
+        if (hasStackTraceClassContaining(e, ".domain.ai.matching.tool.") || containsIgnoreCase(e.getMessage(), "tool")) {
+            return AiErrorType.TOOL_ERROR;
+        }
+
+        return AiErrorType.SERVER_ERROR;
+    }
+
+    private boolean hasStackTraceClassContaining(Throwable throwable, String keyword) {
+        Throwable current = throwable;
+        while (current != null) {
+            for (StackTraceElement element : current.getStackTrace()) {
+                if (element.getClassName().contains(keyword)) {
+                    return true;
+                }
+            }
+            current = current.getCause();
+        }
+
+        return false;
+    }
+
+    private boolean containsIgnoreCase(String value, String keyword) {
+        return value != null && value.toLowerCase().contains(keyword.toLowerCase());
+    }
+
+    private record TokenUsage(
+            Integer promptTokens,
+            Integer completionTokens,
+            Integer totalTokens
+    ) {
+        private static TokenUsage empty() {
+            return new TokenUsage(null, null, null);
+        }
     }
 
     /**
