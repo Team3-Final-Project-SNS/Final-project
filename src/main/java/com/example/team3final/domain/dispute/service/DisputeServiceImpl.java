@@ -163,4 +163,62 @@ public class DisputeServiceImpl implements DisputeService {
         // List -> Set 변환
         return new HashSet<>(disputeRepository.findMatchIdsByMatchIdIn(matchIds));
     }
+
+    // 재이의제기 신청
+    @Override
+    @Transactional
+    public CreateDisputeResponseDto reCreateDispute(Long matchId, Long userId, CreateDisputeRequestDto request) {
+
+        // 매칭 존재 확인
+        MatchInfoDto match = matchService.getMatchInfo(matchId);
+
+        // 등록자 ID 조회
+        PostInfoDto post = postService.getPostInfo(match.postId());
+        Long authorId = post.authorId();
+
+        // 당사자 검증 (등록자 또는 신청자인지)
+        if (!match.isParticipant(userId, authorId)) {
+            throw new DisputeException(ErrorCode.MATCH_NOT_PARTICIPANT);
+        }
+
+        // HOLD 상태인 원본 이의제기 조회
+        // 없으면 -> HOLD 상태 이의제기가 없다는 뜻 -> 재이의제기 불가능
+        Dispute parentDispute = disputeRepository.findHoldDisputeByMatchIdAndSubmitterId(matchId, userId)
+                .orElseThrow(() -> new DisputeException(ErrorCode.DISPUTE_HOLD_NOT_FOUND));
+
+        // HOLD 상태인지 재 확인 (동시성 이슈 대비)
+        if (parentDispute.getStatus() != DisputeStatus.HOLD) {
+            throw new DisputeException(ErrorCode.DISPUTE_NOT_RESUBMITTABLE);
+        }
+
+        // 같은 disputeType이 맞는지 검증
+        if (parentDispute.getDisputeType() != request.getDisputeType()) {
+            throw new DisputeException(ErrorCode.DISPUTE_TYPE_MISMATCH);
+        }
+
+        // HOLD 판정 후 24시간 이내인지 검증
+        if (!parentDispute.isWithinHoldResubmitDeadline()) {
+            throw new DisputeException(ErrorCode.DISPUTE_HOLD_DEADLINE_EXCEEDED);
+        }
+
+        // 재이의제기 중복 제출 방지
+        if (disputeRepository.existsByMatchIdAndSubmitterIdAndParentDisputeId(matchId, userId, parentDispute.getId())) {
+            throw new DisputeException(ErrorCode.DISPUTE_ALREADY_SUBMITTED);
+        }
+
+        // 이의제기 저장
+        Dispute reDispute = Dispute.builder()
+                .matchId(matchId)
+                .submitterId(userId)
+                .disputeType(request.getDisputeType())
+                .reason(request.getReason())
+                // TODO: S3 도입 후 evidenceUrl 처리 추가
+                .evidenceUrl(null)
+                .parentDisputeId(parentDispute.getId()) // 원본 이의제기 ID 연결
+                .build();
+        Dispute savedReDispute = disputeRepository.save(reDispute);
+
+        return CreateDisputeResponseDto.from(savedReDispute);
+    }
+
 }
