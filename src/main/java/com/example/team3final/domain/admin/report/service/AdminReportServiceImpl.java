@@ -57,10 +57,7 @@ public class AdminReportServiceImpl implements AdminReportService {
 
         // Report 엔티티 DTO 변환
         Page<AdminGetReportResponseDto> dtoPage = reportPage.map(report -> {
-            String reporterNickname = nicknameMap.get(report.getReporterId());
-            if (reporterNickname == null || reporterNickname.isEmpty()) {
-                throw new AdminException(ErrorCode.USER_NOT_FOUND);
-            }
+            String reporterNickname = nicknameMap.getOrDefault(report.getReporterId(), "탈퇴한 유저");
             return AdminGetReportResponseDto.of(report, reporterNickname);
         });
 
@@ -91,18 +88,9 @@ public class AdminReportServiceImpl implements AdminReportService {
         switch (requestDto.getReportStatus()) {
             case ACCEPTED -> {
                 reportService.acceptReport(reportId, adminId);
-
-                // TODO: 신고자에게 포상 50P 지급
-                // userService 메서드 구현되면 호출
-
-                // TODO: 피신고자 제재 처리
-                // userService 메서드 구현되면 호출
             }
             case REJECTED -> {
                 reportService.rejectReport(reportId, adminId);
-
-                // TODO: 신고자 알림 발송
-                // notification 메서드 구현되면 호출
             }
             default -> {
                 throw new AdminException(ErrorCode.ADMIN_INVALID_REPORT_STATUS);
