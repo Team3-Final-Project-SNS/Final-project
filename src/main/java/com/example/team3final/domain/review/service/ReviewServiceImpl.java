@@ -140,11 +140,11 @@ public class ReviewServiceImpl implements ReviewService {
                 Review.REVIEW_REWARD_POINT,
                 match.getId()
         );
-       // 14번 알림 - 후기 작성자에게 포인트 지급 알림 발송// reviewId: 저장된 후기
+        // 후기 작성자에게 포인트 지급 알림 발송
         notificationPublisher.sendReviewPoint(review.getWriterId(), review.getId());
 
         Long targetId = resolveTargetId(match, post.authorId(), writerId);
-        updateTargetMannerTemperature(targetId);
+        updateTargetMannerTemperature(targetId, review.getTagScoreDelta());
 
         UserInfoDto targetInfo = userService.getUserInfo(targetId);
 
@@ -329,24 +329,19 @@ public class ReviewServiceImpl implements ReviewService {
 
 
     /**
-     * 후기를 받은 사용자의 매너 온도를 재계산합니다.
+     * 후기를 받은 사용자의 매너 온도를 갱신합니다.
      *
-     * 받은 후기들의 tagScoreDelta 평균을 구한 뒤,
-     * 36.5 + (평균 점수 변화량 * 0.5) 공식으로 계산합니다.
+     * 전체 후기를 다시 평균 내지 않고,
+     * 현재 매너 온도에 이번 후기의 태그 점수 변화량만 반영합니다.
      */
-    private void updateTargetMannerTemperature(Long targetId) {
-        List<Review> receivedReviews = reviewRepository.findReceivedReviews(targetId);
+    private void updateTargetMannerTemperature(Long targetId, int tagScoreDelta) {
+        BigDecimal currentTemperature = userService.getMannerTemperature(targetId);
 
-        double averageScoreDelta = receivedReviews.stream()
-                .mapToInt(Review::getTagScoreDelta)
-                .average()
-                .orElse(0.0);
-
-        BigDecimal mannerTemperature = BASE_MANNER_TEMPERATURE
-                .add(BigDecimal.valueOf(averageScoreDelta).multiply(MANNER_WEIGHT))
+        BigDecimal changedTemperature = currentTemperature
+                .add(BigDecimal.valueOf(tagScoreDelta).multiply(MANNER_WEIGHT))
                 .setScale(1, RoundingMode.HALF_UP);
 
-        userService.updateMannerTemperature(targetId, clampMannerTemperature(mannerTemperature));
+        userService.updateMannerTemperature(targetId, clampMannerTemperature(changedTemperature));
     }
 
 
