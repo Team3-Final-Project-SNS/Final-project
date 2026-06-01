@@ -31,6 +31,7 @@ public enum ErrorCode {
     USER_CURRENT_PASSWORD_MISMATCH(HttpStatus.UNAUTHORIZED, "USER_002", "현재 비밀번호가 일치하지 않습니다."),
     USER_SAME_PASSWORD(HttpStatus.BAD_REQUEST, "USER_003", "새 비밀번호가 현재 비밀번호와 동일합니다."),
     USER_SUSPENDED_OR_WITHDRAWN(HttpStatus.FORBIDDEN, "USER_004", "정지 또는 탈퇴된 계정입니다."),
+
     // common
     USER_NO_FIELD_TO_UPDATE(HttpStatus.BAD_REQUEST, "COMMON_001", "수정할 필드가 한 개 이상 필요합니다."),
 
@@ -143,11 +144,11 @@ public enum ErrorCode {
 
     // Inquiry (고객문의)
     INQUIRY_NOT_FOUND(HttpStatus.NOT_FOUND, "INQUIRY_001", "존재하지 않는 문의입니다."),
-    INQUIRY_DAILY_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "INQUIRY_005", "하루 최대 5개의 문의만 접수할 수 있습니다."),
-    INQUIRY_COOLDOWN(HttpStatus.TOO_MANY_REQUESTS, "INQUIRY_006", "문의 접수 후 1분 뒤에 다시 접수할 수 있습니다."),
     INQUIRY_DUPLICATE_TYPE(HttpStatus.CONFLICT, "INQUIRY_002", "해당 카테고리에 처리 중인 문의가 이미 존재합니다."),
     INQUIRY_ACCESS_DENIED(HttpStatus.FORBIDDEN, "INQUIRY_003", "본인의 문의만 조회할 수 있습니다."),
     INQUIRY_CANCEL_FORBIDDEN(HttpStatus.CONFLICT, "INQUIRY_004", "처리가 시작된 문의는 취소할 수 없습니다."),
+    INQUIRY_DAILY_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "INQUIRY_005", "하루 최대 5개의 문의만 접수할 수 있습니다."),
+    INQUIRY_COOLDOWN(HttpStatus.TOO_MANY_REQUESTS, "INQUIRY_006", "문의 접수 후 1분 뒤에 다시 접수할 수 있습니다."),
     INQUIRY_ALREADY_ANSWERED(HttpStatus.CONFLICT, "INQUIRY_007", "이미 답변이 완료된 문의입니다.");
 
 
