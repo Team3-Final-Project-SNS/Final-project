@@ -243,8 +243,7 @@ public class MatchServiceImpl implements MatchService{
                 post.reopen();  // ★ Post 엔티티에 reopen() 메서드 새로 추가 필요
             }
             // 채팅방 비활성화 X — 그룹 매칭이면 나머지 사람들 채팅 유지
-            // (1:1이면 채팅방은 정원 도달 시점에 만들어졌을 텐데, GUEST가 1명뿐인 1:1에선
-            //  GUEST 취소 시 채팅방이 사실상 의미 없어짐 → 정책 확인 필요)
+            chatService.deactivateChatRoom(match.getPostId());
         } else {
             // HOST(작성자) 취소 — 게시글 CANCELLED + 채팅방 비활성화
             post.cancel();

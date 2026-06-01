@@ -120,7 +120,7 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                 candidates = aiMatchingTool.searchRecruitingMealPosts(
                         user.getId(),
                         user.getUniversityId(),
-                        user.getPoint(),
+                        user.getTotalPoint(),
                         request.message()
                 );
 
@@ -168,7 +168,7 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                             "userMessage", request.message(),
                             "userId", user.getId(),
                             "universityId", user.getUniversityId(),
-                            "userPoint", user.getPoint(),
+                            "userPoint", user.getTotalPoint(),
                             "conversationContext", "이전 대화 없음",
                             "candidatePosts", candidatePosts,
                             "toolResults", toolResults

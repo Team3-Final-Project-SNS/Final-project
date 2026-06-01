@@ -33,7 +33,7 @@ public record GetUserResponseDto (
                 user.getStudentNumber(),
                 user.getBirthDate(),
                 user.getGender(),
-                user.getPoint(),
+                user.getTotalPoint(),
                 user.getStatus(),
                 user.getCreatedAt()
         );

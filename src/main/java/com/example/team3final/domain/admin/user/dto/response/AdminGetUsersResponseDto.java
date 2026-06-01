@@ -24,7 +24,7 @@ public record AdminGetUsersResponseDto(
                 user.getName(),
                 user.getNickname(),
                 universityName,
-                user.getPoint(),
+                user.getTotalPoint(),
                 mannerTemperature,
                 user.getStatus(),
                 user.getCreatedAt()

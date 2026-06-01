@@ -123,6 +123,16 @@ public class UserPointServiceImpl implements UserPointService{
                 PointTransactionType.REPORT_REWARD, user.getTotalPoint(), PointSource.FREE);
     }
 
+    @Override
+    public void deductPointForEdit(Long userId, int amount, Long postId) {
+
+    }
+
+    @Override
+    public void refundPointForEdit(Long userId, int amount, Long postId) {
+
+    }
+
     // ===== private 헬퍼 =====
     private User getUserOrThrow(Long userId) {
         return userRepository.findById(userId)

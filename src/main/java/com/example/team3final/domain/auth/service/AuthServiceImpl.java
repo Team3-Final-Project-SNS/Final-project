@@ -314,7 +314,7 @@ public class AuthServiceImpl implements AuthService{
         return new SignupResponseDto(
                 savedUser.getId(),
                 savedUser.getNickname(),
-                savedUser.getPoint(),   // 가입 보너스 지급 후 잔액 (10,000)
+                savedUser.getTotalPoint(),   // 가입 보너스 지급 후 잔액 (10,000)
                 accessToken
         );
     }

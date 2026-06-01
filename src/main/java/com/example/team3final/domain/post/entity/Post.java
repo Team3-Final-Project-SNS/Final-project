@@ -126,6 +126,14 @@ public class Post extends SoftDeleteEntity {
                 this.status = PostStatus.CANCELLED;
         }
 
+        // 매칭 취소 시 OPEN으로 복구 — MATCHED 상태에서 신청자 취소 등으로 정원이 빈 경우
+        public void reopen() {
+                if (this.status != PostStatus.MATCHED) {
+                        throw new PostException(ErrorCode.POST_NOT_MATCHED);
+                }
+                this.status = PostStatus.OPEN;
+        }
+
         // 소프트 삭제 — 실제 행 삭제 대신 deleted_at 만 찍음
         public void delete() {
                 super.delete();

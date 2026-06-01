@@ -137,7 +137,7 @@ public class AiMatchingTool {
         return searchRecruitingMealPosts(
                 user.getId(),
                 user.getUniversityId(),
-                user.getPoint(),
+                user.getTotalPoint(),
                 condition
         );
     }
@@ -169,7 +169,7 @@ public class AiMatchingTool {
         boolean alreadyApplied =
                 matchRepository.existsByPostIdAndApplicantId(post.getId(), user.getId());
 
-        boolean pointAffordable = user.getPoint() >= post.getAuthorDeposit();
+        boolean pointAffordable = user.getTotalPoint() >= post.getAuthorDeposit();
 
         boolean applicationAvailable =
                 post.isOpen()
