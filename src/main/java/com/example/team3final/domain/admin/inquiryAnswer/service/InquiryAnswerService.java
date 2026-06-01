@@ -8,4 +8,7 @@ public interface InquiryAnswerService {
 
     // inquiryId로 답변 1건 조회
     Optional<InquiryAnswer> getByInquiryId(Long inquiryId);
+
+    // 답변 생성
+    InquiryAnswer createAnswer(Long adminId, Long inquiryId, String adminName, String content);
 }
