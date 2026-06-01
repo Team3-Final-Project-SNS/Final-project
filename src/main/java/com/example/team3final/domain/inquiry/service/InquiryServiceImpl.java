@@ -141,6 +141,19 @@ public class InquiryServiceImpl implements InquiryService{
         return CancelInquiryResponseDto.from(inquiry);
     }
 
+    // 관리자용 단건 조회
+    @Override
+    public Inquiry getInquiryById(Long inquiryId) {
+        return inquiryRepository.findById(inquiryId)
+                .orElseThrow(() -> new InquiryException(ErrorCode.INQUIRY_NOT_FOUND));
+    }
+
+    // 관리자용 목록 조회
+    @Override
+    public Page<Inquiry> getInquiriesForAdmin(InquiryAnswerStatus status, InquiryType type, Pageable pageable) {
+        return inquiryRepository.findAllByStatusAndType(status, type, pageable);
+    }
+
     // ===== private 검증 메서드 =====
 
     // 1분 쿨다운 검증

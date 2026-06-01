@@ -3,6 +3,7 @@ package com.example.team3final.domain.user.service;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.UserException;
 import com.example.team3final.domain.user.dto.request.UpdateUserRequestDto;
+import com.example.team3final.domain.user.dto.response.AdminUserInfoDto;
 import com.example.team3final.domain.user.dto.response.GetUserResponseDto;
 import com.example.team3final.domain.user.dto.response.UpdateUserResponseDto;
 import com.example.team3final.domain.user.dto.response.UserInfoDto;
@@ -72,4 +73,7 @@ public interface UserService {
 
     // 회원 탈퇴 처리 - 비밀번호 검증 후 상태를 Withdrawn으로 변경
     void withdrawUser(Long userId, String rawPassword);
+
+    // email, university를 포함한 관리자용 단건 조회
+    AdminUserInfoDto getAdminUserInfo(Long userId);
 }

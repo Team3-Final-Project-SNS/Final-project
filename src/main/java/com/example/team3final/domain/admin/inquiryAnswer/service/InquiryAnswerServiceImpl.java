@@ -20,4 +20,20 @@ public class InquiryAnswerServiceImpl implements InquiryAnswerService {
 
         return inquiryAnswerRepository.findByInquiryId(inquiryId);
     }
+
+    // 답변 생성 후 저장
+    @Override
+    @Transactional
+    public InquiryAnswer createAnswer(Long adminId, Long inquiryId, String adminName, String content) {
+
+        // InquiryAnswer 생성
+        InquiryAnswer inquiryAnswer = InquiryAnswer.builder()
+                .inquiryId(inquiryId)
+                .adminId(adminId)
+                .adminName(adminName)
+                .content(content)
+                .build();
+
+        return inquiryAnswerRepository.save(inquiryAnswer);
+    }
 }

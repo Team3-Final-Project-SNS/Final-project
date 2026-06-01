@@ -46,4 +46,18 @@ public interface InquiryRepository extends JpaRepository<Inquiry, Long> {
     // 특정 유저의 문의 목록을 최신순으로 페이징 조회
     Page<Inquiry> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
+    // 문의 목록 조회
+    // status, type 필터링, null이면 해당 조건을 무시하고 전체조회,
+    // null이 아니면 해당 값으로 필터링
+    @Query("""
+             SELECT i
+             FROM Inquiry i
+             WHERE (:status IS NULL OR i.answerStatus = :status)
+             AND (:type IS NULL OR i.inquiryType = :type)
+             ORDER BY i.createdAt DESC
+            """)
+    Page<Inquiry> findAllByStatusAndType(
+            @Param("status") InquiryAnswerStatus status,
+            @Param("type") InquiryType type,
+            Pageable pageable);
 }
