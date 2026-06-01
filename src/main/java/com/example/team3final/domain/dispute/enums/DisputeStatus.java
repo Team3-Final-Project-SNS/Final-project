@@ -11,7 +11,9 @@ public enum DisputeStatus {
     UNDER_REVIEW("관리자 검토중"),
     ACCEPTED("수용"),                // 노쇼 취소, 예치금 반환
     PARTIALLY_ACCEPTED("부분 수용"),
-    REJECTED("기각");                // 노쇼 확정, 예치금 환수
+    REJECTED("기각"), // 노쇼 확정, 예치금 환수
+    HOLD("보류");
+
 
     private final String description;
 
