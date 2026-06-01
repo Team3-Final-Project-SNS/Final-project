@@ -278,7 +278,6 @@ public class UserServiceImpl implements UserService {
     }
 
     // email, university를 포함한 관리자용 단건 조회
-
     @Override
     public AdminUserInfoDto getAdminUserInfo(Long userId) {
 

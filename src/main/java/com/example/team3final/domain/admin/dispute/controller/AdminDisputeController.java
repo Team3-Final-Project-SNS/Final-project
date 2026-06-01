@@ -2,11 +2,14 @@ package com.example.team3final.domain.admin.dispute.controller;
 
 import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.common.dto.response.PageResponseDto;
+import com.example.team3final.domain.admin.dispute.dto.request.AdminJudgeDisputeRequestDto;
+import com.example.team3final.domain.admin.dispute.dto.response.AdminJudgeDisputeResponseDto;
 import com.example.team3final.domain.admin.dispute.dto.response.GetAdminDisputeResponseDto;
 import com.example.team3final.domain.admin.dispute.dto.response.GetAdminDisputesResponseDto;
 import com.example.team3final.domain.admin.dispute.service.AdminDisputeService;
 import com.example.team3final.domain.admin.security.AdminDetailsImpl;
 import com.example.team3final.domain.dispute.enums.DisputeStatus;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -44,5 +47,14 @@ public class AdminDisputeController {
         return ResponseEntity.ok(ApiResponseDto.success(adminDisputeService.getDisputes(adminId, status, pageable)));
     }
 
-    // TODO: 이의제기 최종 판정
+    // 이의제기 최종 판정
+    @PatchMapping("/disputes/{disputeId}/judge")
+    public ResponseEntity<ApiResponseDto<AdminJudgeDisputeResponseDto>> judgeDispute(
+            @AuthenticationPrincipal AdminDetailsImpl adminDetails,
+            @PathVariable Long disputeId,
+            @Valid @RequestBody AdminJudgeDisputeRequestDto requestDto) {
+
+        Long adminId = adminDetails.getAdminId();
+        return ResponseEntity.ok(ApiResponseDto.success(adminDisputeService.judgeDispute(adminId ,disputeId, requestDto)));
+    }
 }
