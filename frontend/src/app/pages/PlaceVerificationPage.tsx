@@ -1,11 +1,9 @@
-// src/pages/PlaceVerificationPage.tsx (또는 기존 경로 유지)
-import {useState, useEffect, useRef} from 'react';
-import {useParams, useNavigate} from 'react-router';
-import {MapPin, Check, Loader2} from 'lucide-react';
-import {createPlaceVerification, updateMyLocation, getLocations, getMeetVerification} from '../../api/meetApi';
-import {getMatchDetail} from '../../api/matchApi';
+import { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router';
+import { MapPin, Loader2, Navigation } from 'lucide-react';
+import { createPlaceVerification, updateMyLocation, getLocations, getMeetVerification } from '../../api/meetApi';
+import { getMatchDetail } from '../../api/matchApi';
 
-// ── 타입 정의 (기존과 동일) ──────────────────────────────
 interface Position {
     latitude: number;
     longitude: number;
@@ -17,10 +15,9 @@ interface VerificationStatus {
 }
 
 export default function PlaceVerificationPage() {
-    const {id} = useParams();
+    const { id } = useParams();
     const navigate = useNavigate();
 
-    // ── 기존 상태 (그대로 유지) ──────────────────────────
     const [meetingPlace, setMeetingPlace] = useState<{
         name: string;
         time: string;
@@ -41,19 +38,19 @@ export default function PlaceVerificationPage() {
     const [useSimulation, setUseSimulation] = useState(false);
     const [opponentPosition, setOpponentPosition] = useState<Position | null>(null);
 
-    // ── KakaoMap 관련 ref (리렌더링돼도 인스턴스 유지) ──
-    // ref에 담는 이유: useState로 담으면 setMap 호출마다 리렌더링 → 지도 깜빡임 발생
-    const mapContainerRef = useRef<HTMLDivElement>(null); // 지도 DOM 컨테이너
-    const mapRef = useRef<kakao.maps.Map | null>(null);          // 카카오 Map 인스턴스
-    const placeMarkerRef = useRef<kakao.maps.Marker | null>(null);      // 약속 장소 고정 마커
-    const placeCircleRef = useRef<kakao.maps.Circle | null>(null);      // 50m 반경 원
-    const myOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null); // 내 위치 파란 점
-    const opponentOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null); // 상대 위치 점
+    // ★ 추가: 카카오맵 사용 가능 여부 상태
+    // false가 되면 SVG fallback으로 전환
+    const [kakaoMapAvailable, setKakaoMapAvailable] = useState(true);
 
-    // ── 1. 매칭 정보 조회 (기존과 동일) ─────────────────
+    // KakaoMap ref
+    const mapContainerRef = useRef<HTMLDivElement>(null);
+    const mapRef = useRef<kakao.maps.Map | null>(null);
+    const myOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null);
+    const opponentOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null);
+
+    // 1. 매칭 정보 조회
     useEffect(() => {
         if (!id) return;
-
         const fetchMatch = async () => {
             try {
                 const res = await getMatchDetail(Number(id));
@@ -73,70 +70,66 @@ export default function PlaceVerificationPage() {
                 setLoading(false);
             }
         };
-
         fetchMatch();
     }, [id]);
 
-    // ── 2. KakaoMap 초기화 ───────────────────────────────
-    // meetingPlace가 세팅된 후에만 지도를 그릴 수 있으므로 의존성 배열에 포함
+    // 2. KakaoMap 초기화 — try/catch로 장애 감지
     useEffect(() => {
-        // meetingPlace 없으면 아직 API 응답 전 → 건너뜀
         if (!meetingPlace || !mapContainerRef.current) return;
 
-        // window.kakao 없으면 SDK 로드 실패 → fallback 처리
-        if (!window.kakao || !window.kakao.maps) {
-            console.error('KakaoMap SDK 로드 실패');
+        // ★ SDK 로드 실패 감지 — window.kakao 자체가 없으면 SVG fallback
+        if (!window.kakao?.maps) {
+            console.warn('KakaoMap SDK 로드 실패 → SVG fallback으로 전환');
+            setKakaoMapAvailable(false);
             return;
         }
 
-        // autoload=false이므로 kakao.maps.load() 콜백 안에서만 초기화해야 안전
-        // 이유: DOM이 준비되기 전에 new kakao.maps.Map() 호출하면 에러
-        // 이미 초기화된 경우 중복 실행 방지
-        if (mapRef.current) return;
-        const center = new window.kakao.maps.LatLng(
-            meetingPlace.latitude,
-            meetingPlace.longitude
-        );
-        const map = new window.kakao.maps.Map(mapContainerRef.current!, {
-            center,
-            level: 3,
-        });
-        mapRef.current = map;
+        try {
+            // ★ 지도 초기화 중 에러 감지 — try/catch로 SVG fallback
+            if (mapRef.current) return;
 
-        const placeMarker = new window.kakao.maps.Marker({
-            map,
-            position: center,
-        });
-        placeMarkerRef.current = placeMarker;
+            const center = new window.kakao.maps.LatLng(
+                meetingPlace.latitude,
+                meetingPlace.longitude
+            );
 
-        const circle = new window.kakao.maps.Circle({
-            map,
-            center,
-            radius: 50,
-            strokeWeight: 2,
-            strokeColor: '#d84315',
-            strokeOpacity: 0.8,
-            fillColor: '#ff7043',
-            fillOpacity: 0.15,
-        });
-        placeCircleRef.current = circle;
+            const map = new window.kakao.maps.Map(mapContainerRef.current!, {
+                center,
+                level: 3,
+            });
+            mapRef.current = map;
 
+            new window.kakao.maps.Marker({ map, position: center });
 
-        // 컴포넌트 언마운트 시 지도 인스턴스 참조 초기화
-        // (SDK 자체가 DOM을 관리하므로 별도 destroy 불필요)
+            new window.kakao.maps.Circle({
+                map,
+                center,
+                radius: 50,
+                strokeWeight: 2,
+                strokeColor: '#d84315',
+                strokeOpacity: 0.8,
+                fillColor: '#ff7043',
+                fillOpacity: 0.15,
+            });
+
+        } catch (e) {
+            // ★ 초기화 중 예외 발생 → SVG fallback으로 전환
+            console.error('KakaoMap 초기화 실패 → SVG fallback으로 전환:', e);
+            setKakaoMapAvailable(false);
+        }
+
         return () => {
             mapRef.current = null;
             myOverlayRef.current = null;
             opponentOverlayRef.current = null;
         };
-    }, [meetingPlace]); // meetingPlace가 세팅된 후 1회 실행
+    }, [meetingPlace]);
 
-    // ── 3. GPS 위치 추적 (기존 로직 유지, 거리 계산만 교체) ─
+    // 3. GPS 위치 추적
     useEffect(() => {
         if (!meetingPlace) return;
 
         if (useSimulation) {
-            // 테스트 모드: 80m → 0m 시뮬레이션
             let simulatedDistance = 80;
             const interval = setInterval(() => {
                 simulatedDistance = Math.max(0, simulatedDistance - 10);
@@ -152,7 +145,6 @@ export default function PlaceVerificationPage() {
             return () => clearInterval(interval);
         }
 
-        // 실제 GPS 추적
         const watchId = navigator.geolocation.watchPosition(
             (position) => {
                 const pos = {
@@ -161,8 +153,6 @@ export default function PlaceVerificationPage() {
                 };
                 setCurrentPosition(pos);
 
-                // KakaoMap SDK geometry로 거리 계산
-                // SDK 로드 전이면 fallback으로 Haversine 직접 계산
                 let dist: number;
                 if (window.kakao?.maps?.geometry?.Sphere) {
                     const from = new window.kakao.maps.LatLng(pos.latitude, pos.longitude);
@@ -170,10 +160,9 @@ export default function PlaceVerificationPage() {
                         meetingPlace.latitude,
                         meetingPlace.longitude
                     );
-                    // computeDistanceBetween: 두 LatLng 간 직선거리(미터) 반환
                     dist = window.kakao.maps.geometry.Sphere.computeDistanceBetween(from, to);
                 } else {
-                    // SDK 미로드 시 기존 Haversine 공식으로 fallback
+                    // ★ geometry 없어도 Haversine으로 fallback → 장소 인증 정상 작동
                     dist = calculateDistanceFallback(
                         pos.latitude, pos.longitude,
                         meetingPlace.latitude, meetingPlace.longitude
@@ -181,24 +170,22 @@ export default function PlaceVerificationPage() {
                 }
 
                 setDistance(dist);
-                setIsWithinRange(dist <= 50);
+                setIsWithinRange(dist <= 60);
                 setLocationError(null);
             },
             (error) => {
                 console.error('위치 추적 오류:', error);
                 setLocationError('위치 정보를 가져올 수 없습니다. GPS를 켜주세요.');
             },
-            {enableHighAccuracy: true}
+            { enableHighAccuracy: true }
         );
 
         return () => navigator.geolocation.clearWatch(watchId);
     }, [useSimulation, meetingPlace]);
 
-    // ── 4. 내 위치 마커 업데이트 ─────────────────────────
-    // currentPosition이 바뀔 때마다 지도 위 내 위치 오버레이를 갱신
+    // 4. 내 위치 마커 업데이트 (카카오맵 정상일 때만)
     useEffect(() => {
-        // 지도 미초기화면 건너뜀
-        if (!mapRef.current || !currentPosition) return;
+        if (!kakaoMapAvailable || !mapRef.current || !currentPosition) return;
 
         const latlng = new window.kakao.maps.LatLng(
             currentPosition.latitude,
@@ -206,34 +193,27 @@ export default function PlaceVerificationPage() {
         );
 
         if (myOverlayRef.current) {
-            // 이미 오버레이가 있으면 위치만 이동 (새로 생성하면 깜빡임 발생)
             myOverlayRef.current.setPosition(latlng);
         } else {
-            // 첫 위치 수신 시 오버레이 생성
-            // content: HTML 문자열로 파란 원 마커 표현
-            const myOverlay = new window.kakao.maps.CustomOverlay({
+            myOverlayRef.current = new window.kakao.maps.CustomOverlay({
                 map: mapRef.current,
                 position: latlng,
-                // 파란 원 + 흰 테두리 디자인
-                content: `
-                  <div style="
+                content: `<div style="
                     width: 16px; height: 16px;
                     background: #2196f3;
                     border: 3px solid white;
                     border-radius: 50%;
                     box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-                  "></div>
-                `,
-                yAnchor: 0.5, // 원의 중심이 좌표에 정확히 위치
+                "></div>`,
+                yAnchor: 0.5,
                 xAnchor: 0.5,
             });
-            myOverlayRef.current = myOverlay;
         }
-    }, [currentPosition]);
+    }, [currentPosition, kakaoMapAvailable]);
 
-    // ── 5. 상대방 위치 마커 업데이트 ─────────────────────
+    // 5. 상대방 위치 마커 업데이트 (카카오맵 정상일 때만)
     useEffect(() => {
-        if (!mapRef.current || !opponentPosition) return;
+        if (!kakaoMapAvailable || !mapRef.current || !opponentPosition) return;
 
         const latlng = new window.kakao.maps.LatLng(
             opponentPosition.latitude,
@@ -241,36 +221,30 @@ export default function PlaceVerificationPage() {
         );
 
         if (opponentOverlayRef.current) {
-            // 상대방도 기존 오버레이 위치만 갱신
             opponentOverlayRef.current.setPosition(latlng);
         } else {
-            // 상대방 마커 (회색 원으로 구분)
-            const opponentOverlay = new window.kakao.maps.CustomOverlay({
+            opponentOverlayRef.current = new window.kakao.maps.CustomOverlay({
                 map: mapRef.current,
                 position: latlng,
-                content: `
-                  <div style="
+                content: `<div style="
                     width: 16px; height: 16px;
                     background: #9e9e9e;
                     border: 3px solid white;
                     border-radius: 50%;
                     box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-                  "></div>
-                `,
+                "></div>`,
                 yAnchor: 0.5,
                 xAnchor: 0.5,
             });
-            opponentOverlayRef.current = opponentOverlay;
         }
-    }, [opponentPosition]);
+    }, [opponentPosition, kakaoMapAvailable]);
 
-    // ── 6. 위치 전송 + 상대방 위치/인증 상태 폴링 (기존과 동일) ─
+    // 6. 위치 전송 + 폴링
     useEffect(() => {
         if (!id || !currentPosition) return;
         const matchId = Number(id);
 
         const intervalId = setInterval(async () => {
-            // 내 위치 서버 전송 (5초마다)
             updateMyLocation(matchId, currentPosition.latitude, currentPosition.longitude)
                 .catch(console.error);
 
@@ -280,7 +254,6 @@ export default function PlaceVerificationPage() {
                     getMeetVerification(matchId),
                 ]);
 
-                // 상대방 위치 갱신 → useEffect [opponentPosition]이 마커 업데이트
                 const locData = locRes.data.data;
                 if (locData.opponentLocation) {
                     setOpponentPosition({
@@ -289,7 +262,6 @@ export default function PlaceVerificationPage() {
                     });
                 }
 
-                // 인증 상태 갱신
                 const verData = verRes.data.data;
                 setVerificationStatus({
                     authorVerified: verData.authorPlaceVerifiedAt !== null,
@@ -304,12 +276,12 @@ export default function PlaceVerificationPage() {
             } catch (err) {
                 console.error('상태 조회 실패:', err);
             }
-        }, 1000); // API 명세서 기준 1초 폴링
+        }, 1000);
 
         return () => clearInterval(intervalId);
     }, [id, currentPosition, navigate]);
 
-    // ── SDK 미로드 시 fallback 거리 계산 (Haversine) ────
+    // Haversine fallback 거리 계산
     const calculateDistanceFallback = (
         lat1: number, lon1: number,
         lat2: number, lon2: number
@@ -325,7 +297,7 @@ export default function PlaceVerificationPage() {
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     };
 
-    // ── 장소 인증 (기존과 동일) ──────────────────────────
+    // 장소 인증
     const handleVerify = async () => {
         if (!isWithinRange || !currentPosition) return;
         try {
@@ -346,11 +318,10 @@ export default function PlaceVerificationPage() {
 
     const handleGoToQR = () => navigate(`/matches/${id}/qr`);
 
-    // ── 로딩 화면 ─────────────────────────────────────────
     if (loading || !meetingPlace) {
         return (
             <div className="flex flex-col items-center justify-center py-20">
-                <Loader2 className="animate-spin text-[#d84315] mb-4" size={40}/>
+                <Loader2 className="animate-spin text-[#d84315] mb-4" size={40} />
                 <p className="text-[#616161]">정보를 불러오는 중...</p>
             </div>
         );
@@ -358,7 +329,6 @@ export default function PlaceVerificationPage() {
 
     const bothVerified = verificationStatus.authorVerified && verificationStatus.applicantVerified;
 
-    // ── 렌더링 ────────────────────────────────────────────
     return (
         <div className="max-w-2xl mx-auto p-4">
             <div className="bg-white rounded-2xl shadow-lg p-8">
@@ -366,7 +336,7 @@ export default function PlaceVerificationPage() {
                 {/* 헤더 */}
                 <div className="text-center mb-6">
                     <div className="flex items-center justify-center gap-2 mb-3">
-                        <MapPin size={24} className="text-[#d84315]"/>
+                        <MapPin size={24} className="text-[#d84315]" />
                         <h1 className="text-2xl font-bold text-[#212121]">장소 인증</h1>
                     </div>
                     <p className={`text-lg font-semibold ${isWithinRange ? 'text-[#4caf50]' : 'text-[#ef5350]'}`}>
@@ -381,39 +351,67 @@ export default function PlaceVerificationPage() {
                     )}
                 </div>
 
-                {/*
-                  ★ 핵심 변경 포인트 ★
-                  기존: <svg> 원형 맵
-                  변경: div ref에 KakaoMap SDK가 지도를 직접 그려줌
-                  - 높이를 고정(h-64 = 256px)으로 줘야 지도가 정상 렌더링됨
-                  - 높이 없으면 지도 영역이 0px → 빈 화면
-                */}
-                <div
-                    ref={mapContainerRef}
-                    className="w-full h-64 rounded-2xl overflow-hidden mb-6 border-2 border-[#e0e0e0]"
-                    // KakaoMap은 이 div의 크기를 기준으로 지도를 렌더링
-                />
+                {/* ★ 핵심: 카카오맵 정상 / 장애 분기 */}
+                {kakaoMapAvailable ? (
+                    // 카카오맵 정상 — 실제 지도 렌더링
+                    <div
+                        ref={mapContainerRef}
+                        className="w-full h-64 rounded-2xl overflow-hidden mb-6 border-2 border-[#e0e0e0]"
+                    />
+                ) : (
+                    // ★ 카카오맵 장애 — SVG fallback
+                    <div className="relative bg-[#fafafa] rounded-2xl p-8 mb-6 border-2 border-[#e0e0e0]">
+                        {/* 장애 안내 배너 */}
+                        <div className="bg-[#fff3e0] border border-[#ff9800] rounded-lg px-3 py-2 mb-4 text-center">
+                            <p className="text-xs text-[#e65100]">
+                                ⚠️ 지도를 불러올 수 없습니다. 거리 기반 인증은 정상 작동합니다.
+                            </p>
+                        </div>
+                        {/* 기존 SVG 원형 지도 */}
+                        <div className="relative w-full h-48 flex items-center justify-center">
+                            <svg viewBox="0 0 300 300" className="w-full h-full">
+                                {/* 50m 반경 원 */}
+                                <circle
+                                    cx="150" cy="150" r="120"
+                                    fill="none"
+                                    stroke="#e0e0e0"
+                                    strokeWidth="2"
+                                    strokeDasharray="5,5"
+                                />
+                                {/* 약속 장소 */}
+                                <circle cx="150" cy="150" r="8" fill="#d84315" />
+                                {/* 내 위치 (GPS 수신 후 표시) */}
+                                {currentPosition && (
+                                    <circle cx="150" cy="150" r="5" fill="#2196f3" />
+                                )}
+                            </svg>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                <Navigation size={40} className="text-[#d84315] mb-2 animate-pulse" />
+                                <p className="text-xs text-[#9e9e9e]">실시간 위치 추적 중</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
-                {/* 거리 바 (기존과 동일) */}
+                {/* 거리 바 */}
                 {distance !== null && (
                     <div className="mb-6">
                         <div className="flex items-center justify-between mb-2">
                             <span className="text-sm text-[#616161]">현재 거리</span>
-                            <span
-                                className={`text-lg font-bold ${isWithinRange ? 'text-[#4caf50]' : 'text-[#ef5350]'}`}>
+                            <span className={`text-lg font-bold ${isWithinRange ? 'text-[#4caf50]' : 'text-[#ef5350]'}`}>
                                 {distance.toFixed(1)}m / 60m
                             </span>
                         </div>
                         <div className="relative w-full h-3 bg-[#e0e0e0] rounded-full overflow-hidden">
                             <div
                                 className={`h-full transition-all duration-300 ${isWithinRange ? 'bg-[#4caf50]' : 'bg-[#ef5350]'}`}
-                                style={{width: `${Math.min((distance / 60) * 100, 100)}%`}}
+                                style={{ width: `${Math.min((distance / 60) * 100, 100)}%` }}
                             />
                         </div>
                     </div>
                 )}
 
-                {/* 인증 현황 (기존과 동일) */}
+                {/* 인증 현황 */}
                 <div className="bg-gradient-to-br from-[#f5f5f5] to-white rounded-xl p-5 mb-6 border border-[#e0e0e0]">
                     <h3 className="font-semibold text-[#212121] mb-4">인증 현황</h3>
                     <div className="space-y-3">
@@ -425,15 +423,14 @@ export default function PlaceVerificationPage() {
                         </div>
                         <div className="flex items-center justify-between bg-white rounded-lg p-3">
                             <span className="text-sm font-medium text-[#212121]">신청자</span>
-                            <span
-                                className={verificationStatus.applicantVerified ? 'text-[#4caf50]' : 'text-[#9e9e9e]'}>
+                            <span className={verificationStatus.applicantVerified ? 'text-[#4caf50]' : 'text-[#9e9e9e]'}>
                                 {verificationStatus.applicantVerified ? '완료 ✅' : '대기'}
                             </span>
                         </div>
                     </div>
                 </div>
 
-                {/* 버튼 (기존과 동일) */}
+                {/* 버튼 */}
                 {bothVerified ? (
                     <button
                         onClick={handleGoToQR}
@@ -465,7 +462,7 @@ export default function PlaceVerificationPage() {
                     </div>
                 )}
 
-                {/* 테스트 모드 (기존과 동일) */}
+                {/* 테스트 모드 */}
                 <div className="mt-6 pt-4 border-t border-[#e0e0e0]">
                     <label className="flex items-center gap-2 cursor-pointer">
                         <input
@@ -476,40 +473,6 @@ export default function PlaceVerificationPage() {
                         />
                         <span className="text-[#ef6c00] text-xs">테스트 모드 (시뮬레이션)</span>
                     </label>
-
-                    {useSimulation && (
-                        <button
-                            onClick={async () => {
-                                try {
-                                    // axiosInstance 직접 호출 대신, 이미 import된 createPlaceVerification 재사용.
-                                    // id: useParams()에서 받은 matchId (이 파일에서 쓰는 변수명은 'id')
-                                    // 좌표: match 7 → post 18의 실제 만남 장소 좌표를 그대로 전송
-                                    //        → 백엔드가 같은 좌표로 거리를 재므로 거리 ≈ 0m → 60m 이내 → 통과
-                                    const res = await createPlaceVerification(Number(id), {
-                                        currentLat: 37.5979281,  // post 18 PLACE_LAT (인천검단26단지아파트)
-                                        currentLng: 126.7159515, // post 18 PLACE_LNG
-                                    });
-
-                                    // 백엔드 응답의 verificationStatus로 인증 완료 여부 판단
-                                    // (기존 handleVerify와 동일한 응답 구조를 그대로 활용)
-                                    const status = res.data.data.verificationStatus;
-                                    if (status === 'VERIFIED' || status === 'PENDING') {
-                                        setIsVerified(true);
-                                    }
-                                    console.log("장소 인증 성공 — 백엔드 status 갱신됨:", status);
-
-                                } catch (e: unknown) {
-                                    // e가 unknown 타입이므로 axios 에러인지 타입 체크 후 메시지 추출
-                                    // (기존 handleVerify의 패턴과 동일하게 맞춤)
-                                    const err = e as { response?: { data?: { message?: string } } };
-                                    console.error("장소 인증 실패:", err?.response?.data ?? e);
-                                }
-                            }}
-                            className="mt-3 w-full bg-[#ef6c00] text-white py-2 rounded-lg text-sm font-semibold hover:bg-[#e65100] transition-all"
-                        >
-                            🧪 GPS 인증 강제 완료 (테스트용)
-                        </button>
-                    )}
                 </div>
 
             </div>
