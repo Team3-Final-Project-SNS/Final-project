@@ -66,6 +66,18 @@ dependencies {
     implementation 'org.springframework.ai:spring-ai-openai'
     implementation 'org.springframework.ai:spring-ai-starter-model-openai'
 
+    // RAG 기능 구현을 위한 의존성들.
+    // PDF/Tika 문서 리더로 문서를 읽고, pgvector 기반 Vector Store에 임베딩을 저장한 뒤,
+    // Vector Store Advisor/RAG 모듈을 통해 사용자 질문과 관련된 문서를 검색하여 답변 생성에 활용한다.
+    implementation 'org.springframework.ai:spring-ai-starter-vector-store-pgvector'
+    implementation 'org.springframework.ai:spring-ai-advisors-vector-store'
+    implementation 'org.springframework.ai:spring-ai-rag'
+    implementation 'org.springframework.ai:spring-ai-pdf-document-reader'
+    implementation 'org.springframework.ai:spring-ai-tika-document-reader'
+    runtimeOnly 'org.postgresql:postgresql'
+
+
+
     // 포트원 V2 서버 SDK (JVM) — 결제 조회/취소/웹훅 검증
     // (작성 시점 0.12.0. 의존성 충돌 시 :all classifier 의 shading 버전 사용)
     implementation 'io.portone:server-sdk:0.12.0'

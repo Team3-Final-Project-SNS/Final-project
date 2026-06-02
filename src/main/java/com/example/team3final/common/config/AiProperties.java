@@ -27,6 +27,8 @@ public class AiProperties {
     private ModerationFeature moderation = new ModerationFeature();
     private Metrics metrics = new Metrics();
     private Prompt prompt = new Prompt();
+    private RagStore ragStore = new RagStore();
+
 
     @Getter
     @Setter
@@ -71,5 +73,23 @@ public class AiProperties {
     public static class Prompt {
         private String basePath = "./prompts";
         private boolean fallbackToClasspath = true;
+    }
+
+
+
+    @Getter
+    @Setter
+    public static class RagStore {
+        private boolean enabled;
+        private String driverClassName;
+        private String url;
+        private String username;
+        private String password;
+        private String schemaName;
+        private String tableName;
+        private int dimensions;
+        private boolean initializeSchema;
+        private String distanceType;
+        private String indexType;
     }
 }
