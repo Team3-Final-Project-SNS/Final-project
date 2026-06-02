@@ -1,16 +1,13 @@
 package com.example.team3final.domain.notification.controller;
 
 import com.example.team3final.common.dto.response.ApiResponseDto;
-import com.example.team3final.common.dto.response.PageResponseDto;
+import com.example.team3final.common.dto.response.CursorResponseDto;
 import com.example.team3final.domain.notification.dto.response.GetNotificationsResponseDto;
 import com.example.team3final.domain.notification.dto.response.GetUnreadCountResponseDto;
 import com.example.team3final.domain.notification.dto.response.UpdateAllNotificationsReadResponseDto;
-import com.example.team3final.domain.notification.enums.NotificationType;
 import com.example.team3final.domain.notification.service.NotificationService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -24,21 +21,16 @@ public class NotificationController {
 
     private final NotificationService notificationService;
 
-    // 알림 목록 조회
+    // 알림 목록 조회 (커서 기반 페이징)
     @GetMapping
-    public ResponseEntity<ApiResponseDto<PageResponseDto<GetNotificationsResponseDto>>> getNotifications(
-            @AuthenticationPrincipal UserDetailsImpl userDetails,  // JWT 토큰에서 인증된 유저 정보
-            @RequestParam(required = false) Boolean isRead,        // 읽음 여부 필터
-            @RequestParam(required = false) NotificationType type, // 알림 유형 필터
-            @RequestParam(defaultValue = "0") int page,            // 페이지 번호
-            @RequestParam(defaultValue = "20") int size            // 페이지 크기
+    public ResponseEntity<ApiResponseDto<CursorResponseDto<GetNotificationsResponseDto>>> getNotifications(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,                 // JWT 토큰에서 인증된 유저 정보
+            @RequestParam(defaultValue = "9223372036854775807") Long cursorId,    // 마지막으로 받은 알림 ID (처음 요청 시 Long.MAX_VALUE)
+            @RequestParam(defaultValue = "20") int size                           // 페이지 크기 (최대 50)
     ) {
         Long receiverId = userDetails.getUserId();
-        int safeSize = Math.min(size, 50);         // 최대 50개로 제한
-        Pageable pageable = PageRequest.of(page, safeSize);
-
-        PageResponseDto<GetNotificationsResponseDto> response = notificationService.getNotifications(receiverId, isRead, type, pageable);
-
+        CursorResponseDto<GetNotificationsResponseDto> response =
+                notificationService.getNotifications(receiverId, cursorId, size);
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
 
@@ -48,7 +40,8 @@ public class NotificationController {
             @AuthenticationPrincipal UserDetailsImpl userDetails // JWT 토큰에서 인증된 유저 정보
     ) {
         Long receiverId = userDetails.getUserId();
-        UpdateAllNotificationsReadResponseDto response = notificationService.updateAllNotificationsRead(receiverId);
+        UpdateAllNotificationsReadResponseDto response =
+                notificationService.updateAllNotificationsRead(receiverId);
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
 
