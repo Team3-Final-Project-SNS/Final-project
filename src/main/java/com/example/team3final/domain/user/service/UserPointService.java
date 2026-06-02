@@ -60,7 +60,7 @@ public interface UserPointService {
      * @param amount    충전된 포인트
      * @param paymentId 어떤 결제와 묶이는지 (PointTransaction.matchId 자리를 paymentId로 재활용 또는 별도 컬럼)
      */
-    void chargePoint(Long userId, int amount, Long paymentId);
+    int chargePoint(Long userId, int amount, Long paymentId);
 
     /**
      * 유료 포인트 회수 — 결제 취소 시 호출.
