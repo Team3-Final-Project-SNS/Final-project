@@ -29,6 +29,10 @@ public interface UserService {
     // 사용처: PostServiceImpl.getPosts() — 학교 필터 적용
     List<Long> getUserIdsByUniversityId(Long universityId);
 
+    // AI 매칭 도메인에서 같은 학교의 추천 후보 작성자를 찾을 때 사용합니다.
+    // 정지/탈퇴 사용자가 작성한 게시글이 추천 후보에 섞이지 않도록 ACTIVE 사용자만 반환합니다.
+    List<Long> getActiveUserIdsByUniversityId(Long universityId);
+
     // 회원가입 시 가입되어있는 이메일인지 검증
     boolean isEmailAlreadyRegistered(String email);
 

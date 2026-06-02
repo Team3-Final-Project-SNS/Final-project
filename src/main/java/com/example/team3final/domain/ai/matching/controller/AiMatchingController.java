@@ -52,16 +52,15 @@ public class AiMatchingController {
      */
 
     @PostMapping("/chat")
-    public ResponseEntity<ApiResponseDto<AiMatchingChatResponseDto>> chat(
+    public ResponseEntity<ApiResponseDto<AiMatchingChatResponseDto>> createAiMatchingChat(
             Authentication authentication,
             @Valid @RequestBody AiMatchingChatRequestDto request
     ) {
         String email = authentication.getName();
 
-        AiMatchingChatResponseDto response = aiMatchingService.chat(email, request);
+        AiMatchingChatResponseDto response = aiMatchingService.createAiMatchingChat(email, request);
 
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
 
 }
-

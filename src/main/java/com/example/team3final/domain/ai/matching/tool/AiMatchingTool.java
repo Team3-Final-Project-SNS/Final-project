@@ -1,11 +1,10 @@
 package com.example.team3final.domain.ai.matching.tool;
 
 
-import com.example.team3final.domain.match.repository.MatchRepository;
+import com.example.team3final.domain.match.service.MatchService;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.service.PostService;
 import com.example.team3final.domain.user.entity.User;
-import com.example.team3final.domain.user.repository.UserRepository;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.tool.annotation.Tool;
@@ -38,9 +37,8 @@ public class AiMatchingTool {
     private static final int MAX_RECOMMENDATION_CANDIDATES = 3;
 
     private final UserService userService;
-    private final UserRepository userRepository;
     private final PostService postService;
-    private final MatchRepository matchRepository;
+    private final MatchService matchService;
 
 
     /**
@@ -62,8 +60,10 @@ public class AiMatchingTool {
             int userPoint,
             String condition
     ) {
+        // User 도메인의 ACTIVE 사용자 조회 규칙을 재사용합니다.
+        // AI 매칭 도메인은 UserRepository를 직접 참조하지 않고 추천 후보 작성자 ID만 전달받습니다.
         List<Long> sameUniversityUserIds =
-                userRepository.findActiveUserIdsByUniversityId(universityId);
+                userService.getActiveUserIdsByUniversityId(universityId);
 
         if (sameUniversityUserIds.isEmpty()) {
             return List.of();
@@ -84,7 +84,7 @@ public class AiMatchingTool {
                 .limit(MAX_RECOMMENDATION_CANDIDATES)
                 .map(post -> {
                     boolean alreadyApplied =
-                            matchRepository.existsByPostIdAndApplicantId(post.getId(), userId);
+                            matchService.hasAppliedToPost(post.getId(), userId);
 
                     boolean pointAffordable = userPoint >= post.getAuthorDeposit();
 
@@ -167,7 +167,7 @@ public class AiMatchingTool {
         Post post = postService.getPostById(postId);
 
         boolean alreadyApplied =
-                matchRepository.existsByPostIdAndApplicantId(post.getId(), user.getId());
+                matchService.hasAppliedToPost(post.getId(), user.getId());
 
         boolean pointAffordable = user.getTotalPoint() >= post.getAuthorDeposit();
 

@@ -13,5 +13,5 @@ public interface AiMatchingService {
      * @param request 사용자의 자연어 식사 조건 요청
      * @return AI 추천 답변, 추천 후보 목록, fallback 여부
      */
-    AiMatchingChatResponseDto chat(String email, AiMatchingChatRequestDto request);
+    AiMatchingChatResponseDto createAiMatchingChat(String email, AiMatchingChatRequestDto request);
 }
