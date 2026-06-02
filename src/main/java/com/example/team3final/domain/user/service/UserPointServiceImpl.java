@@ -147,9 +147,10 @@ public class UserPointServiceImpl implements UserPointService{
         // 포인트 적립
         user.addFreePoint(amount);
 
-        // PointTransaction 기록 -> REPORT_REWARD 적립, matchId는 신고에 없으므로 -> null
+        // 호출한 보상 도메인에 맞는 거래 타입을 그대로 기록합니다.
+        // 예: 신고 보상은 REPORT_REWARD, 후기 보상은 REVIEW_REWARD
         saveTransaction(userId, matchId, amount,
-                PointTransactionType.REPORT_REWARD, user.getTotalPoint(), PointSource.FREE);
+                type, user.getTotalPoint(), PointSource.FREE);
     }
 
     // matchId 없는 보상(신고 채택 등)에서 호출 — 내부적으로 private rewardPoint로 위임
