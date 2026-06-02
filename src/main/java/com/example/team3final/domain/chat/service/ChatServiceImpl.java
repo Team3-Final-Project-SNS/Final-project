@@ -19,6 +19,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -114,14 +115,18 @@ public class ChatServiceImpl implements ChatService {
             throw new ChatException(ErrorCode.CHAT_ROOM_DEACTIVATED);
         }
 
-        // 채팅방 참여자 여부 확인
-        if (!chatMemberRepository.existsByChatRoomIdAndUserId(chatRoomId, userId)) {
-            throw new ChatException(ErrorCode.CHAT_NOT_PARTICIPANT);
-        }
+        // 채팅방 참여자 여부 확인 + joinedAt 조회
+        ChatMember chatMember = chatMemberRepository.findByChatRoomIdAndUserId(chatRoomId, userId)
+                .orElseThrow(() -> new ChatException(ErrorCode.CHAT_NOT_PARTICIPANT));
 
-        // 메시지 조회 (size+1개 조회로 다음 페이지 여부 확인)
+        // 참여자 입장 시각 (이 시각 이후 메시지만 반환)
+        LocalDateTime joinedAt = chatMember.getCreatedAt();
+
+        // 입장 시각 이후 메시지만 조회 (이전 참여자와의 대화 격리)
         List<ChatMessage> messages = chatMessageRepository
-                .findByChatRoomIdAndIdLessThanOrderByIdDesc(chatRoomId, cursorId, PageRequest.of(0, size + 1));
+                .findByChatRoomIdAndIdLessThanAndCreatedAtAfterOrderByIdDesc(
+                        chatRoomId, cursorId, joinedAt, PageRequest.of(0, size + 1));
+
 
         // 읽음 처리 - 내가 보낸 메시지가 아닌 것만
         messages.stream()

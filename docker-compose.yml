@@ -1,4 +1,108 @@
+# ──────────────────────────────────────────────────────────────
+# docker-compose.yml — 한끼팟 전체 서비스 실행
+# 실행 명령어: docker compose up -d --build
+# ──────────────────────────────────────────────────────────────
+
 services:
+
+  # ── MySQL 8.0 ────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: hankkipot-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      # 3307로 매핑: 로컬에 MySQL이 깔려있어도 포트 충돌 방지
+      - "3307:3306"
+    volumes:
+      # Named Volume: 컨테이너 삭제해도 DB 데이터 유지
+      - mysql_data:/var/lib/mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    # MySQL이 완전히 준비됐는지 10초마다 확인
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Redis 7 ──────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: hankkipot-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command:
+      - redis-server
+      - --appendonly yes       # 재시작해도 데이터 유지
+      - --requirepass ${REDIS_PASSWORD}
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Spring Boot 앱 ───────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hankkipot-app
+    # mysql, redis 헬스체크 통과 후에만 시작
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      # prod 프로파일 활성화 → application-prod.yml 로드
+      SPRING_PROFILES_ACTIVE: prod
+
+      # DB — "localhost"가 아닌 서비스 이름 "mysql"로 접근
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8&serverTimezone=Asia/Seoul
+      DB_USERNAME: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+
+      # Redis — 서비스 이름 "redis"로 접근
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+      # 이하 .env 파일에서 값을 읽어서 컨테이너에 전달
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_SIGNUP_TOKEN_VALIDITY_TIME: ${JWT_SIGNUP_TOKEN_VALIDITY_TIME}
+      JWT_ACCESS_TOKEN_VALIDITY_TIME: ${JWT_ACCESS_TOKEN_VALIDITY_TIME}
+      JWT_REFRESH_TOKEN_VALIDITY_TIME: ${JWT_REFRESH_TOKEN_VALIDITY_TIME}
+
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+
+      PORTONE_API_SECRET: ${PORTONE_API_SECRET}
+      PORTONE_STORE_ID: ${PORTONE_STORE_ID}
+      PORTONE_CHANNEL_KEY: ${PORTONE_CHANNEL_KEY}
+
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+
+      ADMIN_INIT_EMAIL: ${ADMIN_INIT_EMAIL}
+      ADMIN_INIT_PASSWORD: ${ADMIN_INIT_PASSWORD}
+      ADMIN_INIT_NAME: ${ADMIN_INIT_NAME}
+
+      GEMINI_KEY: ${GEMINI_KEY}
+      OPEN_AI_KEY: ${OPEN_AI_KEY}
+
+    restart: unless-stopped
+
+  # ── Prometheus ───────────────────────────────────────────────
   prometheus:
     image: prom/prometheus
     ports:
@@ -9,6 +113,7 @@ services:
       - "--config.file=/etc/prometheus/prometheus.yml"
     restart: always
 
+  # ── Grafana ──────────────────────────────────────────────────
   grafana:
     image: grafana/grafana
     ports:
@@ -16,3 +121,34 @@ services:
     restart: always
     depends_on:
       - prometheus
+
+  # ── Frontend ──────────────────────────────────────────────────
+  frontend:
+    # frontend 폴더의 Dockerfile로 이미지 빌드
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+
+    # 호스트 5173 → 컨테이너 5173 포트 연결
+    ports:
+      - "5173:5173"
+
+    # 소스코드 변경 시 컨테이너에 실시간 반영 (핫리로드)
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules  # node_modules는 컨테이너 것 사용
+
+    # 환경변수 설정 (백엔드 API 주소)
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8080
+
+    # 백엔드 앱이 뜬 후에 프론트 실행
+    depends_on:
+      - app
+
+    restart: always
+
+# ── 볼륨 정의 ─────────────────────────────────────────────────
+volumes:
+  mysql_data:
+  redis_data:
