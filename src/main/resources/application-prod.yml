@@ -1,0 +1,87 @@
+# ──────────────────────────────────────────────────────────────
+# prod 프로파일 설정
+# Docker 컨테이너 환경 및 AWS EC2 배포 환경에서 사용합니다.
+# 모든 민감한 값은 환경변수로 주입받습니다. (.env 또는 EC2 환경변수)
+# ──────────────────────────────────────────────────────────────
+
+spring:
+  datasource:
+    # MySQL 드라이버 사용 (local의 H2와 다름)
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # DB_URL은 docker-compose.yml에서 환경변수로 주입
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+  jpa:
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+    hibernate:
+      # update: 기존 테이블 유지하면서 변경사항만 반영
+      # create처럼 매번 데이터가 날아가지 않음
+      ddl-auto: create
+    properties:
+      hibernate:
+        format_sql: false
+        # SQL 로그는 운영에서 끔 (성능 + 보안)
+        show_sql: false
+
+logging:
+  level:
+    root: info
+    # 운영에서는 debug 끔 (로그 과부하 방지)
+    com:
+      example:
+        team3final: info
+
+jwt:
+  # 환경변수에서 주입 (application.yml의 설정을 오버라이드)
+  secret-key: ${JWT_SECRET_KEY}
+
+admin:
+  init:
+    email: ${ADMIN_INIT_EMAIL}
+    password: ${ADMIN_INIT_PASSWORD}
+    name: ${ADMIN_INIT_NAME}
+
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS}
+
+app:
+  ai:
+    enabled: true
+    timeout-ms: 7000
+
+    matching:
+      model: gpt-4o-mini
+      max-tokens: 800
+      temperature: 0.4
+      memory-window-size: 10
+      stream-enabled: true
+      rag:
+        top-k: 5
+        similarity-threshold: 0.65
+
+    support:
+      model: gpt-4o-mini
+      max-tokens: 1000
+      temperature: 0.2
+      memory-window-size: 10
+      stream-enabled: true
+      rag:
+        top-k: 5
+        similarity-threshold: 0.7
+
+    report:
+      model: gpt-4o-mini
+      max-tokens: 600
+      temperature: 0.1
+
+    moderation:
+      model: gpt-4o-mini
+      max-tokens: 300
+      temperature: 0.0
+      rule-first: true
+      ai-check-enabled: true
+
+    metrics:
+      enabled: true
