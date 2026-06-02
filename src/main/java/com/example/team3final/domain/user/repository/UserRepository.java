@@ -23,6 +23,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // 회원가입 시 닉네임 중복확인
     boolean existsByNickname(String nickname);
 
+    // 특정 상태를 제외하고 이메일 존재 여부 확인 (탈퇴한 이메일은 false 반환 -> 재가입 허용)
+    boolean existsByEmailAndStatusNot(String email, UserStatus status);
+
     // Admin 유저 목록 조회
     @Query("""
         SELECT u
