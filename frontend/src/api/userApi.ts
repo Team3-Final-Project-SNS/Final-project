@@ -9,7 +9,7 @@ export interface GetUserResponse {
     universityId: number;
     major: string;
     studentNumber: string;
-    birthYear: string; // backend says birthYear (LocalDate)
+    birthDate: string;
     gender: "MALE" | "FEMALE";
     point: number;
     status: "ACTIVE" | "SUSPENDED" | "WITHDRAWN";
