@@ -13,7 +13,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum AiReportChatAction {
 
-    ANALYZE_REPORT,
-    HIGH_RISK_USERS,
-    CLARIFY
+    ANALYZE_REPORT("신고 단건 분석"),
+    HIGH_RISK_USERS("고위험 유저 조회"),
+    CLARIFY("추가 정보 요청");
+
+    private final String description;
 }

@@ -13,7 +13,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum AiReportRiskLevel {
 
-    LOW,
-    MEDIUM,
-    HIGH
+    LOW("낮은 위험도"),
+    MEDIUM("중간 위험도"),
+    HIGH("높은 위험도");
+
+    private final String description;
 }

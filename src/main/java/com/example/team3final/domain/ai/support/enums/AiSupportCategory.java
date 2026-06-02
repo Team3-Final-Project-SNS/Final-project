@@ -13,27 +13,21 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum AiSupportCategory {
 
-    // 매칭 관련 문의
-    MATCH,
+    MATCH("매칭 관련 문의"),
 
-    // 게시글 관련 문의
-    POST,
+    POST("게시글 관련 문의"),
 
-    // 포인트 관련 문의
-    POINT,
+    POINT("포인트 관련 문의"),
 
-    // 채팅, 메시지, 알림 문의
-    CHAT,
+    CHAT("채팅, 메시지, 알림 문의"),
 
-    // 신고 관련 문의
-    REPORT,
+    REPORT("신고 관련 문의"),
 
-    // 회원가입, 인증 관련 문의
-    ACCOUNT,
+    ACCOUNT("회원가입, 인증 관련 문의"),
 
-    // 노쇼 관련 문의
-    MEET,
+    MEET("노쇼 관련 문의"),
 
-    // 특정 도메인으로 분류하기 어려운 문의
-    GENERAL
+    GENERAL("일반 문의");
+
+    private final String description;
 }

@@ -13,8 +13,10 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum AiFeature {
 
-    MATCHING,
-    SUPPORT,
-    REPORT,
-    MODERATION
+    MATCHING("매칭 AI"),
+    SUPPORT("고객센터 AI"),
+    REPORT("신고 분석 AI");
+
+
+    private final String description;
 }

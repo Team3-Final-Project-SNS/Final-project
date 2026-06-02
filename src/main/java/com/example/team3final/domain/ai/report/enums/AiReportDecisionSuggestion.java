@@ -13,7 +13,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum AiReportDecisionSuggestion {
 
-    ACCEPT,
-    REJECT,
-    NEEDS_REVIEW
+    ACCEPT("신고 채택 권고"),
+    REJECT("신고 기각 권고"),
+    NEEDS_REVIEW("관리자 추가 검토 권고");
+
+    private final String description;
 }

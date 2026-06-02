@@ -13,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum AiSupportMessageRole {
 
-    USER,
-    ASSISTANT
+    USER("사용자 메시지"),
+    ASSISTANT("AI 응답 메시지");
+
+    private final String description;
 }

@@ -12,8 +12,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum AiCallStatus {
 
+    SUCCESS("AI 호출 성공"),
+    FAILED("AI 호출 실패"),
+    FALLBACK("대체 응답 사용");
 
-    SUCCESS,
-    FAILED,
-    FALLBACK
+    private final String description;
 }

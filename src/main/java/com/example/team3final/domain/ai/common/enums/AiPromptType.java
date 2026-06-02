@@ -12,8 +12,11 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum AiPromptType {
-    MATCHING_CHAT,
-    SUPPORT_CHAT,
-    REPORT_SUMMARY,
-    CHAT_MODERATION
+
+    MATCHING_CHAT("매칭 AI 채팅 프롬프트"),
+    SUPPORT_CHAT("고객센터 AI 채팅 프롬프트"),
+    REPORT_SUMMARY("신고 AI 분석 프롬프트");
+
+
+    private final String description;
 }
