@@ -1,6 +1,7 @@
 package com.example.team3final.domain.chat.service;
 
 import com.example.team3final.common.dto.response.CursorResponseDto;
+import com.example.team3final.domain.chat.dto.response.ChatMemberResponseDto;
 import com.example.team3final.domain.chat.dto.response.ChatMessageResponseDto;
 
 import java.util.List;
@@ -31,4 +32,10 @@ public interface ChatService {
 
     // 참여자 검증/읽음 처리 없이 전체 메세지 조회
     List<ChatMessageResponseDto> getChatMessagesForAdmin(Long chatRoomId);
+
+    // 신청자 매칭 취소 시 호출 - 해당 참여자만 채팅방에서 제거
+    void removeChatMember(Long postId, Long userId);
+
+    // 채팅방 참여자 목록 조회 - 채팅방 멤버만 접근 가능
+    List<ChatMemberResponseDto> getChatMembers(Long chatRoomId, Long userId);
 }

@@ -87,10 +87,11 @@ public enum ErrorCode {
     // Chat
     CHAT_ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "CHAT_001", "존재하지 않는 채팅방입니다."),
     CHAT_ROOM_ALREADY_EXISTS(HttpStatus.CONFLICT, "CHAT_002", "이미 존재하는 채팅방입니다."),
-    CHAT_ROOM_INACTIVE(HttpStatus.FORBIDDEN, "CHAT_003", "비활성화된 채팅방입니다."),
-    CHAT_NOT_PARTICIPANT(HttpStatus.FORBIDDEN, "CHAT_004", "해당 채팅방의 참여자가 아닙니다."),
-    CHAT_INVALID_PAGE_SIZE(HttpStatus.BAD_REQUEST, "CHAT_005", "페이지 크기는 최대 50까지 요청할 수 있습니다."),
-    CHAT_INVALID_CURSOR(HttpStatus.BAD_REQUEST, "CHAT_006", "유효하지 않은 커서 ID입니다."),
+    CHAT_ROOM_READ_ONLY(HttpStatus.FORBIDDEN, "CHAT_003", "읽기 전용 채팅방입니다. 메시지 전송이 불가합니다."),
+    CHAT_ROOM_DEACTIVATED(HttpStatus.FORBIDDEN, "CHAT_004", "비활성화된 채팅방입니다. 접근이 불가합니다."),
+    CHAT_NOT_PARTICIPANT(HttpStatus.FORBIDDEN, "CHAT_005", "해당 채팅방의 참여자가 아닙니다."),
+    CHAT_INVALID_PAGE_SIZE(HttpStatus.BAD_REQUEST, "CHAT_006", "페이지 크기는 최대 50까지 요청할 수 있습니다."),
+    CHAT_INVALID_CURSOR(HttpStatus.BAD_REQUEST, "CHAT_007", "유효하지 않은 커서 ID입니다."),
 
     // University
     UNIVERSITY_NOT_FOUND(HttpStatus.NOT_FOUND, "UNIVERSITY_001", "조회 가능한 대학 목록이 없습니다."),

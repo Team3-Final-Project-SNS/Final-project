@@ -3,6 +3,7 @@ package com.example.team3final.domain.chat.service;
 import com.example.team3final.common.dto.response.CursorResponseDto;
 import com.example.team3final.common.exception.ChatException;
 import com.example.team3final.common.exception.ErrorCode;
+import com.example.team3final.domain.chat.dto.response.ChatMemberResponseDto;
 import com.example.team3final.domain.chat.dto.response.ChatMessageResponseDto;
 import com.example.team3final.domain.chat.entity.ChatMember;
 import com.example.team3final.domain.chat.entity.ChatMessage;
@@ -39,6 +40,7 @@ public class ChatServiceImpl implements ChatService {
     public Long createChatRoom(Long postId, Long authorId, Long applicantId) {
 
         // 이미 채팅방이 있으면 생성 안 함
+        // (신청자 취소 후 재신청 시에도 기존 채팅방 재사용)
         if (chatRoomRepository.findByPostId(postId).isPresent()) {
             throw new ChatException(ErrorCode.CHAT_ROOM_ALREADY_EXISTS);
         }
@@ -103,8 +105,14 @@ public class ChatServiceImpl implements ChatService {
         }
 
         // 채팅방 존재 여부 확인
-        chatRoomRepository.findById(chatRoomId)
+        ChatRoom chatRoom = chatRoomRepository.findById(chatRoomId)
                 .orElseThrow(() -> new ChatException(ErrorCode.CHAT_ROOM_NOT_FOUND));
+
+        // DEACTIVATED 채팅방은 조회 불가 (매칭 취소)
+        // READ_ONLY는 조회 가능 — 별도 체크 없이 통과
+        if (chatRoom.isDeactivated()) {
+            throw new ChatException(ErrorCode.CHAT_ROOM_DEACTIVATED);
+        }
 
         // 채팅방 참여자 여부 확인
         if (!chatMemberRepository.existsByChatRoomIdAndUserId(chatRoomId, userId)) {
@@ -201,6 +209,55 @@ public class ChatServiceImpl implements ChatService {
                         m.getContent(),
                         m.isRead(),
                         m.getCreatedAt()
+                ))
+                .toList();
+    }
+
+    // ChatServiceImpl 구현
+    @Transactional
+    @Override
+    public void removeChatMember(Long postId, Long userId) {
+        // postId로 채팅방 조회
+        ChatRoom chatRoom = chatRoomRepository.findByPostId(postId)
+                .orElseThrow(() -> new ChatException(ErrorCode.CHAT_ROOM_NOT_FOUND));
+        // 해당 유저를 ChatMember에서 제거
+        chatMemberRepository.deleteByChatRoomIdAndUserId(chatRoom.getId(), userId);
+    }
+
+    // 채팅방 참여자 목록 조회 - 채팅방 멤버만 접근 가능
+    @Override
+    public List<ChatMemberResponseDto> getChatMembers(Long chatRoomId, Long userId) {
+
+        // 채팅방 존재 여부 확인
+        ChatRoom chatRoom = chatRoomRepository.findById(chatRoomId)
+                .orElseThrow(() -> new ChatException(ErrorCode.CHAT_ROOM_NOT_FOUND));
+
+        // DEACTIVATED 채팅방은 접근 불가 (매칭 취소)
+        if (chatRoom.isDeactivated()) {
+            throw new ChatException(ErrorCode.CHAT_ROOM_DEACTIVATED);
+        }
+
+        // 채팅방 참여자 여부 확인
+        if (!chatMemberRepository.existsByChatRoomIdAndUserId(chatRoomId, userId)) {
+            throw new ChatException(ErrorCode.CHAT_NOT_PARTICIPANT);
+        }
+
+        // 참여자 목록 조회
+        List<ChatMember> members = chatMemberRepository.findByChatRoomId(chatRoomId);
+
+        // 유저 ID 목록 한 번에 조회 (N+1 방지)
+        List<Long> userIds = members.stream()
+                .map(ChatMember::getUserId)
+                .toList();
+        Map<Long, UserInfoDto> userInfoMap = userService.getUserInfos(userIds);
+
+        // DTO 변환
+        return members.stream()
+                .map(m -> ChatMemberResponseDto.of(
+                        m,
+                        userInfoMap.containsKey(m.getUserId())
+                                ? userInfoMap.get(m.getUserId()).nickname()
+                                : null
                 ))
                 .toList();
     }

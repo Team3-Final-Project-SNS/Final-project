@@ -21,4 +21,7 @@ public interface ChatMemberRepository extends JpaRepository<ChatMember, Long> {
     // 특정 채팅방에 해당 유저가 존재하는지 확인
     boolean existsByChatRoomIdAndUserId(Long chatRoomId, Long userId);
 
+    // 신청자 매칭 취소 시 해당 참여자만 채팅방에서 제거
+    void deleteByChatRoomIdAndUserId(Long chatRoomId, Long userId);
+
 }
