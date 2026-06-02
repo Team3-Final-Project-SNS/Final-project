@@ -85,4 +85,11 @@ public interface MeetVerificationRepository extends JpaRepository<MeetVerificati
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to
     );
+
+    // NO_SHOW 상태이면서 noShowDecidedAt이 기준 시각 이전인 건 조회
+    // 24시간 지난 노쇼 예정 건 찾기용
+    List<MeetVerification> findAllByStatusInAndNoShowDecidedAtBefore(
+            List<VerificationStatus> statuses,
+            LocalDateTime deadline
+    );
 }
