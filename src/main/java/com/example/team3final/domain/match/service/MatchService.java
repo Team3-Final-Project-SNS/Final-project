@@ -72,6 +72,14 @@ public interface MatchService {
     GetMatchResponseDto getMatch(Long matchId, Long currentUserId);
 
     /**
+     * 특정 사용자가 특정 게시글에 이미 신청했는지 확인합니다.
+     *
+     * AI 매칭, 게시글 검증 등 다른 도메인에서 중복 신청 여부만 필요할 때
+     * MatchRepository를 직접 참조하지 않고 Match 도메인 서비스로 조회합니다.
+     */
+    boolean hasAppliedToPost(Long postId, Long applicantId);
+
+    /**
      * 내 매칭 목록 조회 — Controller 직접 호출 (명세서 5.4)
      *
      * @param status null이면 전체 조회

@@ -124,6 +124,13 @@ public class MatchServiceImpl implements MatchService{
     }
 
     @Override
+    public boolean hasAppliedToPost(Long postId, Long applicantId) {
+        // 중복 신청 여부는 Match 도메인의 데이터 규칙이므로,
+        // 다른 도메인은 Repository 대신 이 서비스 메서드를 통해 확인합니다.
+        return matchRepository.existsByPostIdAndApplicantId(postId, applicantId);
+    }
+
+    @Override
     @Transactional
     public void completeMatch(Long matchId) {
 

@@ -55,6 +55,13 @@ public class UserServiceImpl implements UserService {
         return userRepository.findIdsByUniversityId(universityId);
     }
 
+    @Override
+    public List<Long> getActiveUserIdsByUniversityId(Long universityId) {
+        // AI 매칭 도메인이 UserRepository를 직접 참조하지 않도록,
+        // 같은 학교의 ACTIVE 사용자 ID 조회는 User 도메인 서비스가 담당합니다.
+        return userRepository.findActiveUserIdsByUniversityId(universityId);
+    }
+
     //회원가입 시 가입되어있는 이메일인지 검증
     @Override
     public boolean isEmailAlreadyRegistered(String email) {

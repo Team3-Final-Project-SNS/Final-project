@@ -3,12 +3,11 @@ package com.example.team3final.domain.ai.matching.service;
 
 import com.example.team3final.common.config.AiProperties;
 import com.example.team3final.common.exception.AiException;
-import com.example.team3final.domain.ai.common.entity.AiCallMetric;
 import com.example.team3final.domain.ai.common.enums.AiCallStatus;
 import com.example.team3final.domain.ai.common.enums.AiErrorType;
 import com.example.team3final.domain.ai.common.enums.AiFeature;
 import com.example.team3final.domain.ai.common.enums.AiPromptType;
-import com.example.team3final.domain.ai.common.repository.AiCallMetricRepository;
+import com.example.team3final.domain.ai.common.service.AiCallMetricService;
 import com.example.team3final.domain.ai.matching.dto.request.AiMatchingChatRequestDto;
 import com.example.team3final.domain.ai.matching.dto.response.AiMatchingChatResponseDto;
 import com.example.team3final.domain.ai.matching.dto.response.RecommendedPostDto;
@@ -54,7 +53,7 @@ public class AiMatchingServiceImpl implements AiMatchingService {
     private final ChatClient chatClient;
     private final AiPromptFileService aiPromptFileService;
     private final AiMatchingTool aiMatchingTool;
-    private final AiCallMetricRepository aiCallMetricRepository;
+    private final AiCallMetricService aiCallMetricService;
     private final AiProperties aiProperties;
     private final UserService userService;
 
@@ -63,14 +62,14 @@ public class AiMatchingServiceImpl implements AiMatchingService {
             ChatClient.Builder chatClientBuilder,
             AiPromptFileService aiPromptFileService,
             AiMatchingTool aiMatchingTool,
-            AiCallMetricRepository aiCallMetricRepository,
+            AiCallMetricService aiCallMetricService,
             AiProperties aiProperties,
             UserService userService
     ) {
         this.chatClient = chatClientBuilder.build();
         this.aiPromptFileService = aiPromptFileService;
         this.aiMatchingTool = aiMatchingTool;
-        this.aiCallMetricRepository = aiCallMetricRepository;
+        this.aiCallMetricService = aiCallMetricService;
         this.aiProperties = aiProperties;
         this.userService = userService;
 
@@ -91,7 +90,7 @@ public class AiMatchingServiceImpl implements AiMatchingService {
      * @return AI 추천 답변, 추천 후보 목록, fallback 사용 여부
      */
     @Override
-    public AiMatchingChatResponseDto chat(String email, AiMatchingChatRequestDto request) {
+    public AiMatchingChatResponseDto createAiMatchingChat(String email, AiMatchingChatRequestDto request) {
 
         // AI 호출 1건을 추적하기 위한 고유 요청 ID입니다.
         // 로그, 메트릭, 장애 분석에서 같은 요청 흐름을 식별하는 데 사용합니다.
@@ -281,20 +280,20 @@ public class AiMatchingServiceImpl implements AiMatchingService {
             Integer completionTokens,
             Integer totalTokens
     ) {
-        aiCallMetricRepository.save(
-                AiCallMetric.builder()
-                        .requestId(requestId)
-                        .userId(userId)
-                        .feature(AiFeature.MATCHING)
-                        .model(aiProperties.getMatching().getModel())
-                        .promptTokens(promptTokens)
-                        .completionTokens(completionTokens)
-                        .totalTokens(totalTokens)
-                        .latencyMs(System.currentTimeMillis() - startedAt)
-                        .status(status)
-                        .errorType(errorType)
-                        .errorMessage(truncate(errorMessage))
-                        .build()
+        // AI 매칭 서비스는 메트릭 저장 요청만 위임하고,
+        // 실제 AiCallMetric Repository 접근은 ai.common 서비스가 담당합니다.
+        aiCallMetricService.createAiCallMetric(
+                requestId,
+                userId,
+                AiFeature.MATCHING,
+                aiProperties.getMatching().getModel(),
+                promptTokens,
+                completionTokens,
+                totalTokens,
+                System.currentTimeMillis() - startedAt,
+                status,
+                errorType,
+                errorMessage
         );
     }
 
@@ -361,16 +360,5 @@ public class AiMatchingServiceImpl implements AiMatchingService {
         private static TokenUsage empty() {
             return new TokenUsage(null, null, null);
         }
-    }
-
-    /**
-     * 메트릭에 저장할 에러 메시지를 컬럼 길이에 맞게 제한합니다.
-     */
-    private String truncate(String message) {
-        if (message == null) {
-            return null;
-        }
-
-        return message.length() > 500 ? message.substring(0, 500) : message;
     }
 }
