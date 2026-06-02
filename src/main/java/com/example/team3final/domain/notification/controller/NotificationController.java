@@ -25,7 +25,7 @@ public class NotificationController {
     @GetMapping
     public ResponseEntity<ApiResponseDto<CursorResponseDto<GetNotificationsResponseDto>>> getNotifications(
             @AuthenticationPrincipal UserDetailsImpl userDetails,                 // JWT 토큰에서 인증된 유저 정보
-            @RequestParam(defaultValue = "9223372036854775807") Long cursorId,    // 마지막으로 받은 알림 ID (처음 요청 시 Long.MAX_VALUE)
+            @RequestParam(required = false) Long cursorId,   // 마지막으로 받은 알림 ID (처음 요청 시 Long.MAX_VALUE)
             @RequestParam(defaultValue = "20") int size                           // 페이지 크기 (최대 50)
     ) {
         Long receiverId = userDetails.getUserId();

@@ -35,15 +35,18 @@ public class NotificationServiceImpl implements NotificationService {
         // size 최대 제한
         int safeSize = Math.min(size, 50);
 
+        // cursorId 없으면 처음부터 조회 (Long.MAX_VALUE로 처리)
+        Long effectiveCursorId = (cursorId != null) ? cursorId : Long.MAX_VALUE;
+
         // cursorId 유효성 검증
-        if (cursorId <= 0) {
+        if (effectiveCursorId <= 0) {
             throw new NotificationException(ErrorCode.NOTIFICATION_INVALID_CURSOR);
         }
 
         // cursorId 미만 알림 조회 (size+1개로 다음 페이지 여부 확인)
         List<Notification> notifications = notificationRepository
                 .findByReceiverIdAndIdLessThan(
-                        receiverId, cursorId, PageRequest.of(0, safeSize + 1));
+                        receiverId, effectiveCursorId, PageRequest.of(0, safeSize + 1));
 
         // DTO 변환
         List<GetNotificationsResponseDto> content = notifications.stream()
