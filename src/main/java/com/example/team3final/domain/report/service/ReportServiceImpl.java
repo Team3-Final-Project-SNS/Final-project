@@ -14,6 +14,8 @@ import com.example.team3final.domain.report.dto.response.GetMyReportsResponseDto
 import com.example.team3final.domain.report.entity.Report;
 import com.example.team3final.domain.report.enums.ReportStatus;
 import com.example.team3final.domain.report.repository.ReportRepository;
+import com.example.team3final.domain.user.dto.response.UserInfoDto;
+import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.service.UserPointService;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +40,12 @@ public class ReportServiceImpl implements ReportService {
 
     // 포상 지급 포인트
     private static final int REPORT_REWARD_POINT = 50;
+    // 기각 3번 초과에 확인용
+    private static final int REPORT_BAN_THRESHOLD = 3;
+    // 10일 박탈에 활용
+    private static final int REPORT_BAN_DAYS = 10;
+    // 월 포상 상한
+    private static final int MONTHLY_REWARD_LIMIT = 300;
 
     // 신고 접수
     @Override
@@ -48,6 +56,10 @@ public class ReportServiceImpl implements ReportService {
         Post post = postService.getPostById(request.getTargetId());
         if (post.getAuthorId().equals(reporterId)) {
             throw new ReportException(ErrorCode.REPORT_SELF_REPORT);
+        }
+
+        if (userService.isReportBanned(reporterId)) {
+            throw new ReportException(ErrorCode.REPORT_FEATURE_BANNED);
         }
 
         // 중복 신고 방지
@@ -142,14 +154,25 @@ public class ReportServiceImpl implements ReportService {
         // 채택 처리
         report.accept(adminId);
 
-        // 포상 지급 완료 처리
-        report.markRewarded();
+        LocalDateTime startOfMonth = LocalDateTime.now().withDayOfMonth(1)
+                // 이번 달 1일 00:00:00
+                .withHour(0).withMinute(0).withSecond(0).withNano(0);
+
+        // 이번 달 포상 지급 횟수 조회
+        int rewardedCountThisMonth = reportRepository.countRewardedThisMonth(report.getReporterId(), startOfMonth);
+
+        // 이번 달 지급 총액 = 횟수 * 50P
+        int rewardedThisMonth = rewardedCountThisMonth * REPORT_REWARD_POINT;
+
+        // 월별 상한 (300P) 미만일 때만 포상 지급
+        if (rewardedThisMonth < MONTHLY_REWARD_LIMIT) {
+            userPointService.rewardReportPoint(report.getReporterId(), REPORT_REWARD_POINT);
+            report.markRewarded();
+        }
 
         // 피신고자 채택 누적 횟수 조회 (제재 정책용)
         int acceptedCount = reportRepository.countByTargetIdAndStatus(
                 report.getTargetId(), ReportStatus.ACCEPTED);
-
-        userPointService.rewardReportPoint(report.getReporterId(), REPORT_REWARD_POINT);
 
         // 채택 횟수에 따른 피신고자 제재 및 알림 처리
         // case 1~2: 경고 (계정 정지 없음)
@@ -210,6 +233,15 @@ public class ReportServiceImpl implements ReportService {
 
         // 기각 처리
         report.reject(adminId);
+
+        // 신고자의 기각 누적 횟수 조회
+        int rejectedCount = reportRepository.countByReporterIdAndStatus(
+                report.getReporterId(), ReportStatus.REJECTED);
+
+        // 기각 3회 초과 시 신고 기능 10일 박탈
+        if (rejectedCount > REPORT_BAN_THRESHOLD) {
+            userService.banReportFeature(report.getReporterId(), REPORT_BAN_DAYS);
+        }
 
         // 신고자에게 기각 알림
         notificationPublisher.sendReportResult(report.getReporterId(), reportId);

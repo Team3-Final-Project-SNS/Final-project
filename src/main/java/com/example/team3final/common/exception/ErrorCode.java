@@ -134,6 +134,7 @@ public enum ErrorCode {
     REPORT_TOO_SOON(HttpStatus.CONFLICT, "REPORT_004", "3일 이내 동일 게시글 재신고는 불가합니다."),
     REPORT_SELF_REPORT(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_005", "본인의 게시글은 신고할 수 없습니다."),
     REPORT_ALREADY_REPORTED(HttpStatus.CONFLICT, "REPORT_006", "이미 신고한 게시글입니다."),
+    REPORT_FEATURE_BANNED(HttpStatus.FORBIDDEN, "REPORT_007", "신고 기능이 박탈된 상태입니다. 박탈 기간 동안 신고할 수 없습니다."),
 
     // AI
     AI_PROMPT_TEMPLATE_NOT_FOUND(HttpStatus.NOT_FOUND, "AI_001", "활성화된 AI 프롬프트 템플릿을 찾을 수 없습니다."),
