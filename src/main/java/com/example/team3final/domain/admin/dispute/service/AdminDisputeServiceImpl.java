@@ -205,8 +205,13 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
             default -> throw new AdminException(ErrorCode.ADMIN_DISPUTE_INVALID_STATUS);
         };
 
-        // 이의제기자에게 판정 결과 알림 발송 (HOLD 포함)
-        notificationPublisher.sendDisputeResult(dispute.getSubmitterId(), disputeId);
+        // HOLD는 전용 알림 발송 (24시간 이내 행동 유도 메시지)
+        if (requestDto.getStatus() == DisputeStatus.HOLD) {
+            notificationPublisher.sendDisputePending(dispute.getSubmitterId(), disputeId);
+        } else {
+            // 나머지 판정은 일반 판정 결과 알림 발송 (HOLD 포함)
+            notificationPublisher.sendDisputeResult(dispute.getSubmitterId(), disputeId);
+        }
 
         // DTO 반환
         return AdminJudgeDisputeResponseDto.of(dispute, refundedPoint);
