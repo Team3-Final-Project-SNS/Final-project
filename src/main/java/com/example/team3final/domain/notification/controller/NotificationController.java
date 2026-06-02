@@ -24,9 +24,9 @@ public class NotificationController {
     // 알림 목록 조회 (커서 기반 페이징)
     @GetMapping
     public ResponseEntity<ApiResponseDto<CursorResponseDto<GetNotificationsResponseDto>>> getNotifications(
-            @AuthenticationPrincipal UserDetailsImpl userDetails,                 // JWT 토큰에서 인증된 유저 정보
-            @RequestParam(required = false) Long cursorId,   // 마지막으로 받은 알림 ID (처음 요청 시 Long.MAX_VALUE)
-            @RequestParam(defaultValue = "20") int size                           // 페이지 크기 (최대 50)
+            @AuthenticationPrincipal UserDetailsImpl userDetails, // JWT 토큰에서 인증된 유저 정보
+            @RequestParam(required = false) Long cursorId,        // 마지막으로 받은 알림 ID (처음 요청 시 생략 가능 — 생략하면 최신순 첫 페이지 조회)
+            @RequestParam(defaultValue = "20") int size           // 페이지 크기 (최대 50)
     ) {
         Long receiverId = userDetails.getUserId();
         CursorResponseDto<GetNotificationsResponseDto> response =
