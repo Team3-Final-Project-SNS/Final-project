@@ -49,4 +49,11 @@ public interface DisputeRepository extends JpaRepository<Dispute, Long> {
     // 재이의제기 중복 제출 방지용, 같은 parentDisputeId 로 이미 재신청한 기록이 있는지 확인
     // parentDisputeId = 원본 이의제기 ID.
     boolean existsByMatchIdAndSubmitterIdAndParentDisputeId(Long matchId, Long submitterId, Long parentDisputeId);
+
+    // 특정 matchId 목록 중 지정 상태인 이의제기의 matchId만 반환
+    @Query("SELECT d.matchId FROM Dispute d WHERE d.matchId IN :matchIds AND d.status IN :statuses")
+    List<Long> findMatchIdsByMatchIdInAndStatusIn(
+            @Param("matchIds") List<Long> matchIds,
+            @Param("statuses") List<DisputeStatus> statuses
+    );
 }

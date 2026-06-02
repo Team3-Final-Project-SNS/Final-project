@@ -35,6 +35,9 @@ public interface MeetVerificationService {
     // QR 만남 인증 단계 노쇼
     void judgeQrNoShow();
 
+    // 노쇼 확정 배치 — _NO_SHOW 상태가 된 지 24시간 지난 건 알림 발송 + 확정 처리
+    void judgeNoShowConfirmed();
+
     // Admin 도메인에서 사용할 노쇼 후보군 조회
     // HOST_NO_SHOW, GUEST_NO_SHOW, BOTH_NO_SHOW
     Page<MeetVerification> getNoShowCandidates(Pageable pageable);

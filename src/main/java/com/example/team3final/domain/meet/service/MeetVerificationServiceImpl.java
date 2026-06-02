@@ -3,6 +3,7 @@ package com.example.team3final.domain.meet.service;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.MeetException;
 import com.example.team3final.domain.chat.service.ChatService;
+import com.example.team3final.domain.dispute.service.DisputeService;
 import com.example.team3final.domain.location.service.UserLocationService;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.entity.Match;
@@ -29,6 +30,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -44,6 +46,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     private final UserLocationService userLocationService;
     private final UserService userService;
     private final NotificationPublisher notificationPublisher;
+    private final DisputeService disputeService;
 
     // GPS 오차범위까지 고려한 인증 반경
     private static final double PLACE_VERIFICATION_RADIUS_METERS = 60.0;
@@ -60,6 +63,14 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     private static final long EXTENSION_TIMEOUT_MINUTES = 5;
     // 연장 시간
     private static final long EXTENSION_MINUTES = 15;
+    // 노쇼 확정까지 이의제기 가능 시간: 24시간
+    private static final long NO_SHOW_CONFIRM_HOURS = 24;
+
+    private static final List<VerificationStatus> NO_SHOW_STATUSES = List.of(
+            VerificationStatus.HOST_NO_SHOW,
+            VerificationStatus.GUEST_NO_SHOW,
+            VerificationStatus.BOTH_NO_SHOW
+    );
 
     // GPS 장소 인증
     @Override
@@ -278,6 +289,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         meetVerificationRepository.save(MeetVerification.createPending(matchId));
     }
 
+    // GPS 노쇼
     @Override
     @Transactional
     public void judgeGpsNoShow() {
@@ -345,17 +357,16 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             // 양측 모두 GPS 미인증 -> Both_No_Show
             if (!authorVerified && !applicantVerified) {
                 meetVerification.markBothNoShow();
-                matchService.markBothNoShow(meetVerification.getMatchId());
                 userLocationService.deleteLocationsByMatchId(meetVerification.getMatchId());
                 chatService.deactivateChatRoom(currentPostId);
-                // 양측 모두에게 노쇼 예정 알림 발송
+
+                // 양측 모두 노쇼 예정 상태 진입 → Warning 발송
                 notificationPublisher.sendNoShowWarning(postInfoDto.authorId(), meetVerification.getMatchId());
                 notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), meetVerification.getMatchId());
 
             } else if (authorVerified && !applicantVerified) {
                 // 신청자가 노쇼 -> GUEST_NO_SHOW
                 meetVerification.markApplicantNoShow();
-                matchService.markApplicantNoShow(meetVerification.getMatchId());
                 userLocationService.deleteLocationsByMatchId(meetVerification.getMatchId());
                 chatService.deactivateChatRoom(currentPostId);
                 // 신청자에게 노쇼 예정 알림 발송
@@ -363,7 +374,6 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             } else if (!authorVerified) {
                 // 등록자 노쇼 -> HOST_NO_SHOW
                 meetVerification.markAuthorNoShow();
-                matchService.markAuthorNoShow(meetVerification.getMatchId());
                 userLocationService.deleteLocationsByMatchId(meetVerification.getMatchId());
                 chatService.deactivateChatRoom(currentPostId);
                 // 등록자에게 노쇼 예정 알림 발송
@@ -372,6 +382,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         }
     }
 
+    // QR 노쇼
     @Override
     @Transactional
     public void judgeQrNoShow() {
@@ -409,9 +420,6 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             // 자신의 상태를 신청자 노쇼로 변경
             meetVerification.markApplicantNoShow();
 
-            // Match 도메인에 신청자 노쇼로 알려주기
-            matchService.markApplicantNoShow(meetVerification.getMatchId());
-
             // 위치 정보 지우기
             userLocationService.deleteLocationsByMatchId(meetVerification.getMatchId());
 
@@ -421,6 +429,89 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             // 신청자에게 노쇼 예정 알림 발송
             // matchInfoDto에서 applicantId 꺼내서 발송
             notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), meetVerification.getMatchId());
+        }
+    }
+
+    // 노쇼 확정
+    @Override
+    @Transactional
+    public void judgeNoShowConfirmed() {
+
+        // 노쇼 확정 기준 시각 계산
+        // noShowDecidedAt이 이 시각보다 이전인 건 = 24시간이 지난 건
+        LocalDateTime deadline = LocalDateTime.now().minusHours(NO_SHOW_CONFIRM_HOURS);
+
+        // NO_SHOW 상태이면서 noShowDecidedAt이 24시간 이전인 건 전체 조회
+        List<MeetVerification> noShowList = meetVerificationRepository
+                .findAllByStatusInAndNoShowDecidedAtBefore(NO_SHOW_STATUSES, deadline);
+
+        // 처리할 건이 없으면 조기 종료 — 불필요한 외부 서비스 호출 방지
+        if (noShowList.isEmpty()) {
+            return;
+        }
+
+        // 이후 벌크 조회에 사용할 matchId 목록 추출
+        List<Long> matchIds = noShowList.stream()
+                .map(MeetVerification::getMatchId)
+                .toList();
+
+        // Match 정보 벌크 조회 — applicantId 확보용 (N+1 방지)
+        Map<Long, MatchInfoDto> matchInfoMap = matchService.getMatchInfos(matchIds);
+
+        // postId 목록 추출 — Post 벌크 조회 준비
+        List<Long> postIds = matchInfoMap.values().stream()
+                .map(MatchInfoDto::postId)
+                .distinct()
+                .toList();
+
+        // Post 정보 벌크 조회 — authorId 확보용 (N+1 방지)
+        Map<Long, PostInfoDto> postInfoMap = postQueryService.getPostInfos(postIds);
+
+        // // 관리자가 아직 검토 중인 이의제기가 있는 matchId Set 조회
+        Set<Long> activeDisputeMatchIds = disputeService.getMatchIdsWithActiveDispute(matchIds);
+
+        for (MeetVerification meetVerification : noShowList) {
+
+            Long matchId = meetVerification.getMatchId();
+
+            // 이의제기가 아직 검토 중인 건 스킵
+            // 관리자가 ACCEPTED / REJECTED 판정을 내릴 때까지 대기
+            if (activeDisputeMatchIds.contains(matchId)) {
+                continue;
+            }
+
+            // 데이터 정합성 방어 — Match 또는 Post 정보가 없으면 해당 건만 스킵
+            MatchInfoDto matchInfoDto = matchInfoMap.get(matchId);
+            if (matchInfoDto == null) continue;
+
+            PostInfoDto postInfoDto = postInfoMap.get(matchInfoDto.postId());
+            if (postInfoDto == null) continue;
+
+            VerificationStatus status = meetVerification.getStatus();
+
+            // 노쇼 상태에 따라 Match 도메인에 확정 처리 위임
+            if (status == VerificationStatus.BOTH_NO_SHOW) {
+                // 양측 모두 노쇼 확정 — 양측 예치금 전부 몰수
+                matchService.markBothNoShow(matchId);
+                // 양측에게 노쇼 확정 알림 발송
+                notificationPublisher.sendNoShowConfirmed(postInfoDto.authorId(), matchId);
+                notificationPublisher.sendNoShowConfirmed(matchInfoDto.applicantId(), matchId);
+
+            } else if (status == VerificationStatus.GUEST_NO_SHOW) {
+                // 신청자만 노쇼 확정 — 신청자 예치금 몰수 + 등록자 환급
+                matchService.markApplicantNoShow(matchId);
+                // 노쇼 당사자인 신청자에게만 확정 알림 발송
+                notificationPublisher.sendNoShowConfirmed(matchInfoDto.applicantId(), matchId);
+
+            } else if (status == VerificationStatus.HOST_NO_SHOW) {
+                // 등록자만 노쇼 확정 — 등록자 예치금 몰수 + 신청자 환급
+                matchService.markAuthorNoShow(matchId);
+                // 노쇼 당사자인 등록자에게만 확정 알림 발송
+                notificationPublisher.sendNoShowConfirmed(postInfoDto.authorId(), matchId);
+            }
+
+            // 처리 완료 — 다음 배치에서 중복 실행 방지
+            meetVerification.confirmNoShow();
         }
     }
 
@@ -454,7 +545,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         }
 
         // 연장 요청은 약속시간 5분 전까지만 가능
-        if (!LocalDateTime.now().isBefore(postInfoDto.meetAt().minusMinutes(5))) {
+        if (!LocalDateTime.now().isBefore(postInfoDto.meetAt().minusMinutes(EXTENSION_TIMEOUT_MINUTES))) {
             throw new MeetException(ErrorCode.MEET_EXTEND_BEFORE_MEET_AT);
         }
 
@@ -631,12 +722,6 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         return meetVerificationRepository.findByMatchId(matchId)
                 .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
     }
-
-    private static final List<VerificationStatus> NO_SHOW_STATUSES = List.of(
-            VerificationStatus.HOST_NO_SHOW,
-            VerificationStatus.GUEST_NO_SHOW,
-            VerificationStatus.BOTH_NO_SHOW
-    );
 
     // Haversine 공식으로 두 GPS 좌표 사이 거리 계산
     private double calculateDistance(double lat1, double lng1, double lat2, double lng2) {

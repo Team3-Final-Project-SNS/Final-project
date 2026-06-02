@@ -182,6 +182,11 @@ public class MeetVerification {
         this.noShowDecidedAt = LocalDateTime.now();
     }
 
+    // 노쇼 확정 처리 — 24시간 경과 후 judgeNoShowConfirmed 배치에서 호출
+    public void confirmNoShow() {
+        this.status = VerificationStatus.NO_SHOW_CONFIRMED;
+    }
+
     // 만남 시간 연장 관련 메서드
     // 연장 요청 처리
     public void requestExtension(Long requesterId) {
