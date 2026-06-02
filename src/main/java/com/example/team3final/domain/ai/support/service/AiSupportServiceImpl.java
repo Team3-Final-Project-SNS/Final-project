@@ -2,12 +2,11 @@ package com.example.team3final.domain.ai.support.service;
 
 import com.example.team3final.common.config.AiProperties;
 import com.example.team3final.common.exception.AiException;
-import com.example.team3final.domain.ai.common.entity.AiCallMetric;
 import com.example.team3final.domain.ai.common.enums.AiCallStatus;
 import com.example.team3final.domain.ai.common.enums.AiErrorType;
 import com.example.team3final.domain.ai.common.enums.AiFeature;
 import com.example.team3final.domain.ai.common.enums.AiPromptType;
-import com.example.team3final.domain.ai.common.repository.AiCallMetricRepository;
+import com.example.team3final.domain.ai.common.service.AiCallMetricService;
 import com.example.team3final.domain.ai.prompt.service.AiPromptFileService;
 import com.example.team3final.domain.ai.support.dto.request.AiSupportChatRequestDto;
 import com.example.team3final.domain.ai.support.dto.response.AiSupportChatResponseDto;
@@ -18,9 +17,11 @@ import com.example.team3final.domain.ai.support.enums.AiSupportMessageRole;
 import com.example.team3final.domain.ai.support.repository.AiSupportChatMessageRepository;
 import com.example.team3final.domain.ai.support.tool.AiSupportTool;
 import com.example.team3final.domain.ai.support.tool.AiSupportSessionTool;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.ResponseEntity;
+import org.springframework.ai.chat.metadata.Usage;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,7 +40,6 @@ import java.util.UUID;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AiSupportServiceImpl implements AiSupportService {
 
@@ -72,12 +72,28 @@ public class AiSupportServiceImpl implements AiSupportService {
             - 최종 응답은 요청받은 Java record 스키마에 맞춘다.
             """;
 
-    private final ChatClient.Builder chatClientBuilder;
+    private final ChatClient chatClient;
     private final AiPromptFileService aiPromptFileService;
     private final AiSupportTool aiSupportTool;
     private final AiSupportChatMessageRepository aiSupportChatMessageRepository;
-    private final AiCallMetricRepository aiCallMetricRepository;
+    private final AiCallMetricService aiCallMetricService;
     private final AiProperties aiProperties;
+
+    public AiSupportServiceImpl(
+            ChatClient.Builder chatClientBuilder,
+            AiPromptFileService aiPromptFileService,
+            AiSupportTool aiSupportTool,
+            AiSupportChatMessageRepository aiSupportChatMessageRepository,
+            AiCallMetricService aiCallMetricService,
+            AiProperties aiProperties
+    ) {
+        this.chatClient = chatClientBuilder.build();
+        this.aiPromptFileService = aiPromptFileService;
+        this.aiSupportTool = aiSupportTool;
+        this.aiSupportChatMessageRepository = aiSupportChatMessageRepository;
+        this.aiCallMetricService = aiCallMetricService;
+        this.aiProperties = aiProperties;
+    }
 
     /**
      * 고객센터 AI 채팅 요청을 처리합니다.
@@ -101,6 +117,9 @@ public class AiSupportServiceImpl implements AiSupportService {
         long startedAt = System.currentTimeMillis();
         Long promptTemplateId = null;
         String promptVersion = null;
+        Integer promptTokens = null;
+        Integer completionTokens = null;
+        Integer totalTokens = null;
 
         saveMessage(
                 userId,
@@ -125,7 +144,7 @@ public class AiSupportServiceImpl implements AiSupportService {
 
             // 운영 규칙과 프롬프트 주입 방어는 system prompt로 넣고,
             // 사용자가 작성한 문의 문장은 user prompt로 분리해 전달한다.
-            AiSupportLlmResult result = chatClientBuilder.build()
+            ResponseEntity<ChatResponse, AiSupportLlmResult> response = chatClient
                     .prompt()
                     .system(prompt.content())
                     .user(request.message())
@@ -136,7 +155,13 @@ public class AiSupportServiceImpl implements AiSupportService {
                             .build())
                     .tools(new AiSupportSessionTool(aiSupportTool, email))
                     .call()
-                    .entity(AiSupportLlmResult.class);
+                    .responseEntity(AiSupportLlmResult.class);
+
+            AiSupportLlmResult result = response.entity();
+            TokenUsage tokenUsage = extractTokenUsage(response.response());
+            promptTokens = tokenUsage.promptTokens();
+            completionTokens = tokenUsage.completionTokens();
+            totalTokens = tokenUsage.totalTokens();
 
             AiSupportCategory category = resolveCategory(result);
             String answer = requiredText(
@@ -161,7 +186,19 @@ public class AiSupportServiceImpl implements AiSupportService {
                     promptVersion
             );
 
-            saveMetric(requestId, userId, startedAt, AiCallStatus.SUCCESS, null, null, promptTemplateId, promptVersion);
+            saveMetric(
+                    requestId,
+                    userId,
+                    startedAt,
+                    AiCallStatus.SUCCESS,
+                    null,
+                    null,
+                    promptTemplateId,
+                    promptVersion,
+                    promptTokens,
+                    completionTokens,
+                    totalTokens
+            );
 
             return new AiSupportChatResponseDto(
                     conversationId,
@@ -182,7 +219,10 @@ public class AiSupportServiceImpl implements AiSupportService {
                     resolveErrorType(e),
                     e.getMessage(),
                     promptTemplateId,
-                    promptVersion
+                    promptVersion,
+                    promptTokens,
+                    completionTokens,
+                    totalTokens
             );
 
             String fallbackAnswer = "지금은 AI 고객센터 답변 생성이 원활하지 않습니다. 급한 문제라면 1:1 문의로 접수해주세요.";
@@ -357,21 +397,50 @@ public class AiSupportServiceImpl implements AiSupportService {
             AiErrorType errorType,
             String errorMessage,
             Long promptTemplateId,
-            String promptVersion
+            String promptVersion,
+            Integer promptTokens,
+            Integer completionTokens,
+            Integer totalTokens
     ) {
-        aiCallMetricRepository.save(
-                AiCallMetric.builder()
-                        .requestId(requestId)
-                        .userId(userId)
-                        .feature(AiFeature.SUPPORT)
-                        .model(aiProperties.getSupport().getModel())
-                        .latencyMs(System.currentTimeMillis() - startedAt)
-                        .status(status)
-                        .errorType(errorType)
-                        .errorMessage(truncate(errorMessage, 500))
-                        .promptTemplateId(promptTemplateId)
-                        .promptVersion(promptVersion)
-                        .build()
+        // 고객센터 AI는 메트릭 저장 요청만 위임하고,
+        // 실제 AiCallMetric Repository 접근은 ai.common 서비스가 담당합니다.
+        aiCallMetricService.createAiCallMetric(
+                requestId,
+                userId,
+                AiFeature.SUPPORT,
+                aiProperties.getSupport().getModel(),
+                promptTemplateId,
+                promptVersion,
+                promptTokens,
+                completionTokens,
+                totalTokens,
+                System.currentTimeMillis() - startedAt,
+                status,
+                errorType,
+                errorMessage
+        );
+    }
+
+    /**
+     * Spring AI ChatResponse에서 토큰 사용량을 추출합니다.
+     *
+     * OpenAI 응답 메타데이터에 usage 정보가 포함된 경우
+     * promptTokens, completionTokens, totalTokens를 AiCallMetric에 저장할 수 있도록 변환합니다.
+     */
+    private TokenUsage extractTokenUsage(ChatResponse chatResponse) {
+        if (chatResponse == null || chatResponse.getMetadata() == null) {
+            return TokenUsage.empty();
+        }
+
+        Usage usage = chatResponse.getMetadata().getUsage();
+        if (usage == null) {
+            return TokenUsage.empty();
+        }
+
+        return new TokenUsage(
+                usage.getPromptTokens(),
+                usage.getCompletionTokens(),
+                usage.getTotalTokens()
         );
     }
 
@@ -396,5 +465,15 @@ public class AiSupportServiceImpl implements AiSupportService {
         }
 
         return message.length() > maxLength ? message.substring(0, maxLength) : message;
+    }
+
+    private record TokenUsage(
+            Integer promptTokens,
+            Integer completionTokens,
+            Integer totalTokens
+    ) {
+        private static TokenUsage empty() {
+            return new TokenUsage(null, null, null);
+        }
     }
 }

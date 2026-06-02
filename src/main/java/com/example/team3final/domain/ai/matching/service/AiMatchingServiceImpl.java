@@ -105,6 +105,8 @@ public class AiMatchingServiceImpl implements AiMatchingService {
         Integer promptTokens = null;
         Integer completionTokens = null;
         Integer totalTokens = null;
+        Long promptTemplateId = null;
+        String promptVersion = null;
 
         try {
             User user = userService.findByEmail(email);
@@ -141,6 +143,8 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                             null,
                             null,
                             null,
+                            null,
+                            null,
                             null
                     );
 
@@ -161,7 +165,7 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                 toolResults = "모집글 조회 도구 호출에 실패했습니다. 신청 가능 여부는 확인하지 못했습니다.";
             }
 
-            String systemPrompt = aiPromptFileService.render(
+            AiPromptFileService.RenderedPrompt prompt = aiPromptFileService.renderWithMetadata(
                     AiPromptType.MATCHING_CHAT,
                     Map.of(
                             "userMessage", request.message(),
@@ -173,6 +177,9 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                             "toolResults", toolResults
                     )
             );
+            String systemPrompt = prompt.content();
+            promptTemplateId = prompt.promptTemplateId();
+            promptVersion = prompt.version();
 
             ChatResponse chatResponse = chatClient.prompt()
                     .system(systemPrompt)
@@ -206,6 +213,8 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                     toolFallbackUsed ? AiCallStatus.FALLBACK : AiCallStatus.SUCCESS,
                     toolFallbackUsed ? AiErrorType.TOOL_ERROR : null,
                     toolFallbackUsed ? "모집글 조회 도구 호출 실패" : null,
+                    promptTemplateId,
+                    promptVersion,
                     promptTokens,
                     completionTokens,
                     totalTokens
@@ -227,6 +236,8 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                     AiCallStatus.FALLBACK,
                     AiErrorType.PROMPT_LOAD_ERROR,
                     e.getMessage(),
+                    promptTemplateId,
+                    promptVersion,
                     promptTokens,
                     completionTokens,
                     totalTokens
@@ -248,6 +259,8 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                     AiCallStatus.FALLBACK,
                     resolveErrorType(e),
                     e.getMessage(),
+                    promptTemplateId,
+                    promptVersion,
                     promptTokens,
                     completionTokens,
                     totalTokens
@@ -276,6 +289,8 @@ public class AiMatchingServiceImpl implements AiMatchingService {
             AiCallStatus status,
             AiErrorType errorType,
             String errorMessage,
+            Long promptTemplateId,
+            String promptVersion,
             Integer promptTokens,
             Integer completionTokens,
             Integer totalTokens
@@ -287,6 +302,8 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                 userId,
                 AiFeature.MATCHING,
                 aiProperties.getMatching().getModel(),
+                promptTemplateId,
+                promptVersion,
                 promptTokens,
                 completionTokens,
                 totalTokens,

@@ -8,4 +8,9 @@ public interface AdminService {
     // 신고/문의/이의제기 접수 시 관리자 알림 발송용
     // 관리자가 없거나 비활성화된 경우 null 반환
     Long getAdminId();
+
+
+    // AI 도매인의 사용.
+    // 관리자 ID가 실제 관리자 계정인지 검증
+    void validateAdmin(Long adminId);
 }

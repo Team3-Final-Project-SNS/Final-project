@@ -17,6 +17,8 @@ public interface AiCallMetricService {
             Long userId,
             AiFeature feature,
             String model,
+            Long promptTemplateId,
+            String promptVersion,
             Integer promptTokens,
             Integer completionTokens,
             Integer totalTokens,
