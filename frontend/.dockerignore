@@ -1,0 +1,9 @@
+# 의존성 폴더 제외 (도커 빌드 시 전송 안 함)
+node_modules
+
+# 불필요한 파일 제외
+.env
+.env.local
+.env*.local
+dist
+.DS_Store
