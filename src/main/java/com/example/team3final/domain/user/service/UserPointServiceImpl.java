@@ -59,12 +59,14 @@ public class UserPointServiceImpl implements UserPointService{
 
     // 결제 충전 — paid_point로
     @Override
-    public void chargePoint(Long userId, int amount, Long paymentId) {
+    public int chargePoint(Long userId, int amount, Long paymentId) {
         User user = getUserOrThrow(userId);
         user.addPaidPoint(amount);
         // paymentId를 matchId 자리에 넣을지, PointTransaction 스키마에 paymentId 컬럼을 추가할지 결정
         saveTransaction(userId, paymentId, amount,
                 PointTransactionType.CHARGE, user.getTotalPoint(), PointSource.PAID);
+        // 충전 후 총 잔액 반환 — 호출 측에서 UserRepository 없이 잔액 조회 가능
+        return user.getTotalPoint();
     }
 
     // 결제 취소 시 회수
