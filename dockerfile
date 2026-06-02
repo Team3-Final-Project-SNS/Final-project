@@ -2,7 +2,7 @@
 # [1단계] 빌드 스테이지
 # JDK + Gradle로 소스코드를 JAR 파일로 빌드
 # ──────────────────────────────────────────────────────────────
-FROM eclipse-temurin:17-jdk-alpine AS builder
+FROM eclipse-temurin:17-jdk AS builder
 
 WORKDIR /app
 
@@ -28,7 +28,7 @@ RUN ./gradlew bootJar -x test --no-daemon
 # [2단계] 실행 스테이지
 # JRE만 있는 가벼운 이미지에 JAR만 복사해서 실행
 # ──────────────────────────────────────────────────────────────
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:17-jre
 
 WORKDIR /app
 
@@ -36,7 +36,7 @@ WORKDIR /app
 COPY --from=builder /app/build/libs/*.jar app.jar
 
 # 보안: root 대신 전용 유저로 실행
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 USER appuser
 
 EXPOSE 8080
