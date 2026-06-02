@@ -1,8 +1,10 @@
 package com.example.team3final.domain.pointTransaction.enums;
 
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 @Getter
+@RequiredArgsConstructor
 public enum PointTransactionType {
 
     JOIN_BONUS("회원가입 보너스 지급"),         // 가입 시 10,000P 지급
@@ -17,8 +19,4 @@ public enum PointTransactionType {
     REVIEW_REWARD("후기 작성 포상 지급");      // 후기 작성 시 50P 지급
 
     private final String description;
-
-    PointTransactionType(String description) {
-        this.description = description;
-    }
 }

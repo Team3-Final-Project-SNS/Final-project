@@ -1,8 +1,10 @@
 package com.example.team3final.domain.university.enums;
 
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 @Getter
+@RequiredArgsConstructor
 public enum MajorCategory {
 
     COMPUTER_SCIENCE("컴퓨터공학"),
@@ -62,8 +64,4 @@ public enum MajorCategory {
     FINE_ARTS("미술학");
 
     private final String description;
-
-    MajorCategory(String description) {
-        this.description = description;
-    }
 }
