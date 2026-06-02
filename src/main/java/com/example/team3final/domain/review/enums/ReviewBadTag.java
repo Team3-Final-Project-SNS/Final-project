@@ -1,6 +1,7 @@
 package com.example.team3final.domain.review.enums;
 
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 /**
  * 후기에서 선택할 수 있는 아쉬운 점 태그입니다.
@@ -9,6 +10,7 @@ import lombok.Getter;
  * 추후 신고 사유 입력 흐름과 연결할 수 있습니다.
  */
 @Getter
+@RequiredArgsConstructor
 public enum ReviewBadTag {
 
     // true일때만 신고 가능하게 하는 상태값.
@@ -21,10 +23,4 @@ public enum ReviewBadTag {
     private final String description;
     private final int scoreDelta;
     private final boolean reportable;
-
-    ReviewBadTag(String description, int scoreDelta, boolean reportable) {
-        this.description = description;
-        this.scoreDelta = scoreDelta;
-        this.reportable = reportable;
-    }
 }
