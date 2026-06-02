@@ -11,7 +11,7 @@ import com.example.team3final.domain.post.dto.response.PostMatchInfoDto;
 import com.example.team3final.domain.post.service.PostService;
 import com.example.team3final.domain.review.dto.request.CreateReviewRequestDto;
 import com.example.team3final.domain.review.dto.response.CreateReviewResponseDto;
-import com.example.team3final.domain.review.dto.response.GetReceivedReviewsResponseDto;
+import com.example.team3final.domain.review.dto.response.GetWrittenReviewsResponseDto;
 import com.example.team3final.domain.review.dto.response.ReviewItemResponseDto;
 import com.example.team3final.domain.review.entity.Review;
 import com.example.team3final.domain.review.entity.ReviewBadTagEntity;
@@ -163,32 +163,20 @@ public class ReviewServiceImpl implements ReviewService {
 
 
     /**
-     * 특정 사용자가 받은 후기 목록을 조회합니다.
+     * 로그인 사용자가 직접 작성한 후기 목록을 조회합니다.
      *
-     * 본인 또는 같은 학교 사용자만 조회할 수 있으며,
-     * Review에는 targetId를 저장하지 않기 때문에 matchId와 writerId를 기준으로
-     * 받은 후기 목록을 계산합니다.
+     * 사용자는 받은 후기 목록을 볼 수 없고,
+     * 본인이 작성한 후기만 매칭 결과 화면에서 다시 확인할 수 있습니다.
      */
     @Override
-    public GetReceivedReviewsResponseDto getReceivedReviews(
-            Long targetUserId,
+    public GetWrittenReviewsResponseDto getWrittenReviews(
             Long currentUserId,
             Pageable pageable
     ) {
-        if (!targetUserId.equals(currentUserId)
-                && !userService.isSameUniversity(targetUserId, currentUserId)) {
-            throw new ReviewException(ErrorCode.REVIEW_ACCESS_DENIED);
-        }
-
-        Page<Review> reviews = reviewRepository.findReceivedReviews(targetUserId, pageable);
+        Page<Review> reviews = reviewRepository.findAllByWriterIdOrderByCreatedAtDesc(currentUserId, pageable);
         Map<Long, List<ReviewGoodTag>> goodTagMap = getGoodTagMap(reviews.getContent());
         Map<Long, List<ReviewBadTag>> badTagMap = getBadTagMap(reviews.getContent());
-        Map<Long, String> writerNicknameMap = userService.getUserNicknameMap(
-                reviews.getContent().stream()
-                        .map(Review::getWriterId)
-                        .distinct()
-                        .toList()
-        );
+        UserInfoDto currentUserInfo = userService.getUserInfo(currentUserId);
 
         List<ReviewItemResponseDto> content = reviews.getContent().stream()
                 .map(review -> {
@@ -197,7 +185,7 @@ public class ReviewServiceImpl implements ReviewService {
 
                     return ReviewItemResponseDto.of(
                             review,
-                            writerNicknameMap.get(review.getWriterId()),
+                            currentUserInfo.nickname(),
                             goodTags,
                             badTags,
                             containsReportNeededTag(badTags)
@@ -205,12 +193,10 @@ public class ReviewServiceImpl implements ReviewService {
                 })
                 .toList();
 
-        UserInfoDto targetInfo = userService.getUserInfo(targetUserId);
-
-        return new GetReceivedReviewsResponseDto(
-                targetUserId,
-                targetInfo.nickname(),
-                userService.getMannerTemperature(targetUserId),
+        return new GetWrittenReviewsResponseDto(
+                currentUserId,
+                currentUserInfo.nickname(),
+                userService.getMannerTemperature(currentUserId),
                 content,
                 reviews.getNumber(),
                 reviews.getSize(),

@@ -2,7 +2,7 @@ package com.example.team3final.domain.review.service;
 
 import com.example.team3final.domain.review.dto.request.CreateReviewRequestDto;
 import com.example.team3final.domain.review.dto.response.CreateReviewResponseDto;
-import com.example.team3final.domain.review.dto.response.GetReceivedReviewsResponseDto;
+import com.example.team3final.domain.review.dto.response.GetWrittenReviewsResponseDto;
 import org.springframework.data.domain.Pageable;
 
 
@@ -27,14 +27,13 @@ public interface ReviewService {
 
 
     /**
-     * 특정 사용자가 받은 후기 목록을 조회합니다.
+     * 로그인 사용자가 직접 작성한 후기 목록을 조회합니다.
      *
-     * 본인 또는 같은 학교 사용자만 조회할 수 있습니다.
+     * 사용자는 받은 후기 목록을 볼 수 없고, 본인이 작성한 후기만 확인할 수 있습니다.
      *
-     * @param targetUserId 후기 조회 대상 사용자 ID
      * @param currentUserId 현재 로그인한 사용자 ID
      * @param pageable 페이지 요청 정보
-     * @return 받은 후기 목록과 페이지 정보
+     * @return 내가 작성한 후기 목록과 페이지 정보
      */
-    GetReceivedReviewsResponseDto getReceivedReviews(Long targetUserId, Long currentUserId, Pageable pageable);
+    GetWrittenReviewsResponseDto getWrittenReviews(Long currentUserId, Pageable pageable);
 }

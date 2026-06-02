@@ -5,7 +5,7 @@ import { getMyMatches, GetMatchesItemResponse, MatchStatus, updateMatchCancel } 
 import { getUserMe } from '../../api/userApi';
 import {
   createReview,
-  getReceivedReviews,
+  getMyWrittenReviews,
   ReviewBadTag,
   ReviewGoodTag,
   ReviewItem,
@@ -79,24 +79,15 @@ export default function MatchesPage() {
 
         const completedMatches = nextMatches.filter((match) => match.status === 'COMPLETED');
         if (completedMatches.length > 0) {
-          const reviewEntries = await Promise.all(
-            completedMatches.map(async (match) => {
-              try {
-                const reviewRes = await getReceivedReviews(match.opponentId, 0, 10);
-                const myReview = reviewRes.data.data.content.find(
-                  (review) => review.matchId === match.matchId && review.writerId === userId,
-                );
-                return myReview ? ([match.matchId, myReview] as const) : null;
-              } catch (reviewErr) {
-                console.error('Failed to load written review', reviewErr);
-                return null;
-              }
-            }),
-          );
+          const completedMatchIds = new Set(completedMatches.map((match) => match.matchId));
+          const reviewRes = await getMyWrittenReviews(0, 50);
+          const reviewEntries = reviewRes.data.data.content
+            .filter((review) => completedMatchIds.has(review.matchId) && review.writerId === userId)
+            .map((review) => [review.matchId, review] as const);
 
           setWrittenReviews((prev) => ({
             ...prev,
-            ...Object.fromEntries(reviewEntries.filter((entry): entry is readonly [number, ReviewItem] => entry !== null)),
+            ...Object.fromEntries(reviewEntries),
           }));
         }
       } catch (err: any) {

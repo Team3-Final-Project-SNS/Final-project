@@ -12,6 +12,7 @@ export interface GetUserResponse {
     birthDate: string;
     gender: "MALE" | "FEMALE";
     point: number;
+    mannerTemperature: number;
     status: "ACTIVE" | "SUSPENDED" | "WITHDRAWN";
     createdAt: string;
 }

@@ -45,7 +45,7 @@ export interface ReviewItem {
   createdAt: string;
 }
 
-export interface GetReceivedReviewsResponse {
+export interface GetWrittenReviewsResponse {
   userId: number;
   nickname: string;
   mannerTemperature: number;
@@ -60,7 +60,7 @@ export interface GetReceivedReviewsResponse {
 export const createReview = (matchId: number, data: CreateReviewRequest) =>
   axiosInstance.post<ApiResponse<CreateReviewResponse>>(`/api/v1/matches/${matchId}/reviews`, data);
 
-export const getReceivedReviews = (userId: number, page: number = 0, size: number = 10) =>
-  axiosInstance.get<ApiResponse<GetReceivedReviewsResponse>>(`/api/v1/users/${userId}/reviews`, {
+export const getMyWrittenReviews = (page: number = 0, size: number = 10) =>
+  axiosInstance.get<ApiResponse<GetWrittenReviewsResponse>>(`/api/v1/me/reviews`, {
     params: { page, size },
   });

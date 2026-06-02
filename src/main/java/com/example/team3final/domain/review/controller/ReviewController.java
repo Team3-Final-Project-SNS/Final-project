@@ -3,7 +3,7 @@ package com.example.team3final.domain.review.controller;
 import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.domain.review.dto.request.CreateReviewRequestDto;
 import com.example.team3final.domain.review.dto.response.CreateReviewResponseDto;
-import com.example.team3final.domain.review.dto.response.GetReceivedReviewsResponseDto;
+import com.example.team3final.domain.review.dto.response.GetWrittenReviewsResponseDto;
 import com.example.team3final.domain.review.service.ReviewService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
 import jakarta.validation.Valid;
@@ -46,14 +46,13 @@ public class ReviewController {
     }
 
     /**
-     * 특정 유저가 받은 후기 목록을 조회합니다.
+     * 로그인 사용자가 직접 작성한 후기 목록을 조회합니다.
      *
-     * 본인이거나 같은 학교 유저인 경우에만 조회할 수 있습니다.
+     * 사용자는 받은 후기 목록을 볼 수 없고, 본인이 작성한 후기만 확인할 수 있습니다.
      */
-    @GetMapping("/users/{userId}/reviews")
-    public ResponseEntity<ApiResponseDto<GetReceivedReviewsResponseDto>> getReviews(
+    @GetMapping("/me/reviews")
+    public ResponseEntity<ApiResponseDto<GetWrittenReviewsResponseDto>> getReviews(
             @AuthenticationPrincipal UserDetailsImpl userDetails,
-            @PathVariable Long userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
@@ -61,9 +60,9 @@ public class ReviewController {
         // 음수 page 값이 들어와도 첫 페이지로 보정합니다.
         int safePage = Math.max(page, 0);
 
-        // size는 최소 1개, 최대 10개까지만 허용합니다.
-        // 0 이하가 들어오면 1로 보정하고, 10을 초과하면 10으로 제한합니다.
-        int safeSize = Math.max(1, Math.min(size, 10));
+        // size는 최소 1개, 최대 50개까지만 허용합니다.
+        // 0 이하가 들어오면 1로 보정하고, 50을 초과하면 50으로 제한합니다.
+        int safeSize = Math.max(1, Math.min(size, 50));
 
         Pageable pageable = PageRequest.of(
                 safePage,
@@ -71,8 +70,7 @@ public class ReviewController {
                 Sort.by("createdAt").descending()
         );
 
-        GetReceivedReviewsResponseDto response = reviewService.getReceivedReviews(
-                userId,
+        GetWrittenReviewsResponseDto response = reviewService.getWrittenReviews(
                 userDetails.getUserId(),
                 pageable
         );
