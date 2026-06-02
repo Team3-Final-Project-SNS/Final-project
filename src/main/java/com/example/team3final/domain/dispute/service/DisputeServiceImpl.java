@@ -236,26 +236,4 @@ public class DisputeServiceImpl implements DisputeService {
 
         return CreateDisputeResponseDto.from(savedReDispute);
     }
-
-    // 노쇼 확정에서 사용 할 이의제기 상태 조회
-    @Override
-    public Set<Long> getMatchIdsWithActiveDispute(List<Long> matchIds) {
-
-        if (matchIds == null || matchIds.isEmpty()) {
-            return Collections.emptySet();
-        }
-
-        // SUBMITTED / UNDER_REVIEW / HOLD = 관리자가 아직 처리 중인 상태
-        // 이 상태들이 존재하면 배치가 건드리면 안 됨
-        List<DisputeStatus> activeStatuses = List.of(
-                DisputeStatus.SUBMITTED,
-                DisputeStatus.UNDER_REVIEW,
-                DisputeStatus.HOLD
-        );
-
-        return new HashSet<>(
-                disputeRepository.findMatchIdsByMatchIdInAndStatusIn(matchIds, activeStatuses)
-        );
-    }
-
 }
