@@ -29,6 +29,8 @@ public class AiCallMetricServiceImpl implements AiCallMetricService {
             Long userId,
             AiFeature feature,
             String model,
+            Long promptTemplateId,
+            String promptVersion,
             Integer promptTokens,
             Integer completionTokens,
             Integer totalTokens,
@@ -45,6 +47,8 @@ public class AiCallMetricServiceImpl implements AiCallMetricService {
                         .userId(userId)
                         .feature(feature)
                         .model(model)
+                        .promptTemplateId(promptTemplateId)
+                        .promptVersion(promptVersion)
                         .promptTokens(promptTokens)
                         .completionTokens(completionTokens)
                         .totalTokens(totalTokens)

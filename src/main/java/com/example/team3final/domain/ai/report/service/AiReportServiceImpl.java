@@ -1,16 +1,13 @@
 package com.example.team3final.domain.ai.report.service;
 
 import com.example.team3final.common.config.AiProperties;
-import com.example.team3final.common.exception.AdminException;
 import com.example.team3final.common.exception.AiException;
-import com.example.team3final.common.exception.ErrorCode;
-import com.example.team3final.domain.admin.repository.AdminRepository;
-import com.example.team3final.domain.ai.common.entity.AiCallMetric;
+import com.example.team3final.domain.admin.service.AdminService;
 import com.example.team3final.domain.ai.common.enums.AiCallStatus;
 import com.example.team3final.domain.ai.common.enums.AiErrorType;
 import com.example.team3final.domain.ai.common.enums.AiFeature;
 import com.example.team3final.domain.ai.common.enums.AiPromptType;
-import com.example.team3final.domain.ai.common.repository.AiCallMetricRepository;
+import com.example.team3final.domain.ai.common.service.AiCallMetricService;
 import com.example.team3final.domain.ai.prompt.service.AiPromptFileService;
 import com.example.team3final.domain.ai.report.dto.request.AiReportChatRequestDto;
 import com.example.team3final.domain.ai.report.dto.response.*;
@@ -23,7 +20,6 @@ import com.example.team3final.domain.ai.report.tool.AiReportHighRiskUserToolResu
 import com.example.team3final.domain.ai.report.tool.AiReportTool;
 import com.example.team3final.domain.report.entity.Report;
 import com.example.team3final.domain.report.service.ReportService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.ResponseEntity;
@@ -48,7 +44,6 @@ import java.util.regex.Pattern;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AiReportServiceImpl implements AiReportService {
 
@@ -90,14 +85,34 @@ public class AiReportServiceImpl implements AiReportService {
             confidenceScore는 0~100 정수로 작성한다.
             """;
 
-    private final ChatClient.Builder chatClientBuilder;
+    private final ChatClient chatClient;
     private final AiPromptFileService aiPromptFileService;
     private final AiReportTool aiReportTool;
     private final AiReportSummaryRepository aiReportSummaryRepository;
-    private final AiCallMetricRepository aiCallMetricRepository;
+    private final AiCallMetricService aiCallMetricService;
     private final AiProperties aiProperties;
-    private final AdminRepository adminRepository;
+    private final AdminService adminService;
     private final ReportService reportService;
+
+    public AiReportServiceImpl(
+            ChatClient.Builder chatClientBuilder,
+            AiPromptFileService aiPromptFileService,
+            AiReportTool aiReportTool,
+            AiReportSummaryRepository aiReportSummaryRepository,
+            AiCallMetricService aiCallMetricService,
+            AiProperties aiProperties,
+            AdminService adminService,
+            ReportService reportService
+    ) {
+        this.chatClient = chatClientBuilder.build();
+        this.aiPromptFileService = aiPromptFileService;
+        this.aiReportTool = aiReportTool;
+        this.aiReportSummaryRepository = aiReportSummaryRepository;
+        this.aiCallMetricService = aiCallMetricService;
+        this.aiProperties = aiProperties;
+        this.adminService = adminService;
+        this.reportService = reportService;
+    }
 
 
     /**
@@ -177,7 +192,7 @@ public class AiReportServiceImpl implements AiReportService {
             promptTemplateId = prompt.promptTemplateId();
             promptVersion = prompt.version();
 
-            ResponseEntity<ChatResponse, AiReportLlmResult> response = chatClientBuilder.build()
+            ResponseEntity<ChatResponse, AiReportLlmResult> response = chatClient
                     .prompt()
                     .system(prompt.content())
                     .user("신고 ID " + reportId + "번을 분석하고 관리자 조치 방향을 제안해줘.")
@@ -291,7 +306,7 @@ public class AiReportServiceImpl implements AiReportService {
             promptTemplateId = prompt.promptTemplateId();
             promptVersion = prompt.version();
 
-            ResponseEntity<ChatResponse, List<AiReportHighRiskUserDto>> response = chatClientBuilder.build()
+            ResponseEntity<ChatResponse, List<AiReportHighRiskUserDto>> response = chatClient
                     .prompt()
                     .system(prompt.content())
                     .user("""
@@ -399,7 +414,7 @@ public class AiReportServiceImpl implements AiReportService {
      */
     private AiReportChatIntentResult classifyChatIntent(String message) {
         try {
-            AiReportChatIntentResult intent = chatClientBuilder.build()
+            AiReportChatIntentResult intent = chatClient
                     .prompt()
                     .system("""
                             너는 관리자 신고 AI 챗봇의 라우터다.
@@ -576,8 +591,7 @@ public class AiReportServiceImpl implements AiReportService {
      * 이후 AI 분석이나 Tool 호출이 실행되지 않도록 예외를 발생시킵니다.
      */
     private void validateAdmin(Long adminId) {
-        adminRepository.findById(adminId)
-                .orElseThrow(() -> new AdminException(ErrorCode.ADMIN_NOT_FOUND));
+        adminService.validateAdmin(adminId);
     }
 
     /**
@@ -782,22 +796,23 @@ public class AiReportServiceImpl implements AiReportService {
             Integer completionTokens,
             Integer totalTokens
     ) {
-        aiCallMetricRepository.save(
-                AiCallMetric.builder()
-                        .requestId(requestId)
-                        .userId(adminId)
-                        .feature(AiFeature.REPORT)
-                        .model(aiProperties.getReport().getModel())
-                        .promptTemplateId(promptTemplateId)
-                        .promptVersion(promptVersion)
-                        .promptTokens(promptTokens)
-                        .completionTokens(completionTokens)
-                        .totalTokens(totalTokens)
-                        .latencyMs(System.currentTimeMillis() - startedAt)
-                        .status(status)
-                        .errorType(errorType)
-                        .errorMessage(truncate(errorMessage, 500))
-                        .build()
+        // 신고 AI는 메트릭 저장 요청만 위임하고,
+        // 실제 AiCallMetric Repository 접근은 ai.common 서비스가 담당합니다.
+        // System.currentTimeMillis() - startedAt는 AI 호출에 걸린 시간(ms) 저장하는 코드.
+        aiCallMetricService.createAiCallMetric(
+                requestId,
+                adminId,
+                AiFeature.REPORT,
+                aiProperties.getReport().getModel(),
+                promptTemplateId,
+                promptVersion,
+                promptTokens,
+                completionTokens,
+                totalTokens,
+                System.currentTimeMillis() - startedAt,
+                status,
+                errorType,
+                errorMessage
         );
     }
 
