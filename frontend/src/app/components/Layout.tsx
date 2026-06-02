@@ -102,6 +102,12 @@ export default function Layout() {
                 매칭
               </Link>
               <Link
+                  to="/me/inquiries"
+                  className={`text-sm ${isActive('/me/inquiries') ? 'text-[#d84315] font-semibold' : 'text-[#424242]'}`}
+              >
+                고객센터
+              </Link>
+              <Link
                   to="/ai/matching"
                   className={`flex items-center gap-1 text-sm ${isActive('/ai/matching') ? 'text-[#d84315] font-semibold' : 'text-[#424242]'}`}
               >

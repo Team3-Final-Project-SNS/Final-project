@@ -3,10 +3,12 @@ import { Link, useNavigate } from 'react-router';
 import { AlertCircle, Loader2, LogOut, User } from 'lucide-react';
 import { logout } from '../../api/authApi';
 import { getUserMe, GetUserResponse } from '../../api/userApi';
+import { getReceivedReviews } from '../../api/reviewApi';
 
 export default function MyInfoPage() {
   const navigate = useNavigate();
   const [user, setUser] = useState<GetUserResponse | null>(null);
+  const [mannerTemperature, setMannerTemperature] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -16,7 +18,16 @@ export default function MyInfoPage() {
       setError('');
       try {
         const res = await getUserMe();
-        setUser(res.data.data);
+        const me = res.data.data;
+        setUser(me);
+
+        try {
+          const reviewRes = await getReceivedReviews(me.userId, 0, 1);
+          setMannerTemperature(reviewRes.data.data.mannerTemperature);
+        } catch (reviewErr) {
+          console.error('Failed to load manner temperature', reviewErr);
+          setMannerTemperature(null);
+        }
       } catch (err) {
         console.error('Failed to load user info', err);
         setError('내 정보를 불러오는데 실패했습니다.');
@@ -91,7 +102,11 @@ export default function MyInfoPage() {
                   <InfoItem label="학번" value={user.studentNumber} />
                   <InfoItem label="성별" value={user.gender === 'MALE' ? '남성' : '여성'} />
                   <InfoItem label="보유 포인트" value={`${user.point.toLocaleString()}P`} strong />
-                  <InfoItem label="계정 상태" value={user.status} />
+                  <InfoItem
+                      label="매너 온도"
+                      value={mannerTemperature === null ? '-' : `${Number(mannerTemperature).toFixed(1)}°C`}
+                      strong
+                  />
                 </div>
 
                 <div className="flex flex-wrap justify-end gap-2 p-5">

@@ -14,6 +14,7 @@ export interface PostItemResponse {
     authorDeposit: number;
     status: PostStatus;
     createAt: string; // backend says createAt
+    createdAt?: string;
 }
 
 export interface PageResponse<T> {
@@ -40,6 +41,7 @@ export interface GetPostResponse {
     status: PostStatus;
     isMine: boolean;
     createAt: string; // backend says createAt
+    createdAt?: string;
     updateAt: string; // backend says updateAt
 }
 

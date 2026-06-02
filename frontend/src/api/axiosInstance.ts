@@ -11,6 +11,7 @@ const PUBLIC_ENDPOINTS = [
     "/api/v1/auth/email/otp",
     "/api/v1/auth/email/otp/verify",
     "/api/v1/auth/refresh",
+    "/api/v1/admin/auth/login",
     "/api/v1/universities",
 ];
 
@@ -64,9 +65,11 @@ axiosInstance.interceptors.request.use((config) => {
 
     // 공개 엔드포인트가 아닌 경우에만 Authorization 헤더 추가
     if (!isPublic) {
-        const accessToken = sessionStorage.getItem("accessToken");
-        if (accessToken) {
-            config.headers["Authorization"] = `Bearer ${accessToken}`;
+        const isAdminEndpoint = config.url?.includes("/api/v1/admin");
+        const tokenKey = isAdminEndpoint ? "adminAccessToken" : "accessToken";
+        const token = sessionStorage.getItem(tokenKey);
+        if (token) {
+            config.headers["Authorization"] = `Bearer ${token}`;
         }
     }
 
@@ -90,10 +93,13 @@ axiosInstance.interceptors.response.use(
             originalRequest.url?.includes(endpoint)
         );
 
+        const isAdminEndpoint = originalRequest.url?.includes("/api/v1/admin");
+
         if (
             error.response?.status === 401 &&
             !originalRequest._retry &&
-            !isAuthEndpoint  // ← 핵심: 공개 엔드포인트 401은 재발급 안 함
+            !isAuthEndpoint &&
+            !isAdminEndpoint  // 관리자 토큰은 refresh 흐름이 없으므로 재발급 시도하지 않음
         ) {
             if (isRefreshing) {
                 return new Promise((resolve, reject) => {

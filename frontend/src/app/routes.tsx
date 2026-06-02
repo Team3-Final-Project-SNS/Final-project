@@ -2,6 +2,10 @@ import { createBrowserRouter } from "react-router";
 import Layout from "./components/Layout";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
+import AdminLoginPage from "./pages/AdminLoginPage";
+import AdminHomePage from "./pages/AdminHomePage";
+import AdminReportsPage from "./pages/AdminReportsPage";
+import AdminInquiriesPage from "./pages/AdminInquiriesPage";
 import SignupPage from "./pages/SignupPage";
 import PostListPage from "./pages/PostListPage";
 import PostDetailPage from "./pages/PostDetailPage";
@@ -14,6 +18,8 @@ import PointTransactionsPage from "./pages/PointTransactionsPage";
 import QRVerificationPage from "./pages/QRVerificationPage";
 import PlaceVerificationPage from "./pages/PlaceVerificationPage";
 import MatchingAiChatPage from "./pages/MatchingAiChatPage";
+import InquiryCenterPage from "./pages/InquiryCenterPage";
+import ReportCenterPage from "./pages/ReportCenterPage";
 import NotFoundPage from "./pages/NotFoundPage";
 
 export const router = createBrowserRouter([
@@ -34,6 +40,8 @@ export const router = createBrowserRouter([
       { path: "me", Component: MyInfoPage },
       { path: "me/points", Component: PointTransactionsPage },
       { path: "me/matches", Component: MyMatchResultsPage },
+      { path: "me/inquiries", Component: InquiryCenterPage },
+      { path: "me/reports", Component: ReportCenterPage },
       { path: "matches/:id/qr", Component: QRVerificationPage },
     ],
   },
@@ -77,11 +85,29 @@ export const router = createBrowserRouter([
       { index: true, Component: MyInfoPage },
       { path: "points", Component: PointTransactionsPage },
       { path: "matches", Component: MyMatchResultsPage },
+      { path: "inquiries", Component: InquiryCenterPage },
+      { path: "reports", Component: ReportCenterPage },
     ],
   },
   {
     path: "/login",
     Component: LoginPage,
+  },
+  {
+    path: "/admin/login",
+    Component: AdminLoginPage,
+  },
+  {
+    path: "/admin",
+    Component: AdminHomePage,
+  },
+  {
+    path: "/admin/reports",
+    Component: AdminReportsPage,
+  },
+  {
+    path: "/admin/inquiries",
+    Component: AdminInquiriesPage,
   },
   {
     path: "/signup",

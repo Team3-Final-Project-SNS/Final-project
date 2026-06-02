@@ -18,6 +18,10 @@ export default function LoginPage() {
       const { accessToken } = res.data.data;
 
       // accessToken을 sessionStorage에 저장 → 브라우저 세션 동안만 로그인 유지
+      sessionStorage.removeItem("adminAccessToken");
+      sessionStorage.removeItem("adminId");
+      sessionStorage.removeItem("adminName");
+      sessionStorage.removeItem("adminRole");
       sessionStorage.setItem("accessToken", accessToken);
 
       navigate('/');
@@ -105,6 +109,16 @@ export default function LoginPage() {
               <span className="text-[#616161] text-sm">계정이 없으신가요? </span>
               <Link to="/signup" className="text-[#d84315] text-sm font-semibold hover:underline">
                 회원가입
+              </Link>
+            </div>
+
+            <div className="mt-6 border-t border-[#eeeeee] pt-5 text-center">
+              <p className="mb-3 text-xs font-semibold text-[#9e9e9e]">운영자 계정으로 접속하시나요?</p>
+              <Link
+                  to="/admin/login"
+                  className="inline-flex w-full items-center justify-center rounded-xl border border-[#d84315] bg-white px-4 py-3 text-sm font-bold text-[#d84315] transition-colors hover:bg-[#fff3e0]"
+              >
+                관리자 로그인으로 전환
               </Link>
             </div>
           </div>
