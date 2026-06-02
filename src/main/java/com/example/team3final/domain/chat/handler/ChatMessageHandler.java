@@ -62,13 +62,22 @@ public class ChatMessageHandler {
         ChatRoom chatRoom = chatRoomRepository.findById(chatRoomId)
                 .orElseThrow(() -> new ChatException(ErrorCode.CHAT_ROOM_NOT_FOUND));
 
-        // 비활성화된 채팅방은 메시지 전송 불가
-        if (!chatRoom.isActive()) {
-            // 에러를 보낸 사람에게만 전송
+        // DEACTIVATED: 완전 비활성화 (매칭 취소) — 메시지 전송/조회 모두 불가
+        if (chatRoom.isDeactivated()) {
             messagingTemplate.convertAndSendToUser(
                     email,
                     "/queue/errors",
-                    ErrorCode.CHAT_ROOM_INACTIVE.getMessage()
+                    ErrorCode.CHAT_ROOM_DEACTIVATED.getMessage() // CHAT_004
+            );
+            return;
+        }
+
+        // READ_ONLY: 읽기 전용 (만남 완료 / 노쇼 확정) — 메시지 전송만 불가, 조회는 가능
+        if (chatRoom.isReadOnly()) {
+            messagingTemplate.convertAndSendToUser(
+                    email,
+                    "/queue/errors",
+                    ErrorCode.CHAT_ROOM_READ_ONLY.getMessage() // CHAT_003
             );
             return;
         }

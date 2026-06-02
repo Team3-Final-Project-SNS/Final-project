@@ -245,16 +245,18 @@ public class MatchServiceImpl implements MatchService{
 
         match.cancel();
         post.decreaseCurrentApplicants(); // 참여 인원 감소
+
         if (cancelerIsApplicant) {
-            // GUEST(신청자) 취소 — 게시글은 OPEN으로 복구, 채팅방은 유지
-            // post 상태가 MATCHED였다면 OPEN으로 되돌림 (정원이 비었으니 다시 받아야 함)
+            // GUEST(신청자) 취소
+            // 게시글이 MATCHED 상태였다면 OPEN으로 복구 (재신청 가능)
             if (post.isMatched()) {
-                post.reopen();  // ★ Post 엔티티에 reopen() 메서드 새로 추가 필요
+                post.reopen();
             }
-            // 채팅방 비활성화 X — 그룹 매칭이면 나머지 사람들 채팅 유지
-            chatService.deactivateChatRoom(match.getPostId());
+            // 채팅방 상태 ACTIVE 유지 — 취소한 신청자만 ChatMember에서 제거
+            // 나머지 참여자(HOST + 다른 GUEST)는 계속 채팅 이용 가능
+            chatService.removeChatMember(match.getPostId(), userId);
         } else {
-            // HOST(작성자) 취소 — 게시글 CANCELLED + 채팅방 비활성화
+            // HOST(등록자) 취소 — 게시글 CANCELLED + 채팅방 완전 비활성화
             post.cancel();
             chatService.deactivateChatRoom(match.getPostId());
         }
