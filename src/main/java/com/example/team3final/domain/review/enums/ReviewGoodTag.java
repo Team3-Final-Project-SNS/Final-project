@@ -1,11 +1,13 @@
 package com.example.team3final.domain.review.enums;
 
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 /**
  * 후기에서 선택할 수 있는 긍정 태그입니다.
  */
 @Getter
+@RequiredArgsConstructor
 public enum ReviewGoodTag {
 
     ON_TIME("시간 약속을 잘 지켜요", 1),
@@ -16,9 +18,4 @@ public enum ReviewGoodTag {
 
     private final String description;
     private final int scoreDelta;
-
-    ReviewGoodTag(String description, int scoreDelta) {
-        this.description = description;
-        this.scoreDelta = scoreDelta;
-    }
 }
