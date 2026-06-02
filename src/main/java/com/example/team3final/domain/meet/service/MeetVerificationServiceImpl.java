@@ -3,7 +3,7 @@ package com.example.team3final.domain.meet.service;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.MeetException;
 import com.example.team3final.domain.chat.service.ChatService;
-import com.example.team3final.domain.dispute.service.DisputeService;
+import com.example.team3final.domain.dispute.service.DisputeQueryService;
 import com.example.team3final.domain.location.service.UserLocationService;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.entity.Match;
@@ -46,7 +46,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     private final UserLocationService userLocationService;
     private final UserService userService;
     private final NotificationPublisher notificationPublisher;
-    private final DisputeService disputeService;
+    private final DisputeQueryService disputeQueryService;
 
     // GPS 오차범위까지 고려한 인증 반경
     private static final double PLACE_VERIFICATION_RADIUS_METERS = 60.0;
@@ -468,7 +468,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         Map<Long, PostInfoDto> postInfoMap = postQueryService.getPostInfos(postIds);
 
         // // 관리자가 아직 검토 중인 이의제기가 있는 matchId Set 조회
-        Set<Long> activeDisputeMatchIds = disputeService.getMatchIdsWithActiveDispute(matchIds);
+        Set<Long> activeDisputeMatchIds = disputeQueryService.getMatchIdsWithActiveDispute(matchIds);
 
         for (MeetVerification meetVerification : noShowList) {
 

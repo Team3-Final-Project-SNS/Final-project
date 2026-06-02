@@ -37,8 +37,4 @@ public interface DisputeService {
 
     // 노쇼 후보군 조회용
     Set<Long> getMatchIdsWithDispute(List<Long> matchIds);
-
-    // 노쇼 확정 judgeNoShowConfirmed() 배치용
-    // matchId 목록으로 "검토 중인 이의제기"가 있는 matchId Set 반환
-    Set<Long> getMatchIdsWithActiveDispute(List<Long> matchIds);
 }
