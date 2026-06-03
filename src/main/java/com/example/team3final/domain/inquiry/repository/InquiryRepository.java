@@ -10,7 +10,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 public interface InquiryRepository extends JpaRepository<Inquiry, Long> {
 
@@ -27,21 +26,6 @@ public interface InquiryRepository extends JpaRepository<Inquiry, Long> {
             @Param("start")LocalDateTime start,
             @Param("end") LocalDateTime end
             );
-
-    // 중복 카테고리 검증용 쿼리 -같은 유저가, 같은 문의 유형(카테고리)으로
-    // 처리 중인 상태(PENDING 또는 IN_PROGRESS)인 문의가 존재하는지 확인
-    @Query("""
-        SELECT COUNT(i) > 0
-        FROM Inquiry i
-        WHERE i.userId = :userId
-        AND i.inquiryType = :inquiryType
-        AND i.answerStatus IN :statuses
-        """)
-    boolean existsByUserIdAndInquiryTypeAndAnswerStatusIn(
-            @Param("userId") Long userId,
-            @Param("inquiryType") InquiryType inquiryType,
-            @Param("statuses") List<InquiryAnswerStatus> statuses
-    );
 
     // 특정 유저의 문의 목록을 최신순으로 페이징 조회
     Page<Inquiry> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);

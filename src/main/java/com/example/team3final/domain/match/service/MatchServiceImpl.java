@@ -9,21 +9,25 @@ import com.example.team3final.domain.match.dto.response.*;
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.repository.MatchRepository;
+import com.example.team3final.domain.meet.util.MeetRedisZSetKeys;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.dto.response.PostMatchInfoDto;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.service.PostService;
+import com.example.team3final.domain.review.service.ReviewAvoidanceService;
 import com.example.team3final.domain.user.dto.response.UserInfoDto;
 import com.example.team3final.domain.user.service.UserPointService;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +44,8 @@ public class MatchServiceImpl implements MatchService{
     private final UserService userService;
     private final PostService postService;
     private final NotificationPublisher notificationPublisher;  // 알림 발송용
+    private final ReviewAvoidanceService reviewAvoidanceService;
+    private final StringRedisTemplate redisTemplate; // ZSet 예약용
 
     @Override
     @Transactional
@@ -50,6 +56,12 @@ public class MatchServiceImpl implements MatchService{
         // 1. 본인 소유 게시글 신청 차단
         if (post.getAuthorId().equals(applicantId)) {
             throw new MatchException(ErrorCode.MATCH_SELF_APPLY);
+        }
+
+        // 다시 만나고 싶지 않아요 관계가 있으면 목록에서 보이지 않아야 하고,
+        // postId를 직접 알아도 신청할 수 없어야 하므로 매칭 생성 단계에서 한 번 더 차단합니다.
+        if (reviewAvoidanceService.existsAvoidRelation(applicantId, post.getAuthorId())) {
+            throw new MatchException(ErrorCode.MATCH_AVOIDED_USER);
         }
 
         // 2. 게시글 상태 검증
@@ -112,6 +124,32 @@ public class MatchServiceImpl implements MatchService{
         // 16번 알림 - 신청자에게 매칭 확정 알림 발송
         notificationPublisher.sendMatchConfirmed(applicantId, savedMatch.getId());
 
+        // 만남 알림 ZSet 예약 (30분/15분/5분 전)
+        // score = 알림 발송할 Unix Timestamp
+        // member = matchId (스케줄러가 꺼내서 알림 발송에 사용)
+        LocalDateTime meetAt = post.getMeetAt();
+
+        // 30분 전 알림 예약 (meetAt - 30분 시각에 발송)
+        redisTemplate.opsForZSet().add(
+                MeetRedisZSetKeys.REMINDER_30,
+                String.valueOf(savedMatch.getId()),
+                meetAt.minusMinutes(30).toEpochSecond(ZoneOffset.ofHours(9))
+        );
+
+        // 15분 전 알림 예약 (meetAt - 15분 시각에 발송)
+        redisTemplate.opsForZSet().add(
+                MeetRedisZSetKeys.REMINDER_15,
+                String.valueOf(savedMatch.getId()),
+                meetAt.minusMinutes(15).toEpochSecond(ZoneOffset.ofHours(9))
+        );
+
+        // 임박 알림 예약 (meetAt - 5분 시각에 발송)
+        redisTemplate.opsForZSet().add(
+                MeetRedisZSetKeys.REMINDER_IMMINENT,
+                String.valueOf(savedMatch.getId()),
+                meetAt.minusMinutes(5).toEpochSecond(ZoneOffset.ofHours(9))
+        );
+
 
         return CreateMatchResponseDto.of(
                 savedMatch,
@@ -128,6 +166,16 @@ public class MatchServiceImpl implements MatchService{
         // 중복 신청 여부는 Match 도메인의 데이터 규칙이므로,
         // 다른 도메인은 Repository 대신 이 서비스 메서드를 통해 확인합니다.
         return matchRepository.existsByPostIdAndApplicantId(postId, applicantId);
+    }
+
+    @Override
+    public List<Long> getMatchIdsByPostId(Long postId) {
+        // Review 도메인에서 단체 만남 리뷰 평균을 계산할 때 사용합니다.
+        // Service-to-Service 규칙에 따라 Review는 MatchRepository를 직접 참조하지 않습니다.
+        return matchRepository.findAllByPostId(postId)
+                .stream()
+                .map(Match::getId)
+                .toList();
     }
 
     @Override
@@ -271,6 +319,13 @@ public class MatchServiceImpl implements MatchService{
         // 2번 알림 - 상대방에게 매칭 취소 알림 발송
         notificationPublisher.sendMatchCancelled(opponentId, matchId);
 
+        // 매칭 취소 시 ZSet 알림 예약 제거
+        // 취소된 매칭은 알림 발송 불필요
+        String matchIdStr = String.valueOf(matchId);
+        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_30, matchIdStr);
+        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_15, matchIdStr);
+        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_IMMINENT, matchIdStr);
+
         return CancelMatchResponseDto.of(
                 match.getId(),
                 match.getStatus(),
@@ -392,7 +447,7 @@ public class MatchServiceImpl implements MatchService{
                     match, opponentId,
                     oppNickname, oppMajor, oppStudentNo,
                     meetAt, placeName,
-                    myDeposit, chatRoomId
+                    myDeposit, isAuthor, chatRoomId
             );
         });
 

@@ -13,7 +13,7 @@ export type ReviewBadTag =
   | "NO_REPLY"
   | "UNCOMFORTABLE"
   | "BAD_MANNER"
-  | "REPORT_NEEDED";
+  | "DO_NOT_WANT_TO_MEET_AGAIN";
 
 export interface CreateReviewRequest {
   goodTags: ReviewGoodTag[];
@@ -28,7 +28,7 @@ export interface CreateReviewResponse {
   goodTags: ReviewGoodTag[];
   badTags: ReviewBadTag[];
   tagScoreDelta: number;
-  reportNeeded: boolean;
+  doNotWantToMeetAgainSelected: boolean;
   rewardPoint: number;
   createdAt: string;
 }
@@ -41,26 +41,18 @@ export interface ReviewItem {
   goodTags: ReviewGoodTag[];
   badTags: ReviewBadTag[];
   tagScoreDelta: number;
-  reportNeeded: boolean;
+  doNotWantToMeetAgainSelected: boolean;
   createdAt: string;
 }
 
-export interface GetReceivedReviewsResponse {
+export interface GetWrittenReviewsResponse {
   userId: number;
   nickname: string;
-  mannerTemperature: number;
   content: ReviewItem[];
-  page: number;
-  size: number;
-  totalElements: number;
-  totalPages: number;
-  hasNext: boolean;
 }
 
 export const createReview = (matchId: number, data: CreateReviewRequest) =>
   axiosInstance.post<ApiResponse<CreateReviewResponse>>(`/api/v1/matches/${matchId}/reviews`, data);
 
-export const getReceivedReviews = (userId: number, page: number = 0, size: number = 10) =>
-  axiosInstance.get<ApiResponse<GetReceivedReviewsResponse>>(`/api/v1/users/${userId}/reviews`, {
-    params: { page, size },
-  });
+export const getMyWrittenReviews = () =>
+  axiosInstance.get<ApiResponse<GetWrittenReviewsResponse>>(`/api/v1/me/reviews`);

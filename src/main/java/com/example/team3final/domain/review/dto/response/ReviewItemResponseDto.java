@@ -21,7 +21,7 @@ import java.util.List;
  *
  *
  * 특정 후기를 작성한 사용자 정보와 선택된 좋아요/아쉬워요 태그,
- * 태그 기반 점수 변화량, 신고 필요 태그 포함 여부를 반환합니다.
+ * 태그 기반 점수 변화량, 다시 만나고 싶지 않아요 태그 선택 여부를 반환합니다.
  */
 public record ReviewItemResponseDto(
         Long reviewId,
@@ -31,7 +31,7 @@ public record ReviewItemResponseDto(
         List<ReviewGoodTag> goodTags,
         List<ReviewBadTag> badTags,
         int tagScoreDelta,
-        boolean reportNeeded,
+        boolean doNotWantToMeetAgainSelected,
         LocalDateTime createdAt
 ) {
     public static ReviewItemResponseDto of(
@@ -39,7 +39,7 @@ public record ReviewItemResponseDto(
             String writerNickname,
             List<ReviewGoodTag> goodTags,
             List<ReviewBadTag> badTags,
-            boolean reportNeeded
+            boolean doNotWantToMeetAgainSelected
     ) {
         return new ReviewItemResponseDto(
                 review.getId(),
@@ -49,7 +49,7 @@ public record ReviewItemResponseDto(
                 goodTags,
                 badTags,
                 review.getTagScoreDelta(),
-                reportNeeded,
+                doNotWantToMeetAgainSelected,
                 review.getCreatedAt()
         );
     }

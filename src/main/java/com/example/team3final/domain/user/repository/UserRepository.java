@@ -23,6 +23,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // 회원가입 시 닉네임 중복확인
     boolean existsByNickname(String nickname);
 
+    // 특정 상태를 제외하고 이메일 존재 여부 확인 (탈퇴한 이메일은 false 반환 -> 재가입 허용)
+    boolean existsByEmailAndStatusNot(String email, UserStatus status);
+
     // Admin 유저 목록 조회
     @Query("""
         SELECT u
@@ -38,12 +41,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     //   soft delete된 유저도 자동 제외됨
     @Query("SELECT u.id FROM User u WHERE u.universityId = :universityId AND u.status = 'ACTIVE'")
     List<Long> findIdsByUniversityId(@Param("universityId") Long universityId);
-
-
-
-
-
-
 
     // 일단 ai db 활용을 위해서 임시로. 나중에 리팩토링할때 서비스 to 서비스로 변경 예정.
     @Query("""

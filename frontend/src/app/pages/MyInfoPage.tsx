@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router';
 import { AlertCircle, Loader2, LogOut, User } from 'lucide-react';
 import { logout } from '../../api/authApi';
 import { getUserMe, GetUserResponse } from '../../api/userApi';
-import { getReceivedReviews } from '../../api/reviewApi';
 
 export default function MyInfoPage() {
   const navigate = useNavigate();
@@ -20,14 +19,7 @@ export default function MyInfoPage() {
         const res = await getUserMe();
         const me = res.data.data;
         setUser(me);
-
-        try {
-          const reviewRes = await getReceivedReviews(me.userId, 0, 1);
-          setMannerTemperature(reviewRes.data.data.mannerTemperature);
-        } catch (reviewErr) {
-          console.error('Failed to load manner temperature', reviewErr);
-          setMannerTemperature(null);
-        }
+        setMannerTemperature(me.mannerTemperature);
       } catch (err) {
         console.error('Failed to load user info', err);
         setError('내 정보를 불러오는데 실패했습니다.');

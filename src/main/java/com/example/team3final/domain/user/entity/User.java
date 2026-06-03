@@ -25,6 +25,9 @@ import java.time.LocalDateTime;
 @SQLRestriction("deleted_at IS NULL")
 public class User extends SoftDeleteEntity {
 
+    private static final BigDecimal MANNER_TEMP_MIN = BigDecimal.ZERO;
+    private static final BigDecimal MANNER_TEMP_MAX = new BigDecimal("99");
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_id")
@@ -76,7 +79,6 @@ public class User extends SoftDeleteEntity {
 
     // 매너온도
     // BigDecimal -> 십진수 그대로 저장하기 때문에 오차가 매우 적음
-    // double -> 부동 소수점 방식으로 숫자를 저장, 이진수로 변환하는 과정에서 근사값으로 저장됨 -> 오차 발생
     @Column(name = "manner_temperature", nullable = false)
     private BigDecimal mannerTemperature;
 
@@ -103,11 +105,6 @@ public class User extends SoftDeleteEntity {
         this.mannerTemperature = new BigDecimal("36.5");
     }
 
-    // 포인트 차감 결과
-    public record DeductResult(int fromFree, int fromPaid) {
-        public int total() { return fromFree + fromPaid; }
-    }
-
     // 닉네임 변경
     public void updateNickname(String nickname) {
         this.nickname = nickname;
@@ -123,18 +120,23 @@ public class User extends SoftDeleteEntity {
         this.password = encodedPassword;
     }
 
-    // 회원 탈퇴
+    // 회원 탈퇴 - 탈퇴 이력은 status = WITHDRAWN으로 충분히 관리 가능
+    // 재가입 시 이메일 중복 체크가 레코드를 못찾는 것을 방지
     public void withdraw() {
         this.status = UserStatus.WITHDRAWN;
-        super.delete(); // SoftDeleteEntity의 deleted_at 세팅
     }
+
+    // ==================== Service to Service 구현 영역 ====================
 
     // 계정 활성 상태인지 확인
     public boolean isActive() {
         return this.status == UserStatus.ACTIVE;
     }
 
-    // ==================== Service to Service 구현 영역 ====================
+    // 포인트 차감 결과
+    public record DeductResult(int fromFree, int fromPaid) {
+        public int total() { return fromFree + fromPaid; }
+    }
 
     // 무료 포인트 적립 — 가입 보너스, 신고/후기 포상, 환불 시 free 환원 등
     public void addFreePoint(int amount) {
@@ -152,12 +154,7 @@ public class User extends SoftDeleteEntity {
         this.paidPoint += amount;
     }
 
-    /**
-     * 포인트 차감 — 무료 먼저, 부족분은 유료에서.
-     * 반환값: 실제로 무료에서 차감된 금액, 유료에서 차감된 금액 (호출 측이 PointTransaction에 기록)
-     *
-     * @throws UserException 잔액이 총량보다 부족하면
-     */
+    // 포인트 차감 (무료먼저, 부족분 유료에서 -> 구분하여 거래내역에 저장)
     public DeductResult deduct(int amount) {
         if (amount < 0) {
             throw new IllegalArgumentException("차감 금액은 음수일 수 없습니다: " + amount);
@@ -180,11 +177,7 @@ public class User extends SoftDeleteEntity {
         return new DeductResult(fromFree, fromPaid);
     }
 
-    /**
-     * 유료 포인트 환불 — 결제 취소 시 사용.
-     * "충전한 만큼" 환불하되, 사용된 만큼은 회수 불가(음수 방지).
-     * 반환값: 실제로 회수된 금액 (충전액보다 적을 수 있음 — 이미 일부 사용한 경우)
-     */
+    // 유료 포인트 환불
     public int withdrawPaid(int requestedAmount) {
         if (requestedAmount < 1000) {
             throw new IllegalArgumentException("환불 포인트는 1000P 미만일 수 없습니다: " + requestedAmount);
@@ -196,8 +189,7 @@ public class User extends SoftDeleteEntity {
         return actual;
     }
 
-    // 호환성: 기존 코드가 user.getPoint()로 총잔액을 보던 곳을 위한 메서드
-// 새 코드는 freePoint/paidPoint를 명시적으로 다루는 게 권장
+    // 총 잔액(유료+무료) 조회
     public int getTotalPoint() {
         return this.freePoint + this.paidPoint;
     }
@@ -211,14 +203,19 @@ public class User extends SoftDeleteEntity {
                 : null;                              // 만료 날짜 없음 = 영구정지
     }
 
-    // 매너 온도 증가
-    public void addMannerTemperature(BigDecimal amount) {
-        this.mannerTemperature = this.mannerTemperature.add(amount);
+    // 계정 정지 복구 — 정지 기간 만료 시 loadUserByUsername에서 자동 호출
+    public void reinstate() {
+        this.status = UserStatus.ACTIVE;
+        this.suspendedUntil = null; // 만료 시각 초기화 (null = 정지 이력 없음)
     }
 
+    // 매너 온도 증가
+    public void addMannerTemperature(BigDecimal amount) {
+        this.mannerTemperature = this.mannerTemperature.add(amount).min(MANNER_TEMP_MAX);
+    }
     // 매너 온도 감소
     public void deductMannerTemperature(BigDecimal amount) {
-        this.mannerTemperature = this.mannerTemperature.subtract(amount);
+        this.mannerTemperature = this.mannerTemperature.subtract(amount).max(MANNER_TEMP_MIN);
     }
 
     // 리뷰 도매인에서 사용.

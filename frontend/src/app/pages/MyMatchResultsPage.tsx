@@ -5,7 +5,7 @@ import { getMyMatches, GetMatchesItemResponse, MatchStatus } from '../../api/mat
 import { getUserMe } from '../../api/userApi';
 import {
   createReview,
-  getReceivedReviews,
+  getMyWrittenReviews,
   ReviewBadTag,
   ReviewGoodTag,
   ReviewItem,
@@ -57,7 +57,7 @@ const badTagOptions: { value: ReviewBadTag; label: string }[] = [
   { value: 'NO_REPLY', label: '답장이 잘 오지 않았어요' },
   { value: 'UNCOMFORTABLE', label: '대화가 불편했어요' },
   { value: 'BAD_MANNER', label: '식사 매너가 아쉬웠어요' },
-  { value: 'REPORT_NEEDED', label: '신고가 필요해요' },
+  { value: 'DO_NOT_WANT_TO_MEET_AGAIN', label: '다시 만나고 싶지 않아요' },
 ];
 
 type WrittenReview = ReviewItem | {
@@ -68,8 +68,12 @@ type WrittenReview = ReviewItem | {
   goodTags: ReviewGoodTag[];
   badTags: ReviewBadTag[];
   tagScoreDelta: number;
-  reportNeeded: boolean;
+  doNotWantToMeetAgainSelected: boolean;
   createdAt: string;
+};
+
+type DisplayMatch = GetMatchesItemResponse & {
+  opponentNicknames: string[];
 };
 
 export default function MyMatchResultsPage() {
@@ -86,6 +90,7 @@ export default function MyMatchResultsPage() {
   const [selectedGoodTags, setSelectedGoodTags] = useState<ReviewGoodTag[]>([]);
   const [selectedBadTags, setSelectedBadTags] = useState<ReviewBadTag[]>([]);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const displayMatches = groupMatchesByPost(matches);
 
   useEffect(() => {
     const fetchMatches = async () => {
@@ -109,24 +114,15 @@ export default function MyMatchResultsPage() {
 
         const completedMatches = nextMatches.filter((match) => match.status === 'COMPLETED');
         if (completedMatches.length > 0) {
-          const reviewEntries = await Promise.all(
-            completedMatches.map(async (match) => {
-              try {
-                const reviewRes = await getReceivedReviews(match.opponentId, 0, 10);
-                const myReview = reviewRes.data.data.content.find(
-                  (review) => review.matchId === match.matchId && review.writerId === userId,
-                );
-                return myReview ? ([match.matchId, myReview] as const) : null;
-              } catch (reviewErr) {
-                console.error('Failed to load written review', reviewErr);
-                return null;
-              }
-            }),
-          );
+          const completedMatchIds = new Set(completedMatches.map((match) => match.matchId));
+          const reviewRes = await getMyWrittenReviews();
+          const reviewEntries = reviewRes.data.data.content
+            .filter((review) => completedMatchIds.has(review.matchId) && review.writerId === userId)
+            .map((review) => [review.matchId, review] as const);
 
           setWrittenReviews((prev) => ({
             ...prev,
-            ...Object.fromEntries(reviewEntries.filter((entry): entry is readonly [number, ReviewItem] => entry !== null)),
+            ...Object.fromEntries(reviewEntries),
           }));
         }
       } catch (err) {
@@ -182,7 +178,7 @@ export default function MyMatchResultsPage() {
           goodTags: created.goodTags,
           badTags: created.badTags,
           tagScoreDelta: created.tagScoreDelta,
-          reportNeeded: created.reportNeeded,
+          doNotWantToMeetAgainSelected: created.doNotWantToMeetAgainSelected,
           createdAt: created.createdAt,
         },
       }));
@@ -255,9 +251,9 @@ export default function MyMatchResultsPage() {
                   </div>
               ))}
             </div>
-        ) : matches.length > 0 ? (
+        ) : displayMatches.length > 0 ? (
             <div className="space-y-3">
-              {matches.map((match) => (
+              {displayMatches.map((match) => (
                   <MatchResultCard
                       key={match.matchId}
                       match={match}
@@ -333,13 +329,44 @@ export default function MyMatchResultsPage() {
   );
 }
 
+function groupMatchesByPost(matches: GetMatchesItemResponse[]): DisplayMatch[] {
+  const grouped = new Map<number, DisplayMatch>();
+
+  matches.forEach((match) => {
+    // 등록자 화면에서는 1:N 매칭이 신청자 수만큼 내려오므로 같은 postId를 하나의 카드로 묶습니다.
+    if (!match.isAuthor) {
+      grouped.set(match.matchId, {
+        ...match,
+        opponentNicknames: [match.opponentNickname],
+      });
+      return;
+    }
+
+    const existing = grouped.get(match.postId);
+    if (!existing) {
+      grouped.set(match.postId, {
+        ...match,
+        opponentNicknames: [match.opponentNickname],
+      });
+      return;
+    }
+
+    grouped.set(match.postId, {
+      ...existing,
+      opponentNicknames: [...existing.opponentNicknames, match.opponentNickname],
+    });
+  });
+
+  return Array.from(grouped.values());
+}
+
 function MatchResultCard({
   match,
   writtenReview,
   onWriteReview,
   onViewReview,
 }: {
-  match: GetMatchesItemResponse;
+  match: DisplayMatch;
   writtenReview?: WrittenReview;
   onWriteReview: () => void;
   onViewReview: () => void;
@@ -361,7 +388,7 @@ function MatchResultCard({
         <div className="mb-5 grid gap-2 text-sm text-[#616161] sm:grid-cols-2">
           <span className="flex items-center gap-1.5">
             <User size={16} className="text-[#d84315]" />
-            {match.opponentNickname}
+            {match.opponentNicknames.join(', ')}
           </span>
           <span className="flex items-center gap-1.5">
             <Clock size={16} className="text-[#d84315]" />
@@ -382,7 +409,7 @@ function MatchResultCard({
             <MessageCircle size={16} />
             채팅 보기
           </Link>
-          {match.status === 'COMPLETED' && (
+          {!match.isAuthor && match.status === 'COMPLETED' && (
               writtenReview ? (
                   <button
                       type="button"

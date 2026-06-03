@@ -2,6 +2,7 @@ package com.example.team3final.domain.meet.service;
 
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.MeetException;
+import com.example.team3final.common.utils.GpsUtils;
 import com.example.team3final.domain.chat.service.ChatService;
 import com.example.team3final.domain.dispute.service.DisputeQueryService;
 import com.example.team3final.domain.location.service.UserLocationService;
@@ -16,6 +17,7 @@ import com.example.team3final.domain.meet.entity.MeetVerification;
 import com.example.team3final.domain.meet.enums.ExtensionStatus;
 import com.example.team3final.domain.meet.enums.VerificationStatus;
 import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
+import com.example.team3final.domain.meet.util.MeetRedisZSetKeys;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.dto.response.PostInfoDto;
 import com.example.team3final.domain.post.service.PostService;
@@ -23,11 +25,13 @@ import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -47,11 +51,13 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     private final UserService userService;
     private final NotificationPublisher notificationPublisher;
     private final DisputeQueryService disputeQueryService;
+    private final StringRedisTemplate redisTemplate; // ZSet 예약용
+
+    // 한국 시간대 오프셋 — Unix Timestamp 변환 시 KST(UTC+9) 기준 적용
+    private static final ZoneOffset KST = ZoneOffset.ofHours(9);
 
     // GPS 오차범위까지 고려한 인증 반경
     private static final double PLACE_VERIFICATION_RADIUS_METERS = 60.0;
-    // 지구 반지름
-    private static final int EARTH_RADIUS_METERS = 6371000;
     // QR 토큰 TTL - 장소 인증 완료 시점 + 30분
     private static final long QR_TOKEN_VALIDITY_MINUTES = 30;
     // 장소 인증 가능 시간 : 만남 시간 15분전 ~ 1시간
@@ -126,7 +132,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         BigDecimal placeLng = postInfo.placeLng();
 
         // BigDecimal → double 변환: Math 삼각함수가 double만 지원하므로 계산 직전에만 변환
-        double distanceMeters = calculateDistance(
+        double distanceMeters = GpsUtils.calculateDistance(
                 requestDto.getCurrentLat().doubleValue(), requestDto.getCurrentLng().doubleValue(),
                 placeLat.doubleValue(), placeLng.doubleValue()
         );
@@ -575,6 +581,15 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         Long opponentId = userId.equals(postInfoDto.authorId()) ? matchInfoDto.applicantId() : postInfoDto.authorId();
         notificationPublisher.sendMeetExtendRequested(opponentId, matchId);
 
+        // 연장 타임아웃 ZSet 예약
+        // score = 요청 시각 + 5분 Unix Timestamp
+        // member = meetVerification ID (스케줄러가 꺼내서 만료 처리)
+        redisTemplate.opsForZSet().add(
+                MeetRedisZSetKeys.EXTENSION_TIMEOUT,
+                String.valueOf(meetVerification.getId()),
+                LocalDateTime.now().plusMinutes(EXTENSION_TIMEOUT_MINUTES).toEpochSecond(KST)
+        );
+
         // 요청자 닉네임 조회
         String requesterNickname = userService.getUserInfo(userId).nickname();
 
@@ -623,6 +638,12 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         // 연장 요청자에게 수락 알림 발송
         notificationPublisher.sendMeetExtendAccepted(meetVerification.getExtensionRequesterId(), matchId);
 
+        // 수락 시 타임아웃 예약 제거 (더 이상 만료 처리 불필요)
+        redisTemplate.opsForZSet().remove(
+                MeetRedisZSetKeys.EXTENSION_TIMEOUT,
+                String.valueOf(meetVerification.getId())
+        );
+
         return AcceptMeetExtensionResponseDto.of(meetVerification, postInfoDto.meetAt());
     }
 
@@ -663,6 +684,12 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
         // 연장 요청자에게 거절 알림 발송
         notificationPublisher.sendMeetExtendRejected(meetVerification.getExtensionRequesterId(), matchId);
+
+        // 거절 시 타임아웃 예약 제거
+        redisTemplate.opsForZSet().remove(
+                MeetRedisZSetKeys.EXTENSION_TIMEOUT,
+                String.valueOf(meetVerification.getId())
+        );
 
         return RejectMeetExtensionResponseDto.from(meetVerification);
 
@@ -711,6 +738,12 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         expiredList.forEach(mv -> {
             mv.expireExtension();
 
+            // 만료 처리 완료 → ZSet에서 제거 (중복 처리 방지)
+            redisTemplate.opsForZSet().remove(
+                    MeetRedisZSetKeys.EXTENSION_TIMEOUT,
+                    String.valueOf(mv.getId())
+            );
+
             // 만료 알림 발송
             notificationPublisher.sendMeetExtendExpired(mv.getExtensionRequesterId(), mv.getMatchId());
         });
@@ -721,20 +754,6 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     public MeetVerification getByMatchId(Long matchId) {
         return meetVerificationRepository.findByMatchId(matchId)
                 .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
-    }
-
-    // Haversine 공식으로 두 GPS 좌표 사이 거리 계산
-    private double calculateDistance(double lat1, double lng1, double lat2, double lng2) {
-        double dLat = Math.toRadians(lat2 - lat1);
-        double dLng = Math.toRadians(lng2 - lng1);
-
-        double n = Math.sin(dLat / 2) * Math.sin(dLat / 2)
-                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-
-        double m = 2 * Math.atan2(Math.sqrt(n), Math.sqrt(1 - n));
-
-        return EARTH_RADIUS_METERS * m;
     }
 }
 

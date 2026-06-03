@@ -10,7 +10,7 @@ const TERM_ITEMS = [
   { termVersion: 'v1.0-service', label: '서비스 이용약관 동의', required: true },
   { termVersion: 'v1.0-privacy', label: '개인정보 처리방침 동의', required: true },
   { termVersion: 'v1.0-location', label: '위치기반 서비스 이용약관 동의', required: true },
-  { termVersion: 'v1.0-marketing', label: '마케팅 정보 수신 동의', required: true },
+  { termVersion: 'v1.0-marketing', label: '마케팅 정보 수신 동의', required: false },
 ];
 
 export default function SignupPage() {

@@ -56,7 +56,6 @@ class InquiryServiceImplTest {
         ValueOperations<String, String> valueOperations = mock(ValueOperations.class);
         given(stringRedisTemplate.opsForValue()).willReturn(valueOperations);
         given(valueOperations.get(anyString())).willReturn("0");
-        given(inquiryRepository.existsByUserIdAndInquiryTypeAndAnswerStatusIn(anyLong(), any(), anyList())).willReturn(false);
 
         Inquiry inquiry = mock(Inquiry.class);
         given(inquiry.getId()).willReturn(1L);

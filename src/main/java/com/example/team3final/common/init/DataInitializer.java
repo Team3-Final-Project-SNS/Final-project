@@ -4,6 +4,7 @@ import com.example.team3final.domain.chat.entity.ChatMessage;
 import com.example.team3final.domain.chat.entity.ChatRoom;
 import com.example.team3final.domain.chat.entity.ChatMember;
 import com.example.team3final.domain.chat.enums.ChatMemberRole;
+import com.example.team3final.domain.chat.enums.ChatRoomType;
 import com.example.team3final.domain.chat.repository.ChatMemberRepository;
 import com.example.team3final.domain.chat.repository.ChatMessageRepository;
 import com.example.team3final.domain.chat.repository.ChatRoomRepository;
@@ -63,16 +64,17 @@ public class DataInitializer implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-
-        // 데이터 중복을 피하기 위해서. 설정.
-        if (universityRepository.existsByeDomainAndIsActiveTrue("korea.ac.kr")) {
+        // 이미 대표 seed 게시글이 있으면 local 이닛데이터를 다시 만들지 않습니다.
+        // 서버 재시작 때마다 중복 데이터가 쌓이는 것을 막기 위한 방어 코드입니다.
+        if (existsPostByContent("1:N 리뷰 테스트용 완료된 단체 식사입니다.")) {
             return;
         }
 
         // ===================================================
         // 1. 대학교 생성
         // ===================================================
-        University university = universityRepository.save(
+        University university = getOrCreateUniversity(
+                "korea.ac.kr",
                 University.builder()
                         .universityName("한국대학교")
                         .eDomain("korea.ac.kr")
@@ -80,7 +82,8 @@ public class DataInitializer implements ApplicationRunner {
                         .build()
         );
 
-        University university1 = universityRepository.save(
+        University university1 = getOrCreateUniversity(
+                "naver.com",
                 University.builder()
                         .universityName("네이버대학교")
                         .eDomain("naver.com")
@@ -91,7 +94,8 @@ public class DataInitializer implements ApplicationRunner {
         // ===================================================
         // 2. 유저 생성 (초기 생성 시 point는 자동으로 0 세팅됨)
         // ===================================================
-        User author = userRepository.save(
+        User author = getOrCreateUser(
+                "author@korea.ac.kr",
                 User.builder()
                         .email("author@korea.ac.kr")
                         .password(passwordEncoder.encode("password123!"))
@@ -105,7 +109,8 @@ public class DataInitializer implements ApplicationRunner {
                         .build()
         );
 
-        User applicant = userRepository.save(
+        User applicant = getOrCreateUser(
+                "applicant@korea.ac.kr",
                 User.builder()
                         .email("applicant@korea.ac.kr")
                         .password(passwordEncoder.encode("password123!"))
@@ -119,13 +124,14 @@ public class DataInitializer implements ApplicationRunner {
                         .build()
         );
 
-        User hacker = userRepository.save(
+        User hacker = getOrCreateUser(
+                "dalsun_rin@naver.com",
                 User.builder()
                         .email("dalsun_rin@naver.com")
                         .password(passwordEncoder.encode("ansgpfls79"))
                         .name("나해커")
                         .nickname("정당한참여자아님")
-                        .universityId(university.getId())
+                        .universityId(university1.getId())
                         .major("법학과")
                         .studentNumber("22")
                         .birthDate(LocalDate.of(2002, 1, 1))
@@ -134,11 +140,78 @@ public class DataInitializer implements ApplicationRunner {
         );
 
         // ===================================================
+        // 2-1. 네이버대학교 1:N 리뷰 테스트용 유저 생성
+        // ===================================================
+        User naverAuthor = getOrCreateUser(
+                "naver-author@naver.com",
+                User.builder()
+                        .email("naver-author@naver.com")
+                        .password(passwordEncoder.encode("password123!"))
+                        .name("최등록")
+                        .nickname("네이버밥장")
+                        .universityId(university1.getId())
+                        .major("컴퓨터공학과")
+                        .studentNumber("21")
+                        .birthDate(LocalDate.of(2001, 5, 10))
+                        .gender(Gender.MALE)
+                        .build()
+        );
+
+        User naverApplicant1 = getOrCreateUser(
+                "naver-applicant1@naver.com",
+                User.builder()
+                        .email("naver-applicant1@naver.com")
+                        .password(passwordEncoder.encode("password123!"))
+                        .name("박신청")
+                        .nickname("네이버신청1")
+                        .universityId(university1.getId())
+                        .major("경영학과")
+                        .studentNumber("23")
+                        .birthDate(LocalDate.of(2003, 2, 12))
+                        .gender(Gender.FEMALE)
+                        .build()
+        );
+
+        User naverApplicant2 = getOrCreateUser(
+                "naver-applicant2@naver.com",
+                User.builder()
+                        .email("naver-applicant2@naver.com")
+                        .password(passwordEncoder.encode("password123!"))
+                        .name("정신청")
+                        .nickname("네이버신청2")
+                        .universityId(university1.getId())
+                        .major("소프트웨어학과")
+                        .studentNumber("24")
+                        .birthDate(LocalDate.of(2004, 8, 21))
+                        .gender(Gender.MALE)
+                        .build()
+        );
+
+        User naverApplicant3 = getOrCreateUser(
+                "naver-applicant3@naver.com",
+                User.builder()
+                        .email("naver-applicant3@naver.com")
+                        .password(passwordEncoder.encode("password123!"))
+                        .name("윤신청")
+                        .nickname("네이버신청3")
+                        .universityId(university1.getId())
+                        .major("디자인학과")
+                        .studentNumber("22")
+                        .birthDate(LocalDate.of(2002, 11, 3))
+                        .gender(Gender.FEMALE)
+                        .build()
+        );
+
+        // ===================================================
         // 3. 약관 동의 이력 생성
         // ===================================================
-        termAgreementRepository.save(TermAgreement.builder().userId(author.getId()).termVersion("v1.0").build());
-        termAgreementRepository.save(TermAgreement.builder().userId(applicant.getId()).termVersion("v1.0").build());
-        termAgreementRepository.save(TermAgreement.builder().userId(hacker.getId()).termVersion("v1.0").build());
+        saveTermAgreementIfNotExists(author.getId(), "v1.0");
+        saveTermAgreementIfNotExists(applicant.getId(), "v1.0");
+        saveTermAgreementIfNotExists(hacker.getId(), "v1.0");
+        saveTermAgreementIfNotExists(naverAuthor.getId(), "v1.0");
+        saveTermAgreementIfNotExists(naverApplicant1.getId(), "v1.0");
+        saveTermAgreementIfNotExists(naverApplicant2.getId(), "v1.0");
+        saveTermAgreementIfNotExists(naverApplicant3.getId(), "v1.0");
 
         // ===================================================
         // 4. 포인트 가입 보너스 지급 (기본 10,000포인트 충전)
@@ -146,44 +219,121 @@ public class DataInitializer implements ApplicationRunner {
         int authorBonus = 10000;
         int applicantBonus = 10000;
         int hackerBonus = 10000;
+        int naverAuthorBonus = 10000;
+        int naverApplicant1Bonus = 10000;
+        int naverApplicant2Bonus = 10000;
+        int naverApplicant3Bonus = 10000;
 
-        // 엔티티 내부의 addPoint 메서드를 사용하여 포인트 반영
-        author.addFreePoint(authorBonus);
-        applicant.addFreePoint(applicantBonus);
-        hacker.addFreePoint(hackerBonus);
+        giveSignupBonusIfNotExists(author, authorBonus);
+        giveSignupBonusIfNotExists(applicant, applicantBonus);
+        giveSignupBonusIfNotExists(hacker, hackerBonus);
+        giveSignupBonusIfNotExists(naverAuthor, naverAuthorBonus);
+        giveSignupBonusIfNotExists(naverApplicant1, naverApplicant1Bonus);
+        giveSignupBonusIfNotExists(naverApplicant2, naverApplicant2Bonus);
+        giveSignupBonusIfNotExists(naverApplicant3, naverApplicant3Bonus);
 
-        pointTransactionRepository.save(
-                PointTransaction.builder()
-                        .userId(author.getId())
-                        .amount(authorBonus)
-                        .transactionType(PointTransactionType.JOIN_BONUS)
-                        .balanceAfter(authorBonus)
-                        .pointSource(PointSource.FREE)
-                        .description("회원가입 보너스 지급")
+        // ===================================================
+        // NAVER CASE A. 네이버대학교 OPEN 게시글 2개
+        // - naver.com 계정으로 로그인했을 때 학교 필터가 정상 동작하는지 확인합니다.
+        // ===================================================
+        postRepository.save(
+                Post.builder()
+                        .authorId(naverAuthor.getId())
+                        .meetAt(LocalDateTime.now().plusHours(2))
+                        .placeName("네이버대 학생회관")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("네이버대 학생회관에서 점심 같이 먹을 분 구해요.")
+                        .authorDeposit(400)
+                        .maxApplicants(2)
                         .build()
         );
 
-        pointTransactionRepository.save(
-                PointTransaction.builder()
-                        .userId(applicant.getId())
-                        .amount(applicantBonus)
-                        .transactionType(PointTransactionType.JOIN_BONUS)
-                        .balanceAfter(applicantBonus)
-                        .pointSource(PointSource.FREE)
-                        .description("회원가입 보너스 지급")
+        postRepository.save(
+                Post.builder()
+                        .authorId(naverApplicant1.getId())
+                        .meetAt(LocalDateTime.now().plusHours(3))
+                        .placeName("네이버대 후문 분식집")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("후문 분식집에서 가볍게 밥 먹을 분 찾아요.")
+                        .authorDeposit(500)
+                        .maxApplicants(2)
                         .build()
         );
 
-        pointTransactionRepository.save(
-                PointTransaction.builder()
-                        .userId(hacker.getId())
-                        .amount(hackerBonus)
-                        .transactionType(PointTransactionType.JOIN_BONUS)
-                        .balanceAfter(hackerBonus)
-                        .pointSource(PointSource.FREE)
-                        .description("회원가입 보너스 지급")
+        // ===================================================
+        // NAVER CASE B. 1:N 리뷰 테스트용 완료 만남
+        // - 등록자 1명 + 신청자 3명
+        // - 신청자 계정으로 리뷰 작성 API를 바로 테스트할 수 있도록 Match를 COMPLETED 상태로 만듭니다.
+        // - 리뷰 정책상 등록자는 리뷰 작성 불가, 신청자 리뷰 평균이 등록자 매너온도에 반영됩니다.
+        // ===================================================
+        Post naverGroupCompletedPost = postRepository.save(
+                Post.builder()
+                        .authorId(naverAuthor.getId())
+                        .meetAt(LocalDateTime.now().minusHours(2))
+                        .placeName("네이버대 중앙식당")
+                        .placeLat(DEMO_PLACE_LAT)
+                        .placeLng(DEMO_PLACE_LNG)
+                        .content("1:N 리뷰 테스트용 완료된 단체 식사입니다.")
+                        .authorDeposit(600)
+                        .maxApplicants(5)
                         .build()
         );
+
+        Match naverGroupMatch1 = matchRepository.save(
+                Match.builder()
+                        .postId(naverGroupCompletedPost.getId())
+                        .applicantId(naverApplicant1.getId())
+                        .applicantDeposit(600)
+                        .build()
+        );
+
+        Match naverGroupMatch2 = matchRepository.save(
+                Match.builder()
+                        .postId(naverGroupCompletedPost.getId())
+                        .applicantId(naverApplicant2.getId())
+                        .applicantDeposit(600)
+                        .build()
+        );
+
+        Match naverGroupMatch3 = matchRepository.save(
+                Match.builder()
+                        .postId(naverGroupCompletedPost.getId())
+                        .applicantId(naverApplicant3.getId())
+                        .applicantDeposit(600)
+                        .build()
+        );
+
+        // 단체 게시글 참여 인원과 상태를 테스트 목적에 맞게 완료 상태로 맞춥니다.
+        naverGroupCompletedPost.increaseCurrentApplicants();
+        naverGroupCompletedPost.increaseCurrentApplicants();
+        naverGroupCompletedPost.increaseCurrentApplicants();
+        naverGroupCompletedPost.match();
+        naverGroupCompletedPost.complete();
+
+        // 리뷰 작성 가능 조건이 MatchStatus.COMPLETED 이므로 각 신청자의 매칭을 완료 상태로 만듭니다.
+        naverGroupMatch1.complete();
+        naverGroupMatch2.complete();
+        naverGroupMatch3.complete();
+
+        saveMeetVerificationIfNotExists(naverGroupMatch1.getId());
+        saveMeetVerificationIfNotExists(naverGroupMatch2.getId());
+        saveMeetVerificationIfNotExists(naverGroupMatch3.getId());
+
+        ChatRoom naverGroupChatRoom = chatRoomRepository.save(
+                ChatRoom.builder()
+                        .postId(naverGroupCompletedPost.getId())
+                        .roomType(ChatRoomType.GROUP)
+                        .build()
+        );
+
+        saveChatMemberIfNotExists(naverGroupChatRoom.getId(), naverAuthor.getId(), ChatMemberRole.HOST);
+        saveChatMemberIfNotExists(naverGroupChatRoom.getId(), naverApplicant1.getId(), ChatMemberRole.GUEST);
+        saveChatMemberIfNotExists(naverGroupChatRoom.getId(), naverApplicant2.getId(), ChatMemberRole.GUEST);
+        saveChatMemberIfNotExists(naverGroupChatRoom.getId(), naverApplicant3.getId(), ChatMemberRole.GUEST);
+
+        chatMessageRepository.save(ChatMessage.builder().chatRoomId(naverGroupChatRoom.getId()).senderId(naverAuthor.getId()).content("단체 식사 리뷰 테스트용 채팅방입니다.").build());
 
         // ===================================================
         // CASE A. 활성화 상태의 매칭 (MATCHED)
@@ -223,15 +373,15 @@ public class DataInitializer implements ApplicationRunner {
                         .build()
         );
 
-        meetVerificationRepository.save(MeetVerification.createPending(activeMatch.getId()));
+        saveMeetVerificationIfNotExists(activeMatch.getId());
 
-        userLocationRepository.save(UserLocation.builder().matchId(activeMatch.getId()).userId(author.getId()).latitude(DEMO_PLACE_LAT).longitude(DEMO_PLACE_LNG).build());
-        userLocationRepository.save(UserLocation.builder().matchId(activeMatch.getId()).userId(applicant.getId()).latitude(DEMO_PLACE_LAT).longitude(DEMO_PLACE_LNG).build());
+        saveUserLocationIfNotExists(activeMatch.getId(), author.getId());
+        saveUserLocationIfNotExists(activeMatch.getId(), applicant.getId());
 
         ChatRoom activeChatRoom = chatRoomRepository.save(ChatRoom.builder().postId(activePost.getId()).build());
 
-        chatMemberRepository.save(ChatMember.builder().chatRoomId(activeChatRoom.getId()).userId(author.getId()).role(ChatMemberRole.HOST).build());
-        chatMemberRepository.save(ChatMember.builder().chatRoomId(activeChatRoom.getId()).userId(applicant.getId()).role(ChatMemberRole.GUEST).build());
+        saveChatMemberIfNotExists(activeChatRoom.getId(), author.getId(), ChatMemberRole.HOST);
+        saveChatMemberIfNotExists(activeChatRoom.getId(), applicant.getId(), ChatMemberRole.GUEST);
 
         ChatMessage msg1 = chatMessageRepository.save(ChatMessage.builder().chatRoomId(activeChatRoom.getId()).senderId(author.getId()).content("안녕하세요!").build());
         msg1.markAsRead();
@@ -264,8 +414,8 @@ public class DataInitializer implements ApplicationRunner {
 
         ChatRoom completedChatRoom = chatRoomRepository.save(ChatRoom.builder().postId(completedPost.getId()).build());
 
-        chatMemberRepository.save(ChatMember.builder().chatRoomId(completedChatRoom.getId()).userId(author.getId()).role(ChatMemberRole.HOST).build());
-        chatMemberRepository.save(ChatMember.builder().chatRoomId(completedChatRoom.getId()).userId(applicant.getId()).role(ChatMemberRole.GUEST).build());
+        saveChatMemberIfNotExists(completedChatRoom.getId(), author.getId(), ChatMemberRole.HOST);
+        saveChatMemberIfNotExists(completedChatRoom.getId(), applicant.getId(), ChatMemberRole.GUEST);
 
         chatMessageRepository.save(ChatMessage.builder().chatRoomId(completedChatRoom.getId()).senderId(author.getId()).content("예전 완료된 대화내용입니다.").build());
 
@@ -503,6 +653,10 @@ public class DataInitializer implements ApplicationRunner {
         userRepository.save(author);
         userRepository.save(applicant);
         userRepository.save(hacker);
+        userRepository.save(naverAuthor);
+        userRepository.save(naverApplicant1);
+        userRepository.save(naverApplicant2);
+        userRepository.save(naverApplicant3);
 
         // ===================================================
         // CASE F. 이의제기 "성공" 케이스
@@ -568,5 +722,122 @@ public class DataInitializer implements ApplicationRunner {
         verifiedOnly.verifyAuthorPlace();
         verifiedOnly.verifyApplicantPlace(); // 여기서 자동으로 VERIFIED
         meetVerificationRepository.save(verifiedOnly);
+    }
+
+    /**
+     * 대표 게시글이 이미 있으면 같은 local seed를 다시 만들지 않기 위한 확인 메서드입니다.
+     */
+    private boolean existsPostByContent(String content) {
+        return postRepository.findAll().stream()
+                .anyMatch(post -> content.equals(post.getContent()));
+    }
+
+    /**
+     * 같은 이메일 도메인의 대학교가 이미 있으면 재사용하고, 없을 때만 새로 저장합니다.
+     */
+    private University getOrCreateUniversity(String eDomain, University university) {
+        return universityRepository.findByeDomainAndIsActiveTrue(eDomain)
+                .orElseGet(() -> universityRepository.save(university));
+    }
+
+    /**
+     * 같은 이메일의 유저가 이미 있으면 재사용하고, 없을 때만 새로 저장합니다.
+     */
+    private User getOrCreateUser(String email, User user) {
+        return userRepository.findByEmail(email)
+                .orElseGet(() -> userRepository.save(user));
+    }
+
+    /**
+     * 같은 유저가 같은 약관 버전에 이미 동의했다면 중복 저장하지 않습니다.
+     */
+    private void saveTermAgreementIfNotExists(Long userId, String termVersion) {
+        boolean exists = termAgreementRepository.findAll().stream()
+                .anyMatch(termAgreement ->
+                        userId.equals(termAgreement.getUserId())
+                                && termVersion.equals(termAgreement.getTermVersion()));
+
+        if (exists) {
+            return;
+        }
+
+        termAgreementRepository.save(
+                TermAgreement.builder()
+                        .userId(userId)
+                        .termVersion(termVersion)
+                        .build()
+        );
+    }
+
+    /**
+     * 회원가입 보너스 거래가 이미 있으면 포인트를 다시 지급하지 않습니다.
+     */
+    private void giveSignupBonusIfNotExists(User user, int amount) {
+        boolean exists = pointTransactionRepository.findAll().stream()
+                .anyMatch(pointTransaction ->
+                        user.getId().equals(pointTransaction.getUserId())
+                                && pointTransaction.getTransactionType() == PointTransactionType.JOIN_BONUS);
+
+        if (exists) {
+            return;
+        }
+
+        user.addFreePoint(amount);
+        pointTransactionRepository.save(
+                PointTransaction.builder()
+                        .userId(user.getId())
+                        .amount(amount)
+                        .transactionType(PointTransactionType.JOIN_BONUS)
+                        .balanceAfter(user.getTotalPoint())
+                        .pointSource(PointSource.FREE)
+                        .description("회원가입 보너스 지급")
+                        .build()
+        );
+    }
+
+    /**
+     * 매칭별 만남 인증 row는 하나만 필요하므로, 이미 있으면 새로 만들지 않습니다.
+     */
+    private void saveMeetVerificationIfNotExists(Long matchId) {
+        if (meetVerificationRepository.findByMatchId(matchId).isPresent()) {
+            return;
+        }
+
+        meetVerificationRepository.save(MeetVerification.createPending(matchId));
+    }
+
+    /**
+     * 채팅방 참여자는 chatRoomId + userId 조합으로 중복되면 안 됩니다.
+     */
+    private void saveChatMemberIfNotExists(Long chatRoomId, Long userId, ChatMemberRole role) {
+        if (chatMemberRepository.existsByChatRoomIdAndUserId(chatRoomId, userId)) {
+            return;
+        }
+
+        chatMemberRepository.save(
+                ChatMember.builder()
+                        .chatRoomId(chatRoomId)
+                        .userId(userId)
+                        .role(role)
+                        .build()
+        );
+    }
+
+    /**
+     * 유저 위치는 matchId + userId 조합으로 하나만 유지합니다.
+     */
+    private void saveUserLocationIfNotExists(Long matchId, Long userId) {
+        if (userLocationRepository.findByMatchIdAndUserId(matchId, userId).isPresent()) {
+            return;
+        }
+
+        userLocationRepository.save(
+                UserLocation.builder()
+                        .matchId(matchId)
+                        .userId(userId)
+                        .latitude(DEMO_PLACE_LAT)
+                        .longitude(DEMO_PLACE_LNG)
+                        .build()
+        );
     }
 }

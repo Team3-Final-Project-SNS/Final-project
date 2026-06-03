@@ -1,5 +1,6 @@
 package com.example.team3final.domain.auth.service;
 
+import com.example.team3final.common.config.AuthProperties;
 import com.example.team3final.common.config.OtpProperties;
 import com.example.team3final.common.exception.AuthException;
 import com.example.team3final.common.exception.ErrorCode;
@@ -54,11 +55,7 @@ public class AuthServiceImpl implements AuthService{
     private static final String REFRESH_TOKEN_KEY_PREFIX = "refresh:";
     private static final int MAX_OTP_ATTEMPTS = 5;
 
-    private static final List<String> REQUIRED_TERM_VERSIONS = List.of(
-            "v1.0-service",
-            "v1.0-privacy",
-            "v1.0-location"  // 추가된 위치 정보 약관
-    );
+    private final AuthProperties authProperties; // 회원정보시 약관 동의
 
     // ======== OTP 발송 ======================
     @Override
@@ -244,7 +241,7 @@ public class AuthServiceImpl implements AuthService{
         // REQUIRED_TERM_VERSIONS 중 agreed=true가 아닌 항목이 하나라도 있으면 차단
         boolean hasRefusedRequired = request.getTermAgreements().stream()
                 // 필수 약관 버전만 필터링
-                .filter(term -> REQUIRED_TERM_VERSIONS.contains(term.termVersion()))
+                .filter(term -> authProperties.getRequiredTermVersions().contains(term.termVersion()))
                 // 동의하지 않은(agreed가 null이거나 false) 항목 존재 여부 확인
                 .anyMatch(term -> !Boolean.TRUE.equals(term.agreed()));
 

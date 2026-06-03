@@ -72,7 +72,7 @@ public class InquiryController {
     }
 
     // 고객 문의 취소
-    @DeleteMapping("/{inquiryId}")
+    @PatchMapping("/{inquiryId}/cancel")
     public ResponseEntity<ApiResponseDto<CancelInquiryResponseDto>> cancelInquiry(
             @AuthenticationPrincipal UserDetailsImpl userDetails,
             @PathVariable Long inquiryId
