@@ -9,6 +9,7 @@ import com.example.team3final.domain.match.dto.response.*;
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.repository.MatchRepository;
+import com.example.team3final.domain.meet.util.MeetRedisZSetKeys;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.dto.response.PostMatchInfoDto;
 import com.example.team3final.domain.post.entity.Post;
@@ -20,10 +21,12 @@ import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +43,7 @@ public class MatchServiceImpl implements MatchService{
     private final UserService userService;
     private final PostService postService;
     private final NotificationPublisher notificationPublisher;  // 알림 발송용
+    private final StringRedisTemplate redisTemplate; // ZSet 예약용
 
     @Override
     @Transactional
@@ -111,6 +115,32 @@ public class MatchServiceImpl implements MatchService{
 
         // 16번 알림 - 신청자에게 매칭 확정 알림 발송
         notificationPublisher.sendMatchConfirmed(applicantId, savedMatch.getId());
+
+        // 만남 알림 ZSet 예약 (30분/15분/5분 전)
+        // score = 알림 발송할 Unix Timestamp
+        // member = matchId (스케줄러가 꺼내서 알림 발송에 사용)
+        LocalDateTime meetAt = post.getMeetAt();
+
+        // 30분 전 알림 예약 (meetAt - 30분 시각에 발송)
+        redisTemplate.opsForZSet().add(
+                MeetRedisZSetKeys.REMINDER_30,
+                String.valueOf(savedMatch.getId()),
+                meetAt.minusMinutes(30).toEpochSecond(ZoneOffset.ofHours(9))
+        );
+
+        // 15분 전 알림 예약 (meetAt - 15분 시각에 발송)
+        redisTemplate.opsForZSet().add(
+                MeetRedisZSetKeys.REMINDER_15,
+                String.valueOf(savedMatch.getId()),
+                meetAt.minusMinutes(15).toEpochSecond(ZoneOffset.ofHours(9))
+        );
+
+        // 임박 알림 예약 (meetAt - 5분 시각에 발송)
+        redisTemplate.opsForZSet().add(
+                MeetRedisZSetKeys.REMINDER_IMMINENT,
+                String.valueOf(savedMatch.getId()),
+                meetAt.minusMinutes(5).toEpochSecond(ZoneOffset.ofHours(9))
+        );
 
 
         return CreateMatchResponseDto.of(
@@ -270,6 +300,13 @@ public class MatchServiceImpl implements MatchService{
 
         // 2번 알림 - 상대방에게 매칭 취소 알림 발송
         notificationPublisher.sendMatchCancelled(opponentId, matchId);
+
+        // 매칭 취소 시 ZSet 알림 예약 제거
+        // 취소된 매칭은 알림 발송 불필요
+        String matchIdStr = String.valueOf(matchId);
+        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_30, matchIdStr);
+        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_15, matchIdStr);
+        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_IMMINENT, matchIdStr);
 
         return CancelMatchResponseDto.of(
                 match.getId(),
