@@ -87,6 +87,11 @@ public interface UserService {
     // email, university를 포함한 관리자용 단건 조회
     AdminUserInfoDto getAdminUserInfo(Long userId);
 
+    // 신고 기능 박탈 처리 — 기각 누적 초과 시 호출
+    void banReportFeature(Long userId, int days);
+
+    // 박탈 여부 체크
+    boolean isReportBanned(Long userId);
 
 
     // 리뷰 도매인에서 활용.

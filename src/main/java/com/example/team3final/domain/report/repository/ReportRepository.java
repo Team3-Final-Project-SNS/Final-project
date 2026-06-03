@@ -42,4 +42,22 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
 
     // 기각된 신고 단건 조회
     Optional<Report> findByReporterIdAndTargetIdAndStatus(Long reporterId, Long targetId, ReportStatus status);
+
+    // 특정 신고자의 기각된 신고 횟수 조회
+    int countByReporterIdAndStatus(Long reporterId, ReportStatus status);
+
+    // 이번 달 신고자의 포상 지급 횟수 조회
+    // → 횟수 * 50P로 이번 달 지급 총액 계산
+    @Query("""
+       SELECT COUNT(r)
+       FROM Report r
+       WHERE r.reporterId = :reporterId
+         AND r.status = 'ACCEPTED'
+         AND r.isRewarded = true
+         AND r.processedAt >= :startOfMonth
+       """)
+    int countRewardedThisMonth(
+            @Param("reporterId") Long reporterId,
+            @Param("startOfMonth") LocalDateTime startOfMonth
+    );
 }

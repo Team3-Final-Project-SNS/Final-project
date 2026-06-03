@@ -1,10 +1,17 @@
 package com.example.team3final.domain.payment.service;
 
+import com.example.team3final.common.exception.ErrorCode;
+import com.example.team3final.common.exception.PaymentException;
 import com.example.team3final.domain.payment.dto.request.CreatePaymentRequestDto;
+import com.example.team3final.domain.payment.dto.request.VerifyPaymentRequestDto;
 import com.example.team3final.domain.payment.dto.response.CreatePaymentResponseDto;
+import com.example.team3final.domain.payment.dto.response.VerifyPaymentResponseDto;
 import com.example.team3final.domain.payment.entity.Payment;
 import com.example.team3final.domain.payment.enums.ChargePackage;
 import com.example.team3final.domain.payment.repository.PaymentRepository;
+import com.example.team3final.domain.user.service.UserPointService;
+import io.portone.sdk.server.payment.PaidPayment;
+import io.portone.sdk.server.payment.PaymentClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,7 +27,10 @@ import java.time.LocalDateTime;
 public class PaymentServiceImpl implements PaymentService{
 
     private final PaymentRepository paymentRepository;
+    private final PaymentClient paymentClient;
+    private final UserPointService userPointService;
 
+    // 결제 준비
     @Override
     public CreatePaymentResponseDto createPayment(Long userId, CreatePaymentRequestDto request) {
 
@@ -48,6 +58,70 @@ public class PaymentServiceImpl implements PaymentService{
                 userId, merchantUid, saved.getAmount());
 
         return CreatePaymentResponseDto.from(saved);
+    }
+
+    // 결제 완료 검증
+    @Override
+    @Transactional
+    public VerifyPaymentResponseDto verifyPayment(Long userId, Long paymentId,
+                                                  VerifyPaymentRequestDto request) {
+        // 1. 결제 건 조회 - 없으면 PAY_003
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new PaymentException(ErrorCode.PAY_NOT_FOUND));
+
+        // 2. 이미 처리된 결제인지 확인 (PAID or CANCELLED) - 중복 검증 방지
+        // isFinalized(): PaymentStatus.PAID || CANCELLED 이면 true
+        if (payment.getStatus().isFinalized()) {
+            throw new PaymentException(ErrorCode.PAY_ALREADY_PROCESSED);
+        }
+
+        // 3. PortOne API 호출
+        //    getPayment()가 CompletableFuture<Payment>를 반환하므로 .get()으로 blocking 대기
+        //    InterruptedException, ExecutionException 두 가지 checked exception 처리 필요
+        io.portone.sdk.server.payment.Payment portOnePayment;
+        try {
+            portOnePayment = paymentClient.getPayment(request.getImpUid()).get();
+        } catch (InterruptedException e) {
+            // 대기 중 스레드가 인터럽트된 경우 — 스레드 상태 복구 후 예외 전환
+            Thread.currentThread().interrupt();
+            throw new PaymentException(ErrorCode.PAY_VERIFICATION_FAILED);
+        } catch (Exception e) {
+            log.error("[Payment] PortOne 결제 조회 실패 - impUid: {}, error: {}",
+                    request.getImpUid(), e.getMessage());
+            throw new PaymentException(ErrorCode.PAY_VERIFICATION_FAILED);
+        }
+
+        // 4. 결제 상태 확인 — PortOne에서 PAID가 아니면 검증 실패
+        //    SDK의 Payment는 sealed class: PaidPayment / FailedPayment 등으로 분기됨
+        if (!(portOnePayment instanceof PaidPayment paidPayment)) {
+            log.warn("[Payment] PortOne 결제 미완료 상태 - impUid: {}, status: {}",
+                    request.getImpUid(), portOnePayment.getClass().getSimpleName());
+            throw new PaymentException(ErrorCode.PAY_VERIFICATION_FAILED);
+        }
+
+        // 5. 금액 검증 - DB 저장 금액 vs PortOne 실제 결제 금액 비교
+        //    totalAmount: PaidPayment에서만 꺼낼 수 있는 실제 결제 금액(원)
+        //    일치하지 않으면 위변조 시도 -> PAY_004
+        int portOneAmount = (int) paidPayment.getAmount().getTotal();
+        if (payment.getAmount() != portOneAmount) {
+            // 위변조 감지 - 결제 실패 처리 후 예외
+            payment.markFailed();
+            log.warn("[Payment] 금액 불일치 위변조 감지 - paymentId: {}, 기대: {}, 실제: {}",
+                    paymentId, payment.getAmount(),portOneAmount);
+            throw new PaymentException(ErrorCode.PAY_AMOUNT_MISMATCH);
+        }
+
+        // 6. 결제 완료 상태 전환 - READY -> PAID, completedAt 세팅
+        payment.markPaid();
+
+        // 7. 유료 포인트 지급 + 잔액 반환
+        //    chargePoint()가 addPaidPoint() + 거래 내역 기록 + 잔액 반환까지 한 번에 처리
+        int balanceAfter = userPointService.chargePoint(userId, payment.getChargePoint(), paymentId);
+
+        log.info("[Payment] 결제 검증 완료 - userId: {}, paymentId: {}, chargePoint: {}",
+                userId, paymentId, payment.getChargePoint());
+
+        return VerifyPaymentResponseDto.of(payment, request.getImpUid(), balanceAfter);
     }
 
     // ===== private 헬퍼 =====

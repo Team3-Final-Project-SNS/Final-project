@@ -39,51 +39,7 @@ public class UserServiceImpl implements UserService {
 
     private static final int SIGNUP_BONUS_POINT = 10_000;
 
-    // 이메일로 사용자 ID를 조회합니다.
-    @Override
-    public Long getUserIdByEmail(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
-        return user.getId();
-    }
-
-    // 같은 학교 활성 사용자 ID 목록 조회
-    @Override
-    public List<Long> getUserIdsByUniversityId(Long universityId) {
-        // UserRepository에서 universityId 기준으로 ACTIVE 유저 ID만 조회
-        // 탈퇴/정지 유저 제외 → 게시글 목록에 노출되면 안 되는 유저 자동 필터링
-        return userRepository.findIdsByUniversityId(universityId);
-    }
-
-    @Override
-    public List<Long> getActiveUserIdsByUniversityId(Long universityId) {
-        // AI 매칭 도메인이 UserRepository를 직접 참조하지 않도록,
-        // 같은 학교의 ACTIVE 사용자 ID 조회는 User 도메인 서비스가 담당합니다.
-        return userRepository.findActiveUserIdsByUniversityId(universityId);
-    }
-
-    //회원가입 시 가입되어있는 이메일인지 검증
-    @Override
-    public boolean isEmailAlreadyRegistered(String email) {
-        return userRepository.existsByEmail(email);
-    }
-
-    // 이메일로 User 엔티티 조회(로그인시 사용)
-    @Override
-    public User findByEmail(String email) {
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
-    }
-
-    // 닉네임 중복확인
-    @Override
-    public boolean existsByNickname(String nickname) {
-        // UserRepository를 통해 닉네임과 학교 ID가 동시에 일치하는 유저가 있는지 확인합니다.
-        return userRepository.existsByNickname(nickname);
-    }
-
-    // 회원가입 처리 (쓰기 트랜잭션)
-    // @Transactional(readOnly=true) 클래스 기본값을 @Transactional로 오버라이드
+    // 회원가입
     @Override
     @Transactional
     public User createUser(String email, String encodedPassword, String name, String nickname,
@@ -130,7 +86,7 @@ public class UserServiceImpl implements UserService {
         return savedUser;
     }
 
-    // ===== 내 정보 조회 =====
+    // 내 정보 조회
     @Override
     public GetUserResponseDto getUser(Long userId) {
 
@@ -142,7 +98,7 @@ public class UserServiceImpl implements UserService {
         return GetUserResponseDto.of(user);
     }
 
-    // ===== 내 정보 수정 =====
+    // 내 정보 수정
     @Override
     @Transactional // 읽기 전용 클래스 기본값을 쓰기 가능으로 오버라이드 (더티 체킹 작동)
     public UpdateUserResponseDto updateUser(Long userId, UpdateUserRequestDto request) {
@@ -221,6 +177,80 @@ public class UserServiceImpl implements UserService {
         return UpdateUserResponseDto.of(user, passwordChanged);
     }
 
+    // 회원 탈퇴
+    @Override
+    @Transactional
+    public void withdrawUser(Long userId, String rawPassword) {
+
+        // 1. 유저 조회 — 없으면 USER_NOT_FOUND 예외
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
+
+        // 2. 이미 탈퇴/정지된 계정이면 진행 불가
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new UserException(ErrorCode.USER_SUSPENDED_OR_WITHDRAWN);
+        }
+
+        // 3. 비밀번호 일치 여부 확인
+        boolean isPasswordCorrect = passwordEncoder.matches(rawPassword, user.getPassword());
+        if (!isPasswordCorrect) {
+            throw new UserException(ErrorCode.USER_CURRENT_PASSWORD_MISMATCH);
+        }
+
+        // 4. 상태를 WITHDRAWN으로 변경
+        user.withdraw();
+
+        // 5. 더티 체킹: @Transactional 범위 안에서 엔티티 변경 → 트랜잭션 종료 시 자동 UPDATE
+        // save()를 명시적으로 호출하지 않아도 됨
+    }
+
+    // =========== Service to service ==================================================================
+
+    // 회원가입 시 가입되어있는 이메일인지 검증
+    @Override
+    public boolean isEmailAlreadyRegistered(String email) {
+        return userRepository.existsByEmailAndStatusNot(email, UserStatus.WITHDRAWN);
+    }
+
+    // 닉네임 중복확인
+    @Override
+    public boolean existsByNickname(String nickname) {
+        // UserRepository를 통해 닉네임과 학교 ID가 동시에 일치하는 유저가 있는지 확인합니다.
+        return userRepository.existsByNickname(nickname);
+    }
+
+    // 이메일로 사용자 ID를 조회합니다.
+    @Override
+    public Long getUserIdByEmail(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
+        return user.getId();
+    }
+
+    // 이메일로 User 엔티티 조회(로그인 시 사용)
+    @Override
+    public User findByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    // 같은 학교 활성 사용자 ID 목록 조회
+    @Override
+    public List<Long> getUserIdsByUniversityId(Long universityId) {
+        // UserRepository에서 universityId 기준으로 ACTIVE 유저 ID만 조회
+        // 탈퇴/정지 유저 제외 → 게시글 목록에 노출되면 안 되는 유저 자동 필터링
+        return userRepository.findIdsByUniversityId(universityId);
+    }
+
+    // AI 매칭 도메인에서 같은 학교의 활성화 사용자 ID 조회
+    @Override
+    public List<Long> getActiveUserIdsByUniversityId(Long universityId) {
+        // AI 매칭 도메인이 UserRepository를 직접 참조하지 않도록,
+        // 같은 학교의 ACTIVE 사용자 ID 조회는 User 도메인 서비스가 담당합니다.
+        return userRepository.findActiveUserIdsByUniversityId(universityId);
+    }
+
+    // User의 정보 중 유저ID, 닉네임, 학과, 학번, 학교ID만 참조
     @Override
     public Map<Long, UserInfoDto> getUserInfos(List<Long> userIds) {
         if (userIds == null || userIds.isEmpty()) {
@@ -268,33 +298,6 @@ public class UserServiceImpl implements UserService {
                 .collect(Collectors.toMap(User::getId, User::getNickname));
     }
 
-    // 회원 탈퇴
-    @Override
-    @Transactional
-    public void withdrawUser(Long userId, String rawPassword) {
-
-        // 1. 유저 조회 — 없으면 USER_NOT_FOUND 예외
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
-
-        // 2. 이미 탈퇴/정지된 계정이면 진행 불가
-        if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new UserException(ErrorCode.USER_SUSPENDED_OR_WITHDRAWN);
-        }
-
-        // 3. 비밀번호 일치 여부 확인
-        boolean isPasswordCorrect = passwordEncoder.matches(rawPassword, user.getPassword());
-        if (!isPasswordCorrect) {
-            throw new UserException(ErrorCode.USER_CURRENT_PASSWORD_MISMATCH);
-        }
-
-        // 4. 상태를 WITHDRAWN으로 변경
-        user.withdraw();
-
-        // 5. 더티 체킹: @Transactional 범위 안에서 엔티티 변경 → 트랜잭션 종료 시 자동 UPDATE
-        // save()를 명시적으로 호출하지 않아도 됨
-    }
-
     // email, university를 포함한 관리자용 단건 조회
     @Override
     public AdminUserInfoDto getAdminUserInfo(Long userId) {
@@ -305,13 +308,25 @@ public class UserServiceImpl implements UserService {
         return AdminUserInfoDto.from(user);
     }
 
+    // 신고 박탈 처리 메서드
+    @Override
+    @Transactional
+    public void banReportFeature(Long userId, int days) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
+        user.banReport(days);
+    }
 
-    /**
-     * 두 사용자가 같은 학교 소속인지 확인합니다.
-     *
-     * 후기 조회 정책에서 본인이 아니더라도 같은 학교 유저의 후기는 조회할 수 있으므로,
-     * Review 도메인에서 직접 UserRepository를 참조하지 않고 UserService를 통해 검증합니다.
-     */
+    // 박탈 여부 체크 로직
+    @Override
+    public boolean isReportBanned(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
+        return user.isReportBanned();
+    }
+
+
+    // 두 사용자가 같은 학교소속인지 확인
     @Override
     public boolean isSameUniversity(Long userId, Long otherUserId) {
         User user = userRepository.findById(userId)
@@ -322,13 +337,7 @@ public class UserServiceImpl implements UserService {
         return user.getUniversityId().equals(otherUser.getUniversityId());
     }
 
-
-    /**
-     * 후기 집계 결과로 사용자의 매너 온도를 갱신합니다.
-     *
-     * 매너 온도 계산은 Review 도메인에서 수행하고,
-     * User 엔티티의 실제 값 변경은 UserService를 통해 처리합니다.
-     */
+    // 후기 결과 -> 사용자 매너온도에 반영
     @Override
     @Transactional
     public void updateMannerTemperature(Long userId, BigDecimal mannerTemperature) {
@@ -338,12 +347,7 @@ public class UserServiceImpl implements UserService {
         user.updateMannerTemperature(mannerTemperature);
     }
 
-
-    /**
-     * 사용자의 현재 매너 온도를 조회합니다.
-     *
-     * 받은 후기 목록 응답에서 최신 매너 온도를 함께 내려주기 위해 사용합니다.
-     */
+    // 사용자의 현재 매너온도 조회
     @Override
     public BigDecimal getMannerTemperature(Long userId) {
         User user = userRepository.findById(userId)
