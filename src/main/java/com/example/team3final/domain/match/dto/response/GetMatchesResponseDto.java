@@ -20,6 +20,7 @@ public record GetMatchesResponseDto(
         // 내가 신청자면 match.getApplicantDeposit()
         // → 서비스에서 판단 후 결정해서 넘김
         int myDeposit,
+        boolean isAuthor,          // 현재 로그인 사용자가 게시글 등록자인지 여부
         MatchStatus status,         // 매칭 상태
         Long chatRoomId,            // 채팅방 ID (Chat 도메인, 미구현 시 null)
         LocalDateTime matchedAt,    // 매칭 확정 시각
@@ -34,6 +35,7 @@ public record GetMatchesResponseDto(
             LocalDateTime meetAt,
             String placeName,
             int myDeposit,
+            boolean isAuthor,
             Long chatRoomId
     ) {
         return new GetMatchesResponseDto(
@@ -46,6 +48,7 @@ public record GetMatchesResponseDto(
                 meetAt,
                 placeName,
                 myDeposit,
+                isAuthor,
                 match.getStatus(),
                 chatRoomId,
                 match.getCreatedAt(),

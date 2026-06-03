@@ -22,7 +22,7 @@ import java.util.List;
  *
  * 후기 생성 결과와 함께 실제 후기를 받은 사용자 정보,
  * 선택한 태그 목록, 태그 기반 점수 변화량,
- * 신고 필요 태그 포함 여부, 후기 작성 보상 포인트를 반환합니다.
+ * 다시 만나고 싶지 않아요 태그 선택 여부, 후기 작성 보상 포인트를 반환합니다.
  */
 public record CreateReviewResponseDto(
         Long reviewId,
@@ -32,7 +32,7 @@ public record CreateReviewResponseDto(
         List<ReviewGoodTag> goodTags,
         List<ReviewBadTag> badTags,
         int tagScoreDelta,
-        boolean reportNeeded,
+        boolean doNotWantToMeetAgainSelected,
         int rewardPoint,
         LocalDateTime createdAt
 ) {
@@ -42,7 +42,7 @@ public record CreateReviewResponseDto(
             String targetNickname,
             List<ReviewGoodTag> goodTags,
             List<ReviewBadTag> badTags,
-            boolean reportNeeded
+            boolean doNotWantToMeetAgainSelected
     ) {
         return new CreateReviewResponseDto(
                 review.getId(),
@@ -52,7 +52,7 @@ public record CreateReviewResponseDto(
                 goodTags,
                 badTags,
                 review.getTagScoreDelta(),
-                reportNeeded,
+                doNotWantToMeetAgainSelected,
                 Review.REVIEW_REWARD_POINT,
                 review.getCreatedAt()
         );
