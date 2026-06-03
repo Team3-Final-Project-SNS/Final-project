@@ -78,6 +78,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         // 계정 정지 처리
         userService.suspendUser(userId, null); // 영구정지 (관리자 수동 정지)
 
+        // 정지된 유저 엔티티 조회 → 팩토리 메서드로 응답 생성
         User user = userService.findUserById(userId);
 
         return AdminSuspendUserResponseDto.of(user, requestDto.getReason());
