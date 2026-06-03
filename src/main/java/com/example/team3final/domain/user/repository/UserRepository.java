@@ -42,12 +42,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u.id FROM User u WHERE u.universityId = :universityId AND u.status = 'ACTIVE'")
     List<Long> findIdsByUniversityId(@Param("universityId") Long universityId);
 
-
-
-
-
-
-
     // 일단 ai db 활용을 위해서 임시로. 나중에 리팩토링할때 서비스 to 서비스로 변경 예정.
     @Query("""
     SELECT u.id
