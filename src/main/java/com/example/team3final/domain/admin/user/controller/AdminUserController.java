@@ -3,8 +3,10 @@ package com.example.team3final.domain.admin.user.controller;
 import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.domain.admin.security.AdminDetailsImpl;
+import com.example.team3final.domain.admin.user.dto.request.AdminReinstateUserRequestDto;
 import com.example.team3final.domain.admin.user.dto.request.AdminSuspendUserRequestDto;
 import com.example.team3final.domain.admin.user.dto.response.AdminGetUsersResponseDto;
+import com.example.team3final.domain.admin.user.dto.response.AdminReinstateUserResponseDto;
 import com.example.team3final.domain.admin.user.dto.response.AdminSuspendUserResponseDto;
 import com.example.team3final.domain.admin.user.service.AdminUserService;
 import com.example.team3final.domain.user.enums.UserStatus;
@@ -45,5 +47,16 @@ public class AdminUserController {
 
         Long adminId = adminDetails.getAdminId();
         return ResponseEntity.ok(ApiResponseDto.success(adminUserService.suspendUser(adminId, userId, requestDto)));
+    }
+
+    // 관리자 수동 정지 해제
+    @PatchMapping("/users/{userId}/reinstate")
+    public ResponseEntity<ApiResponseDto<AdminReinstateUserResponseDto>> reinstateUser(
+            @PathVariable Long userId,
+            @AuthenticationPrincipal AdminDetailsImpl adminDetails,
+            @Valid @RequestBody AdminReinstateUserRequestDto requestDto) {
+
+        Long adminId = adminDetails.getAdminId();
+        return ResponseEntity.ok(ApiResponseDto.success(adminUserService.reinstateUser(adminId, userId, requestDto)));
     }
 }

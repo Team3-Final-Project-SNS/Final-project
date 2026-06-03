@@ -190,7 +190,7 @@ public class UserServiceImpl implements UserService {
         // 2. 이미 탈퇴/정지된 계정이면 진행 불가
         if (user.getStatus() == UserStatus.WITHDRAWN) {
             // 이미 탈퇴된 계정 -> 탈퇴 불가
-            throw new UserException(ErrorCode.USER_SUSPENDED_OR_WITHDRAWN);
+            throw new UserException(ErrorCode.USER_WITHDRAWN);
         }
         if (user.getStatus() == UserStatus.SUSPENDED) {
             boolean isSuspensionExpired = user.getSuspendedUntil() != null
@@ -200,7 +200,7 @@ public class UserServiceImpl implements UserService {
                 user.reinstate();
             } else {
                 // 아직 유효한 정지 또는 영구 정지 -> 탈퇴 불가
-                throw new UserException(ErrorCode.USER_SUSPENDED_OR_WITHDRAWN);
+                throw new UserException(ErrorCode.USER_SUSPENDED);
             }
         }
 
