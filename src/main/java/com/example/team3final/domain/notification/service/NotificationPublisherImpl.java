@@ -287,4 +287,22 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 "새로운 후기가 작성되어 매너 온도가 변경되었습니다. 마이페이지에서 확인해 보세요.",
                 RelatedDomain.SYSTEM, null);
     }
+
+    // 28. 만남 완료 / 후기 작성 유도 알림
+    @Override
+    public void sendMeetCompleted(Long userId, Long matchId) {
+        publish(userId, NotificationType.MEET_COMPLETED,
+                "만남이 완료되었습니다.",
+                "만남이 완료되었습니다. 후기를 작성해 주세요.",
+                RelatedDomain.MEET, matchId);
+    }
+
+    // 29. 후기 작성 마지막 날 알림
+    @Override
+    public void sendReviewDeadlineReminder(Long userId, Long matchId) {
+        publish(userId, NotificationType.REVIEW_DEADLINE_REMINDER,
+                "후기 작성 마지막 날입니다.",
+                "오늘이 후기를 작성할 수 있는 마지막 날입니다. 서둘러 작성해 주세요.",
+                RelatedDomain.MEET, matchId);
+    }
 }

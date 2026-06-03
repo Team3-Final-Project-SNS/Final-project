@@ -16,6 +16,7 @@ import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.service.PostService;
 import com.example.team3final.domain.review.service.ReviewAvoidanceService;
+import com.example.team3final.domain.review.util.ReviewRedisZSetKeys;
 import com.example.team3final.domain.user.dto.response.UserInfoDto;
 import com.example.team3final.domain.user.service.UserPointService;
 import com.example.team3final.domain.user.service.UserService;
@@ -198,6 +199,19 @@ public class MatchServiceImpl implements MatchService{
         Post post = postService.getPostById(match.getPostId());
         userPointService.refundPoint(post.getAuthorId(), post.getAuthorDeposit(), matchId);
         userPointService.refundPoint(match.getApplicantId(), match.getApplicantDeposit(), matchId);
+
+        // 후기 작성 마지막 날 알림 예약
+        // completedAt + 7일이 되는 날 오전 9시에 알림 발송
+        LocalDateTime reviewDeadlineReminderAt = match.getCompletedAt()
+                .plusDays(7)
+                .toLocalDate()
+                .atTime(9, 0);
+
+        redisTemplate.opsForZSet().add(
+                ReviewRedisZSetKeys.DEADLINE_REMINDER,
+                String.valueOf(match.getId()),
+                reviewDeadlineReminderAt.toEpochSecond(ZoneOffset.ofHours(9))
+        );
     }
 
     @Override
@@ -325,6 +339,7 @@ public class MatchServiceImpl implements MatchService{
         redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_30, matchIdStr);
         redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_15, matchIdStr);
         redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_IMMINENT, matchIdStr);
+        redisTemplate.opsForZSet().remove(ReviewRedisZSetKeys.DEADLINE_REMINDER, matchIdStr);
 
         return CancelMatchResponseDto.of(
                 match.getId(),

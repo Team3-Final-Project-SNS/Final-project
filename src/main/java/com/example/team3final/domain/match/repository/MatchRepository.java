@@ -106,6 +106,9 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
     // Review 도메인에서 단체 만남의 전체 신청자 리뷰 평균을 계산할 때 사용합니다.
     List<Match> findAllByPostId(Long postId);
 
+    // 만남 완료 후 채팅방 READ_ONLY 전환 시 신청자에게 후기 작성 유도 알림을 보낼 때 사용합니다.
+    List<Match> findAllByPostIdAndStatus(Long postId, MatchStatus status);
+
     // matchId로 authorId 조회 - MeetReminderScheduler용
     @Query("SELECT p.authorId FROM Match m JOIN Post p ON m.postId = p.id WHERE m.id = :matchId")
     Long findAuthorIdByMatchId(@Param("matchId") Long matchId);

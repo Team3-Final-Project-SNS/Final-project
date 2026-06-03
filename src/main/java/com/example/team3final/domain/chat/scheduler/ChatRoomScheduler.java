@@ -2,6 +2,10 @@ package com.example.team3final.domain.chat.scheduler;
 
 import com.example.team3final.domain.chat.repository.ChatRoomRepository;
 import com.example.team3final.domain.chat.util.ChatRedisZSetKeys;
+import com.example.team3final.domain.match.entity.Match;
+import com.example.team3final.domain.match.enums.MatchStatus;
+import com.example.team3final.domain.match.repository.MatchRepository;
+import com.example.team3final.domain.notification.service.NotificationPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -21,6 +25,8 @@ public class ChatRoomScheduler {
 
     private final StringRedisTemplate redisTemplate;
     private final ChatRoomRepository chatRoomRepository;
+    private final MatchRepository matchRepository;
+    private final NotificationPublisher notificationPublisher;
     private final DefaultRedisScript<List<String>> popReadyItemsScript; // RedisConfig Bean 주입
 
     // 한국 시간대 오프셋 — Unix Timestamp 변환 시 KST(UTC+9) 기준 적용
@@ -62,6 +68,16 @@ public class ChatRoomScheduler {
 
                 // ACTIVE → READ_ONLY 전환 (만남 완료 2시간 경과)
                 chatRoom.deactivateByScheduler();
+
+                // 만남 완료 후 신청자에게 후기 작성 유도 알림 발송
+                // 단체 만남일 수 있으므로 같은 postId의 COMPLETED 매칭 신청자 전체에게 발송
+                List<Match> completedMatches = matchRepository.findAllByPostIdAndStatus(
+                        chatRoom.getPostId(),
+                        MatchStatus.COMPLETED
+                );
+
+                completedMatches.forEach(match ->
+                        notificationPublisher.sendMeetCompleted(match.getApplicantId(), match.getId()));
             });
         }
     }
