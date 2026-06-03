@@ -3,6 +3,7 @@ package com.example.team3final.domain.payment.controller;
 import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.domain.payment.dto.request.CreatePaymentRequestDto;
 import com.example.team3final.domain.payment.dto.request.VerifyPaymentRequestDto;
+import com.example.team3final.domain.payment.dto.response.CancelPaymentResponseDto;
 import com.example.team3final.domain.payment.dto.response.CreatePaymentResponseDto;
 import com.example.team3final.domain.payment.dto.response.VerifyPaymentResponseDto;
 import com.example.team3final.domain.payment.service.PaymentService;
@@ -56,5 +57,17 @@ public class PaymentController {
                        paymentService.verifyPayment(userId, paymentId, request)
                )
        );
+    }
+
+    @PatchMapping("/{paymentId}/cancel")
+    public ResponseEntity<ApiResponseDto<CancelPaymentResponseDto>> cancelPayment(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @PathVariable Long paymentId
+    ) {
+        return ResponseEntity.ok(
+                ApiResponseDto.success(
+                        paymentService.cancelPayment(userDetails.getUserId(), paymentId)
+                )
+        );
     }
 }
