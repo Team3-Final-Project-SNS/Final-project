@@ -32,6 +32,7 @@ public enum ErrorCode {
     USER_SAME_PASSWORD(HttpStatus.BAD_REQUEST, "USER_003", "새 비밀번호가 현재 비밀번호와 동일합니다."),
     USER_WITHDRAWN(HttpStatus.FORBIDDEN, "USER_004", "탈퇴된 계정입니다."),
     USER_SUSPENDED(HttpStatus.FORBIDDEN, "USER_005", "정지된 계정입니다."),
+    USER_NOT_SUSPENDED(HttpStatus.BAD_REQUEST, "USER_007", "정지 상태의 계정만 해제할 수 있습니다."),
     // common
     USER_NO_FIELD_TO_UPDATE(HttpStatus.BAD_REQUEST, "COMMON_001", "수정할 필드가 한 개 이상 필요합니다."),
 
