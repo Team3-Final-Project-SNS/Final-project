@@ -3,6 +3,7 @@ package com.example.team3final.domain.admin.post.service;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.domain.admin.post.dto.request.AdminDeletePostRequestDto;
 import com.example.team3final.domain.admin.post.dto.response.AdminDeletePostResponseDto;
+import com.example.team3final.domain.admin.post.dto.response.AdminGetPostResponseDto;
 import com.example.team3final.domain.admin.post.dto.response.AdminGetPostsResponseDto;
 import com.example.team3final.domain.post.enums.PostStatus;
 import org.springframework.data.domain.Pageable;
@@ -16,8 +17,12 @@ public interface AdminPostService {
     PageResponseDto<AdminGetPostsResponseDto> getPosts(
             Long adminId,
             Long universityId, // 추가 — null이면 전체 대학
+            String authorNickname,
             PostStatus status,
             String keyword,
             Pageable pageable
     );
+
+    // 관리자 게시글 상세 조회
+    AdminGetPostResponseDto getPost(Long adminId, Long postId);
 }
