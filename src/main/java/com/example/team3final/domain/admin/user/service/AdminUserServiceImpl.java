@@ -63,6 +63,7 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     // User 계정 정지
     @Override
+    @Transactional
     public AdminSuspendUserResponseDto suspendUser(Long adminId, Long userId, AdminSuspendUserRequestDto requestDto) {
 
         // 1차 방어 -> Admin 계정이 활성화 상태인지 체크
@@ -77,11 +78,9 @@ public class AdminUserServiceImpl implements AdminUserService {
         // 계정 정지 처리
         userService.suspendUser(userId, null); // 영구정지 (관리자 수동 정지)
 
-        return new AdminSuspendUserResponseDto(
-                userId,
-                UserStatus.SUSPENDED,
-                requestDto.getReason(),
-                LocalDateTime.now()
-        );
+        // 정지된 유저 엔티티 조회 → 팩토리 메서드로 응답 생성
+        User user = userService.findUserById(userId);
+
+        return AdminSuspendUserResponseDto.of(user, requestDto.getReason());
     }
 }
