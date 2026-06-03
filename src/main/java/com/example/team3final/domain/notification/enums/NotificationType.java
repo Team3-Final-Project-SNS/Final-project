@@ -12,6 +12,8 @@ public enum NotificationType {
     MATCH_CANCELLED("매칭 취소"),               // 2. 게시글 신청을 취소했을 때
     MEET_REMINDER("만남 시간 알림"),             // 6/7. 만남 30분/15분 전 알림
     MEET_IMMINENT("만남 시간 임박"),             // 5. 만남 시간이 임박했을 때
+    MEET_COMPLETED("만남 완료"),                // 28. 만남 완료 후 후기 작성 유도 알림
+    REVIEW_DEADLINE_REMINDER("후기 작성 마감 임박"), // 29. 후기 작성 마지막 날 알림
     CHAT_RECEIVED("채팅 메시지 수신"),           // 3. 채팅방 메시지가 왔을 때
     PLACE_VERIFIED("장소 인증 완료"),            // 4. 상대가 장소 인증을 완료했을 때
     NO_SHOW_WARNING("노쇼 예정"),               // 9. 노쇼 예정 알림

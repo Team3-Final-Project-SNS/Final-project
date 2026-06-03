@@ -50,17 +50,61 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # ── Kafka (KRaft 모드) ────────────────────────────────────────
+  # ZooKeeper 없이 Kafka 자체 Raft 메타데이터 쿼럼으로 실행
+  # 채팅 메시지 분배 + 알림 이벤트 발행/구독 메시지 브로커
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: hankkipot-kafka
+    ports:
+      # 외부(로컬 개발 환경)에서 접근할 때 사용
+      - "9092:9092"
+    environment:
+      # KRaft 단일 노드 설정
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+
+      # PLAINTEXT: 컨테이너 내부 앱 통신 (29092)
+      # PLAINTEXT_HOST: 외부 로컬 개발 통신 (9092)
+      # CONTROLLER: KRaft 컨트롤러 내부 통신 (29093)
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092,CONTROLLER://0.0.0.0:29093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      # 단일 브로커 개발 환경 설정
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+      # 토픽 자동 생성 활성화 (개발 편의)
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
+
+      # Confluent KRaft 클러스터 식별자
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   # ── Spring Boot 앱 ───────────────────────────────────────────
   app:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: hankkipot-app
-    # mysql, redis 헬스체크 통과 후에만 시작
+    # mysql, redis, kafka 헬스체크 통과 후에만 시작
     depends_on:
       mysql:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     ports:
       - "8080:8080"
@@ -77,6 +121,9 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+      # Kafka — 컨테이너 내부 통신은 29092 포트 사용
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
 
       # 이하 .env 파일에서 값을 읽어서 컨테이너에 전달
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
@@ -141,6 +188,8 @@ services:
     # 환경변수 설정 (백엔드 API 주소)
     environment:
       - VITE_API_BASE_URL=http://localhost:8080
+      - VITE_PORTONE_STORE_ID=${PORTONE_STORE_ID}
+      - VITE_PORTONE_CHANNEL_KEY=${PORTONE_CHANNEL_KEY}
 
     # 백엔드 앱이 뜬 후에 프론트 실행
     depends_on:

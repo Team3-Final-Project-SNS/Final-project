@@ -97,4 +97,10 @@ public interface NotificationPublisher {
     // 후기 작성으로 매너 온도가 변경되었을 때 발송
     // 클릭 시 마이페이지로 이동 (relatedId = null)
     void sendMannerTemperatureChanged(Long userId);
+
+    // 28. 만남 완료 / 후기 작성 유도 알림 - 신청자에게
+    void sendMeetCompleted(Long userId, Long matchId);
+
+    // 29. 후기 작성 마지막 날 알림 - 신청자에게
+    void sendReviewDeadlineReminder(Long userId, Long matchId);
 }
