@@ -18,8 +18,7 @@ public record AdminGetInquiryResponseDto(
         InquiryType type,
         InquiryAnswerStatus answerStatus,
         AnswerDto answer,          // 내부 레코드 타입으로 변경
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime createdAt
 ) {
     // 내부 레코드로 이동
     public record AnswerDto(
@@ -55,8 +54,7 @@ public record AdminGetInquiryResponseDto(
                 inquiry.getInquiryType(),
                 inquiry.getAnswerStatus(),
                 answer != null ? AnswerDto.from(answer) : null,
-                inquiry.getCreatedAt(),
-                inquiry.getUpdatedAt()
+                inquiry.getCreatedAt()
         );
     }
 }
