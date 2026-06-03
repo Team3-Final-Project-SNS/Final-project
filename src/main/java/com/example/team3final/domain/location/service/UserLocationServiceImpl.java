@@ -2,11 +2,13 @@ package com.example.team3final.domain.location.service;
 
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.LocationException;
+import com.example.team3final.common.utils.GpsUtils;
 import com.example.team3final.domain.location.dto.LocationDto;
 import com.example.team3final.domain.location.dto.request.UpdateLocationRequestDto;
 import com.example.team3final.domain.location.dto.response.GetLocationResponseDto;
 import com.example.team3final.domain.location.dto.response.UpdateLocationResponseDto;
 import com.example.team3final.domain.location.entity.UserLocation;
+import com.example.team3final.domain.location.enums.LocationRole;
 import com.example.team3final.domain.location.repository.UserLocationRepository;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.service.MatchService;
@@ -27,6 +29,9 @@ public class UserLocationServiceImpl implements UserLocationService {
     private final UserLocationRepository userLocationRepository;
     private final MatchService matchQueryService;
     private final PostService postQueryService;
+
+    // 반경 60m (GPS 오차 범위 포함)
+    private static final double PLACE_VERIFICATION_RADIUS_METERS = 60.0;
 
     // 내 위치 업데이트
     @Override
@@ -82,23 +87,44 @@ public class UserLocationServiceImpl implements UserLocationService {
             throw new LocationException(ErrorCode.MATCH_NOT_PARTICIPANT);
         }
 
+        // 내가 등록자인지 신청자인지 판단 → role 결정에 사용
+        boolean isAuthor = userId.equals(postInfo.authorId());
+
         // matchId로 양측 위치 전체 조회
         List<UserLocation> locations = userLocationRepository.findAllByMatchId(matchId);
 
-        // 내 위치와 상대방 위치 분리
-        // 내 위치 -> userId가 일치하는 것
+        // 내 위치 — role은 내가 누구냐에 따라 결정
         LocationDto myLocation = locations.stream()
                 .filter(loc -> loc.getUserId().equals(userId))
                 .findFirst()
-                .map(LocationDto::from)
-                .orElse(null); // 아직 위치를 한 번도 업데이트 안했으면 null
+                .map(loc -> LocationDto.from(loc, isAuthor ? LocationRole.AUTHOR : LocationRole.APPLICANT))
+                .orElse(null);
 
-        // 상대방 위치 -> userId가 불일치
-        LocationDto opponentLocation = locations.stream()
+        // 상대방 위치: 약속 장소 반경 안에 있을 때만 노출
+        UserLocation opponentRaw = locations.stream()
                 .filter(loc -> !loc.getUserId().equals(userId))
                 .findFirst()
-                .map(LocationDto::from)
-                .orElse(null); // 상대방이 아직 위치를 보내지 않았으면 null
+                .orElse(null);
+
+        // if문을 안타는 조건을 대비하여, null값으로 초기화
+        LocationDto opponentLocation = null;
+
+        if (opponentRaw != null) {
+            // GpsUtils로 상대방과 약속 장소 간 거리 계산
+            double distance = GpsUtils.calculateDistance(
+                    opponentRaw.getLatitude().doubleValue(),
+                    opponentRaw.getLongitude().doubleValue(),
+                    postInfo.placeLat().doubleValue(),
+                    postInfo.placeLng().doubleValue()
+            );
+
+            // 반경(60m) 안에 있을 때만 상대방 위치 노출
+            // 반경 밖이면 null 반환 → 프론트에서 마커 미표시
+            if (distance <= PLACE_VERIFICATION_RADIUS_METERS) {
+                LocationRole opponentRole = isAuthor ? LocationRole.APPLICANT : LocationRole.AUTHOR;
+                opponentLocation = LocationDto.from(opponentRaw, opponentRole);
+            }
+        }
 
         return GetLocationResponseDto.of(myLocation, opponentLocation);
     }
@@ -110,3 +136,4 @@ public class UserLocationServiceImpl implements UserLocationService {
         userLocationRepository.deleteAllByMatchId(matchId);
     }
 }
+

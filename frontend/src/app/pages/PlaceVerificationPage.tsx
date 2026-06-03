@@ -3,10 +3,18 @@ import { useParams, useNavigate } from 'react-router';
 import { MapPin, Loader2, Navigation } from 'lucide-react';
 import { createPlaceVerification, updateMyLocation, getLocations, getMeetVerification } from '../../api/meetApi';
 import { getMatchDetail } from '../../api/matchApi';
+import type { LocationRole } from '../../api/meetApi';
 
 interface Position {
     latitude: number;
     longitude: number;
+}
+
+// 상대방 위치는 role 포함 (백엔드 응답 그대로)
+interface OpponentPosition {
+    latitude: number;
+    longitude: number;
+    role: LocationRole;
 }
 
 interface VerificationStatus {
@@ -36,7 +44,7 @@ export default function PlaceVerificationPage() {
     });
     const [locationError, setLocationError] = useState<string | null>(null);
     const [useSimulation, setUseSimulation] = useState(false);
-    const [opponentPosition, setOpponentPosition] = useState<Position | null>(null);
+    const [opponentPosition, setOpponentPosition] = useState<OpponentPosition  | null>(null);
 
     // ★ 추가: 카카오맵 사용 가능 여부 상태
     // false가 되면 SVG fallback으로 전환
@@ -213,7 +221,18 @@ export default function PlaceVerificationPage() {
 
     // 5. 상대방 위치 마커 업데이트 (카카오맵 정상일 때만)
     useEffect(() => {
-        if (!kakaoMapAvailable || !mapRef.current || !opponentPosition) return;
+        if (!kakaoMapAvailable || !mapRef.current) return;
+
+        // 상대방 위치가 null이면 (반경 밖이거나 아직 미전송) → 마커 제거
+        if (!opponentPosition) {
+            opponentOverlayRef.current?.setMap(null);
+            opponentOverlayRef.current = null;
+            return;
+        }
+
+        // role 기준으로 마커 색깔 결정
+        // AUTHOR(등록자): 파란색 / APPLICANT(신청자): 주황색
+        const markerColor = opponentPosition.role === 'AUTHOR' ? '#2196f3' : '#F97316';
 
         const latlng = new window.kakao.maps.LatLng(
             opponentPosition.latitude,
@@ -221,18 +240,20 @@ export default function PlaceVerificationPage() {
         );
 
         if (opponentOverlayRef.current) {
+            // 이미 마커가 있으면 위치만 업데이트
             opponentOverlayRef.current.setPosition(latlng);
         } else {
+            // 새로 생성
             opponentOverlayRef.current = new window.kakao.maps.CustomOverlay({
                 map: mapRef.current,
                 position: latlng,
                 content: `<div style="
-                    width: 16px; height: 16px;
-                    background: #9e9e9e;
-                    border: 3px solid white;
-                    border-radius: 50%;
-                    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-                "></div>`,
+                width: 16px; height: 16px;
+                background: ${markerColor};
+                border: 3px solid white;
+                border-radius: 50%;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            "></div>`,
                 yAnchor: 0.5,
                 xAnchor: 0.5,
             });
@@ -255,12 +276,16 @@ export default function PlaceVerificationPage() {
                 ]);
 
                 const locData = locRes.data.data;
-                if (locData.opponentLocation) {
-                    setOpponentPosition({
-                        latitude: locData.opponentLocation.latitude,
-                        longitude: locData.opponentLocation.longitude,
-                    });
-                }
+                // role 포함 + null이면 null로 세팅
+                setOpponentPosition(
+                    locData.opponentLocation
+                        ? {
+                            latitude: locData.opponentLocation.latitude,
+                            longitude: locData.opponentLocation.longitude,
+                            role: locData.opponentLocation.role,  // 백엔드 응답 role 그대로
+                        }
+                        : null  // 반경 밖이면 null → useEffect 5번에서 마커 제거
+                );
 
                 const verData = verRes.data.data;
                 setVerificationStatus({
@@ -356,7 +381,7 @@ export default function PlaceVerificationPage() {
                     // 카카오맵 정상 — 실제 지도 렌더링
                     <div
                         ref={mapContainerRef}
-                        className="w-full h-64 rounded-2xl overflow-hidden mb-6 border-2 border-[#e0e0e0]"
+                        className="w-full h-64 rounded-2xl overflow-hidden mb-3 border-2 border-[#e0e0e0]"
                     />
                 ) : (
                     // ★ 카카오맵 장애 — SVG fallback
@@ -390,6 +415,42 @@ export default function PlaceVerificationPage() {
                                 <p className="text-xs text-[#9e9e9e]">실시간 위치 추적 중</p>
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {/* ★ 범례 — 카카오맵 정상일 때만 표시, 지도 바로 아래 */}
+                {kakaoMapAvailable && (
+                    <div className="flex items-center gap-4 mb-6 px-1">
+                        {/* 내 위치 */}
+                        <div className="flex items-center gap-1.5">
+                            <div style={{
+                                width: '12px', height: '12px',
+                                borderRadius: '50%',
+                                backgroundColor: '#2196f3',
+                                border: '2px solid white',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                                flexShrink: 0,
+                            }} />
+                            <span className="text-xs text-[#616161]">나</span>
+                        </div>
+                        {/* 상대방 위치 */}
+                        <div className="flex items-center gap-1.5">
+                            <div style={{
+                                width: '12px', height: '12px',
+                                borderRadius: '50%',
+                                backgroundColor: '#F97316',
+                                border: '2px solid white',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                                flexShrink: 0,
+                            }} />
+                            <span className="text-xs text-[#616161]">상대방</span>
+                        </div>
+                        {/* 상대방이 반경 밖일 때 우측에 안내 문구 */}
+                        {!opponentPosition && (
+                            <span className="text-xs text-[#9e9e9e] ml-auto">
+                                상대방이 반경 밖에 있어요
+                            </span>
+                        )}
                     </div>
                 )}
 
