@@ -16,6 +16,7 @@ import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.service.PostService;
 import com.example.team3final.domain.review.service.ReviewAvoidanceService;
+import com.example.team3final.domain.review.util.ReviewRedisZSetKeys;
 import com.example.team3final.domain.user.dto.response.UserInfoDto;
 import com.example.team3final.domain.user.service.UserPointService;
 import com.example.team3final.domain.user.service.UserService;
@@ -31,6 +32,7 @@ import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -179,6 +181,19 @@ public class MatchServiceImpl implements MatchService{
     }
 
     @Override
+    public List<Match> getCompletedMatchesByPostId(Long postId) {
+        // Chat 도메인에서 만남 완료 알림 대상 신청자를 조회할 때 사용합니다.
+        return matchRepository.findAllByPostIdAndStatus(postId, MatchStatus.COMPLETED);
+    }
+
+    @Override
+    public Optional<Match> findCompletedMatchById(Long matchId) {
+        // Review 도메인 스케줄러에서 후기 마지막 날 알림 대상 매칭을 조회할 때 사용합니다.
+        return matchRepository.findById(matchId)
+                .filter(match -> match.getStatus() == MatchStatus.COMPLETED);
+    }
+
+    @Override
     @Transactional
     public void completeMatch(Long matchId) {
 
@@ -198,6 +213,19 @@ public class MatchServiceImpl implements MatchService{
         Post post = postService.getPostById(match.getPostId());
         userPointService.refundPoint(post.getAuthorId(), post.getAuthorDeposit(), matchId);
         userPointService.refundPoint(match.getApplicantId(), match.getApplicantDeposit(), matchId);
+
+        // 후기 작성 마지막 날 알림 예약
+        // completedAt + 7일이 되는 날 오전 9시에 알림 발송
+        LocalDateTime reviewDeadlineReminderAt = match.getCompletedAt()
+                .plusDays(7)
+                .toLocalDate()
+                .atTime(9, 0);
+
+        redisTemplate.opsForZSet().add(
+                ReviewRedisZSetKeys.DEADLINE_REMINDER,
+                String.valueOf(match.getId()),
+                reviewDeadlineReminderAt.toEpochSecond(ZoneOffset.ofHours(9))
+        );
     }
 
     @Override
@@ -325,6 +353,7 @@ public class MatchServiceImpl implements MatchService{
         redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_30, matchIdStr);
         redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_15, matchIdStr);
         redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_IMMINENT, matchIdStr);
+        redisTemplate.opsForZSet().remove(ReviewRedisZSetKeys.DEADLINE_REMINDER, matchIdStr);
 
         return CancelMatchResponseDto.of(
                 match.getId(),
@@ -418,12 +447,7 @@ public class MatchServiceImpl implements MatchService{
         // 2-2. 상대방 유저 정보 IN 쿼리 1번
         Map<Long, UserInfoDto> opponentMap = userService.getUserInfos(opponentIds);
 
-        // 2-3. 매칭 ID 목록
-        List<Long> matchIds = matches.stream()
-                .map(Match::getId)
-                .toList();
-
-        // 2-4. 채팅방 ID IN 쿼리 1번
+        // 2-3. 채팅방 ID IN 쿼리 1번
         Map<Long, Long> chatRoomMap = chatService.getChatRoomIdsByPostIds(postIds);
 
         Page<GetMatchesResponseDto> dtoPage = matchPage.map(match -> {
