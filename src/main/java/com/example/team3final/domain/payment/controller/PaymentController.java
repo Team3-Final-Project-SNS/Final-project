@@ -79,6 +79,7 @@ public class PaymentController {
         );
     }
 
+    // 결제 취소
     @PatchMapping("/{paymentId}/cancel")
     public ResponseEntity<ApiResponseDto<CancelPaymentResponseDto>> cancelPayment(
             @AuthenticationPrincipal UserDetailsImpl userDetails,
