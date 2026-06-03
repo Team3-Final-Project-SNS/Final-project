@@ -118,10 +118,10 @@ public class User extends SoftDeleteEntity {
         this.password = encodedPassword;
     }
 
-    // 회원 탈퇴
+    // 회원 탈퇴 - 탈퇴 이력은 status = WITHDRAWN으로 충분히 관리 가능
+    // 재가입 시 이메일 중복 체크가 레코드를 못찾는 것을 방지
     public void withdraw() {
         this.status = UserStatus.WITHDRAWN;
-        super.delete(); // SoftDeleteEntity의 deleted_at 세팅
     }
 
     // ==================== Service to Service 구현 영역 ====================
