@@ -243,7 +243,7 @@ export default function MatchesPage() {
             </div>
         ) : (
             <div className="space-y-4">
-              {displayMatches.length === 0 ? (
+              {matches.length === 0 ? (
                   <div className="text-center py-20 bg-white border border-[#e0e0e0] rounded-xl">
                       <p className="text-[#9e9e9e]">매칭 내역이 없습니다.</p>
                       <Link to="/posts" className="text-[#d84315] font-medium mt-2 inline-block">밥 친구 찾으러 가기</Link>
@@ -268,7 +268,7 @@ export default function MatchesPage() {
 
                           <div className="space-y-2 mb-4">
                             <div className="flex items-center gap-2 text-sm text-[#616161]">
-                              <span className="font-medium text-[#424242]">상대방:</span> {match.opponentNicknames.join(', ')}
+                              <span className="font-medium text-[#424242]">상대방:</span> {match.opponentNickname}
                             </div>
                             <div className="flex items-center gap-2 text-sm text-[#616161]">
                               <Clock size={16} className="text-[#d84315]" />
