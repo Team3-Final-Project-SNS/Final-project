@@ -4,6 +4,7 @@ import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.domain.payment.dto.request.CreatePaymentRequestDto;
 import com.example.team3final.domain.payment.dto.request.VerifyPaymentRequestDto;
+import com.example.team3final.domain.payment.dto.response.CancelPaymentResponseDto;
 import com.example.team3final.domain.payment.dto.response.CreatePaymentResponseDto;
 import com.example.team3final.domain.payment.dto.response.GetPaymentResponseDto;
 import com.example.team3final.domain.payment.dto.response.VerifyPaymentResponseDto;
@@ -74,6 +75,19 @@ public class PaymentController {
         return ResponseEntity.ok(
                 ApiResponseDto.success(
                         paymentService.getPayments(userDetails.getUserId(), pageable)
+                )
+        );
+    }
+
+    // 결제 취소
+    @PatchMapping("/{paymentId}/cancel")
+    public ResponseEntity<ApiResponseDto<CancelPaymentResponseDto>> cancelPayment(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @PathVariable Long paymentId
+    ) {
+        return ResponseEntity.ok(
+                ApiResponseDto.success(
+                        paymentService.cancelPayment(userDetails.getUserId(), paymentId)
                 )
         );
     }
