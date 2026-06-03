@@ -305,6 +305,23 @@ public class UserServiceImpl implements UserService {
         return AdminUserInfoDto.from(user);
     }
 
+    // 신고 박탈 처리 메서드
+    @Override
+    @Transactional
+    public void banReportFeature(Long userId, int days) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
+        user.banReport(days);
+    }
+
+    // 박탈 여부 체크 로직
+    @Override
+    public boolean isReportBanned(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
+        return user.isReportBanned();
+    }
+
 
     /**
      * 두 사용자가 같은 학교 소속인지 확인합니다.

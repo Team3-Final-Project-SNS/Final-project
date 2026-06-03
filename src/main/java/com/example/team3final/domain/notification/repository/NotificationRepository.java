@@ -1,8 +1,6 @@
 package com.example.team3final.domain.notification.repository;
 
 import com.example.team3final.domain.notification.entity.Notification;
-import com.example.team3final.domain.notification.enums.NotificationType;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -10,21 +8,18 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
-    // 알림 목록 조회 - 전체 (최신순)
-    Page<Notification> findByReceiverIdOrderByCreatedAtDesc(Long receiverId, Pageable pageable);
-
-    // 알림 목록 조회 - 읽음 여부 필터
-    Page<Notification> findByReceiverIdAndIsReadOrderByCreatedAtDesc(Long receiverId, boolean isRead, Pageable pageable);
-
-    // 알림 목록 조회 - 유형 필터
-    Page<Notification> findByReceiverIdAndTypeOrderByCreatedAtDesc(Long receiverId, NotificationType type, Pageable pageable);
-
-    // 알림 목록 조회 - 읽음 여부 + 유형 필터
-    Page<Notification> findByReceiverIdAndIsReadAndTypeOrderByCreatedAtDesc(Long receiverId, boolean isRead,
-                                                                            NotificationType type, Pageable pageable);
+    // 알림 목록 조회 - 전체 (커서 기반, 최신순)
+    // cursorId 미만 알림만 조회 (cursorId = Long.MAX_VALUE 이면 처음부터)
+    @Query("SELECT n FROM Notification n WHERE n.receiverId = :receiverId AND n.id < :cursorId ORDER BY n.id DESC")
+    List<Notification> findByReceiverIdAndIdLessThan(
+            @Param("receiverId") Long receiverId,
+            @Param("cursorId") Long cursorId,
+            Pageable pageable
+    );
 
     // 미확인 알림 카운트
     long countByReceiverIdAndIsRead(Long receiverId, boolean isRead);

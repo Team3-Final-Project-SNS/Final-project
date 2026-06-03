@@ -80,6 +80,10 @@ public class User extends SoftDeleteEntity {
     @Column(name = "manner_temperature", nullable = false)
     private BigDecimal mannerTemperature;
 
+    // 신고 기능 박탈 만료 시각
+    @Column(name = "report_banned_until")
+    private LocalDateTime reportBannedUntil;
+
     @Builder
     private User(String email, String password, String name, String nickname,
                  Long universityId, String major, String studentNumber,
@@ -217,11 +221,20 @@ public class User extends SoftDeleteEntity {
         this.mannerTemperature = this.mannerTemperature.subtract(amount);
     }
 
-
     // 리뷰 도매인에서 사용.
     // 후기 집계 결과로 매너 온도를 재설정합니다.
     public void updateMannerTemperature(BigDecimal mannerTemperature) {
         this.mannerTemperature = mannerTemperature;
+    }
+
+    // 신고 기능 박탈 처리 — 기각 3회 초과 시 10일 박탈
+    public void banReport(int days) {
+        this.reportBannedUntil = LocalDateTime.now().plusDays(days);
+    }
+
+    // 신고 기능 박탈 여부 확인
+    public boolean isReportBanned() {
+        return reportBannedUntil != null && LocalDateTime.now().isBefore(reportBannedUntil);
     }
 
 }

@@ -1,22 +1,23 @@
 package com.example.team3final.domain.notification.service;
 
-import com.example.team3final.common.dto.response.PageResponseDto;
+import com.example.team3final.common.dto.response.CursorResponseDto;
+import com.example.team3final.common.exception.ErrorCode;
+import com.example.team3final.common.exception.NotificationException;
 import com.example.team3final.domain.notification.dto.response.GetNotificationsResponseDto;
 import com.example.team3final.domain.notification.dto.response.GetUnreadCountResponseDto;
 import com.example.team3final.domain.notification.dto.response.UpdateAllNotificationsReadResponseDto;
 import com.example.team3final.domain.notification.entity.Notification;
-import com.example.team3final.domain.notification.enums.NotificationType;
 import com.example.team3final.domain.notification.repository.NotificationRepository;
 import com.example.team3final.domain.notification.sse.SseEmitterRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @Transactional(readOnly = true)
@@ -26,32 +27,33 @@ public class NotificationServiceImpl implements NotificationService {
     private final NotificationRepository notificationRepository;
     private final SseEmitterRepository sseEmitterRepository;
 
-    // 알림 목록 조회
+    // 알림 목록 조회 (커서 기반 페이징)
     @Override
-    public PageResponseDto<GetNotificationsResponseDto> getNotifications(
-            Long receiverId, Boolean isRead, NotificationType type, Pageable pageable) {
+    public CursorResponseDto<GetNotificationsResponseDto> getNotifications(
+            Long receiverId, Long cursorId, int size) {
 
-        Page<Notification> page;
+        // size 최대 제한
+        int safeSize = Math.min(size, 50);
 
-        if (isRead != null && type != null) {
-            // 읽음 여부 + 유형 필터
-            page = notificationRepository.findByReceiverIdAndIsReadAndTypeOrderByCreatedAtDesc(
-                    receiverId, isRead, type, pageable);
-        } else if (isRead != null) {
-            // 읽음 여부 필터만
-            page = notificationRepository.findByReceiverIdAndIsReadOrderByCreatedAtDesc(
-                    receiverId, isRead, pageable);
-        } else if (type != null) {
-            // 유형 필터만
-            page = notificationRepository.findByReceiverIdAndTypeOrderByCreatedAtDesc(
-                    receiverId, type, pageable);
-        } else {
-            // 전체 조회
-            page = notificationRepository.findByReceiverIdOrderByCreatedAtDesc(
-                    receiverId, pageable);
+        // cursorId 없으면 처음부터 조회 (Long.MAX_VALUE로 처리)
+        Long effectiveCursorId = (cursorId != null) ? cursorId : Long.MAX_VALUE;
+
+        // cursorId 유효성 검증
+        if (effectiveCursorId <= 0) {
+            throw new NotificationException(ErrorCode.NOTIFICATION_INVALID_CURSOR);
         }
 
-        return PageResponseDto.from(page.map(GetNotificationsResponseDto::from));
+        // cursorId 미만 알림 조회 (size+1개로 다음 페이지 여부 확인)
+        List<Notification> notifications = notificationRepository
+                .findByReceiverIdAndIdLessThan(
+                        receiverId, effectiveCursorId, PageRequest.of(0, safeSize + 1));
+
+        // DTO 변환
+        List<GetNotificationsResponseDto> content = notifications.stream()
+                .map(GetNotificationsResponseDto::from)
+                .toList();
+
+        return CursorResponseDto.of(content, safeSize, GetNotificationsResponseDto::notificationId);
     }
 
     // 전체 읽음 처리

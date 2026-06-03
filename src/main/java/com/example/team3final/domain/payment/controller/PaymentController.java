@@ -2,7 +2,9 @@ package com.example.team3final.domain.payment.controller;
 
 import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.domain.payment.dto.request.CreatePaymentRequestDto;
+import com.example.team3final.domain.payment.dto.request.VerifyPaymentRequestDto;
 import com.example.team3final.domain.payment.dto.response.CreatePaymentResponseDto;
+import com.example.team3final.domain.payment.dto.response.VerifyPaymentResponseDto;
 import com.example.team3final.domain.payment.service.PaymentService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
 import jakarta.validation.Valid;
@@ -10,10 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
@@ -42,5 +41,20 @@ public class PaymentController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponseDto.success(response));
+    }
+
+    // 결제 완료 검증
+    @PostMapping("/{paymentId}/verify")
+    public ResponseEntity<ApiResponseDto<VerifyPaymentResponseDto>> verifyPayment(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @PathVariable Long paymentId,
+            @Valid @RequestBody VerifyPaymentRequestDto request
+    ) {
+       Long userId = userDetails.getUserId();
+       return ResponseEntity.ok(
+               ApiResponseDto.success(
+                       paymentService.verifyPayment(userId, paymentId, request)
+               )
+       );
     }
 }
