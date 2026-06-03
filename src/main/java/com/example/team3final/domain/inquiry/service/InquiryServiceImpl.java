@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -167,7 +168,7 @@ public class InquiryServiceImpl implements InquiryService{
     private void validateCooldown(Long userId) {
         String cooldownKey = COOLDOWN_KEY_PREFIX + userId;
         Boolean hasCooldown = stringRedisTemplate.hasKey(cooldownKey);
-        if (hasCooldown) {
+        if (Objects.equals(hasCooldown, true)) {
             throw new InquiryException(ErrorCode.INQUIRY_COOLDOWN);
         }
     }
