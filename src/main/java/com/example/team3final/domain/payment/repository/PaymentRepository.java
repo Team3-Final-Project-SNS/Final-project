@@ -1,6 +1,8 @@
 package com.example.team3final.domain.payment.repository;
 
 import com.example.team3final.domain.payment.entity.Payment;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -20,4 +22,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             WHERE p.createdAt >= :startOfDay
             """)
     long countTodayAll(@Param("startOfDay")LocalDateTime startOfDay);
+
+    // 내 결제 내역 최신순 페이징 조회
+    Page<Payment> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 }
