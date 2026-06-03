@@ -11,6 +11,7 @@ import {
   InquiryListItem,
   InquiryType,
 } from '../../api/inquiryApi';
+import AdminFloatingChatbot from '../components/AdminFloatingChatbot';
 
 const inquiryTypes: { value: InquiryType; label: string }[] = [
   { value: 'ACCOUNT', label: '계정' },
@@ -127,70 +128,71 @@ export default function InquiryCenterPage() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <div className="mb-6">
-        <Link
-          to="/me"
-          className="mb-3 inline-flex items-center gap-1 text-sm font-semibold text-[#616161] transition-colors hover:text-[#d84315]"
-        >
-          <ArrowLeft size={16} />
-          내 정보
-        </Link>
-        <h1 className="text-3xl font-bold text-[#212121]">고객센터</h1>
-        <p className="mt-2 text-sm text-[#757575]">1:1 문의를 접수하고 답변 상태를 확인할 수 있습니다.</p>
-      </div>
+    <>
+      <div className="mx-auto max-w-5xl">
+        <div className="mb-6">
+          <Link
+            to="/me"
+            className="mb-3 inline-flex items-center gap-1 text-sm font-semibold text-[#616161] transition-colors hover:text-[#d84315]"
+          >
+            <ArrowLeft size={16} />
+            내 정보
+          </Link>
+          <h1 className="text-3xl font-bold text-[#212121]">고객센터</h1>
+          <p className="mt-2 text-sm text-[#757575]">1:1 문의를 접수하고 답변 상태를 확인할 수 있습니다.</p>
+        </div>
 
-      {error && <Notice tone="error" message={error} />}
-      {success && <Notice tone="success" message={success} />}
+        {error && <Notice tone="error" message={error} />}
+        {success && <Notice tone="success" message={success} />}
 
-      <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-        <section className="rounded-2xl border border-[#e0e0e0] bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-lg font-bold text-[#212121]">문의 접수</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="mb-1 block text-xs font-bold text-[#757575]">문의 유형</label>
-              <select
-                value={type}
-                onChange={(event) => setType(event.target.value as InquiryType)}
-                className="w-full rounded-lg border border-[#e0e0e0] bg-white px-3 py-2 text-sm focus:border-[#d84315] focus:outline-none focus:ring-2 focus:ring-[#fff3e0]"
+        <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
+          <section className="rounded-2xl border border-[#e0e0e0] bg-white p-5 shadow-sm">
+            <h2 className="mb-4 text-lg font-bold text-[#212121]">문의 접수</h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-bold text-[#757575]">문의 유형</label>
+                <select
+                  value={type}
+                  onChange={(event) => setType(event.target.value as InquiryType)}
+                  className="w-full rounded-lg border border-[#e0e0e0] bg-white px-3 py-2 text-sm focus:border-[#d84315] focus:outline-none focus:ring-2 focus:ring-[#fff3e0]"
+                >
+                  {inquiryTypes.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold text-[#757575]">제목</label>
+                <input
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  maxLength={200}
+                  className="w-full rounded-lg border border-[#e0e0e0] px-3 py-2 text-sm focus:border-[#d84315] focus:outline-none focus:ring-2 focus:ring-[#fff3e0]"
+                  placeholder="문의 제목을 입력하세요"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold text-[#757575]">내용</label>
+                <textarea
+                  value={content}
+                  onChange={(event) => setContent(event.target.value)}
+                  rows={7}
+                  className="w-full resize-none rounded-lg border border-[#e0e0e0] px-3 py-2 text-sm focus:border-[#d84315] focus:outline-none focus:ring-2 focus:ring-[#fff3e0]"
+                  placeholder="문의 내용을 자세히 입력해주세요"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#d84315] px-4 py-3 text-sm font-bold text-white shadow-md transition-colors hover:bg-[#bf360c] disabled:opacity-60"
               >
-                {inquiryTypes.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-bold text-[#757575]">제목</label>
-              <input
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                maxLength={200}
-                className="w-full rounded-lg border border-[#e0e0e0] px-3 py-2 text-sm focus:border-[#d84315] focus:outline-none focus:ring-2 focus:ring-[#fff3e0]"
-                placeholder="문의 제목을 입력하세요"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-bold text-[#757575]">내용</label>
-              <textarea
-                value={content}
-                onChange={(event) => setContent(event.target.value)}
-                rows={7}
-                className="w-full resize-none rounded-lg border border-[#e0e0e0] px-3 py-2 text-sm focus:border-[#d84315] focus:outline-none focus:ring-2 focus:ring-[#fff3e0]"
-                placeholder="문의 내용을 자세히 입력해주세요"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#d84315] px-4 py-3 text-sm font-bold text-white shadow-md transition-colors hover:bg-[#bf360c] disabled:opacity-60"
-            >
-              {submitting ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-              문의 접수
-            </button>
-          </form>
-        </section>
+                {submitting ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                문의 접수
+              </button>
+            </form>
+          </section>
 
         <section className="space-y-4">
           <div className="rounded-2xl border border-[#e0e0e0] bg-white p-5 shadow-sm">
@@ -276,8 +278,19 @@ export default function InquiryCenterPage() {
             )}
           </div>
         </section>
+        </div>
       </div>
-    </div>
+      <AdminFloatingChatbot
+        title="한끼팟 고객 도우미"
+        subtitle="고객 전용 도우미"
+        greeting="고객님, 무엇을 도와드릴까요?"
+        initialMessage="안녕하세요. 한끼팟 고객 도우미입니다. 문의 전 궁금한 내용을 편하게 입력해 주세요."
+        replyMessage="확인했습니다. 고객센터 이용과 문의 접수를 도와드릴게요."
+        showAdminHat={false}
+        useAiReportApi={false}
+        useAiSupportApi={true}
+      />
+    </>
   );
 }
 

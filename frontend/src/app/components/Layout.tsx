@@ -102,6 +102,12 @@ export default function Layout() {
                 매칭
               </Link>
               <Link
+                  to="/payments"
+                  className={`text-sm ${isActive('/payments') ? 'text-[#d84315] font-semibold' : 'text-[#424242]'}`}
+              >
+                결제
+              </Link>
+              <Link
                   to="/me/inquiries"
                   className={`text-sm ${isActive('/me/inquiries') ? 'text-[#d84315] font-semibold' : 'text-[#424242]'}`}
               >

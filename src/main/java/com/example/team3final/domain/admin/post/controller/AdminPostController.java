@@ -4,6 +4,7 @@ import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.domain.admin.post.dto.request.AdminDeletePostRequestDto;
 import com.example.team3final.domain.admin.post.dto.response.AdminDeletePostResponseDto;
+import com.example.team3final.domain.admin.post.dto.response.AdminGetPostResponseDto;
 import com.example.team3final.domain.admin.post.dto.response.AdminGetPostsResponseDto;
 import com.example.team3final.domain.admin.post.service.AdminPostService;
 import com.example.team3final.domain.admin.security.AdminDetailsImpl;
@@ -39,6 +40,7 @@ public class AdminPostController {
     public ResponseEntity<ApiResponseDto<PageResponseDto<AdminGetPostsResponseDto>>> getPosts(
             @AuthenticationPrincipal AdminDetailsImpl adminDetails,
             @RequestParam(required = false) Long universityId,
+            @RequestParam(required = false) String authorNickname,
             @RequestParam(required = false) PostStatus status,
             @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "0") int page,
@@ -48,6 +50,16 @@ public class AdminPostController {
         Pageable pageable = PageRequest.of(page, size);
 
         return ResponseEntity.ok(
-                ApiResponseDto.success(adminPostService.getPosts(adminId, universityId, status, keyword, pageable)));
+                ApiResponseDto.success(adminPostService.getPosts(adminId, universityId, authorNickname, status, keyword, pageable)));
+    }
+
+    // 관리자 게시글 상세 조회
+    @GetMapping("/posts/{postId}")
+    public ResponseEntity<ApiResponseDto<AdminGetPostResponseDto>> getPost(
+            @AuthenticationPrincipal AdminDetailsImpl adminDetails,
+            @PathVariable Long postId) {
+
+        Long adminId = adminDetails.getAdminId();
+        return ResponseEntity.ok(ApiResponseDto.success(adminPostService.getPost(adminId, postId)));
     }
 }

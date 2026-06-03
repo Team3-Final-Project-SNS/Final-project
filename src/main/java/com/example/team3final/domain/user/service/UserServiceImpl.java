@@ -281,6 +281,13 @@ public class UserServiceImpl implements UserService {
         return userRepository.findAllByForAdmin(status, keyword, pageable);
     }
 
+    // userId로 User 엔티티 직접 반환
+    @Override
+    public User findUserById(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
+    }
+
     // Admin 도메인에서 사용할 유저 계정 정지
     // days: 정지 일수 (null = 영구정지)
     @Override
@@ -347,7 +354,6 @@ public class UserServiceImpl implements UserService {
         return user.isReportBanned();
     }
 
-
     // 두 사용자가 같은 학교소속인지 확인
     @Override
     public boolean isSameUniversity(Long userId, Long otherUserId) {
@@ -376,5 +382,11 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
 
         return user.getMannerTemperature();
+    }
+
+    // 닉네임 검색으로 유저 ID 목록 조회
+    @Override
+    public List<Long> getUserIdsByNickname(String nickname) {
+        return userRepository.findIdsByNicknameLike(nickname);
     }
 }

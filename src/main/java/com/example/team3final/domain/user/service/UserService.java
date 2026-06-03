@@ -82,6 +82,9 @@ public interface UserService {
     // Admin 유저 목록 조회용
     Page<User> getUsersForAdmin(UserStatus status, String keyword, Pageable pageable);
 
+    // userId로 User 엔티티를 직접 반환
+    User findUserById(Long userId);
+
     // Admin 유저 계정 정지
     // days: 정지 일수 (null = 영구정지)
     void suspendUser(Long userId, Integer days);
@@ -100,4 +103,7 @@ public interface UserService {
 
     // 현재 매너 온도 조회
     BigDecimal getMannerTemperature(Long userId);
+
+    // 닉네임 검색으로 유저 ID 목록 조회
+    List<Long> getUserIdsByNickname(String nickname);
 }
