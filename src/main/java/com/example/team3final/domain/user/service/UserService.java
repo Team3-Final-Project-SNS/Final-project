@@ -100,4 +100,7 @@ public interface UserService {
 
     // 현재 매너 온도 조회
     BigDecimal getMannerTemperature(Long userId);
+
+    // 닉네임 검색으로 유저 ID 목록 조회
+    List<Long> getUserIdsByNickname(String nickname);
 }
