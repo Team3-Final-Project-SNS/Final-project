@@ -6,6 +6,7 @@ import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.domain.admin.entity.Admin;
 import com.example.team3final.domain.admin.post.dto.request.AdminDeletePostRequestDto;
 import com.example.team3final.domain.admin.post.dto.response.AdminDeletePostResponseDto;
+import com.example.team3final.domain.admin.post.dto.response.AdminGetPostResponseDto;
 import com.example.team3final.domain.admin.post.dto.response.AdminGetPostsResponseDto;
 import com.example.team3final.domain.admin.repository.AdminRepository;
 import com.example.team3final.domain.post.entity.Post;
@@ -88,6 +89,7 @@ public class AdminPostServiceImpl implements AdminPostService {
     public PageResponseDto<AdminGetPostsResponseDto> getPosts(
             Long adminId,
             Long universityId,
+            String authorNickname,
             PostStatus status,
             String keyword,
             Pageable pageable) {
@@ -107,6 +109,30 @@ public class AdminPostServiceImpl implements AdminPostService {
             // authorIds가 빈 리스트인 채로 IN 절에 들어가면 쿼리 오류 또는 전체 조회가 될 수 있음
             if (authorIds.isEmpty()) {
                 return PageResponseDto.from(Page.empty(pageable));
+            }
+        }
+
+        // authorNickname → authorIds 변환 + 교집합 처리
+        // universityId 없음 + authorNickname 있음 → 닉네임 검색 결과 그대로 사용
+        // universityId 있음 + authorNickname 있음 -> 대학 필터 authorIds와 닉네임 검색 authorIds의 교집합
+        if (authorNickname != null) {
+            List<Long> nicknameAuthorIds = userService.getUserIdsByNickname(authorNickname);
+
+            // 닉네임 검색 결과가 없으면 즉시 빈 페이지 반환
+            if (nicknameAuthorIds.isEmpty()) {
+                return PageResponseDto.from(Page.empty(pageable));
+            }
+
+            if (authorIds != null) {
+                // universityId 필터가 있으면 교집합 처리
+                authorIds.retainAll(nicknameAuthorIds);
+                // retainAll(): List A에서 List B에 없는 요소를 전부 제거 → 교집합만 남음
+                if (authorIds.isEmpty()) {
+                    return PageResponseDto.from(Page.empty(pageable));
+                }
+            } else {
+                // universityId 필터 없으면 닉네임 검색 결과 그대로 사용
+                authorIds = nicknameAuthorIds;
             }
         }
 
@@ -131,5 +157,22 @@ public class AdminPostServiceImpl implements AdminPostService {
         );
 
         return PageResponseDto.from(dtoPage);
+    }
+
+    @Override
+    public AdminGetPostResponseDto getPost(Long adminId, Long postId) {
+
+        // 관리자 검증
+        adminRepository.findById(adminId)
+                .orElseThrow(() -> new AdminException(ErrorCode.ADMIN_NOT_FOUND));
+
+        // postId 조회
+        Post post = postService.getPostById(postId);
+
+        // 작성자 닉네임 단건 조회
+        String authorNickname = userService.getUserInfo(post.getAuthorId()).nickname();
+
+        // 4. DTO 변환 후 반환
+        return AdminGetPostResponseDto.of(post, authorNickname);
     }
 }

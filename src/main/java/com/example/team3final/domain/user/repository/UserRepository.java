@@ -50,4 +50,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     AND u.status = com.example.team3final.domain.user.enums.UserStatus.ACTIVE
     """)
     List<Long> findActiveUserIdsByUniversityId(@Param("universityId") Long universityId);
+
+    // 닉네임 LIKE 검색 -> 관리자 게시글 작성자 검색용
+    @Query("SELECT u.id FROM User u WHERE u.nickname LIKE %:nickname%")
+    List<Long> findIdsByNicknameLike(@Param("nickname") String nickname);
 }

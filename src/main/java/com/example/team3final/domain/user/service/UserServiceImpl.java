@@ -377,4 +377,10 @@ public class UserServiceImpl implements UserService {
 
         return user.getMannerTemperature();
     }
+
+    // 닉네임 검색으로 유저 ID 목록 조회
+    @Override
+    public List<Long> getUserIdsByNickname(String nickname) {
+        return userRepository.findIdsByNicknameLike(nickname);
+    }
 }
