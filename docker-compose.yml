@@ -50,38 +50,41 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # ── Zookeeper (Kafka 의존성) ──────────────────────────────────
-  # Kafka 브로커 메타데이터 관리 및 리더 선출 담당
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.4.0
-    container_name: hankkipot-zookeeper
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181   # Kafka가 Zookeeper에 접속하는 포트
-      ZOOKEEPER_TICK_TIME: 2000     # Zookeeper 내부 시간 단위 (ms)
-    restart: unless-stopped
-
-  # ── Kafka ────────────────────────────────────────────────────
+  # ── Kafka (KRaft 모드) ────────────────────────────────────────
+  # ZooKeeper 없이 Kafka 자체 Raft 메타데이터 쿼럼으로 실행
   # 채팅 메시지 분배 + 알림 이벤트 발행/구독 메시지 브로커
   kafka:
     image: confluentinc/cp-kafka:7.4.0
     container_name: hankkipot-kafka
-    depends_on:
-      - zookeeper
     ports:
       # 외부(로컬 개발 환경)에서 접근할 때 사용
       - "9092:9092"
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      # PLAINTEXT: 컨테이너 내부 통신 (29092)
-      # PLAINTEXT_HOST: 외부(로컬 개발) 통신 (9092)
+      # KRaft 단일 노드 설정
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+
+      # PLAINTEXT: 컨테이너 내부 앱 통신 (29092)
+      # PLAINTEXT_HOST: 외부 로컬 개발 통신 (9092)
+      # CONTROLLER: KRaft 컨트롤러 내부 통신 (29093)
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092,CONTROLLER://0.0.0.0:29093
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      # 단일 브로커 환경이라 복제본 1개로 설정
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      # 단일 브로커 개발 환경 설정
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
       # 토픽 자동 생성 활성화 (개발 편의)
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
+
+      # Confluent KRaft 클러스터 식별자
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     healthcheck:
       test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
       interval: 10s
