@@ -1,10 +1,12 @@
 package com.example.team3final.domain.payment.service;
 
+import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.PaymentException;
 import com.example.team3final.domain.payment.dto.request.CreatePaymentRequestDto;
 import com.example.team3final.domain.payment.dto.request.VerifyPaymentRequestDto;
 import com.example.team3final.domain.payment.dto.response.CreatePaymentResponseDto;
+import com.example.team3final.domain.payment.dto.response.GetPaymentResponseDto;
 import com.example.team3final.domain.payment.dto.response.VerifyPaymentResponseDto;
 import com.example.team3final.domain.payment.entity.Payment;
 import com.example.team3final.domain.payment.enums.ChargePackage;
@@ -14,6 +16,7 @@ import io.portone.sdk.server.payment.PaidPayment;
 import io.portone.sdk.server.payment.PaymentClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -122,6 +125,19 @@ public class PaymentServiceImpl implements PaymentService{
                 userId, paymentId, payment.getChargePoint());
 
         return VerifyPaymentResponseDto.of(payment, request.getImpUid(), balanceAfter);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDto<GetPaymentResponseDto> getPayments(Long userId, Pageable pageable) {
+
+        // userId 기준 최신순 페이징 조회 -> DTO로 변환
+        // .map()으로 Page<Payment> -> Page<GetPaymentsResponseDto> 변환
+        return PageResponseDto.from(
+                paymentRepository
+                        .findByUserIdOrderByCreatedAtDesc(userId, pageable)
+                        .map(GetPaymentResponseDto::from)
+        );
     }
 
     // ===== private 헬퍼 =====
