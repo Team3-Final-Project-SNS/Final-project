@@ -23,6 +23,9 @@ importers:
       '@popperjs/core':
         specifier: 2.11.8
         version: 2.11.8
+      '@portone/browser-sdk':
+        specifier: ^0.1.8
+        version: 0.1.8
       '@radix-ui/react-accordion':
         specifier: 1.2.3
         version: 1.2.3(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -647,6 +650,9 @@ packages:
 
   '@popperjs/core@2.11.8':
     resolution: {integrity: sha512-P1st0aksCrn9sGZhp8GMYwBnQsbvAWsZAX44oXNNvLHGqAOcoVxmjZiohstwQ7SqKnbR47akdNi+uleWD8+g6A==}
+
+  '@portone/browser-sdk@0.1.8':
+    resolution: {integrity: sha512-/9DqqiJckIAaOiCMXYdX+Pyj1Mxa8COInaI7ziUa5KeqnBuE0Q2+7dNSNMor+q6WM7OtnrVqmRRv5cC+gc02sw==}
 
   '@radix-ui/number@1.1.0':
     resolution: {integrity: sha512-V3gRzhVNU1ldS5XhAPTom1fOIo4ccrjjJgmE+LI2h/WaFpHmx0MQApT+KZHnx8abG6Avtfcz4WoEciMnpFT3HQ==}
@@ -3033,6 +3039,8 @@ snapshots:
       '@types/react': 19.2.14
 
   '@popperjs/core@2.11.8': {}
+
+  '@portone/browser-sdk@0.1.8': {}
 
   '@radix-ui/number@1.1.0': {}
 
