@@ -12,14 +12,17 @@ import com.example.team3final.domain.chat.enums.ChatMemberRole;
 import com.example.team3final.domain.chat.repository.ChatMemberRepository;
 import com.example.team3final.domain.chat.repository.ChatMessageRepository;
 import com.example.team3final.domain.chat.repository.ChatRoomRepository;
+import com.example.team3final.domain.chat.util.ChatRedisZSetKeys;
 import com.example.team3final.domain.user.dto.response.UserInfoDto;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +37,10 @@ public class ChatServiceImpl implements ChatService {
     private final ChatMessageRepository chatMessageRepository;
     private final ChatMemberRepository chatMemberRepository;
     private final UserService userService;
+    private final StringRedisTemplate redisTemplate; // ZSet 예약용
+
+    // 한국 시간대 오프셋 — Unix Timestamp 변환 시 KST(UTC+9) 기준 적용
+    private static final ZoneOffset KST = ZoneOffset.ofHours(9);
 
     // 채팅방 생성 - 매칭 확정 시 내부 호출
     @Transactional
@@ -79,6 +86,12 @@ public class ChatServiceImpl implements ChatService {
         ChatRoom chatRoom = chatRoomRepository.findByPostId(postId)
                 .orElseThrow(() -> new ChatException(ErrorCode.CHAT_ROOM_NOT_FOUND));
         chatRoom.deactivateNow();
+
+        // 즉시 비활성화 시 ZSet 예약 제거 (예약된 게 있을 수 있음)
+        redisTemplate.opsForZSet().remove(
+                ChatRedisZSetKeys.ROOM_DEACTIVATE,
+                String.valueOf(chatRoom.getId())
+        );
     }
 
     // 채팅방 2시간 후 비활성화 예약 - 만남 인증 완료 시 내부 호출
@@ -87,7 +100,17 @@ public class ChatServiceImpl implements ChatService {
     public void scheduleChatRoomDeactivation(Long postId) {
         ChatRoom chatRoom = chatRoomRepository.findByPostId(postId)
                 .orElseThrow(() -> new ChatException(ErrorCode.CHAT_ROOM_NOT_FOUND));
+        // ACTIVE 유지, deactivatedAt만 세팅 (스케줄러가 READ_ONLY로 전환)
         chatRoom.scheduleDeactivation();
+
+        // 채팅방 READ_ONLY 전환 ZSet 예약
+        // score = deactivatedAt Unix Timestamp (2시간 후)
+        // member = chatRoomId
+        redisTemplate.opsForZSet().add(
+                ChatRedisZSetKeys.ROOM_DEACTIVATE,
+                String.valueOf(chatRoom.getId()),
+                chatRoom.getDeactivatedAt().toEpochSecond(KST)
+        );
     }
 
     // 메시지 목록 조회 (커서 기반 페이징)
