@@ -79,11 +79,10 @@ public class MatchController {
 
         int safeSize = Math.min(size, 50);
 
-        // matchedAt 최신순 정렬 (가장 최근 매칭이 위로)
+        // 정렬은 Repository native query의 ORDER BY m.created_at DESC에서 처리합니다.
         Pageable pageable = PageRequest.of(
                 page,
-                safeSize,
-                Sort.by("createdAt").descending()
+                safeSize
         );
 
         PageResponseDto<GetMatchesResponseDto> response =
@@ -110,4 +109,3 @@ public class MatchController {
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
 }
-

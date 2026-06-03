@@ -12,7 +12,6 @@ import lombok.NoArgsConstructor;
  * 후기에서 선택한 아쉬운 점 태그입니다.
  *
  * 태그는 여러 개 선택할 수 있으며, 각 태그는 매너 점수 계산 시 -1점으로 반영됩니다.
- * REPORT_NEEDED 태그는 점수는 동일하게 -1점이지만 신고 흐름으로 이어질 수 있습니다.
  */
 @Entity
 @Getter
@@ -49,17 +48,10 @@ public class ReviewBadTagEntity extends BaseTimeEntity {
     @Column(name = "score_delta", nullable = false, updatable = false)
     private int scoreDelta;
 
-    /**
-     * 신고 흐름으로 연결할 수 있는 태그인지 여부입니다.
-     */
-    @Column(name = "reportable", nullable = false, updatable = false)
-    private boolean reportable;
-
     @Builder
     private ReviewBadTagEntity(Long reviewId, ReviewBadTag tag) {
         this.reviewId = reviewId;
         this.tag = tag;
         this.scoreDelta = tag.getScoreDelta();
-        this.reportable = tag.isReportable();
     }
 }

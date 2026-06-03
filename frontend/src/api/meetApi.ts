@@ -48,10 +48,13 @@ export interface MeetExtensionResponse {
     expiresAt: string | null;
 }
 
+export type LocationRole = 'AUTHOR' | 'APPLICANT';
+
 export interface SingleLocationResponse {
     latitude: number;
     longitude: number;
     updatedAt: string;
+    role: LocationRole;
 }
 
 export interface LocationResponse {

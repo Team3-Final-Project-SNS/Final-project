@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
+
 public interface MatchRepository extends JpaRepository<Match, Long> {
 
     /**
@@ -100,6 +102,9 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
     // 일단 ai db 활용을 위해서 임시로. 나중에 리팩토링할때 서비스 to 서비스로 변경 예정.
     // 특정 게시글에 사용자가 이미 신청했는지 확인
     boolean existsByPostIdAndApplicantId(Long postId, Long applicantId);
+
+    // Review 도메인에서 단체 만남의 전체 신청자 리뷰 평균을 계산할 때 사용합니다.
+    List<Match> findAllByPostId(Long postId);
 
     // matchId로 authorId 조회 - MeetReminderScheduler용
     @Query("SELECT p.authorId FROM Match m JOIN Post p ON m.postId = p.id WHERE m.id = :matchId")

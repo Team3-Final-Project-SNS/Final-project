@@ -80,6 +80,14 @@ public interface MatchService {
     boolean hasAppliedToPost(Long postId, Long applicantId);
 
     /**
+     * 특정 게시글에 생성된 매칭 ID 목록을 조회합니다.
+     *
+     * Review 도메인이 단체 만남의 리뷰 평균을 계산할 때
+     * MatchRepository를 직접 참조하지 않도록 서비스 메서드로 제공합니다.
+     */
+    List<Long> getMatchIdsByPostId(Long postId);
+
+    /**
      * 내 매칭 목록 조회 — Controller 직접 호출 (명세서 5.4)
      *
      * @param status null이면 전체 조회

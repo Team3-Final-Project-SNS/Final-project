@@ -27,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -60,9 +60,6 @@ public class InquiryServiceImpl implements InquiryService{
 
         // 하루 20개 제한 확인
         validateDailyLimit(userId);
-
-        // 같은 카테고리 중복 접수 방지 검증
-        validateDuplicateActiveInquiry(userId, request.getType());
 
         // 검증 완료 문의 엔티티 생성
         Inquiry inquiry = Inquiry.builder()
@@ -171,7 +168,7 @@ public class InquiryServiceImpl implements InquiryService{
     private void validateCooldown(Long userId) {
         String cooldownKey = COOLDOWN_KEY_PREFIX + userId;
         Boolean hasCooldown = stringRedisTemplate.hasKey(cooldownKey);
-        if (hasCooldown) {
+        if (Objects.equals(hasCooldown, true)) {
             throw new InquiryException(ErrorCode.INQUIRY_COOLDOWN);
         }
     }
@@ -183,29 +180,6 @@ public class InquiryServiceImpl implements InquiryService{
         int count = (countStr == null) ? 0 : Integer.parseInt(countStr);
         if (count >= MAX_DAILY_INQUIRY_COUNT) {
             throw new InquiryException(ErrorCode.INQUIRY_DAILY_LIMIT_EXCEEDED);
-        }
-    }
-
-    // 같은 카테고리 중복 접수 방지
-    private void validateDuplicateActiveInquiry(Long userId, InquiryType inquiryType) {
-
-        // "처리 중"으로 간주할 상태 목록: PENDING(접수됨), IN_PROGRESS(처리중)
-        // List.of()는 불변 리스트 → 실수로 수정되지 않아 안전
-        List<InquiryAnswerStatus> activeStatuses = List.of(
-                InquiryAnswerStatus.PENDING,
-                InquiryAnswerStatus.READ
-        );
-
-        // Repository에 DB 조회 위임: 해당 유저 + 카테고리 + 처리중 상태가 존재하는지 확인
-        boolean hasDuplicate = inquiryRepository.existsByUserIdAndInquiryTypeAndAnswerStatusIn(
-                userId,
-                inquiryType,
-                activeStatuses
-        );
-
-        // 중복이 존재하면 예외 발생 → Controller까지 전파 → 409 Conflict 응답
-        if (hasDuplicate) {
-            throw new InquiryException(ErrorCode.INQUIRY_DUPLICATE_TYPE);
         }
     }
 

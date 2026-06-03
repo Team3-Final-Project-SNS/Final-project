@@ -14,6 +14,7 @@ export interface GetMatchesItemResponse {
     meetAt: string;
     placeName: string;
     myDeposit: number;
+    isAuthor: boolean;
     status: MatchStatus;
     chatRoomId: number;
     matchedAt: string;

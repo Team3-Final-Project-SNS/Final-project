@@ -1,5 +1,6 @@
 package com.example.team3final.domain.admin.inquiryAnswer.entity;
 
+import com.example.team3final.common.entity.BaseTimeEntity;
 import com.example.team3final.common.entity.BaseUpdateEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -11,7 +12,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "inquiry_answers")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class InquiryAnswer extends BaseUpdateEntity {
+public class InquiryAnswer extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

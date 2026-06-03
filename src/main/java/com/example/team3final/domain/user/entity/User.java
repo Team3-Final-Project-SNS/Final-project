@@ -25,6 +25,9 @@ import java.time.LocalDateTime;
 @SQLRestriction("deleted_at IS NULL")
 public class User extends SoftDeleteEntity {
 
+    private static final BigDecimal MANNER_TEMP_MIN = BigDecimal.ZERO;
+    private static final BigDecimal MANNER_TEMP_MAX = new BigDecimal("99");
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_id")
@@ -76,7 +79,6 @@ public class User extends SoftDeleteEntity {
 
     // 매너온도
     // BigDecimal -> 십진수 그대로 저장하기 때문에 오차가 매우 적음
-    // double -> 부동 소수점 방식으로 숫자를 저장, 이진수로 변환하는 과정에서 근사값으로 저장됨 -> 오차 발생
     @Column(name = "manner_temperature", nullable = false)
     private BigDecimal mannerTemperature;
 
@@ -209,12 +211,11 @@ public class User extends SoftDeleteEntity {
 
     // 매너 온도 증가
     public void addMannerTemperature(BigDecimal amount) {
-        this.mannerTemperature = this.mannerTemperature.add(amount);
+        this.mannerTemperature = this.mannerTemperature.add(amount).min(MANNER_TEMP_MAX);
     }
-
     // 매너 온도 감소
     public void deductMannerTemperature(BigDecimal amount) {
-        this.mannerTemperature = this.mannerTemperature.subtract(amount);
+        this.mannerTemperature = this.mannerTemperature.subtract(amount).max(MANNER_TEMP_MIN);
     }
 
     // 리뷰 도매인에서 사용.

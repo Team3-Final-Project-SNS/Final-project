@@ -1,10 +1,13 @@
 package com.example.team3final.domain.payment.service;
 
+import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.domain.payment.dto.request.CreatePaymentRequestDto;
 import com.example.team3final.domain.payment.dto.request.VerifyPaymentRequestDto;
 import com.example.team3final.domain.payment.dto.response.CancelPaymentResponseDto;
 import com.example.team3final.domain.payment.dto.response.CreatePaymentResponseDto;
+import com.example.team3final.domain.payment.dto.response.GetPaymentResponseDto;
 import com.example.team3final.domain.payment.dto.response.VerifyPaymentResponseDto;
+import org.springframework.data.domain.Pageable;
 
 public interface PaymentService {
 
@@ -14,6 +17,9 @@ public interface PaymentService {
     // 결제 완료 검증 - PortOne API 호출해서 금액 검증 후 포인트 지급
     VerifyPaymentResponseDto verifyPayment(Long userId, Long paymentId,
                                            VerifyPaymentRequestDto request);
+
+    // 결제 내역 조회 - 내 결제 목록 최신순
+    PageResponseDto<GetPaymentResponseDto> getPayments(Long userId, Pageable pageable);
 
     // 결제 취소 — PortOne 취소 API 호출 + paidPoint 회수
     CancelPaymentResponseDto cancelPayment(Long userId, Long paymentId);

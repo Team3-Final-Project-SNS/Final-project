@@ -1,15 +1,19 @@
 package com.example.team3final.domain.payment.controller;
 
 import com.example.team3final.common.dto.response.ApiResponseDto;
+import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.domain.payment.dto.request.CreatePaymentRequestDto;
 import com.example.team3final.domain.payment.dto.request.VerifyPaymentRequestDto;
 import com.example.team3final.domain.payment.dto.response.CancelPaymentResponseDto;
 import com.example.team3final.domain.payment.dto.response.CreatePaymentResponseDto;
+import com.example.team3final.domain.payment.dto.response.GetPaymentResponseDto;
 import com.example.team3final.domain.payment.dto.response.VerifyPaymentResponseDto;
 import com.example.team3final.domain.payment.service.PaymentService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -57,6 +61,22 @@ public class PaymentController {
                        paymentService.verifyPayment(userId, paymentId, request)
                )
        );
+    }
+
+    // 결제 내역 조회
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponseDto<PageResponseDto<GetPaymentResponseDto>>> getPayments(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        // size 최대 50 제한
+        Pageable pageable = PageRequest.of(page, Math.min(size,50));
+        return ResponseEntity.ok(
+                ApiResponseDto.success(
+                        paymentService.getPayments(userDetails.getUserId(), pageable)
+                )
+        );
     }
 
     @PatchMapping("/{paymentId}/cancel")

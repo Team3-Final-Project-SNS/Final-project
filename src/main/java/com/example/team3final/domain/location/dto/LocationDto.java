@@ -1,6 +1,7 @@
 package com.example.team3final.domain.location.dto;
 
 import com.example.team3final.domain.location.entity.UserLocation;
+import com.example.team3final.domain.location.enums.LocationRole;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -9,13 +10,15 @@ import java.time.LocalDateTime;
 public record LocationDto (
         BigDecimal latitude,
         BigDecimal longitude,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        LocationRole role
 ) {
-    public static LocationDto from(UserLocation userLocation) {
+    public static LocationDto from(UserLocation userLocation, LocationRole role) {
         return new LocationDto(
                 userLocation.getLatitude(),
                 userLocation.getLongitude(),
-                userLocation.getUpdatedAt()
+                userLocation.getUpdatedAt(),
+                role
         );
     }
 }
