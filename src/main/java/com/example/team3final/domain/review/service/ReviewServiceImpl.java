@@ -89,6 +89,7 @@ public class ReviewServiceImpl implements ReviewService {
     private final ReviewRepository reviewRepository;
     private final ReviewGoodTagRepository reviewGoodTagRepository;
     private final ReviewBadTagRepository reviewBadTagRepository;
+    private final ReviewAvoidanceService reviewAvoidanceService;
     private final MatchService matchService;
     private final PostService postService;
     private final UserService userService;
@@ -100,13 +101,14 @@ public class ReviewServiceImpl implements ReviewService {
      *
      * 처리 흐름:
      * 1. 매칭/게시글 정보 조회
-     * 2. 작성자가 매칭 당사자인지 검증
+     * 2. 작성자가 신청자인지 검증
      * 3. 매칭 완료 상태와 작성 가능 기간 검증
      * 4. 중복 후기 작성 여부 검증
-     * 5. 태그 점수 계산 후 Review 저장
-     * 6. 선택 태그 상세 저장
-     * 7. 후기 작성 보상 포인트 지급
-     * 8. 후기를 받은 사용자의 매너 온도 재계산
+     * 5. 기존 만남 리뷰 평균 점수 조회
+     * 6. 태그 점수 계산 후 Review 저장
+     * 7. 선택 태그 상세 저장
+     * 8. 후기 작성 보상 포인트 지급
+     * 9. 만남 리뷰 평균 변화량만 등록자 매너온도에 반영
      */
     @Override
     @Transactional
@@ -118,17 +120,22 @@ public class ReviewServiceImpl implements ReviewService {
         Match match = matchService.getMatchById(matchId);
         PostMatchInfoDto post = postService.getPostMatchInfo(match.getPostId());
 
-        validateReviewCreatable(match, post.authorId(), writerId);
+        validateReviewCreatable(match, post, writerId);
 
         List<ReviewGoodTag> goodTags = distinct(request.goodTags());
         List<ReviewBadTag> badTags = distinct(request.badTags());
         validateTags(goodTags, badTags);
 
+        Long authorId = post.authorId();
+        List<Long> postMatchIds = matchService.getMatchIdsByPostId(post.postId());
+        BigDecimal previousMeetingAverageScore = calculateMeetingAverageScore(postMatchIds);
+        int tagScoreDelta = calculateTagScoreDelta(goodTags, badTags);
+
         Review review = reviewRepository.save(
                 Review.builder()
                         .matchId(match.getId())
                         .writerId(writerId)
-                        .tagScoreDelta(calculateTagScoreDelta(goodTags, badTags))
+                        .tagScoreDelta(tagScoreDelta)
                         .build()
         );
 
@@ -143,21 +150,30 @@ public class ReviewServiceImpl implements ReviewService {
         // 후기 작성자에게 포인트 지급 알림 발송
         notificationPublisher.sendReviewPoint(review.getWriterId(), review.getId());
 
-        Long targetId = resolveTargetId(match, post.authorId(), writerId);
-        updateTargetMannerTemperature(targetId, review.getTagScoreDelta());
+        // 다시 만나고 싶지 않아요를 선택하면 양방향 회피 관계를 저장합니다.
+        // 리뷰 대상은 만남 자체지만, 블라인드 정책은 신청자와 등록자 사이에 적용합니다.
+        if (containsDoNotWantToMeetAgainTag(badTags)) {
+            reviewAvoidanceService.createAvoidRelation(writerId, authorId, review.getId());
+        }
 
-        // 27번 알림 - 후기 대상자에게 매너 온도 변경 알림 발송
-        notificationPublisher.sendMannerTemperatureChanged(targetId);
+        updateAuthorMannerTemperatureByMeetingAverage(
+                authorId,
+                previousMeetingAverageScore,
+                calculateMeetingAverageScore(postMatchIds)
+        );
 
-        UserInfoDto targetInfo = userService.getUserInfo(targetId);
+        // 27번 알림 - 만남을 주선한 등록자에게 매너 온도 변경 알림 발송
+        notificationPublisher.sendMannerTemperatureChanged(authorId);
+
+        UserInfoDto targetInfo = userService.getUserInfo(authorId);
 
         return CreateReviewResponseDto.of(
                 review,
-                targetId,
+                authorId,
                 targetInfo.nickname(),
                 goodTags,
                 badTags,
-                containsReportNeededTag(badTags)
+                containsDoNotWantToMeetAgainTag(badTags)
         );
     }
 
@@ -188,7 +204,7 @@ public class ReviewServiceImpl implements ReviewService {
                             currentUserInfo.nickname(),
                             goodTags,
                             badTags,
-                            containsReportNeededTag(badTags)
+                            containsDoNotWantToMeetAgainTag(badTags)
                     );
                 })
                 .toList();
@@ -206,18 +222,41 @@ public class ReviewServiceImpl implements ReviewService {
         );
     }
 
+    @Override
+    public List<Long> getAvoidedUserIds(Long userId) {
+        return reviewAvoidanceService.getAvoidedUserIds(userId);
+    }
+
+    @Override
+    public boolean existsAvoidRelation(Long userId, Long otherUserId) {
+        return reviewAvoidanceService.existsAvoidRelation(userId, otherUserId);
+    }
+
 
     /**
      * 후기 작성 가능 조건을 검증합니다.
      *
      * 검증 항목:
-     * - 작성자가 매칭 등록자 또는 신청자인지
+     * - 작성자가 해당 매칭의 신청자인지
+     * - 등록자가 후기를 작성하지 않는지
      * - 매칭 상태가 COMPLETED인지
      * - 매칭 완료 후 7일 이내인지
      * - 같은 매칭에 이미 후기를 작성하지 않았는지
      */
-    private void validateReviewCreatable(Match match, Long authorId, Long writerId) {
-        if (!match.isParticipant(writerId, authorId)) {
+    private void validateReviewCreatable(Match match, PostMatchInfoDto post, Long writerId) {
+        if (!match.isParticipant(writerId, post.authorId())) {
+            throw new MatchException(ErrorCode.MATCH_NOT_PARTICIPANT);
+        }
+
+        // 리뷰는 신청자가 만남 자체를 평가하는 기능입니다.
+        // 1:1/단체 모두 등록자는 리뷰를 작성할 수 없습니다.
+        if (post.authorId().equals(writerId)) {
+            throw new ReviewException(ErrorCode.REVIEW_AUTHOR_NOT_ALLOWED);
+        }
+
+        // 신청자끼리 서로를 리뷰하는 흐름은 허용하지 않습니다.
+        // writerId는 반드시 현재 match의 applicantId여야 합니다.
+        if (!match.isApplicant(writerId)) {
             throw new MatchException(ErrorCode.MATCH_NOT_PARTICIPANT);
         }
 
@@ -287,9 +326,6 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * 아쉬워요 태그 선택 내역을 저장합니다.
-     *
-     * REPORT_NEEDED 태그는 reportable=true로 저장되어
-     * 이후 신고 흐름으로 연결할 수 있습니다.
      */
     private void saveBadTags(Long reviewId, List<ReviewBadTag> badTags) {
         List<ReviewBadTagEntity> entities = badTags.stream()
@@ -303,34 +339,51 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     /**
-     * 후기 작성자의 반대편 사용자를 계산합니다.
+     * 한 만남에 작성된 리뷰들의 평균 점수를 계산합니다.
      *
-     * Review에는 targetId를 저장하지 않으므로,
-     * 게시글 작성자와 매칭 신청자 관계를 기준으로 받은 사람을 계산합니다.
+     * 1:1 만남은 리뷰가 1개이므로 해당 리뷰 점수가 평균이 됩니다.
+     * 단체 만남은 여러 신청자의 리뷰 점수를 평균 내어 등록자의 매너온도에 반영합니다.
      */
-    private Long resolveTargetId(Match match, Long authorId, Long writerId) {
-        if (authorId.equals(writerId)) {
-            return match.getApplicantId();
+    private BigDecimal calculateMeetingAverageScore(List<Long> matchIds) {
+        if (matchIds == null || matchIds.isEmpty()) {
+            return BigDecimal.ZERO;
         }
 
-        return authorId;
+        List<Review> reviews = reviewRepository.findAllByMatchIdIn(matchIds);
+        if (reviews.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal totalScore = reviews.stream()
+                .map(review -> BigDecimal.valueOf(review.getTagScoreDelta()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return totalScore.divide(
+                BigDecimal.valueOf(reviews.size()),
+                2,
+                RoundingMode.HALF_UP
+        );
     }
 
-
     /**
-     * 후기를 받은 사용자의 매너 온도를 갱신합니다.
+     * 만남 리뷰 평균 변화량만 등록자 매너온도에 반영합니다.
      *
-     * 전체 후기를 다시 평균 내지 않고,
-     * 현재 매너 온도에 이번 후기의 태그 점수 변화량만 반영합니다.
+     * 단체 만남에서 리뷰 점수를 단순 누적하면 신청자 수가 많을수록 영향이 과해집니다.
+     * 그래서 새 리뷰 작성 전 평균과 작성 후 평균의 차이만큼만 현재 매너온도에 더합니다.
      */
-    private void updateTargetMannerTemperature(Long targetId, int tagScoreDelta) {
-        BigDecimal currentTemperature = userService.getMannerTemperature(targetId);
+    private void updateAuthorMannerTemperatureByMeetingAverage(
+            Long authorId,
+            BigDecimal previousMeetingAverageScore,
+            BigDecimal currentMeetingAverageScore
+    ) {
+        BigDecimal currentTemperature = userService.getMannerTemperature(authorId);
+        BigDecimal averageScoreDelta = currentMeetingAverageScore.subtract(previousMeetingAverageScore);
 
         BigDecimal changedTemperature = currentTemperature
-                .add(BigDecimal.valueOf(tagScoreDelta).multiply(MANNER_WEIGHT))
+                .add(averageScoreDelta.multiply(MANNER_WEIGHT))
                 .setScale(1, RoundingMode.HALF_UP);
 
-        userService.updateMannerTemperature(targetId, clampMannerTemperature(changedTemperature));
+        userService.updateMannerTemperature(authorId, clampMannerTemperature(changedTemperature));
     }
 
 
@@ -415,13 +468,10 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     /**
-     * 선택된 아쉬워요 태그 중 신고 연결 태그가 있는지 확인합니다.
-     *
-     * REPORT_NEEDED 태그가 포함되어 있으면 프론트에서 신고 작성 흐름을 열 수 있도록
-     * reportNeeded=true로 응답합니다.
+     * 선택된 아쉬워요 태그 중 다시 만나고 싶지 않아요 태그가 있는지 확인합니다.
      */
-    private boolean containsReportNeededTag(List<ReviewBadTag> badTags) {
-        return badTags.stream().anyMatch(ReviewBadTag::isReportable);
+    private boolean containsDoNotWantToMeetAgainTag(List<ReviewBadTag> badTags) {
+        return badTags.contains(ReviewBadTag.DO_NOT_WANT_TO_MEET_AGAIN);
     }
 
     /**

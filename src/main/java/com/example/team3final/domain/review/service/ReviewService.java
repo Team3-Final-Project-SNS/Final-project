@@ -5,6 +5,8 @@ import com.example.team3final.domain.review.dto.response.CreateReviewResponseDto
 import com.example.team3final.domain.review.dto.response.GetWrittenReviewsResponseDto;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
+
 
 /**
  * 후기 도메인의 핵심 비즈니스 로직을 정의하는 서비스입니다.
@@ -36,4 +38,16 @@ public interface ReviewService {
      * @return 내가 작성한 후기 목록과 페이지 정보
      */
     GetWrittenReviewsResponseDto getWrittenReviews(Long currentUserId, Pageable pageable);
+
+    /**
+     * 현재 사용자가 다시 만나고 싶지 않은 사용자 ID 목록을 조회합니다.
+     *
+     * Post, Match, AI 추천 도메인에서 노출/매칭 후보 제외에 사용할 수 있습니다.
+     */
+    List<Long> getAvoidedUserIds(Long userId);
+
+    /**
+     * 두 사용자 사이에 다시 만나고 싶지 않아요 관계가 있는지 확인합니다.
+     */
+    boolean existsAvoidRelation(Long userId, Long otherUserId);
 }

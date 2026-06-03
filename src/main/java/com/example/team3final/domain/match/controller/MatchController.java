@@ -80,10 +80,12 @@ public class MatchController {
         int safeSize = Math.min(size, 50);
 
         // matchedAt 최신순 정렬 (가장 최근 매칭이 위로)
+        // 정렬은 Repository native query의 ORDER BY m.created_at DESC에서 처리한다.
+        // 따라서 주석 처리함으로써, 중복 제거
         Pageable pageable = PageRequest.of(
                 page,
-                safeSize,
-                Sort.by("createdAt").descending()
+                safeSize
+//                Sort.by("createdAt").descending()
         );
 
         PageResponseDto<GetMatchesResponseDto> response =

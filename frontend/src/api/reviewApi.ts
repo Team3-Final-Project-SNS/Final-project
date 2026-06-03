@@ -13,7 +13,7 @@ export type ReviewBadTag =
   | "NO_REPLY"
   | "UNCOMFORTABLE"
   | "BAD_MANNER"
-  | "REPORT_NEEDED";
+  | "DO_NOT_WANT_TO_MEET_AGAIN";
 
 export interface CreateReviewRequest {
   goodTags: ReviewGoodTag[];
@@ -28,7 +28,7 @@ export interface CreateReviewResponse {
   goodTags: ReviewGoodTag[];
   badTags: ReviewBadTag[];
   tagScoreDelta: number;
-  reportNeeded: boolean;
+  doNotWantToMeetAgainSelected: boolean;
   rewardPoint: number;
   createdAt: string;
 }
@@ -41,7 +41,7 @@ export interface ReviewItem {
   goodTags: ReviewGoodTag[];
   badTags: ReviewBadTag[];
   tagScoreDelta: number;
-  reportNeeded: boolean;
+  doNotWantToMeetAgainSelected: boolean;
   createdAt: string;
 }
 

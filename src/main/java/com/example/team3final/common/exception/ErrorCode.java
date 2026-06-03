@@ -54,6 +54,7 @@ public enum ErrorCode {
     MATCH_INVALID_STATUS(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_006", "현재 상태의 매칭은 취소할 수 없습니다."),
     MATCH_AFTER_MEET_TIME(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_007", "약속 시간 이후에는 취소할 수 없습니다."),
     MATCH_DUPLICATE_APPLY(HttpStatus.BAD_REQUEST, "MATCH_008", "이미 신청한 게시글입니다. 재신청은 불가합니다."),
+    MATCH_AVOIDED_USER(HttpStatus.FORBIDDEN, "MATCH_009", "다시 만나고 싶지 않아요 관계의 게시글에는 신청할 수 없습니다."),
 
     // Review
     REVIEW_NOT_COMPLETED_MATCH(HttpStatus.UNPROCESSABLE_ENTITY, "REVIEW_001", "만남 완료 상태의 매칭만 후기를 작성할 수 있습니다."),
@@ -61,6 +62,7 @@ public enum ErrorCode {
     REVIEW_INVALID_TAG(HttpStatus.BAD_REQUEST, "REVIEW_003", "후기 태그 선택이 올바르지 않습니다."),
     REVIEW_PERIOD_EXPIRED(HttpStatus.UNPROCESSABLE_ENTITY, "REVIEW_004", "후기 작성 가능 기간(7일)이 초과되었습니다."),
     REVIEW_ACCESS_DENIED(HttpStatus.FORBIDDEN, "REVIEW_005", "후기를 조회할 수 있는 권한이 없습니다."),
+    REVIEW_AUTHOR_NOT_ALLOWED(HttpStatus.FORBIDDEN, "REVIEW_006", "등록자는 후기를 작성할 수 없습니다."),
 
     // Verification
     MEET_VERIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "VERIFY_001", "인증 정보를 찾을 수 없습니다"),
