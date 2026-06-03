@@ -1,19 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { MapPin, Clock, Plus, AlertCircle, User } from 'lucide-react';
-import { getPosts, PostItemResponse, PostStatus } from '../../api/postApi';
+import { getPosts, PostItemResponse } from '../../api/postApi';
 import { getUserMe } from '../../api/userApi';
-
-type FilterStatus = '전체' | 'OPEN' | 'MATCHED';
-
-const uniquePostsById = (posts: PostItemResponse[]) =>
-    [...new Map(posts.map((post) => [post.postId, post])).values()];
 
 export default function PostListPage() {
   const [searchParams] = useSearchParams();
   const myPostsOnly = searchParams.get('mine') === '1';
   const [posts, setPosts] = useState<PostItemResponse[]>([]);
-  const [filter, setFilter] = useState<FilterStatus>('전체');
   const [sortBy, setSortBy] = useState('책임비 높은 순');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -33,18 +27,11 @@ export default function PostListPage() {
           setCurrentUserId(userId);
         }
 
-        if (filter === '전체') {
-          const [openRes, matchedRes] = await Promise.all([
-            getPosts('OPEN', page, 20),
-            getPosts('MATCHED', page, 20),
-          ]);
-          setPosts(uniquePostsById([...openRes.data.data.content, ...matchedRes.data.data.content]));
-          setTotalPages(Math.max(openRes.data.data.totalPages, matchedRes.data.data.totalPages));
-        } else {
-          const res = await getPosts(filter as PostStatus, page, 20);
-          setPosts(res.data.data.content);
-          setTotalPages(res.data.data.totalPages);
-        }
+        // 게시글 목록은 모집중인 게시글만 노출합니다.
+        // MATCHED 게시글은 신청할 수 없으므로 목록에서 제외합니다.
+        const res = await getPosts('OPEN', page, 20);
+        setPosts(res.data.data.content);
+        setTotalPages(res.data.data.totalPages);
       } catch (err: any) {
         setError('게시글을 불러오는데 실패했습니다.');
         console.error(err);
@@ -53,7 +40,7 @@ export default function PostListPage() {
       }
     };
     fetchPosts();
-  }, [filter, page, myPostsOnly, currentUserId]);
+  }, [page, myPostsOnly, currentUserId]);
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -72,13 +59,9 @@ export default function PostListPage() {
     return past.toLocaleDateString();
   };
 
-  const visiblePosts = filter === '전체'
-      ? posts.filter((post) => post.status === 'OPEN' || post.status === 'MATCHED')
-      : posts.filter((post) => post.status === filter);
-
   const scopedPosts = myPostsOnly && currentUserId !== null
-      ? visiblePosts.filter((post) => post.authorId === currentUserId)
-      : visiblePosts;
+      ? posts.filter((post) => post.authorId === currentUserId)
+      : posts;
 
   const sortedPosts = [...scopedPosts].sort((a, b) => {
     if (sortBy === '최신순') {
@@ -98,28 +81,11 @@ export default function PostListPage() {
           <h1 className="text-3xl font-bold text-[#212121] mb-3">
             {myPostsOnly ? '내가 작성한 게시물' : '밥 같이 먹을 사람 구해요 🍚'}
           </h1>
-          <p className="text-[#616161]">{myPostsOnly ? '내 게시글' : '전체 게시글'}</p>
+          <p className="text-[#616161]">{myPostsOnly ? '내 모집중 게시글' : '모집중 게시글'}</p>
         </div>
 
         <div className="flex items-center justify-between mb-6">
-          <div className="flex gap-2">
-            {(['전체', 'OPEN', 'MATCHED'] as FilterStatus[]).map((status) => (
-                <button
-                    key={status}
-                    onClick={() => {
-                      setFilter(status);
-                      setPage(0);
-                    }}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                        filter === status
-                            ? 'bg-[#d84315] text-white'
-                            : 'bg-white border border-[#e0e0e0] text-[#616161] hover:border-[#d84315]'
-                    }`}
-                >
-                  {status === '전체' ? '전체' : status === 'OPEN' ? '모집중' : '매칭됨'}
-                </button>
-            ))}
-          </div>
+          <div />
 
           <div className="flex items-center gap-4">
             <select
@@ -163,7 +129,7 @@ export default function PostListPage() {
             <div className="space-y-3">
               {sortedPosts.length === 0 ? (
                   <div className="rounded-xl border border-[#e0e0e0] bg-white p-10 text-center text-[#9e9e9e]">
-                    {myPostsOnly ? '내가 작성한 게시글이 없습니다.' : '해당 상태의 게시글이 없습니다.'}
+                    {myPostsOnly ? '내가 작성한 모집중 게시글이 없습니다.' : '모집중인 게시글이 없습니다.'}
                   </div>
               ) : sortedPosts.map((post) => (
                   <Link
@@ -175,13 +141,9 @@ export default function PostListPage() {
                       <div className="min-w-0 flex-1">
                         <div className="mb-2 flex items-center gap-2">
                           <span
-                              className={`rounded px-2.5 py-1 text-xs font-semibold ${
-                                  post.status === 'OPEN'
-                                      ? 'bg-[#e8f5e9] text-[#2e7d32]'
-                                      : 'bg-[#fff3e0] text-[#ef6c00]'
-                              }`}
+                              className="rounded bg-[#e8f5e9] px-2.5 py-1 text-xs font-semibold text-[#2e7d32]"
                           >
-                            {post.status === 'OPEN' ? '모집중' : '매칭됨'}
+                            모집중
                           </span>
                           <span className="text-xs text-[#9e9e9e]">{getTimeAgo(post.createAt)}</span>
                         </div>

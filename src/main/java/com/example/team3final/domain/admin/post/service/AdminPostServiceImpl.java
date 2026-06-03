@@ -1,21 +1,29 @@
 package com.example.team3final.domain.admin.post.service;
 
+import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.AdminException;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.domain.admin.entity.Admin;
 import com.example.team3final.domain.admin.post.dto.request.AdminDeletePostRequestDto;
 import com.example.team3final.domain.admin.post.dto.response.AdminDeletePostResponseDto;
+import com.example.team3final.domain.admin.post.dto.response.AdminGetPostsResponseDto;
 import com.example.team3final.domain.admin.repository.AdminRepository;
 import com.example.team3final.domain.post.entity.Post;
+import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.service.PostService;
 import com.example.team3final.domain.report.entity.Report;
 import com.example.team3final.domain.report.enums.ReportStatus;
 import com.example.team3final.domain.report.service.ReportService;
+import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +33,7 @@ public class AdminPostServiceImpl implements AdminPostService {
     private final AdminRepository adminRepository;
     private final PostService postService;
     private final ReportService reportService;
+    private final UserService userService;
 
     @Override
     @Transactional
@@ -33,7 +42,7 @@ public class AdminPostServiceImpl implements AdminPostService {
 
         // 관리자 검증
         Admin admin = adminRepository.findById(adminId)
-                .orElseThrow( () -> new AdminException(ErrorCode.ADMIN_NOT_FOUND));
+                .orElseThrow(() -> new AdminException(ErrorCode.ADMIN_NOT_FOUND));
 
         // 슈퍼 어드민 확인
         if (!admin.isActiveAndSuperAdmin()) {
@@ -72,5 +81,55 @@ public class AdminPostServiceImpl implements AdminPostService {
                 refundedPoint,
                 LocalDateTime.now()
         );
+    }
+
+    // 관리자 게시물 목록 조회
+    @Override
+    public PageResponseDto<AdminGetPostsResponseDto> getPosts(
+            Long adminId,
+            Long universityId,
+            PostStatus status,
+            String keyword,
+            Pageable pageable) {
+
+        // 관리자 검증
+        adminRepository.findById(adminId)
+                .orElseThrow(() -> new AdminException(ErrorCode.ADMIN_NOT_FOUND));
+
+        // universityIds -> authorIds 변환
+        // universityId 없으면 null 그대로 넘김 → PostService에서 전체 조회 처리
+        // universityId 있으면 해당 대학 유저 ID 목록 조회
+        List<Long> authorIds = null;
+        if (universityId != null) {
+            authorIds = userService.getUserIdsByUniversityId(universityId);
+
+            // 해당 대학에 유저가 한 명도 없으면 빈 페이지 즉시 반환
+            // authorIds가 빈 리스트인 채로 IN 절에 들어가면 쿼리 오류 또는 전체 조회가 될 수 있음
+            if (authorIds.isEmpty()) {
+                return PageResponseDto.from(Page.empty(pageable));
+            }
+        }
+
+        // Post 목록 조회
+        Page<Post> posts = postService.getPostsForAdmin(authorIds, status, keyword, pageable);
+
+        // N+1 방지, authorId 목록 한 번에 추출 후 닉네임 bulk 조회
+        List<Long> postAuthorIds = posts.getContent()
+                .stream()
+                .map(Post::getAuthorId)
+                .distinct()
+                .toList();
+
+        Map<Long, String> nicknameMap = userService.getUserNicknameMap(postAuthorIds);
+
+        // 5. Post 엔티티 → 응답 DTO 변환
+        Page<AdminGetPostsResponseDto> dtoPage = posts.map(post ->
+                AdminGetPostsResponseDto.of(
+                        post,
+                        nicknameMap.getOrDefault(post.getAuthorId(), "알 수 없음")
+                )
+        );
+
+        return PageResponseDto.from(dtoPage);
     }
 }

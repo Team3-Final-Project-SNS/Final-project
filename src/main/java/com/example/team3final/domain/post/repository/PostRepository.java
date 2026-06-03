@@ -46,6 +46,33 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     // getPosts()에서 status가 null일 때 사용
     Page<Post> findByAuthorIdIn(List<Long> authorIds, Pageable pageable);
 
+    // 관리자 게시글 목록 조회 — 전체 대학 조회 시 사용 (universityId 필터 없을 때)
+    @Query("""
+        SELECT p FROM Post p
+        WHERE (:status IS NULL OR p.status = :status)
+          AND (:keyword IS NULL OR p.placeName LIKE %:keyword%)
+        ORDER BY p.createdAt DESC
+        """)
+    Page<Post> findAllForAdmin(
+            @Param("status") PostStatus status,
+            @Param("keyword") String keyword,
+            Pageable pageable
+    );
+
+    // 관리자 게시글 목록 조회 — 특정 대학 필터 시 사용 (universityId 있을 때 해당 대학 작성자 ID 목록으로 조회)
+    @Query("""
+        SELECT p FROM Post p
+        WHERE p.authorId IN :authorIds
+          AND (:status IS NULL OR p.status = :status)
+          AND (:keyword IS NULL OR p.placeName LIKE %:keyword%)
+        ORDER BY p.createdAt DESC
+        """)
+    Page<Post> findAllForAdminByAuthorIds(
+            @Param("authorIds") List<Long> authorIds,
+            @Param("status") PostStatus status,
+            @Param("keyword") String keyword,
+            Pageable pageable
+    );
 
     /**
      * 만료 벌크 업데이트

@@ -9,7 +9,8 @@ public record PostMatchInfoDto(
         Long authorId,
         LocalDateTime meetAt,
         String placeName,
-        int authorDeposit
+        int authorDeposit,
+        int maxApplicants
 ) {
     public static PostMatchInfoDto from(Post post) {
         return new PostMatchInfoDto(
@@ -17,7 +18,8 @@ public record PostMatchInfoDto(
                 post.getAuthorId(),
                 post.getMeetAt(),
                 post.getPlaceName(),
-                post.getAuthorDeposit()
+                post.getAuthorDeposit(),
+                post.getMaxApplicants()
         );
     }
 }

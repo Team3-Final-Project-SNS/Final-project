@@ -4,6 +4,7 @@ import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.enums.Gender;
 import com.example.team3final.domain.user.enums.UserStatus;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -18,6 +19,7 @@ public record GetUserResponseDto (
         LocalDate birthDate,
         Gender gender,
         int point,
+        BigDecimal mannerTemperature,
         UserStatus status,
         LocalDateTime createdAt
 
@@ -34,6 +36,7 @@ public record GetUserResponseDto (
                 user.getBirthDate(),
                 user.getGender(),
                 user.getTotalPoint(),
+                user.getMannerTemperature(),
                 user.getStatus(),
                 user.getCreatedAt()
         );

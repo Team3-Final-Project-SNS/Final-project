@@ -1,19 +1,24 @@
 package com.example.team3final.domain.payment.service;
 
+import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.PaymentException;
 import com.example.team3final.domain.payment.dto.request.CreatePaymentRequestDto;
 import com.example.team3final.domain.payment.dto.request.VerifyPaymentRequestDto;
+import com.example.team3final.domain.payment.dto.response.CancelPaymentResponseDto;
 import com.example.team3final.domain.payment.dto.response.CreatePaymentResponseDto;
+import com.example.team3final.domain.payment.dto.response.GetPaymentResponseDto;
 import com.example.team3final.domain.payment.dto.response.VerifyPaymentResponseDto;
 import com.example.team3final.domain.payment.entity.Payment;
 import com.example.team3final.domain.payment.enums.ChargePackage;
+import com.example.team3final.domain.payment.enums.PaymentStatus;
 import com.example.team3final.domain.payment.repository.PaymentRepository;
 import com.example.team3final.domain.user.service.UserPointService;
 import io.portone.sdk.server.payment.PaidPayment;
 import io.portone.sdk.server.payment.PaymentClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -86,6 +91,8 @@ public class PaymentServiceImpl implements PaymentService{
             Thread.currentThread().interrupt();
             throw new PaymentException(ErrorCode.PAY_VERIFICATION_FAILED);
         } catch (Exception e) {
+            // PortOne API 호출 자체 실패
+            payment.markFailed("PortOne API 호출 실패:" + e.getMessage());
             log.error("[Payment] PortOne 결제 조회 실패 - impUid: {}, error: {}",
                     request.getImpUid(), e.getMessage());
             throw new PaymentException(ErrorCode.PAY_VERIFICATION_FAILED);
@@ -94,6 +101,9 @@ public class PaymentServiceImpl implements PaymentService{
         // 4. 결제 상태 확인 — PortOne에서 PAID가 아니면 검증 실패
         //    SDK의 Payment는 sealed class: PaidPayment / FailedPayment 등으로 분기됨
         if (!(portOnePayment instanceof PaidPayment paidPayment)) {
+            // 2. instanceof 분기 — PAID가 아닌 상태로 응답
+            payment.markFailed("PortOne 결제 미완료: " +
+                    portOnePayment.getClass().getSimpleName());
             log.warn("[Payment] PortOne 결제 미완료 상태 - impUid: {}, status: {}",
                     request.getImpUid(), portOnePayment.getClass().getSimpleName());
             throw new PaymentException(ErrorCode.PAY_VERIFICATION_FAILED);
@@ -105,7 +115,8 @@ public class PaymentServiceImpl implements PaymentService{
         int portOneAmount = (int) paidPayment.getAmount().getTotal();
         if (payment.getAmount() != portOneAmount) {
             // 위변조 감지 - 결제 실패 처리 후 예외
-            payment.markFailed();
+            payment.markFailed("금액 불일치 (위변조 감지) - 기대: " +
+                    payment.getAmount() + "원, 실제: " + portOneAmount + "원");
             log.warn("[Payment] 금액 불일치 위변조 감지 - paymentId: {}, 기대: {}, 실제: {}",
                     paymentId, payment.getAmount(),portOneAmount);
             throw new PaymentException(ErrorCode.PAY_AMOUNT_MISMATCH);
@@ -122,6 +133,95 @@ public class PaymentServiceImpl implements PaymentService{
                 userId, paymentId, payment.getChargePoint());
 
         return VerifyPaymentResponseDto.of(payment, request.getImpUid(), balanceAfter);
+    }
+
+    // 결제 내역 조회
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDto<GetPaymentResponseDto> getPayments(Long userId, Pageable pageable) {
+
+        // userId 기준 최신순 페이징 조회 -> DTO로 변환
+        // .map()으로 Page<Payment> -> Page<GetPaymentsResponseDto> 변환
+        return PageResponseDto.from(
+                paymentRepository
+                        .findByUserIdOrderByCreatedAtDesc(userId, pageable)
+                        .map(GetPaymentResponseDto::from)
+        );
+    }
+
+    // 결제 취소
+    @Override
+    @Transactional
+    public CancelPaymentResponseDto cancelPayment(Long userId, Long paymentId) {
+
+        // 1. 결제 건 조회 — 없으면 PAY_NOT_FOUND
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new PaymentException(ErrorCode.PAY_NOT_FOUND));
+
+        // 2. 본인 결제 건인지 확인 — 타인 결제 취소 시도 방지
+        if (!payment.isOwner(userId)) {
+            throw new PaymentException(ErrorCode.PAY_NOT_OWNER);
+        }
+
+        // 3. PAID 상태인지 확인
+        //    PAID가 아니면 취소 불가 (READY/FAILED/CANCELLED)
+        //    isFinalized() 대신 직접 체크 — FAILED도 isFinalized()에서 제외됐으므로 명시적으로 처리
+        if (payment.getStatus() != PaymentStatus.PAID) {
+            throw new PaymentException(ErrorCode.PAY_ALREADY_PROCESSED);
+        }
+
+        // 4. 실제 회수 가능한 paidPoint 계산
+        //    withdrawChargedPoint(): min(현재 paidPoint, 요청금액)만 회수
+        //    → 이미 책임비로 사용된 포인트는 회수 불가 (SA 문서 정책)
+        int actualWithdrawn = userPointService.withdrawChargedPoint(
+                userId, payment.getAmount(), paymentId
+        );
+
+        // 5. 1,000원 단위 내림 — SA 문서 "1,000원 단위로만 환불 가능" 정책
+        //    ex) actualWithdrawn = 4,500 → refundAmount = 4,000
+        //    남은 500원은 환불되지 않음 (정책상 소멸)
+        int refundAmount = (actualWithdrawn / 1000) * 1000;
+
+        // 6. 환불 가능 금액이 0이면 PortOne 취소 API 호출 불필요
+        //    (포인트를 전부 사용해서 환불할 현금이 없는 경우)
+        if (refundAmount > 0) {
+            try {
+                // PortOne 부분 취소 API 호출
+                // cancelPayment 파라미터 9개
+                // - paymentId(merchantUid): 주문번호
+                // - amount: 실제 환불할 금액 (Long 타입)
+                // - taxFreeAmount: 면세 금액 — 포인트 충전은 해당 없으므로 null
+                // - vatAmount: 부가세 — null (PortOne이 자동 계산)
+                // - reason: 취소 사유 문자열
+                // - requester ~ refundAccount: 선택값 전부 null
+                paymentClient.cancelPayment(
+                        payment.getMerchantUid(), // paymentId
+                        (long) refundAmount,      // amount (int → Long 캐스팅)
+                        null,                     // taxFreeAmount
+                        null,                     // vatAmount
+                        "사용자 취소 요청",        // reason
+                        null,                     // requester
+                        null,                     // promotionDiscountRetainOption
+                        null,                     // currentCancellableAmount
+                        null                      // refundAccount
+                ).get();                          // CompletableFuture blocking 대기
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new PaymentException(ErrorCode.PAY_VERIFICATION_FAILED);
+            } catch (Exception e) {
+                log.error("[Payment] PortOne 취소 실패 - paymentId: {}, error: {}",
+                        paymentId, e.getMessage());
+                throw new PaymentException(ErrorCode.PAY_VERIFICATION_FAILED);
+            }
+        }
+
+        // 7. DB 상태 CANCELLED 전환 + 취소 사유 기록
+        payment.markCancelled("사용자 취소 요청 - 환불액: " + refundAmount + "원");
+
+        log.info("[Payment] 결제 취소 완료 - userId: {}, paymentId: {}, refundAmount: {}",
+                userId, paymentId, refundAmount);
+
+        return CancelPaymentResponseDto.of(payment, refundAmount);
     }
 
     // ===== private 헬퍼 =====

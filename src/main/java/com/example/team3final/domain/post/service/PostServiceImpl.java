@@ -10,6 +10,7 @@ import com.example.team3final.domain.post.dto.response.*;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.repository.PostRepository;
+import com.example.team3final.domain.review.service.ReviewAvoidanceService;
 import com.example.team3final.domain.user.dto.response.UserInfoDto;
 import com.example.team3final.domain.user.service.UserPointService;
 import com.example.team3final.domain.user.service.UserService;
@@ -37,6 +38,7 @@ public class PostServiceImpl implements PostService{
     private final UserService userService;
     private final UserPointService userPointService;
     private final NotificationPublisher notificationPublisher;
+    private final ReviewAvoidanceService reviewAvoidanceService;
 
 
     @Override
@@ -192,16 +194,23 @@ public class PostServiceImpl implements PostService{
         // 2. 같은 학교 유저 ID 목록 조회
         List<Long> sameUniversityUserIds = userService.getUserIdsByUniversityId(universityId);
 
+        // 2-1. 다시 만나고 싶지 않아요 관계가 있는 작성자는 목록에서 제외합니다.
+        // 관계는 양방향으로 저장되므로, 현재 사용자가 신청자였든 등록자였든 서로의 게시글이 보이지 않습니다.
+        List<Long> avoidedUserIds = reviewAvoidanceService.getAvoidedUserIds(currentUserId);
+        List<Long> visibleAuthorIds = sameUniversityUserIds.stream()
+                .filter(userId -> !avoidedUserIds.contains(userId))
+                .toList();
+
         // 3. 게시글 조회
         Page<Post> postPage;
         if (status == null) {
             // status 없으면 해당 학교 전체 게시글 (상태 무관)
-            postPage = postRepository.findByAuthorIdIn(sameUniversityUserIds, PageRequest.of(
+            postPage = postRepository.findByAuthorIdIn(visibleAuthorIds, PageRequest.of(
                     pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort()
             ));
         } else {
             postPage = postRepository.findByAuthorIdInAndStatus(
-                    sameUniversityUserIds,
+                    visibleAuthorIds,
                     status,
                     pageable
             );
@@ -393,6 +402,14 @@ public class PostServiceImpl implements PostService{
         return refundedPoint;
     }
 
+    // 관리자 게시글 목록 조회, 전체 대학 조회와 특정 대학 필터 분기 처리
+    @Override
+    public Page<Post> getPostsForAdmin(List<Long> authorIds, PostStatus status, String keyword, Pageable pageable) {
+        if (authorIds == null) {
+            return postRepository.findAllForAdmin(status, keyword, pageable);
+        }
+        return postRepository.findAllForAdminByAuthorIds(authorIds, status, keyword, pageable);
+    }
 
     @Override
     public List<Post> findAiMatchingCandidatePosts(

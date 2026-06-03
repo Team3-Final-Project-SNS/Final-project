@@ -2,6 +2,7 @@ package com.example.team3final.domain.meet.service;
 
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.MeetException;
+import com.example.team3final.common.utils.GpsUtils;
 import com.example.team3final.domain.chat.service.ChatService;
 import com.example.team3final.domain.dispute.service.DisputeQueryService;
 import com.example.team3final.domain.location.service.UserLocationService;
@@ -57,8 +58,6 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
     // GPS 오차범위까지 고려한 인증 반경
     private static final double PLACE_VERIFICATION_RADIUS_METERS = 60.0;
-    // 지구 반지름
-    private static final int EARTH_RADIUS_METERS = 6371000;
     // QR 토큰 TTL - 장소 인증 완료 시점 + 30분
     private static final long QR_TOKEN_VALIDITY_MINUTES = 30;
     // 장소 인증 가능 시간 : 만남 시간 15분전 ~ 1시간
@@ -133,7 +132,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         BigDecimal placeLng = postInfo.placeLng();
 
         // BigDecimal → double 변환: Math 삼각함수가 double만 지원하므로 계산 직전에만 변환
-        double distanceMeters = calculateDistance(
+        double distanceMeters = GpsUtils.calculateDistance(
                 requestDto.getCurrentLat().doubleValue(), requestDto.getCurrentLng().doubleValue(),
                 placeLat.doubleValue(), placeLng.doubleValue()
         );
@@ -755,20 +754,6 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     public MeetVerification getByMatchId(Long matchId) {
         return meetVerificationRepository.findByMatchId(matchId)
                 .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
-    }
-
-    // Haversine 공식으로 두 GPS 좌표 사이 거리 계산
-    private double calculateDistance(double lat1, double lng1, double lat2, double lng2) {
-        double dLat = Math.toRadians(lat2 - lat1);
-        double dLng = Math.toRadians(lng2 - lng1);
-
-        double n = Math.sin(dLat / 2) * Math.sin(dLat / 2)
-                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-
-        double m = 2 * Math.atan2(Math.sqrt(n), Math.sqrt(1 - n));
-
-        return EARTH_RADIUS_METERS * m;
     }
 }
 
