@@ -10,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public interface MatchService {
 
@@ -86,6 +87,23 @@ public interface MatchService {
      * MatchRepository를 직접 참조하지 않도록 서비스 메서드로 제공합니다.
      */
     List<Long> getMatchIdsByPostId(Long postId);
+
+    /**
+     * 특정 게시글에 속한 COMPLETED 매칭 목록을 조회합니다.
+     *
+     * Chat 도메인이 만남 완료 후 채팅방 READ_ONLY 전환 알림을 보낼 때
+     * MatchRepository를 직접 참조하지 않도록 서비스 메서드로 제공합니다.
+     */
+    List<Match> getCompletedMatchesByPostId(Long postId);
+
+    /**
+     * COMPLETED 상태의 매칭을 Optional로 조회합니다.
+     *
+     * Review 도메인이 후기 작성 마지막 날 알림 처리 시
+     * MatchRepository를 직접 참조하지 않도록 서비스 메서드로 제공합니다.
+     */
+    Optional<Match> findCompletedMatchById(Long matchId);
+
 
     /**
      * 내 매칭 목록 조회 — Controller 직접 호출 (명세서 5.4)

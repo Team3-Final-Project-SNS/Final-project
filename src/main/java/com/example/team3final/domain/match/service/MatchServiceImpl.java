@@ -32,6 +32,7 @@ import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -177,6 +178,19 @@ public class MatchServiceImpl implements MatchService{
                 .stream()
                 .map(Match::getId)
                 .toList();
+    }
+
+    @Override
+    public List<Match> getCompletedMatchesByPostId(Long postId) {
+        // Chat 도메인에서 만남 완료 알림 대상 신청자를 조회할 때 사용합니다.
+        return matchRepository.findAllByPostIdAndStatus(postId, MatchStatus.COMPLETED);
+    }
+
+    @Override
+    public Optional<Match> findCompletedMatchById(Long matchId) {
+        // Review 도메인 스케줄러에서 후기 마지막 날 알림 대상 매칭을 조회할 때 사용합니다.
+        return matchRepository.findById(matchId)
+                .filter(match -> match.getStatus() == MatchStatus.COMPLETED);
     }
 
     @Override
@@ -433,12 +447,7 @@ public class MatchServiceImpl implements MatchService{
         // 2-2. 상대방 유저 정보 IN 쿼리 1번
         Map<Long, UserInfoDto> opponentMap = userService.getUserInfos(opponentIds);
 
-        // 2-3. 매칭 ID 목록
-        List<Long> matchIds = matches.stream()
-                .map(Match::getId)
-                .toList();
-
-        // 2-4. 채팅방 ID IN 쿼리 1번
+        // 2-3. 채팅방 ID IN 쿼리 1번
         Map<Long, Long> chatRoomMap = chatService.getChatRoomIdsByPostIds(postIds);
 
         Page<GetMatchesResponseDto> dtoPage = matchPage.map(match -> {

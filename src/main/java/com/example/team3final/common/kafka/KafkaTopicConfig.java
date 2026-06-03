@@ -11,7 +11,7 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic chatMessagesTopic() {
         return TopicBuilder.name(KafkaTopics.CHAT_MESSAGES)
-                .partitions(1)
+                .partitions(2)
                 .replicas(1)
                 .build();
     }
@@ -19,7 +19,7 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic notificationsTopic() {
         return TopicBuilder.name(KafkaTopics.NOTIFICATIONS)
-                .partitions(1)
+                .partitions(2)
                 .replicas(1)
                 .build();
     }

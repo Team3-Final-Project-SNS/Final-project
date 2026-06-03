@@ -1,7 +1,6 @@
 package com.example.team3final.domain.review.scheduler;
 
-import com.example.team3final.domain.match.enums.MatchStatus;
-import com.example.team3final.domain.match.repository.MatchRepository;
+import com.example.team3final.domain.match.service.MatchService;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.review.repository.ReviewRepository;
 import com.example.team3final.domain.review.util.ReviewRedisZSetKeys;
@@ -23,7 +22,7 @@ import java.util.List;
 public class ReviewDeadlineReminderScheduler {
 
     private final StringRedisTemplate redisTemplate;
-    private final MatchRepository matchRepository;
+    private final MatchService matchService;
     private final ReviewRepository reviewRepository;
     private final NotificationPublisher notificationPublisher;
     private final DefaultRedisScript<List<String>> popReadyItemsScript; // RedisConfig Bean 주입
@@ -57,12 +56,7 @@ public class ReviewDeadlineReminderScheduler {
         for (String idStr : matchIds) {
             Long matchId = Long.parseLong(idStr);
 
-            matchRepository.findById(matchId).ifPresent(match -> {
-                // COMPLETED 상태가 아니면 스킵
-                if (match.getStatus() != MatchStatus.COMPLETED) {
-                    return;
-                }
-
+            matchService.findCompletedMatchById(matchId).ifPresent(match -> {
                 // 이미 후기를 작성한 신청자는 스킵
                 if (reviewRepository.existsByMatchIdAndWriterId(match.getId(), match.getApplicantId())) {
                     return;
