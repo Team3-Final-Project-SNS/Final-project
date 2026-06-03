@@ -125,7 +125,7 @@ public class DataInitializer implements ApplicationRunner {
                         .password(passwordEncoder.encode("ansgpfls79"))
                         .name("나해커")
                         .nickname("정당한참여자아님")
-                        .universityId(university.getId())
+                        .universityId(university1.getId())
                         .major("법학과")
                         .studentNumber("22")
                         .birthDate(LocalDate.of(2002, 1, 1))

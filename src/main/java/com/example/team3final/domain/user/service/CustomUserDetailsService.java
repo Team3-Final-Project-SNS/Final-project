@@ -1,12 +1,16 @@
 package com.example.team3final.domain.user.service;
 
 import com.example.team3final.domain.user.entity.User;
+import com.example.team3final.domain.user.enums.UserStatus;
 import com.example.team3final.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -18,11 +22,18 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
 
+        // 이메일로 유저 조회
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("유저를 찾을 수 없습니다: " + email));
 
-        // 기존 Spring Security 기본 User 대신 커스텀 UserDetailsImpl 반환
-        // → userId를 포함하고 있어서 컨트롤러에서 바로 꺼낼 수 있음
+        // 계정 정지 만료 시 자동 복구
+        if (user.getStatus() == UserStatus.SUSPENDED
+                && user.getSuspendedUntil() != null
+                && LocalDateTime.now().isAfter(user.getSuspendedUntil())) {
+
+            user.reinstate();
+        }
+
         return new UserDetailsImpl(user);
     }
 }
