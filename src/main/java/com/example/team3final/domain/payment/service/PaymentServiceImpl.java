@@ -86,6 +86,8 @@ public class PaymentServiceImpl implements PaymentService{
             Thread.currentThread().interrupt();
             throw new PaymentException(ErrorCode.PAY_VERIFICATION_FAILED);
         } catch (Exception e) {
+            // PortOne API 호출 자체 실패
+            payment.markFailed("PortOne API 호출 실패:" + e.getMessage());
             log.error("[Payment] PortOne 결제 조회 실패 - impUid: {}, error: {}",
                     request.getImpUid(), e.getMessage());
             throw new PaymentException(ErrorCode.PAY_VERIFICATION_FAILED);
@@ -94,6 +96,9 @@ public class PaymentServiceImpl implements PaymentService{
         // 4. 결제 상태 확인 — PortOne에서 PAID가 아니면 검증 실패
         //    SDK의 Payment는 sealed class: PaidPayment / FailedPayment 등으로 분기됨
         if (!(portOnePayment instanceof PaidPayment paidPayment)) {
+            // 2. instanceof 분기 — PAID가 아닌 상태로 응답
+            payment.markFailed("PortOne 결제 미완료: " +
+                    portOnePayment.getClass().getSimpleName());
             log.warn("[Payment] PortOne 결제 미완료 상태 - impUid: {}, status: {}",
                     request.getImpUid(), portOnePayment.getClass().getSimpleName());
             throw new PaymentException(ErrorCode.PAY_VERIFICATION_FAILED);
@@ -105,7 +110,8 @@ public class PaymentServiceImpl implements PaymentService{
         int portOneAmount = (int) paidPayment.getAmount().getTotal();
         if (payment.getAmount() != portOneAmount) {
             // 위변조 감지 - 결제 실패 처리 후 예외
-            payment.markFailed();
+            payment.markFailed("금액 불일치 (위변조 감지) - 기대: " +
+                    payment.getAmount() + "원, 실제: " + portOneAmount + "원");
             log.warn("[Payment] 금액 불일치 위변조 감지 - paymentId: {}, 기대: {}, 실제: {}",
                     paymentId, payment.getAmount(),portOneAmount);
             throw new PaymentException(ErrorCode.PAY_AMOUNT_MISMATCH);
