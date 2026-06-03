@@ -30,8 +30,9 @@ public enum ErrorCode {
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_001", "존재하지 않는 유저입니다."),
     USER_CURRENT_PASSWORD_MISMATCH(HttpStatus.UNAUTHORIZED, "USER_002", "현재 비밀번호가 일치하지 않습니다."),
     USER_SAME_PASSWORD(HttpStatus.BAD_REQUEST, "USER_003", "새 비밀번호가 현재 비밀번호와 동일합니다."),
-    USER_SUSPENDED_OR_WITHDRAWN(HttpStatus.FORBIDDEN, "USER_004", "정지 또는 탈퇴된 계정입니다."),
-
+    USER_WITHDRAWN(HttpStatus.FORBIDDEN, "USER_004", "탈퇴된 계정입니다."),
+    USER_SUSPENDED(HttpStatus.FORBIDDEN, "USER_005", "정지된 계정입니다."),
+    USER_NOT_SUSPENDED(HttpStatus.BAD_REQUEST, "USER_006", "정지 상태의 계정만 해제할 수 있습니다."),
     // common
     USER_NO_FIELD_TO_UPDATE(HttpStatus.BAD_REQUEST, "COMMON_001", "수정할 필드가 한 개 이상 필요합니다."),
 

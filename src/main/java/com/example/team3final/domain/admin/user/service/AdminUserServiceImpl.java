@@ -3,10 +3,13 @@ package com.example.team3final.domain.admin.user.service;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.AdminException;
 import com.example.team3final.common.exception.ErrorCode;
+import com.example.team3final.common.exception.UserException;
 import com.example.team3final.domain.admin.entity.Admin;
 import com.example.team3final.domain.admin.repository.AdminRepository;
+import com.example.team3final.domain.admin.user.dto.request.AdminReinstateUserRequestDto;
 import com.example.team3final.domain.admin.user.dto.request.AdminSuspendUserRequestDto;
 import com.example.team3final.domain.admin.user.dto.response.AdminGetUsersResponseDto;
+import com.example.team3final.domain.admin.user.dto.response.AdminReinstateUserResponseDto;
 import com.example.team3final.domain.admin.user.dto.response.AdminSuspendUserResponseDto;
 import com.example.team3final.domain.university.service.UniversityService;
 import com.example.team3final.domain.user.entity.User;
@@ -18,10 +21,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -82,5 +83,37 @@ public class AdminUserServiceImpl implements AdminUserService {
         User user = userService.findUserById(userId);
 
         return AdminSuspendUserResponseDto.of(user, requestDto.getReason());
+    }
+
+    // 관리자 수동 정지 해제
+    @Override
+    @Transactional
+    public AdminReinstateUserResponseDto reinstateUser(Long adminId, Long userId, AdminReinstateUserRequestDto requestDto) {
+
+        // 1차 방어 → Admin 계정 활성화 상태 체크
+        Admin admin = adminRepository.findById(adminId)
+                .orElseThrow(() -> new AdminException(ErrorCode.ADMIN_NOT_FOUND));
+
+        // 2차 방어 → SUPER_ADMIN인지 확인
+        if (!admin.isActiveAndSuperAdmin()) {
+            throw new AdminException(ErrorCode.ADMIN_SUPER_REQUIRED);
+        }
+
+        // 유저 조회
+        User user = userService.findUserById(userId);
+
+        // SUSPENDED 상태가 아니면 정지 해제 불가
+        // ACTIVE 계정을 실수로 해제하거나, WITHDRAWN 계정을 복구하는 것 방지
+        if (user.getStatus() != UserStatus.SUSPENDED) {
+            throw new UserException(ErrorCode.USER_NOT_SUSPENDED);
+        }
+
+        // 정지 해제 처리 — ACTIVE 복구 + suspendedUntil 초기화
+        // UserService를 거치지 않고 User 엔티티 직접 호출
+        // 이유: reinstate()는 단순 상태 변경으로, UserService 인터페이스를 오염시킬 필요 없음
+        // @Transactional + 더티 체킹 → save() 없이 자동 UPDATE
+        user.reinstate();
+
+        return AdminReinstateUserResponseDto.of(user, requestDto.getReason());
     }
 }
