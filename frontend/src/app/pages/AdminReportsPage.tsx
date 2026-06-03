@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { ArrowLeft, CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { AdminReportItem, getAdminReports, processAdminReport } from '../../api/adminReportApi';
 import { ReportStatus } from '../../api/reportApi';
+import AdminFloatingChatbot from '../components/AdminFloatingChatbot';
 
 const filters: ('ALL' | ReportStatus)[] = ['ALL', 'PENDING', 'ACCEPTED', 'REJECTED', 'WITHDRAWN'];
 
@@ -137,6 +138,7 @@ function AdminShell({ title, description, children }: { title: string; descripti
         <p className="mb-6 mt-2 text-sm text-[#757575]">{description}</p>
         {children}
       </main>
+      <AdminFloatingChatbot />
     </div>
   );
 }

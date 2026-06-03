@@ -9,6 +9,7 @@ import {
   getAdminInquiry,
 } from '../../api/adminInquiryApi';
 import { InquiryAnswerStatus, InquiryType } from '../../api/inquiryApi';
+import AdminFloatingChatbot from '../components/AdminFloatingChatbot';
 
 const statusFilters: ('ALL' | InquiryAnswerStatus)[] = ['ALL', 'PENDING', 'READ', 'ANSWERED', 'WITHDRAWN'];
 const typeFilters: ('ALL' | InquiryType)[] = ['ALL', 'ACCOUNT', 'PAYMENT', 'MATCH', 'REPORT', 'USAGE', 'HISTORY', 'OTHER'];
@@ -194,6 +195,7 @@ export default function AdminInquiriesPage() {
           </section>
         </div>
       </main>
+      <AdminFloatingChatbot />
     </div>
   );
 }
