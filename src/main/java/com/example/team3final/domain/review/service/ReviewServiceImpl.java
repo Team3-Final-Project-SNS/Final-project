@@ -25,8 +25,6 @@ import com.example.team3final.domain.user.dto.response.UserInfoDto;
 import com.example.team3final.domain.user.service.UserPointService;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -186,15 +184,14 @@ public class ReviewServiceImpl implements ReviewService {
      */
     @Override
     public GetWrittenReviewsResponseDto getWrittenReviews(
-            Long currentUserId,
-            Pageable pageable
+            Long currentUserId
     ) {
-        Page<Review> reviews = reviewRepository.findAllByWriterIdOrderByCreatedAtDesc(currentUserId, pageable);
-        Map<Long, List<ReviewGoodTag>> goodTagMap = getGoodTagMap(reviews.getContent());
-        Map<Long, List<ReviewBadTag>> badTagMap = getBadTagMap(reviews.getContent());
+        List<Review> reviews = reviewRepository.findAllByWriterIdOrderByCreatedAtDesc(currentUserId);
+        Map<Long, List<ReviewGoodTag>> goodTagMap = getGoodTagMap(reviews);
+        Map<Long, List<ReviewBadTag>> badTagMap = getBadTagMap(reviews);
         UserInfoDto currentUserInfo = userService.getUserInfo(currentUserId);
 
-        List<ReviewItemResponseDto> content = reviews.getContent().stream()
+        List<ReviewItemResponseDto> content = reviews.stream()
                 .map(review -> {
                     List<ReviewGoodTag> goodTags = goodTagMap.getOrDefault(review.getId(), List.of());
                     List<ReviewBadTag> badTags = badTagMap.getOrDefault(review.getId(), List.of());
@@ -212,13 +209,7 @@ public class ReviewServiceImpl implements ReviewService {
         return new GetWrittenReviewsResponseDto(
                 currentUserId,
                 currentUserInfo.nickname(),
-                userService.getMannerTemperature(currentUserId),
-                content,
-                reviews.getNumber(),
-                reviews.getSize(),
-                reviews.getTotalElements(),
-                reviews.getTotalPages(),
-                reviews.hasNext()
+                content
         );
     }
 

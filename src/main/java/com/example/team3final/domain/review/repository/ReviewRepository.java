@@ -1,8 +1,6 @@
 package com.example.team3final.domain.review.repository;
 
 import com.example.team3final.domain.review.entity.Review;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -30,7 +28,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
      * 사용자에게는 받은 후기 목록을 공개하지 않고,
      * 본인이 작성한 후기만 확인할 수 있게 합니다.
      */
-    Page<Review> findAllByWriterIdOrderByCreatedAtDesc(Long writerId, Pageable pageable);
+    List<Review> findAllByWriterIdOrderByCreatedAtDesc(Long writerId);
 
     /**
      * 같은 게시글에 속한 여러 매칭의 리뷰를 한 번에 조회합니다.

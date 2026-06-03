@@ -85,7 +85,7 @@ export default function MatchesPage() {
         const completedMatches = nextMatches.filter((match) => match.status === 'COMPLETED');
         if (completedMatches.length > 0) {
           const completedMatchIds = new Set(completedMatches.map((match) => match.matchId));
-          const reviewRes = await getMyWrittenReviews(0, 50);
+          const reviewRes = await getMyWrittenReviews();
           const reviewEntries = reviewRes.data.data.content
             .filter((review) => completedMatchIds.has(review.matchId) && review.writerId === userId)
             .map((review) => [review.matchId, review] as const);

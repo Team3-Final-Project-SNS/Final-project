@@ -8,9 +8,6 @@ import com.example.team3final.domain.review.service.ReviewService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -52,27 +49,10 @@ public class ReviewController {
      */
     @GetMapping("/me/reviews")
     public ResponseEntity<ApiResponseDto<GetWrittenReviewsResponseDto>> getReviews(
-            @AuthenticationPrincipal UserDetailsImpl userDetails,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
-
-        // 음수 page 값이 들어와도 첫 페이지로 보정합니다.
-        int safePage = Math.max(page, 0);
-
-        // size는 최소 1개, 최대 50개까지만 허용합니다.
-        // 0 이하가 들어오면 1로 보정하고, 50을 초과하면 50으로 제한합니다.
-        int safeSize = Math.max(1, Math.min(size, 50));
-
-        Pageable pageable = PageRequest.of(
-                safePage,
-                safeSize,
-                Sort.by("createdAt").descending()
-        );
-
         GetWrittenReviewsResponseDto response = reviewService.getWrittenReviews(
-                userDetails.getUserId(),
-                pageable
+                userDetails.getUserId()
         );
 
         return ResponseEntity.ok(ApiResponseDto.success(response));
