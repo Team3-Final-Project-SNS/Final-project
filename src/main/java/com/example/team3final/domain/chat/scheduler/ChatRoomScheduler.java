@@ -1,15 +1,17 @@
 package com.example.team3final.domain.chat.scheduler;
 
-import com.example.team3final.domain.chat.entity.ChatRoom;
-import com.example.team3final.domain.chat.enums.ChatRoomStatus;
 import com.example.team3final.domain.chat.repository.ChatRoomRepository;
+import com.example.team3final.domain.chat.util.ChatRedisZSetKeys;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 @Slf4j
@@ -17,26 +19,50 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ChatRoomScheduler {
 
+    private final StringRedisTemplate redisTemplate;
     private final ChatRoomRepository chatRoomRepository;
+    private final DefaultRedisScript<List<String>> popReadyItemsScript; // RedisConfig Bean 주입
+
+    // 한국 시간대 오프셋 — Unix Timestamp 변환 시 KST(UTC+9) 기준 적용
+    private static final ZoneOffset KST = ZoneOffset.ofHours(9);
 
     // 1분마다 실행 - 만남 완료 후 2시간 경과한 채팅방 READ_ONLY 전환
+    // fixedDelay: 이전 실행 완료 후 1분 뒤 실행 (동시 실행 방지)
     @Scheduled(fixedDelay = 60000)
     @Transactional
     public void deactivateExpiredChatRooms() {
-        LocalDateTime now = LocalDateTime.now();
 
-        // status = ACTIVE이면서 deactivatedAt이 지난 채팅방 조회
-        // (노쇼 방은 deactivatedAt = null 이라 자동 제외)
-        List<ChatRoom> expiredRooms = chatRoomRepository
-                .findByStatusAndDeactivatedAtBefore(ChatRoomStatus.ACTIVE, now);
+        // 현재 시각 Unix Timestamp — ZSet score 비교에 사용
+        long nowScore = LocalDateTime.now().toEpochSecond(KST);
 
-        if (expiredRooms.isEmpty()) {
+        // Lua Script로 원자적 처리 (조회 + 삭제 동시에)
+        // → 서버 여러 대여도 중복 처리 없음
+        List<String> chatRoomIds = redisTemplate.execute(
+                popReadyItemsScript,
+                List.of(ChatRedisZSetKeys.ROOM_DEACTIVATE), // KEYS[1]
+                String.valueOf(nowScore)                    // ARGV[1]
+        );
+
+        if (chatRoomIds.isEmpty()) {
             return;
         }
 
-        // 만남 완료 후 2시간 경과 → READ_ONLY 전환 (DEACTIVATED 아님)
-        expiredRooms.forEach(ChatRoom::deactivateByScheduler);
+        log.info("[ChatRoomScheduler] 만남 완료 채팅방 READ_ONLY 전환 - 처리 건수: {}", chatRoomIds.size());
 
-        log.info("[ChatRoomScheduler] 만남 완료 채팅방 READ_ONLY 전환 - 처리 건수: {}", expiredRooms.size());
+        for (String idStr : chatRoomIds) {
+            Long chatRoomId = Long.parseLong(idStr);
+
+            // chatRoomId로 ChatRoom 조회 후 READ_ONLY 전환
+            chatRoomRepository.findById(chatRoomId).ifPresent(chatRoom -> {
+
+                // 이미 READ_ONLY/DEACTIVATED 된 건 스킵 (중복 처리 방지)
+                if (!chatRoom.isActive()) {
+                    return;
+                }
+
+                // ACTIVE → READ_ONLY 전환 (만남 완료 2시간 경과)
+                chatRoom.deactivateByScheduler();
+            });
+        }
     }
 }

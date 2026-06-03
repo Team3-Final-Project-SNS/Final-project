@@ -209,6 +209,11 @@ public class MeetVerification {
         }
     }
 
+    // 연장 요청 중인지 확인 (스케줄러 중복 처리 방지용)
+    public boolean isExtensionRequested() {
+        return this.extensionStatus == ExtensionStatus.REQUESTED;
+    }
+
     // 연장 거절
     public void rejectExtension() {
         this.extensionStatus = ExtensionStatus.REJECTED;

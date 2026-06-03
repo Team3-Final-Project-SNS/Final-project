@@ -16,6 +16,7 @@ import com.example.team3final.domain.meet.entity.MeetVerification;
 import com.example.team3final.domain.meet.enums.ExtensionStatus;
 import com.example.team3final.domain.meet.enums.VerificationStatus;
 import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
+import com.example.team3final.domain.meet.util.MeetRedisZSetKeys;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.dto.response.PostInfoDto;
 import com.example.team3final.domain.post.service.PostService;
@@ -23,11 +24,13 @@ import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -47,6 +50,10 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     private final UserService userService;
     private final NotificationPublisher notificationPublisher;
     private final DisputeQueryService disputeQueryService;
+    private final StringRedisTemplate redisTemplate; // ZSet 예약용
+
+    // 한국 시간대 오프셋 — Unix Timestamp 변환 시 KST(UTC+9) 기준 적용
+    private static final ZoneOffset KST = ZoneOffset.ofHours(9);
 
     // GPS 오차범위까지 고려한 인증 반경
     private static final double PLACE_VERIFICATION_RADIUS_METERS = 60.0;
@@ -575,6 +582,15 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         Long opponentId = userId.equals(postInfoDto.authorId()) ? matchInfoDto.applicantId() : postInfoDto.authorId();
         notificationPublisher.sendMeetExtendRequested(opponentId, matchId);
 
+        // 연장 타임아웃 ZSet 예약
+        // score = 요청 시각 + 5분 Unix Timestamp
+        // member = meetVerification ID (스케줄러가 꺼내서 만료 처리)
+        redisTemplate.opsForZSet().add(
+                MeetRedisZSetKeys.EXTENSION_TIMEOUT,
+                String.valueOf(meetVerification.getId()),
+                LocalDateTime.now().plusMinutes(EXTENSION_TIMEOUT_MINUTES).toEpochSecond(KST)
+        );
+
         // 요청자 닉네임 조회
         String requesterNickname = userService.getUserInfo(userId).nickname();
 
@@ -623,6 +639,12 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         // 연장 요청자에게 수락 알림 발송
         notificationPublisher.sendMeetExtendAccepted(meetVerification.getExtensionRequesterId(), matchId);
 
+        // 수락 시 타임아웃 예약 제거 (더 이상 만료 처리 불필요)
+        redisTemplate.opsForZSet().remove(
+                MeetRedisZSetKeys.EXTENSION_TIMEOUT,
+                String.valueOf(meetVerification.getId())
+        );
+
         return AcceptMeetExtensionResponseDto.of(meetVerification, postInfoDto.meetAt());
     }
 
@@ -663,6 +685,12 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
         // 연장 요청자에게 거절 알림 발송
         notificationPublisher.sendMeetExtendRejected(meetVerification.getExtensionRequesterId(), matchId);
+
+        // 거절 시 타임아웃 예약 제거
+        redisTemplate.opsForZSet().remove(
+                MeetRedisZSetKeys.EXTENSION_TIMEOUT,
+                String.valueOf(meetVerification.getId())
+        );
 
         return RejectMeetExtensionResponseDto.from(meetVerification);
 
@@ -710,6 +738,12 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         // 일괄 EXPIRED 처리 (더티체킹으로 자동 업데이트)
         expiredList.forEach(mv -> {
             mv.expireExtension();
+
+            // 만료 처리 완료 → ZSet에서 제거 (중복 처리 방지)
+            redisTemplate.opsForZSet().remove(
+                    MeetRedisZSetKeys.EXTENSION_TIMEOUT,
+                    String.valueOf(mv.getId())
+            );
 
             // 만료 알림 발송
             notificationPublisher.sendMeetExtendExpired(mv.getExtensionRequesterId(), mv.getMatchId());
