@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "inquiries")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Inquiry extends BaseUpdateEntity {
+public class Inquiry extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
