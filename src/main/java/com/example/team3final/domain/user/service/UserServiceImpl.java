@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -187,8 +188,20 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
 
         // 2. 이미 탈퇴/정지된 계정이면 진행 불가
-        if (user.getStatus() != UserStatus.ACTIVE) {
+        if (user.getStatus() == UserStatus.WITHDRAWN) {
+            // 이미 탈퇴된 계정 -> 탈퇴 불가
             throw new UserException(ErrorCode.USER_SUSPENDED_OR_WITHDRAWN);
+        }
+        if (user.getStatus() == UserStatus.SUSPENDED) {
+            boolean isSuspensionExpired = user.getSuspendedUntil() != null
+                    && LocalDateTime.now().isAfter(user.getSuspendedUntil());
+            if (isSuspensionExpired) {
+                // 정지기간 만료 -> 자동 복구 -> 탈퇴 진행
+                user.reinstate();
+            } else {
+                // 아직 유효한 정지 또는 영구 정지 -> 탈퇴 불가
+                throw new UserException(ErrorCode.USER_SUSPENDED_OR_WITHDRAWN);
+            }
         }
 
         // 3. 비밀번호 일치 여부 확인
@@ -276,9 +289,18 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
 
-        // 이미 정지된 계정이면 예외
+        // 계정이 정지 중인지 확인
         if (user.getStatus() == UserStatus.SUSPENDED) {
-            throw new UserException(ErrorCode.ADMIN_USER_ALREADY_SUSPENDED);
+            boolean isSuspensionExpired = user.getSuspendedUntil() != null
+                    && LocalDateTime.now().isAfter(user.getSuspendedUntil());
+
+            if (isSuspensionExpired) {
+                // 정지 기간이 만료됨 → 자동 복구 후 새 정지 처리
+                user.reinstate();
+            } else {
+                // 아직 유효한 정지 또는 영구 정지 → 중복 정지 시도 예외
+                throw new UserException(ErrorCode.ADMIN_USER_ALREADY_SUSPENDED);
+            }
         }
 
         // 더티체킹으로 자동 업데이트
