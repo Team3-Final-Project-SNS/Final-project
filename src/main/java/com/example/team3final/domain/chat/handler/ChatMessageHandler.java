@@ -6,7 +6,7 @@ import com.example.team3final.domain.chat.dto.request.ChatMessageRequestDto;
 import com.example.team3final.domain.chat.dto.response.ChatMessageResponseDto;
 import com.example.team3final.domain.chat.entity.ChatMessage;
 import com.example.team3final.domain.chat.entity.ChatRoom;
-import com.example.team3final.domain.chat.pubsub.RedisMessagePublisher;
+import com.example.team3final.domain.chat.pubsub.KafkaChatMessageProducer;
 import com.example.team3final.domain.chat.repository.ChatMemberRepository;
 import com.example.team3final.domain.chat.repository.ChatMessageRepository;
 import com.example.team3final.domain.chat.repository.ChatRoomRepository;
@@ -33,7 +33,7 @@ public class ChatMessageHandler {
     // SimpMessagingTemplate: 특정 경로를 구독 중인 클라이언트에게 메시지 브로드캐스트
     private final SimpMessagingTemplate messagingTemplate;
     private final ChatMemberRepository chatMemberRepository;
-    private final RedisMessagePublisher redisMessagePublisher;
+    private final KafkaChatMessageProducer kafkaChatMessageProducer;
     private final UserService userService;
     private final BadWordFilterService badWordFilterService;     // 욕설 필터링
     private final NotificationPublisher notificationPublisher;   // 알림 발송
@@ -105,8 +105,8 @@ public class ChatMessageHandler {
         log.info("[WebSocket] 메시지 저장 - chatRoomId: {}, senderId: {}", chatRoomId, senderId);
 
         // 채팅방 구독자들에게 메시지 브로드캐스트
-        // Redis Publish → RedisMessageSubscriber → WebSocket 전송
-        // 서버가 여러 대여도 모든 서버의 구독자에게 메시지 전달 가능
+        // Kafka Publish → KafkaChatMessageConsumer → WebSocket 전송
+        // 서버가 여러 대여도 같은 토픽을 통해 각 서버의 구독자에게 메시지 전달 가능
         ChatMessageResponseDto response = new ChatMessageResponseDto(
                 chatMessage.getId(),
                 chatRoomId,
@@ -116,7 +116,7 @@ public class ChatMessageHandler {
                 chatMessage.isRead(),
                 chatMessage.getCreatedAt()
         );
-        redisMessagePublisher.publish(chatRoomId, response);
+        kafkaChatMessageProducer.publish(chatRoomId, response);
 
         // 채팅방 참여자에게 메시지 수신 알림 발송 (발신자 제외)
         chatMemberRepository.findByChatRoomId(chatRoomId).stream()
