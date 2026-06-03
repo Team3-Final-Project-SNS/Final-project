@@ -402,6 +402,14 @@ public class PostServiceImpl implements PostService{
         return refundedPoint;
     }
 
+    // 관리자 게시글 목록 조회, 전체 대학 조회와 특정 대학 필터 분기 처리
+    @Override
+    public Page<Post> getPostsForAdmin(List<Long> authorIds, PostStatus status, String keyword, Pageable pageable) {
+        if (authorIds == null) {
+            return postRepository.findAllForAdmin(status, keyword, pageable);
+        }
+        return postRepository.findAllForAdminByAuthorIds(authorIds, status, keyword, pageable);
+    }
 
     @Override
     public List<Post> findAiMatchingCandidatePosts(

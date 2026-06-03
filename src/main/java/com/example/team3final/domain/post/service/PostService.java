@@ -7,6 +7,7 @@ import com.example.team3final.domain.post.dto.request.UpdatePostRequestDto;
 import com.example.team3final.domain.post.dto.response.*;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
@@ -121,6 +122,8 @@ public interface PostService {
     // Admin 도메인에서 사용할 게시글 강제 삭제 후 환불된 포인트 반환
     int forceDeletePost(Post post);
 
+    // 관리자 게시글 목록 조회
+    Page<Post> getPostsForAdmin(List<Long> authorIds, PostStatus status, String keyword, Pageable pageable);
 
     // ai 매칭 도메인에서 활용.
     List<Post> findAiMatchingCandidatePosts(
