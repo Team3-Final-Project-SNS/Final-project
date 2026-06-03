@@ -6,6 +6,9 @@ import AdminLoginPage from "./pages/AdminLoginPage";
 import AdminHomePage from "./pages/AdminHomePage";
 import AdminReportsPage from "./pages/AdminReportsPage";
 import AdminInquiriesPage from "./pages/AdminInquiriesPage";
+import AdminUsersPage from "./pages/AdminUsersPage";
+import AdminPostsPage from "./pages/AdminPostsPage";
+import AdminComingSoonPage from "./pages/AdminComingSoonPage";
 import SignupPage from "./pages/SignupPage";
 import PostListPage from "./pages/PostListPage";
 import PostDetailPage from "./pages/PostDetailPage";
@@ -20,6 +23,7 @@ import PlaceVerificationPage from "./pages/PlaceVerificationPage";
 import MatchingAiChatPage from "./pages/MatchingAiChatPage";
 import InquiryCenterPage from "./pages/InquiryCenterPage";
 import ReportCenterPage from "./pages/ReportCenterPage";
+import PaymentPage from "./pages/PaymentPage";
 import NotFoundPage from "./pages/NotFoundPage";
 
 export const router = createBrowserRouter([
@@ -65,6 +69,13 @@ export const router = createBrowserRouter([
     ],
   },
   {
+    path: "/payments",
+    Component: Layout,
+    children: [
+      { index: true, Component: PaymentPage },
+    ],
+  },
+  {
     path: "/ai",
     Component: Layout,
     children: [
@@ -102,12 +113,28 @@ export const router = createBrowserRouter([
     Component: AdminHomePage,
   },
   {
+    path: "/admin/posts",
+    Component: AdminPostsPage,
+  },
+  {
+    path: "/admin/users",
+    Component: AdminUsersPage,
+  },
+  {
     path: "/admin/reports",
     Component: AdminReportsPage,
   },
   {
     path: "/admin/inquiries",
     Component: AdminInquiriesPage,
+  },
+  {
+    path: "/admin/payments",
+    Component: AdminComingSoonPage,
+  },
+  {
+    path: "/admin/faq",
+    Component: AdminComingSoonPage,
   },
   {
     path: "/signup",

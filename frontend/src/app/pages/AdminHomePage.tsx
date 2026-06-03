@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router';
-import { ClipboardList, FileText, LogOut, MessageSquare, ShieldCheck } from 'lucide-react';
+import { ClipboardList, CreditCard, FileQuestion, FileText, LogOut, MessageSquare, ShieldCheck, Users } from 'lucide-react';
+import AdminFloatingChatbot from '../components/AdminFloatingChatbot';
 
 export default function AdminHomePage() {
   const navigate = useNavigate();
@@ -18,32 +19,9 @@ export default function AdminHomePage() {
     <div className="min-h-screen bg-gradient-to-br from-[#fff7ed] via-[#f7fbff] to-[#eaf7f1]">
       <header className="border-b border-[#e0e0e0] bg-white">
         <div className="mx-auto flex h-14 max-w-screen-lg items-center justify-between px-4">
-          <div className="flex items-center gap-8">
-            <Link to="/admin" className="text-2xl font-bold text-[#d84315]">
-              한끼팟 Admin
-            </Link>
-            <nav className="flex items-center gap-5">
-              <Link
-                to="/posts"
-                className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#424242] transition-colors hover:text-[#d84315]"
-              >
-                <FileText size={16} />
-                게시글
-              </Link>
-              <Link
-                to="/admin/reports"
-                className="text-sm font-semibold text-[#424242] transition-colors hover:text-[#d84315]"
-              >
-                신고
-              </Link>
-              <Link
-                to="/admin/inquiries"
-                className="text-sm font-semibold text-[#424242] transition-colors hover:text-[#d84315]"
-              >
-                문의
-              </Link>
-            </nav>
-          </div>
+          <Link to="/admin" className="text-2xl font-bold text-[#d84315]">
+            한끼팟 Admin
+          </Link>
           <button
             type="button"
             onClick={handleLogout}
@@ -70,7 +48,7 @@ export default function AdminHomePage() {
 
         <div className="grid gap-4 sm:grid-cols-3">
           <Link
-            to="/posts"
+            to="/admin/posts"
             className="rounded-2xl border border-[#e0e0e0] bg-white p-6 shadow-sm transition-all hover:border-[#d84315] hover:shadow-md"
           >
             <FileText className="mb-4 text-[#d84315]" size={32} />
@@ -95,8 +73,36 @@ export default function AdminHomePage() {
             <h2 className="text-lg font-bold text-[#212121]">고객 문의 관리</h2>
             <p className="mt-2 text-sm leading-6 text-[#757575]">고객 문의를 확인하고 답변합니다.</p>
           </Link>
+
+          <Link
+            to="/admin/users"
+            className="rounded-2xl border border-[#e0e0e0] bg-white p-6 shadow-sm transition-all hover:border-[#d84315] hover:shadow-md"
+          >
+            <Users className="mb-4 text-[#d84315]" size={32} />
+            <h2 className="text-lg font-bold text-[#212121]">유저 목록</h2>
+            <p className="mt-2 text-sm leading-6 text-[#757575]">학교별 유저 목록과 계정 상태를 확인합니다.</p>
+          </Link>
+
+          <Link
+            to="/admin/payments"
+            className="rounded-2xl border border-[#e0e0e0] bg-white p-6 shadow-sm transition-all hover:border-[#d84315] hover:shadow-md"
+          >
+            <CreditCard className="mb-4 text-[#d84315]" size={32} />
+            <h2 className="text-lg font-bold text-[#212121]">주문 결제 관리</h2>
+            <p className="mt-2 text-sm leading-6 text-[#757575]">결제 내역과 주문 상태를 관리합니다.</p>
+          </Link>
+
+          <Link
+            to="/admin/faq"
+            className="rounded-2xl border border-[#e0e0e0] bg-white p-6 shadow-sm transition-all hover:border-[#d84315] hover:shadow-md"
+          >
+            <FileQuestion className="mb-4 text-[#d84315]" size={32} />
+            <h2 className="text-lg font-bold text-[#212121]">FAQ</h2>
+            <p className="mt-2 text-sm leading-6 text-[#757575]">자주 묻는 질문과 안내 문구를 관리합니다.</p>
+          </Link>
         </div>
       </main>
+      <AdminFloatingChatbot />
     </div>
   );
 }
