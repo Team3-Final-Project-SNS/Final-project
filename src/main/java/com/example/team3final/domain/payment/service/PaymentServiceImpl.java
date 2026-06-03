@@ -127,6 +127,7 @@ public class PaymentServiceImpl implements PaymentService{
         return VerifyPaymentResponseDto.of(payment, request.getImpUid(), balanceAfter);
     }
 
+    // 결제 내역 조회
     @Override
     @Transactional(readOnly = true)
     public PageResponseDto<GetPaymentResponseDto> getPayments(Long userId, Pageable pageable) {
