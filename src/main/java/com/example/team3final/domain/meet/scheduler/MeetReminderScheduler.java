@@ -1,16 +1,19 @@
 package com.example.team3final.domain.meet.scheduler;
 
-import com.example.team3final.domain.meet.dto.response.MeetReminderResponseDto;
-import com.example.team3final.domain.meet.entity.MeetVerification;
-import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
+import com.example.team3final.domain.match.dto.response.MatchInfoDto;
+import com.example.team3final.domain.match.service.MatchService;
+import com.example.team3final.domain.meet.util.MeetRedisZSetKeys;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
+import com.example.team3final.domain.post.service.PostService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 @Slf4j
@@ -18,83 +21,91 @@ import java.util.List;
 @RequiredArgsConstructor
 public class MeetReminderScheduler {
 
-    private final MeetVerificationRepository meetVerificationRepository;
+    private final StringRedisTemplate redisTemplate;
     private final NotificationPublisher notificationPublisher;
+    private final MatchService matchService;   // matchId → applicantId, postId 조회
+    private final PostService postService;     // postId → authorId 조회
+
+    // Lua Script - ZSet 조회 + 삭제 원자적 처리
+    // 서버 여러 대여도 중복 처리 없음
+    private final DefaultRedisScript<List<String>> popReadyItemsScript;
+
+    // 한국 시간대 오프셋
+    private static final ZoneOffset KST = ZoneOffset.ofHours(9);
 
     // 만남 30분 전 알림 - 1분마다 실행
-    // reminder30Sent = false인 것만 조회 → 중복 발송 완벽 방지
-    // MeetVerification + Match + Post JOIN으로 N+1 없이 쿼리 1번
-    @Transactional
     @Scheduled(fixedDelay = 60000)
     public void sendReminder30() {
-        LocalDateTime now = LocalDateTime.now();
+        // ZSet에서 현재 시각 이전 matchId 꺼내서 30분 전 알림 발송
+        List<String> matchIds = popReadyItems(MeetRedisZSetKeys.REMINDER_30);
 
-        List<MeetReminderResponseDto> targets = meetVerificationRepository.findForReminder30(
-                now.plusMinutes(29), now.plusMinutes(31));
+        if (matchIds.isEmpty()) return;
 
-        if (targets.isEmpty()) {
-            return;
-        }
+        log.info("[MeetReminderScheduler] 30분 전 알림 대상: {}건", matchIds.size());
 
-        log.info("[MeetReminderScheduler] 30분 전 알림 대상: {}건", targets.size());
+        for (String matchIdStr : matchIds) {
+            Long matchId = Long.parseLong(matchIdStr);
+            MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
+            Long authorId = postService.getPostById(matchInfo.postId()).getAuthorId();
 
-        for (MeetReminderResponseDto dto : targets) {
-            // 등록자에게 30분 전 알림 발송
-            notificationPublisher.sendMeetReminder30(dto.authorId(), dto.matchId());
-            // 신청자에게 30분 전 알림 발송
-            notificationPublisher.sendMeetReminder30(dto.applicantId(), dto.matchId());
-
-            // 발송 완료 처리 - 더티체킹으로 자동 업데이트
-            meetVerificationRepository.findById(dto.meetVerificationId())
-                    .ifPresent(MeetVerification::markReminder30Sent);
+            // 등록자 + 신청자 양측에게 알림 발송
+            notificationPublisher.sendMeetReminder30(authorId, matchId);
+            notificationPublisher.sendMeetReminder30(matchInfo.applicantId(), matchId);
         }
     }
 
     // 만남 15분 전 알림 - 1분마다 실행
-    @Transactional
     @Scheduled(fixedDelay = 60000)
     public void sendReminder15() {
-        LocalDateTime now = LocalDateTime.now();
+        List<String> matchIds = popReadyItems(MeetRedisZSetKeys.REMINDER_15);
 
-        List<MeetReminderResponseDto> targets = meetVerificationRepository.findForReminder15(
-                now.plusMinutes(14), now.plusMinutes(16));
+        if (matchIds.isEmpty()) return;
 
-        if (targets.isEmpty()) {
-            return;
-        }
+        log.info("[MeetReminderScheduler] 15분 전 알림 대상: {}건", matchIds.size());
 
-        log.info("[MeetReminderScheduler] 15분 전 알림 대상: {}건", targets.size());
+        for (String matchIdStr : matchIds) {
+            Long matchId = Long.parseLong(matchIdStr);
+            MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
+            Long authorId = postService.getPostById(matchInfo.postId()).getAuthorId();
 
-        for (MeetReminderResponseDto dto : targets) {
-            notificationPublisher.sendMeetReminder15(dto.authorId(), dto.matchId());
-            notificationPublisher.sendMeetReminder15(dto.applicantId(), dto.matchId());
-
-            meetVerificationRepository.findById(dto.meetVerificationId())
-                    .ifPresent(MeetVerification::markReminder15Sent);
+            notificationPublisher.sendMeetReminder15(authorId, matchId);
+            notificationPublisher.sendMeetReminder15(matchInfo.applicantId(), matchId);
         }
     }
 
-    // 만남 임박 알림 - 1분마다 실행
-    @Transactional
+    // 만남 임박 알림 (5분 전) - 1분마다 실행
     @Scheduled(fixedDelay = 60000)
     public void sendImminent() {
-        LocalDateTime now = LocalDateTime.now();
+        List<String> matchIds = popReadyItems(MeetRedisZSetKeys.REMINDER_IMMINENT);
 
-        List<MeetReminderResponseDto> targets = meetVerificationRepository.findForImminent(
-                now.plusMinutes(4), now.plusMinutes(6));
+        if (matchIds.isEmpty()) return;
 
-        if (targets.isEmpty()) {
-            return;
+        log.info("[MeetReminderScheduler] 임박 알림 대상: {}건", matchIds.size());
+
+        for (String matchIdStr : matchIds) {
+            Long matchId = Long.parseLong(matchIdStr);
+            MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
+            Long authorId = postService.getPostById(matchInfo.postId()).getAuthorId();
+
+            notificationPublisher.sendMeetImminent(authorId, matchId);
+            notificationPublisher.sendMeetImminent(matchInfo.applicantId(), matchId);
         }
+    }
 
-        log.info("[MeetReminderScheduler] 임박 알림 대상: {}건", targets.size());
+    // ZSet에서 현재 시각 이전 항목 원자적으로 꺼내기
+    // Lua Script로 조회 + 삭제 동시에 처리 → 중복 발송 방지
+    private List<String> popReadyItems(String zSetKey) {
+        // 현재 시각을 Unix Timestamp(숫자)로 변환 — ZSet score 비교에 사용
+        long nowScore = LocalDateTime.now().toEpochSecond(KST);
 
-        for (MeetReminderResponseDto dto : targets) {
-            notificationPublisher.sendMeetImminent(dto.authorId(), dto.matchId());
-            notificationPublisher.sendMeetImminent(dto.applicantId(), dto.matchId());
-
-            meetVerificationRepository.findById(dto.meetVerificationId())
-                    .ifPresent(MeetVerification::markImminentSent);
-        }
+        // Lua Script 실행
+        // KEYS[1] = ZSet 키 (어느 ZSet에서 꺼낼지)
+        // ARGV[1] = 현재 Unix Timestamp (이 값 이하 score 항목만 꺼냄)
+        // 반환값: 처리 대상 matchId 목록
+        return redisTemplate.execute(
+                popReadyItemsScript, // 앱 시작 시 1회 파싱된 Lua Script Bean
+                List.of(zSetKey),    // KEYS[1]
+                String.valueOf(nowScore) // ARGV[1]
+        );
     }
 }

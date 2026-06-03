@@ -1,13 +1,17 @@
 package com.example.team3final.common.config;
 
+import com.example.team3final.common.util.RedisLuaScripts;
 import com.example.team3final.domain.chat.pubsub.RedisMessageSubscriber;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.data.redis.listener.PatternTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.data.redis.listener.adapter.MessageListenerAdapter;
+
+import java.util.List;
 
 
 @Configuration
@@ -41,5 +45,17 @@ public class RedisConfig {
     @Bean
     public MessageListenerAdapter listenerAdapter(RedisMessageSubscriber subscriber) {
         return new MessageListenerAdapter(subscriber, "onMessage");
+    }
+
+    // ZSet 스케줄러 공통 Lua Script Bean
+    // ZSet에서 현재 시각 이전 항목 조회 + 삭제를 원자적으로 처리
+    // 앱 시작 시 1회만 파싱 → MeetReminderScheduler, ExtensionTimeoutScheduler, ChatRoomScheduler 공통 사용
+    @Bean
+    @SuppressWarnings("unchecked") // Java 제네릭 타입 소거로 인한 불가피한 형변환 경고 억제
+    public DefaultRedisScript<List<String>> popReadyItemsScript() {
+        DefaultRedisScript<List<String>> script = new DefaultRedisScript<>();
+        script.setScriptText(RedisLuaScripts.POP_READY_ITEMS);
+        script.setResultType((Class<List<String>>) (Class<?>) List.class);
+        return script;
     }
 }
