@@ -1,4 +1,4 @@
-package com.example.team3final.domain.admin.inquiry.dto.response;
+package com.example.team3final.domain.admin.inquiryAnswer.dto.response;
 
 import com.example.team3final.domain.inquiry.entity.Inquiry;
 import com.example.team3final.domain.inquiry.enums.InquiryAnswerStatus;

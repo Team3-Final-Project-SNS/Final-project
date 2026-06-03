@@ -1,15 +1,12 @@
 package com.example.team3final.domain.admin.inquiry.service;
 
-import com.example.team3final.domain.admin.auth.service.AdminAuthServiceImpl;
-import com.example.team3final.domain.admin.inquiryAnswer.service.InquiryAnswerService;
+import com.example.team3final.domain.admin.inquiryAnswer.service.AdminInquiryAnswerServiceImpl;
 import com.example.team3final.domain.admin.repository.AdminRepository;
 import com.example.team3final.domain.inquiry.entity.Inquiry;
-import com.example.team3final.domain.inquiry.enums.InquiryAnswerStatus;
 import com.example.team3final.domain.inquiry.service.InquiryService;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.university.service.UniversityService;
 import com.example.team3final.domain.user.service.UserService;
-import com.example.team3final.common.exception.AdminException;
 import com.example.team3final.domain.admin.entity.Admin;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,7 +23,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
 @ExtendWith(MockitoExtension.class)
-class AdminInquiryServiceImplTest {
+class AdminInquiryAnswerServiceImplTest {
 
     @Mock
     private AdminRepository adminRepository;
@@ -42,7 +39,7 @@ class AdminInquiryServiceImplTest {
     private NotificationPublisher notificationPublisher;
 
     @InjectMocks
-    private AdminInquiryServiceImpl adminInquiryService;
+    private AdminInquiryAnswerServiceImpl adminInquiryService;
 
     @Test
     @DisplayName("문의 상세 조회 - 성공")

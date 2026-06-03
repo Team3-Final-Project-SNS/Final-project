@@ -4,7 +4,7 @@ import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.InquiryException;
 import com.example.team3final.domain.admin.inquiryAnswer.entity.InquiryAnswer;
-import com.example.team3final.domain.admin.inquiryAnswer.service.InquiryAnswerService;
+import com.example.team3final.domain.admin.inquiryAnswer.repository.InquiryAnswerRepository; // ← Service 대신 Repository 직접 참조
 import com.example.team3final.domain.admin.service.AdminService;
 import com.example.team3final.domain.inquiry.dto.request.CreateInquiryRequestDto;
 import com.example.team3final.domain.inquiry.dto.response.CancelInquiryResponseDto;
@@ -32,18 +32,17 @@ import java.util.Objects;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class InquiryServiceImpl implements InquiryService{
+public class InquiryServiceImpl implements InquiryService {
 
     private final InquiryRepository inquiryRepository;
     private final StringRedisTemplate stringRedisTemplate;
     private final UserService userService;
-    private final InquiryAnswerService inquiryAnswerService;
+    private final InquiryAnswerRepository inquiryAnswerRepository; // ← AdminInquiryAnswerService 대신 Repository 직접 주입 (순환참조 방지)
     private final AdminService adminService;
     private final NotificationPublisher notificationPublisher;
 
-    private static final int MAX_DAILY_INQUIRY_COUNT = 20; // 하루 최대 문의 접수 횟수
-    private static final Duration COOLDOWN_DURATION =  Duration.ofMinutes(1); // 문의 간 최소 대기 시간
-
+    private static final int MAX_DAILY_INQUIRY_COUNT = 20;
+    private static final Duration COOLDOWN_DURATION = Duration.ofMinutes(1);
     private static final String DAILY_COUNT_KEY_PREFIX = "inquiry:daily:";
     private static final String COOLDOWN_KEY_PREFIX = "inquiry:cooldown:";
 
@@ -61,7 +60,7 @@ public class InquiryServiceImpl implements InquiryService{
         // 하루 20개 제한 확인
         validateDailyLimit(userId);
 
-        // 검증 완료 문의 엔티티 생성
+        // 검증 완료 후 문의 엔티티 생성
         Inquiry inquiry = Inquiry.builder()
                 .userId(userId)
                 .title(request.getTitle())
@@ -75,8 +74,7 @@ public class InquiryServiceImpl implements InquiryService{
         // Redis 업데이트
         updateRedisAfterCreate(userId);
 
-        // 26번 알림 - 관리자에게 문의 접수 알림 발송
-        // adminId가 null이면 활성 관리자 없음 → 알림 스킵
+        // 관리자에게 문의 접수 알림 발송 (adminId가 null이면 스킵)
         Long adminId = adminService.getAdminId();
         if (adminId != null) {
             notificationPublisher.sendInquirySubmitted(adminId, savedInquiry.getId());
@@ -89,34 +87,32 @@ public class InquiryServiceImpl implements InquiryService{
     @Override
     public GetOneInquiryResponseDto getOneInquiry(Long userId, Long inquiryId) {
 
-        // 1. 문의 존재 여부 확인
-        // orElseThrow: 없으면 즉시 예외 발생 → GlobalExceptionHandler가 404로 변환
+        // 문의 존재 여부 확인
         Inquiry inquiry = inquiryRepository.findById(inquiryId)
                 .orElseThrow(() -> new InquiryException(ErrorCode.INQUIRY_NOT_FOUND));
 
-        // 2. 본인 문의인지 확인 (userId 일치 여부)
-        // inquiry.getUserId(): 이 문의를 접수한 유저 ID
+        // 본인 문의인지 확인
         if (!inquiry.getUserId().equals(userId)) {
-            throw new InquiryException(ErrorCode.INQUIRY_ACCESS_DENIED); // 403
+            throw new InquiryException(ErrorCode.INQUIRY_ACCESS_DENIED);
         }
 
-        // 3. 답변 조회 (없을 수 있으므로 Optional 사용)
-        InquiryAnswer answer = inquiryAnswerService.getByInquiryId(inquiryId)
+        // 답변 조회 — 순환참조 방지를 위해 Repository 직접 사용
+        InquiryAnswer answer = inquiryAnswerRepository.findByInquiryId(inquiryId)
                 .orElse(null);
 
         return GetOneInquiryResponseDto.of(inquiry, answer);
     }
 
     // 내 문의 목록 조회
+    @Override
     public PageResponseDto<GetAllInquiriesResponseDto> getAllInquiries(Long userId, Pageable pageable) {
 
-        // 1. userId로 본인 문의만 최신순 페이징 조회
+        // userId로 본인 문의만 최신순 페이징 조회
         Page<Inquiry> inquiryPage = inquiryRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
 
-        // 2. page<Inquiry> -> page<GetAllInquiriesResponseDto> 변환
+        // Page<Inquiry> → Page<DTO> 변환
         Page<GetAllInquiriesResponseDto> dtoPage = inquiryPage.map(GetAllInquiriesResponseDto::from);
 
-        // 3. 팀 공통 페이징 응답 포맷으로 한번 더 변환
         return PageResponseDto.from(dtoPage);
     }
 
@@ -125,16 +121,16 @@ public class InquiryServiceImpl implements InquiryService{
     @Transactional
     public CancelInquiryResponseDto cancelInquiry(Long userId, Long inquiryId) {
 
-        // 1. 문의 존재 여부 확인
+        // 문의 존재 여부 확인
         Inquiry inquiry = inquiryRepository.findById(inquiryId)
                 .orElseThrow(() -> new InquiryException(ErrorCode.INQUIRY_NOT_FOUND));
 
-        //2. 본인 문의인지 확인
+        // 본인 문의인지 확인
         if (!inquiry.getUserId().equals(userId)) {
             throw new InquiryException(ErrorCode.INQUIRY_ACCESS_DENIED);
         }
 
-        // 3. 취소 가능 한 상태인지 확인
+        // 취소 가능한 상태인지 확인 (PENDING, READ만 취소 가능)
         InquiryAnswerStatus status = inquiry.getAnswerStatus();
         boolean isCancellable = status == InquiryAnswerStatus.PENDING
                 || status == InquiryAnswerStatus.READ;
@@ -143,7 +139,7 @@ public class InquiryServiceImpl implements InquiryService{
             throw new InquiryException(ErrorCode.INQUIRY_CANCEL_FORBIDDEN);
         }
 
-        // 4. 취소 처리
+        // 취소 처리
         inquiry.withdraw();
 
         return CancelInquiryResponseDto.from(inquiry);
@@ -173,7 +169,7 @@ public class InquiryServiceImpl implements InquiryService{
         }
     }
 
-    // 하루 20개 제한
+    // 하루 20개 제한 검증
     private void validateDailyLimit(Long userId) {
         String dailyKey = DAILY_COUNT_KEY_PREFIX + userId;
         String countStr = stringRedisTemplate.opsForValue().get(dailyKey);
@@ -183,20 +179,20 @@ public class InquiryServiceImpl implements InquiryService{
         }
     }
 
-    // 문의 접수 성공 후 Redis 업데이트 : daily 카운트 +1, 쿨다운 키 생성
+    // 문의 접수 성공 후 Redis 업데이트
     private void updateRedisAfterCreate(Long userId) {
         String dailyKey = DAILY_COUNT_KEY_PREFIX + userId;
         String cooldownKey = COOLDOWN_KEY_PREFIX + userId;
 
-        // 오늘 자정까지 남은 시간 계산 (daily 키 TTL로 사용)
+        // 오늘 자정까지 남은 시간 계산
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime midnight = LocalDate.now().plusDays(1).atStartOfDay(); // 내일 00:00:00
+        LocalDateTime midnight = LocalDate.now().plusDays(1).atStartOfDay();
         Duration timeUntilMidnight = Duration.between(now, midnight);
 
         // 하루 카운트 +1
         Long newCount = stringRedisTemplate.opsForValue().increment(dailyKey);
 
-        // 첫 문의일 때만 TTL 설정 (기존 키에 TTL 덮어쓰기 방지)
+        // 첫 문의일 때만 TTL 설정
         if (Long.valueOf(1).equals(newCount)) {
             stringRedisTemplate.expire(dailyKey, timeUntilMidnight);
         }
