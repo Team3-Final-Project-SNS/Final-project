@@ -188,6 +188,8 @@ services:
     # 환경변수 설정 (백엔드 API 주소)
     environment:
       - VITE_API_BASE_URL=http://localhost:8080
+      - VITE_PORTONE_STORE_ID=${PORTONE_STORE_ID}
+      - VITE_PORTONE_CHANNEL_KEY=${PORTONE_CHANNEL_KEY}
 
     # 백엔드 앱이 뜬 후에 프론트 실행
     depends_on:
