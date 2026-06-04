@@ -3,7 +3,8 @@ package com.example.team3final.domain.admin.report.controller;
 import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.domain.admin.report.dto.request.AdminProcessReportRequestDto;
-import com.example.team3final.domain.admin.report.dto.response.AdminGetReportResponseDto;
+import com.example.team3final.domain.admin.report.dto.response.AdminGetReportDetailResponseDto;
+import com.example.team3final.domain.admin.report.dto.response.AdminGetReportsResponseDto;
 import com.example.team3final.domain.admin.report.dto.response.AdminProcessReportResponseDto;
 import com.example.team3final.domain.admin.report.service.AdminReportService;
 import com.example.team3final.domain.admin.security.AdminDetailsImpl;
@@ -25,7 +26,7 @@ public class AdminReportController {
 
     // 신고 목록 조회
     @GetMapping
-    public ResponseEntity<ApiResponseDto<PageResponseDto<AdminGetReportResponseDto>>> getReports(
+    public ResponseEntity<ApiResponseDto<PageResponseDto<AdminGetReportsResponseDto>>> getReports(
             @AuthenticationPrincipal AdminDetailsImpl adminDetails,
             @RequestParam(required = false) ReportStatus status,
             @RequestParam(defaultValue = "0") int page,
@@ -45,5 +46,15 @@ public class AdminReportController {
             @Valid @RequestBody AdminProcessReportRequestDto request) {
         Long adminId = adminDetails.getAdminId();
         return ResponseEntity.ok(ApiResponseDto.success(adminReportService.processReport(adminId, reportId, request)));
+    }
+
+    // 신고 상세 조회
+    @GetMapping("{reportId}")
+    public ResponseEntity<ApiResponseDto<AdminGetReportDetailResponseDto>> getReport(
+            @AuthenticationPrincipal AdminDetailsImpl adminDetails,
+            @PathVariable Long reportId) {
+
+        Long adminId = adminDetails.getAdminId();
+        return ResponseEntity.ok(ApiResponseDto.success(adminReportService.getReport(adminId, reportId)));
     }
 }
