@@ -4,6 +4,7 @@ import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.MatchException;
 import com.example.team3final.domain.chat.service.ChatService;
+import com.example.team3final.domain.location.service.UserLocationCleanupService;
 import com.example.team3final.domain.match.dto.request.CancelMatchRequestDto;
 import com.example.team3final.domain.match.dto.response.*;
 import com.example.team3final.domain.match.entity.Match;
@@ -48,6 +49,7 @@ public class MatchServiceImpl implements MatchService{
     private final NotificationPublisher notificationPublisher;  // 알림 발송용
     private final ReviewAvoidanceService reviewAvoidanceService;
     private final StringRedisTemplate redisTemplate; // ZSet 예약용
+    private final UserLocationCleanupService userLocationCleanupService;
 
     @Override
     @Transactional
@@ -240,12 +242,65 @@ public class MatchServiceImpl implements MatchService{
 
     @Override
     @Transactional
+    public void markDisputed(Long matchId) {
+
+        Match match = getMatchById(matchId);
+
+        // 노쇼 이의제기 접수 시 목록/상세에서 관리자 검토 중 상태로 보임
+        if (match.getStatus() == MatchStatus.MATCHED) {
+            match.dispute();
+        }
+    }
+
+    @Override
+    @Transactional
+    public void completeMatchByDispute(Long matchId) {
+
+        Match match = getMatchById(matchId);
+
+        if (!canResolveDispute(match)) {
+            return;
+        }
+
+        // 관리자 판정 완료는 이미 별도 포인트 정산을 했으므로 상태와 리뷰 알림만 처리
+        match.completeByDispute();
+        postService.completePost(match.getPostId());
+
+        LocalDateTime reviewDeadlineReminderAt = match.getCompletedAt()
+                .plusDays(7)
+                .toLocalDate()
+                .atTime(9, 0);
+
+        redisTemplate.opsForZSet().add(
+                ReviewRedisZSetKeys.DEADLINE_REMINDER,
+                String.valueOf(match.getId()),
+                reviewDeadlineReminderAt.toEpochSecond(ZoneOffset.ofHours(9))
+        );
+    }
+
+    @Override
+    @Transactional
+    public void cancelMatchByDispute(Long matchId) {
+
+        Match match = getMatchById(matchId);
+
+        if (!canResolveDispute(match)) {
+            return;
+        }
+
+        // 관리자 판정 취소는 사용자 취소가 아니므로 50% 패널티 로직을 타지 않음
+        match.cancelByDispute();
+        postService.getPostById(match.getPostId()).cancel();
+    }
+
+    @Override
+    @Transactional
     public void markAuthorNoShow(Long matchId) {
 
         Match match = getMatchById(matchId);
 
         // MATCHED 아니면 스킵 (스케줄러 중단 방지 → 예외 대신 return)
-        if (match.getStatus() != MatchStatus.MATCHED) {
+        if (!canFinalizeNoShow(match)) {
             return;
         }
 
@@ -264,7 +319,7 @@ public class MatchServiceImpl implements MatchService{
 
         Match match = getMatchById(matchId);
 
-        if (match.getStatus() != MatchStatus.MATCHED) {
+        if (!canFinalizeNoShow(match)) {
             return;
         }
 
@@ -283,7 +338,7 @@ public class MatchServiceImpl implements MatchService{
 
         Match match = getMatchById(matchId);
 
-        if (match.getStatus() != MatchStatus.MATCHED) {
+        if (!canFinalizeNoShow(match)) {
             return;
         }
 
@@ -338,6 +393,9 @@ public class MatchServiceImpl implements MatchService{
 
         match.cancel();
         post.decreaseCurrentApplicants(); // 참여 인원 감소
+
+        // 매칭 취소되면 장소 데이터 삭제
+        userLocationCleanupService.deleteLocationsByMatchId(matchId);
 
         if (cancelerIsApplicant) {
             // GUEST(신청자) 취소
@@ -517,5 +575,13 @@ public class MatchServiceImpl implements MatchService{
                         Match::getId,
                         MatchInfoDto::from
                 ));
+    }
+
+    private boolean canFinalizeNoShow(Match match) {
+        return match.getStatus() == MatchStatus.MATCHED || match.getStatus() == MatchStatus.DISPUTED;
+    }
+
+    private boolean canResolveDispute(Match match) {
+        return match.getStatus() == MatchStatus.MATCHED || match.getStatus() == MatchStatus.DISPUTED;
     }
 }

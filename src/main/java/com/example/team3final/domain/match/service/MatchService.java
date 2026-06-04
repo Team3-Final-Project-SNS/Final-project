@@ -31,6 +31,15 @@ public interface MatchService {
      */
     void completeMatch(Long matchId);
 
+    // 이의제기 접수 시 관리자 검토 중인 매칭으로 표시
+    void markDisputed(Long matchId);
+
+    // 관리자 판정으로 만남 완료가 인정된 경우 포인트 정산 없이 상태만 완료 처리
+    void completeMatchByDispute(Long matchId);
+
+    // 관리자 판정으로 매칭 취소가 인정된 경우 포인트 정산 없이 상태만 취소 처리
+    void cancelMatchByDispute(Long matchId);
+
     // 등록자 노쇼
     void markAuthorNoShow(Long matchId);
 
