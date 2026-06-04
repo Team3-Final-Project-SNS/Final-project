@@ -23,4 +23,7 @@ public interface PaymentService {
 
     // 결제 취소 — PortOne 취소 API 호출 + paidPoint 회수
     CancelPaymentResponseDto cancelPayment(Long userId, Long paymentId);
+
+    // 결제 실패 처리 — 프론트가 결제창 취소/실패 시 호출
+    void failPayment(Long userId, Long paymentId);
 }
