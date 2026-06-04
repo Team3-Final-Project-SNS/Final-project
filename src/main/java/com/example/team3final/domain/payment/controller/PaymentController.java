@@ -91,4 +91,16 @@ public class PaymentController {
                 )
         );
     }
+
+    // 결제 실패 처리
+    // 프론트가 결제창 취소 또는 실패 시 즉시 호출
+    @PatchMapping("/{paymentId}/fail")
+    public ResponseEntity<ApiResponseDto<Void>> failPayment(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @PathVariable Long paymentId
+    ) {
+        paymentService.failPayment(userDetails.getUserId(), paymentId);
+
+        return ResponseEntity.ok(ApiResponseDto.success(null));
+    }
 }
