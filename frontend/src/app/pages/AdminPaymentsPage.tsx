@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import {
   AlertTriangle,
   ArrowLeft,
+  CalendarDays,
   CheckCircle2,
   Clock,
   CreditCard,
@@ -18,7 +19,7 @@ type PaymentStatus = 'READY' | 'PAID' | 'CANCELLED' | 'FAILED';
 type PaymentStatusFilter = 'ALL' | PaymentStatus;
 type PaymentMethod = 'CARD' | 'KAKAOPAY' | 'NAVERPAY' | 'TOSSPAY';
 type PaymentMethodFilter = 'ALL' | PaymentMethod;
-type PaymentPeriodType = 'ALL' | 'YEAR' | 'MONTH' | 'WEEKDAY';
+type PaymentPeriodType = 'ALL' | 'YEAR' | 'MONTH' | 'DAY';
 
 type AdminPaymentItem = {
   paymentId: number;
@@ -136,15 +137,11 @@ const mockPayments: AdminPaymentItem[] = [
   },
 ];
 
-const availableYears = Array.from(new Set(mockPayments.map((payment) => String(new Date(payment.createdAt).getFullYear())))).sort(
-  (a, b) => Number(b) - Number(a),
-);
+const availableYears = ['2026'];
 
-const availableMonths = Array.from(new Set(mockPayments.map((payment) => getMonthKey(payment.createdAt)))).sort((a, b) =>
-  b.localeCompare(a),
-);
+const availableMonths = Array.from({ length: 12 }, (_, index) => `2026-${String(index + 1).padStart(2, '0')}`);
 
-const weekdayLabels = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+const availableDays = createDaysInYear(2026);
 
 const statusLabels: Record<PaymentStatus, string> = {
   READY: '결제 대기',
@@ -211,6 +208,11 @@ export default function AdminPaymentsPage() {
     };
   }, [filteredPayments]);
 
+  const appliedPeriodLabel = useMemo(
+    () => getPeriodLabel(searchPeriodType, searchPeriodValue),
+    [searchPeriodType, searchPeriodValue],
+  );
+
   const handlePeriodTypeChange = (nextPeriodType: PaymentPeriodType) => {
     setPeriodType(nextPeriodType);
 
@@ -224,8 +226,8 @@ export default function AdminPaymentsPage() {
       return;
     }
 
-    if (nextPeriodType === 'WEEKDAY') {
-      setPeriodValue('1');
+    if (nextPeriodType === 'DAY') {
+      setPeriodValue(availableDays[0] || 'ALL');
       return;
     }
 
@@ -287,42 +289,59 @@ export default function AdminPaymentsPage() {
           <DashboardStatCard
             title="총 결제액"
             value={`${dashboardStats.totalPaidAmount.toLocaleString()}원`}
-            description="결제 완료 기준"
+            description={`${appliedPeriodLabel} · 결제 완료 기준`}
             icon={<CreditCard size={22} />}
           />
           <DashboardStatCard
             title="결제 완료"
             value={`${dashboardStats.paidCount}건`}
-            description="포인트 지급 완료"
+            description={`${appliedPeriodLabel} · 포인트 지급 완료`}
             icon={<CheckCircle2 size={22} />}
           />
           <DashboardStatCard
             title="결제 대기"
             value={`${dashboardStats.readyCount}건`}
-            description="검증 또는 결제 진행 전"
+            description={`${appliedPeriodLabel} · 검증 또는 결제 진행 전`}
             icon={<Clock size={22} />}
           />
           <DashboardStatCard
             title="취소/실패"
             value={`${dashboardStats.issueCount}건`}
-            description="확인이 필요한 결제"
+            description={`${appliedPeriodLabel} · 확인이 필요한 결제`}
             icon={<AlertTriangle size={22} />}
           />
         </div>
 
         <section className="mb-5 space-y-3 rounded-2xl border border-[#e0e0e0] bg-white p-4 shadow-sm">
-          <div className="grid gap-3 rounded-xl bg-[#fffaf2] p-3 md:grid-cols-[120px_1fr_1fr]">
-            <div className="flex items-center text-sm font-bold text-[#d84315]">기간 조회</div>
-            <select
-              value={periodType}
-              onChange={(event) => handlePeriodTypeChange(event.target.value as PaymentPeriodType)}
-              className="h-11 rounded-lg border border-[#e0e0e0] bg-white px-3 text-sm font-bold text-[#424242] outline-none focus:border-[#d84315]"
-            >
-              <option value="ALL">전체 기간</option>
-              <option value="YEAR">연도별</option>
-              <option value="MONTH">월별</option>
-              <option value="WEEKDAY">요일별</option>
-            </select>
+          <div className="rounded-xl bg-[#fffaf2] p-3">
+            <div className="mb-3 flex items-center gap-2 text-sm font-bold text-[#d84315]">
+              <CalendarDays size={17} />
+              기간 조회
+            </div>
+
+            <div className="grid gap-3 lg:grid-cols-[1.4fr_1fr]">
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                <PeriodTypeButton
+                  label="전체"
+                  isActive={periodType === 'ALL'}
+                  onClick={() => handlePeriodTypeChange('ALL')}
+                />
+                <PeriodTypeButton
+                  label="연도별"
+                  isActive={periodType === 'YEAR'}
+                  onClick={() => handlePeriodTypeChange('YEAR')}
+                />
+                <PeriodTypeButton
+                  label="월별"
+                  isActive={periodType === 'MONTH'}
+                  onClick={() => handlePeriodTypeChange('MONTH')}
+                />
+                <PeriodTypeButton
+                  label="일별"
+                  isActive={periodType === 'DAY'}
+                  onClick={() => handlePeriodTypeChange('DAY')}
+                />
+              </div>
 
             <select
               value={periodValue}
@@ -343,13 +362,14 @@ export default function AdminPaymentsPage() {
                     {formatMonthLabel(month)}
                   </option>
                 ))}
-              {periodType === 'WEEKDAY' &&
-                weekdayLabels.map((label, index) => (
-                  <option key={label} value={String(index)}>
-                    {label}
+              {periodType === 'DAY' &&
+                availableDays.map((day) => (
+                  <option key={day} value={day}>
+                    {formatDayLabel(day)}
                   </option>
                 ))}
             </select>
+            </div>
           </div>
 
           <div className="grid gap-3 md:grid-cols-[1fr_1fr_2fr_auto]">
@@ -408,7 +428,7 @@ export default function AdminPaymentsPage() {
             <div>
               <h2 className="text-lg font-bold text-[#212121]">결제 목록</h2>
               <p className="mt-1 text-xs font-semibold text-[#9e9e9e]">
-                프론트 목데이터 기준이며, 관리자 결제 API 연결 시 실제 데이터로 교체됩니다.
+                {appliedPeriodLabel} 기준입니다. 관리자 결제 API 연결 시 실제 데이터로 교체됩니다.
               </p>
             </div>
             <span className="text-sm font-bold text-[#d84315]">{filteredPayments.length}건</span>
@@ -496,6 +516,30 @@ function DashboardStatCard({
   );
 }
 
+function PeriodTypeButton({
+  label,
+  isActive,
+  onClick,
+}: {
+  label: string;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`h-11 rounded-lg border px-3 text-sm font-bold transition-colors ${
+        isActive
+          ? 'border-[#d84315] bg-[#d84315] text-white shadow-sm'
+          : 'border-[#e0e0e0] bg-white text-[#424242] hover:border-[#d84315] hover:text-[#d84315]'
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
 function PaymentDetailModal({ payment, onClose }: { payment: AdminPaymentItem; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
@@ -558,11 +602,27 @@ function isMatchedPeriod(payment: AdminPaymentItem, periodType: PaymentPeriodTyp
     return getMonthKey(payment.createdAt) === periodValue;
   }
 
-  if (periodType === 'WEEKDAY') {
-    return String(paymentDate.getDay()) === periodValue;
+  if (periodType === 'DAY') {
+    return getDayKey(payment.createdAt) === periodValue;
   }
 
   return true;
+}
+
+function getPeriodLabel(periodType: PaymentPeriodType, periodValue: string) {
+  if (periodType === 'YEAR') {
+    return `${periodValue}년`;
+  }
+
+  if (periodType === 'MONTH') {
+    return formatMonthLabel(periodValue);
+  }
+
+  if (periodType === 'DAY') {
+    return formatDayLabel(periodValue);
+  }
+
+  return '전체 기간';
 }
 
 function getMonthKey(value: string) {
@@ -572,10 +632,36 @@ function getMonthKey(value: string) {
   return `${date.getFullYear()}-${month}`;
 }
 
+function getDayKey(value: string) {
+  const date = new Date(value);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 function formatMonthLabel(value: string) {
   const [year, month] = value.split('-');
 
   return `${year}년 ${Number(month)}월`;
+}
+
+function formatDayLabel(value: string) {
+  const [year, month, day] = value.split('-');
+
+  return `${year}년 ${Number(month)}월 ${Number(day)}일`;
+}
+
+function createDaysInYear(year: number) {
+  const days: string[] = [];
+  const date = new Date(year, 0, 1);
+
+  while (date.getFullYear() === year) {
+    days.push(getDayKey(date.toISOString()));
+    date.setDate(date.getDate() + 1);
+  }
+
+  return days;
 }
 
 function formatDateTime(value: string) {

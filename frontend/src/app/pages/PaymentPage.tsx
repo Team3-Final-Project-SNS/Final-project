@@ -370,9 +370,9 @@ function PaymentHistoryItem({
           <button
             type="button"
             onClick={() => onCancel(payment.paymentId)}
-            className="h-10 rounded-lg border border-[#e0e0e0] px-3 text-sm font-bold text-[#616161] transition hover:border-[#d84315] hover:text-[#d84315]"
+            className="h-10 whitespace-nowrap rounded-lg border border-[#e0e0e0] px-3 text-sm font-bold text-[#616161] transition hover:border-[#d84315] hover:text-[#d84315]"
           >
-            취소
+            결제취소(환불)
           </button>
         )}
       </div>
