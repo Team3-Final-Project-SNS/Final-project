@@ -18,6 +18,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -129,11 +131,28 @@ public class UserLocationServiceImpl implements UserLocationService {
         return GetLocationResponseDto.of(myLocation, opponentLocation);
     }
 
-    // 매칭 종료 시 위치 데이터 삭제
     @Override
-    @Transactional
-    public void deleteLocationsByMatchId(Long matchId) {
-        userLocationRepository.deleteAllByMatchId(matchId);
+    public boolean isFreshLocationWithinRadius(
+            Long matchId,
+            Long userId,
+            BigDecimal placeLat,
+            BigDecimal placeLng,
+            double radiusMeters,
+            long freshnessSeconds
+    ) {
+        return userLocationRepository.findByMatchIdAndUserId(matchId, userId)
+                .filter(location -> !location.getUpdatedAt()
+                        .isBefore(LocalDateTime.now().minusSeconds(freshnessSeconds)))
+                .filter(location -> {
+                    double distance = GpsUtils.calculateDistance(
+                            location.getLatitude().doubleValue(),
+                            location.getLongitude().doubleValue(),
+                            placeLat.doubleValue(),
+                            placeLng.doubleValue()
+                    );
+                    return distance <= radiusMeters;
+                })
+                .isPresent();
     }
 }
 
