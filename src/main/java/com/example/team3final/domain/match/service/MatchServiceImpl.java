@@ -105,15 +105,25 @@ public class MatchServiceImpl implements MatchService{
         // 참여 인원 증가
         post.increaseCurrentApplicants();
 
-        // 모집 완료 시 채팅방 생성 및 게시글 상태 MATCHED 전환
+        // 첫 신청 즉시 채팅방 생성 (정원 관계없이)
+        // 채팅방이 없으면 생성, 있으면 기존 채팅방에 멤버만 추가
         Long chatRoomId = null;
-        if (post.isFull()) {
-            post.match();
+        if (!chatService.existsChatRoomByPostId(postId)) {
+            // 첫 번째 신청자 → HOST(등록자) + GUEST(신청자) 채팅방 생성
             chatRoomId = chatService.createChatRoom(
                     postId,
                     post.getAuthorId(),
                     applicantId
             );
+        } else {
+            // 두 번째 이후 신청자 → 기존 채팅방에 GUEST로 추가
+            chatService.addChatMember(postId, applicantId);
+            chatRoomId = chatService.getChatRoomIdByPostId(postId);
+        }
+
+       // 정원이 다 찼을 때만 게시글 상태 MATCHED로 변경
+        if (post.isFull()) {
+            post.match();
         }
 
         // 양측 닉네임 조회
