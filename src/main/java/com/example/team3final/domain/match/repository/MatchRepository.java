@@ -113,4 +113,5 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
     // matchId로 authorId 조회 - MeetReminderScheduler용
     @Query("SELECT p.authorId FROM Match m JOIN Post p ON m.postId = p.id WHERE m.id = :matchId")
     Long findAuthorIdByMatchId(@Param("matchId") Long matchId);
+
 }

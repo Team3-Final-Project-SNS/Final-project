@@ -348,9 +348,47 @@ public class MatchServiceImpl implements MatchService{
             // 나머지 참여자(HOST + 다른 GUEST)는 계속 채팅 이용 가능
             chatService.removeChatMember(match.getPostId(), userId);
         } else {
+
             // HOST(등록자) 취소 — 게시글 CANCELLED + 채팅방 완전 비활성화
+            // BUG-05 수정 — 기존 코드는 match.getApplicantId() 단 1명만 환불
+            // 그룹 매칭에서 GUEST가 여러 명이면 나머지는 환불되지 않는 치명적 버그
+            // 해결: 해당 postId에 연결된 모든 MATCHED 상태 매칭을 조회해서 일괄 처리
+
+            List<Match> allGuestMatches = matchRepository.findAllByPostIdAndStatus(
+                    match.getPostId(), MatchStatus.MATCHED);
+            // findAllByPostIdAndStatus: post_id = ? AND status = 'MATCHED' 인 매칭 전체 조회
+
+            // 모든 GUEST에게 전액 환불 + 매칭 취소 상태 변경
+            for (Match guestMatch : allGuestMatches) {
+                // 각 GUEST의 예치금 전액 환불
+                // HOST가 취소한 것이므로 GUEST 귀책 없음 → 전액 반환
+                userPointService.refundPoint(
+                        guestMatch.getApplicantId(),  // 환불받을 GUEST ID
+                        guestMatch.getApplicantDeposit(), // 환불 금액 (GUEST가 예치한 금액)
+                        guestMatch.getId()            // 포인트 거래 기록용 matchId
+                );
+
+                // 매칭 상태 CANCELLED로 변경
+                guestMatch.cancel();
+            }
+
+            // HOST는 50% 환불 (HOST가 취소했으므로 패널티)
+            userPointService.partialRefundPoint(userId, post.getAuthorDeposit(), matchId);
+
+            // 게시글 상태 CANCELLED로 변경
             post.cancel();
+
+            // 채팅방 비활성화
             chatService.deactivateChatRoom(match.getPostId());
+
+            // 모든 GUEST에게 HOST 취소 알림 발송
+            for (Match guestMatch : allGuestMatches) {
+                // 각 GUEST에게 "HOST가 매칭을 취소했습니다" 알림
+                notificationPublisher.sendMatchCancelled(
+                        guestMatch.getApplicantId(), // 알림 수신자 (GUEST)
+                        guestMatch.getId()           // 관련 매칭 ID
+                );
+            }
         }
 
         // 2번 알림 - 상대방에게 매칭 취소 알림 발송
