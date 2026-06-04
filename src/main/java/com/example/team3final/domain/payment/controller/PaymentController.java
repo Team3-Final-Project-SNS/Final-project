@@ -70,11 +70,12 @@ public class PaymentController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
+        Long userId = userDetails.getUserId();
         // size 최대 50 제한
         Pageable pageable = PageRequest.of(page, Math.min(size,50));
         return ResponseEntity.ok(
                 ApiResponseDto.success(
-                        paymentService.getPayments(userDetails.getUserId(), pageable)
+                        paymentService.getPayments(userId, pageable)
                 )
         );
     }
@@ -85,9 +86,10 @@ public class PaymentController {
             @AuthenticationPrincipal UserDetailsImpl userDetails,
             @PathVariable Long paymentId
     ) {
+        Long userId = userDetails.getUserId();
         return ResponseEntity.ok(
                 ApiResponseDto.success(
-                        paymentService.cancelPayment(userDetails.getUserId(), paymentId)
+                        paymentService.cancelPayment(userId, paymentId)
                 )
         );
     }
@@ -99,8 +101,9 @@ public class PaymentController {
             @AuthenticationPrincipal UserDetailsImpl userDetails,
             @PathVariable Long paymentId
     ) {
-        paymentService.failPayment(userDetails.getUserId(), paymentId);
+        Long userId = userDetails.getUserId();
+        paymentService.failPayment(userId, paymentId);
 
-        return ResponseEntity.ok(ApiResponseDto.success(null));
+        return ResponseEntity.ok(ApiResponseDto.successWithNoContent());
     }
 }
