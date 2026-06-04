@@ -78,11 +78,10 @@ public class MatchServiceImpl implements MatchService{
         }
 
         // 2-1. 중복 신청 차단 (같은 게시글에 같은 사용자 두 번 신청 불가)
-        //   그룹 매칭에서 의미가 생김 — 1:1에선 본인 게시글 차단(2-1)에 흡수되지만,
-        //   그룹에선 별도 신청자가 두 번 들어오는 걸 막아야 함.
-        //   MATCHED/CANCELLED 등 상태 무관하게 같은 (postId, applicantId) 조합 존재 여부만 봄
-        //   → 취소 후 재신청을 막을지는 정책 확인 필요. 일단 막는 방향.
-        if (matchRepository.existsByPostIdAndApplicantId(postId, applicantId)) {
+        // MATCHED 상태인 경우만 중복으로 판단
+        // 기획서: "Post 상태 OPEN (재신청 가능)" → CANCELLED된 매칭은 재신청 허용
+        if (matchRepository.existsByPostIdAndApplicantIdAndStatus(
+                postId, applicantId, MatchStatus.MATCHED)) {
             throw new MatchException(ErrorCode.MATCH_DUPLICATE_APPLY);
         }
 
@@ -177,7 +176,7 @@ public class MatchServiceImpl implements MatchService{
     public boolean hasAppliedToPost(Long postId, Long applicantId) {
         // 중복 신청 여부는 Match 도메인의 데이터 규칙이므로,
         // 다른 도메인은 Repository 대신 이 서비스 메서드를 통해 확인합니다.
-        return matchRepository.existsByPostIdAndApplicantId(postId, applicantId);
+        return matchRepository.existsByPostIdAndApplicantIdAndStatus(postId, applicantId, MatchStatus.MATCHED);
     }
 
     @Override
