@@ -1,4 +1,5 @@
 package com.example.team3final.domain.notification.service;
+
 /**
  * [설계 결정] 메서드를 알림 상황별로 분리한 이유:
  *   - 호출하는 쪽에서 어떤 알림인지 명확하게 알 수 있음
@@ -10,13 +11,12 @@ package com.example.team3final.domain.notification.service;
  *   - 매칭(정): 매칭 신청, 매칭 확정, 매칭 취소, 노쇼, 만남 시간 연장
  *   - 관리자(정): 이의제기 접수 알림, 신고 접수 알림, 문의 접수 알림
  *   - 후기(최): 후기 작성 50P 지급
- *   - 결제/이의제기(류): 이의제기 결과, 이의제기 보류
- *   - 신고(박): 신고 처리 결과, 신고 채택 포인트 지급
+ *   - 결제/이의제기(류): 이의제기 결과, 이의제기 보류, 결제 성공/실패
+ *   - 신고(박): 신고 채택 포상금 지급
  *   - 채팅(박): 채팅 메시지 수신 알림
  *   - 고객문의(문): 문의 답변 완료 알림
+ *   - 만남인증(정): GPS 반경 이탈 경고
  */
-
-// 알림 발송 인터페이스
 public interface NotificationPublisher {
 
     // 1. 게시글에 누군가 신청했을 때 - 게시글 작성자에게
@@ -46,9 +46,6 @@ public interface NotificationPublisher {
     // 9. 노쇼 예정 알림 - 관련 사용자에게
     void sendNoShowWarning(Long userId, Long matchId);
 
-    // 10. 신고 처리 결과 알림 - 신고자/신고 대상자에게
-    void sendReportResult(Long userId, Long reportId);
-
     // 11. 이의제기 접수 알림 - 관리자에게
     void sendDisputeSubmitted(Long adminId, Long disputeId);
 
@@ -56,7 +53,7 @@ public interface NotificationPublisher {
     // 용도: 공지 / 게시글 삭제 안내 / 게시글 만료 안내 / 제재 안내
     void sendSystem(Long userId, String title, String content);
 
-    // 13. 신고 채택 포인트 지급 알림 - 신고자에게
+    // 13. 신고 채택 포상금 지급 알림 - 신고자에게
     void sendReportAcceptedPoint(Long userId, Long reportId);
 
     // 14. 후기 작성 포인트 지급 알림 - 후기 작성자에게
@@ -69,7 +66,6 @@ public interface NotificationPublisher {
     void sendMatchConfirmed(Long userId, Long matchId);
 
     // 17. 이의제기 판정 결과 알림 - 이의제기 신청자에게
-    // 용도: 관리자 승인/거절 시 + 보류 24시간 초과 자동 거절 시 발송
     void sendDisputeResult(Long userId, Long disputeId);
 
     // 18. 만남 시간 연장 요청 알림 - 만남 상대방에게
@@ -94,8 +90,6 @@ public interface NotificationPublisher {
     void sendInquirySubmitted(Long adminId, Long inquiryId);
 
     // 27. 매너 온도 변경 알림 - 후기 대상자에게
-    // 후기 작성으로 매너 온도가 변경되었을 때 발송
-    // 클릭 시 마이페이지로 이동 (relatedId = null)
     void sendMannerTemperatureChanged(Long userId);
 
     // 28. 만남 완료 / 후기 작성 유도 알림 - 신청자에게
@@ -103,4 +97,16 @@ public interface NotificationPublisher {
 
     // 29. 후기 작성 마지막 날 알림 - 신청자에게
     void sendReviewDeadlineReminder(Long userId, Long matchId);
+
+    // 30. 결제 성공 알림 - 결제 사용자에게
+    void sendPaymentSuccess(Long userId, Long paymentId);
+
+    // 31. 결제 실패 알림 - 결제 사용자에게
+    void sendPaymentFailed(Long userId, Long paymentId);
+
+    // 32. GPS 반경 이탈 경고 알림 - 만남 참여자에게
+    void sendGpsOutOfRange(Long userId, Long matchId);
+
+    // 33. 신고 기각 알림 - 신고자에게
+    void sendReportRejected(Long userId, Long reportId);
 }
