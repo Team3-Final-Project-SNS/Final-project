@@ -46,6 +46,11 @@ public class MeetVerification {
     @Column(name = "status", nullable = false, length = 20)
     private VerificationStatus status;
 
+    // 이의 제기 상태 체크를 위한 필드값
+    @Enumerated(EnumType.STRING)
+    @Column(name = "disputed_from_status", length = 20)
+    private VerificationStatus disputedFromStatus;
+
     // QR 토큰 만료 시각: 장소 인증 완료 시점 + 30분
     @Column(name = "qr_expires_at")
     private LocalDateTime qrExpiresAt;
@@ -242,5 +247,41 @@ public class MeetVerification {
     // 임박 알림 발송 완료 처리
     public void markImminentSent() {
         this.imminentSent = true;
+    }
+
+    // 노쇼 예정 상태에게 이의제기가 접수되면 현재 노쇼 상태를 백업하고
+    // Dispute 상태로 전환
+    public void markDispute() {
+        if (this.status != VerificationStatus.HOST_NO_SHOW
+                && this.status != VerificationStatus.GUEST_NO_SHOW
+                && this.status != VerificationStatus.BOTH_NO_SHOW) {
+            throw new IllegalStateException("노쇼 예정 상태에서만 이의제기 상태로 전환할 수 있습니다.");
+        }
+
+        this.disputedFromStatus = this.status;
+        this.status = VerificationStatus.DISPUTE;
+    }
+
+    // 이의제기가 기각되면 백업해둔 원래 노쇼 예정 상태로 복구
+    public VerificationStatus restoreNoShowStatusFromDispute() {
+        if (this.status == VerificationStatus.DISPUTE && this.disputedFromStatus != null) {
+            this.status = this.disputedFromStatus;
+            this.disputedFromStatus = null;
+        }
+        return this.status;
+    }
+
+    // 이의제기가 수용되어 실제 만남 완료로 인정되는 경우 인증 완료 상태로 전환
+    public void completeByDispute() {
+        this.status = VerificationStatus.DONE;
+        this.isMeetVerified = true;
+        this.completedAt = LocalDateTime.now();
+        this.disputedFromStatus = null;
+    }
+
+    // 관리자 판정으로 노쇼가 취소되면 DISPUTE 상태를 종료하고 최종 취소 상태로 남깁니다.
+    public void cancelNoShowByDispute() {
+        this.status = VerificationStatus.NO_SHOW_CANCELLED;
+        this.disputedFromStatus = null;
     }
 }
