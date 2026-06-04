@@ -289,4 +289,35 @@ public class ChatServiceImpl implements ChatService {
                 ))
                 .toList();
     }
+
+    // 채팅방 존재 여부 확인 - 첫 신청 여부 판단용
+    @Override
+    public boolean existsChatRoomByPostId(Long postId) {
+        // postId로 채팅방이 있는지만 확인
+        // 없으면 첫 신청 → 채팅방 생성 필요
+        return chatRoomRepository.findByPostId(postId).isPresent();
+    }
+
+    // 그룹 채팅방에 신청자 멤버 추가 - 두 번째 이후 신청자용
+    @Transactional
+    @Override
+    public void addChatMember(Long postId, Long applicantId) {
+        // postId로 채팅방 조회
+        ChatRoom chatRoom = chatRoomRepository.findByPostId(postId)
+                .orElseThrow(() -> new ChatException(ErrorCode.CHAT_ROOM_NOT_FOUND));
+
+        // 이미 멤버면 중복 추가 방지 (멱등성 보장)
+        if (chatMemberRepository.existsByChatRoomIdAndUserId(chatRoom.getId(), applicantId)) {
+            return;
+        }
+
+        // GUEST로 채팅방 멤버 추가
+        chatMemberRepository.save(
+                ChatMember.builder()
+                        .chatRoomId(chatRoom.getId())
+                        .userId(applicantId)
+                        .role(ChatMemberRole.GUEST)
+                        .build()
+        );
+    }
 }

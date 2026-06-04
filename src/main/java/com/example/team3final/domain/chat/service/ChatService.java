@@ -38,4 +38,10 @@ public interface ChatService {
 
     // 채팅방 참여자 목록 조회 - 채팅방 멤버만 접근 가능
     List<ChatMemberResponseDto> getChatMembers(Long chatRoomId, Long userId);
+
+    // 채팅방 존재 여부 확인 (첫 신청 여부 판단용)
+    boolean existsChatRoomByPostId(Long postId);
+
+    // 그룹 채팅방에 신청자 멤버 추가 (두 번째 이후 신청자용)
+    void addChatMember(Long postId, Long applicantId);
 }
