@@ -18,6 +18,7 @@ import com.example.team3final.domain.dispute.service.DisputeService;
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.service.MatchService;
 import com.example.team3final.domain.meet.entity.MeetVerification;
+import com.example.team3final.domain.meet.enums.VerificationStatus;
 import com.example.team3final.domain.meet.service.MeetVerificationService;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.dto.response.PostMatchInfoDto;
@@ -206,6 +207,8 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
         };
 
         // HOLD는 전용 알림 발송 (24시간 이내 행동 유도 메시지)
+        applyDisputeJudgment(dispute, requestDto.getStatus(), match, postMatchInfo, submitterIsAuthor);
+
         if (requestDto.getStatus() == DisputeStatus.HOLD) {
             notificationPublisher.sendDisputePending(dispute.getSubmitterId(), disputeId);
         } else {
@@ -218,6 +221,58 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
     }
 
     // 이의제기 상태 강제 변경 (오판정 정정용)
+    private void applyDisputeJudgment(
+            Dispute dispute,
+            DisputeStatus judgment,
+            Match match,
+            PostMatchInfoDto postMatchInfo,
+            boolean submitterIsAuthor
+    ) {
+
+        if (judgment == DisputeStatus.HOLD) {
+            return;
+        }
+
+        MeetVerification meetVerification = meetVerificationService.getByMatchId(dispute.getMatchId());
+
+        if (judgment == DisputeStatus.REJECTED) {
+            // 이의제기 기각 시 보존해 둔 노쇼 예정 상태로 복원한 뒤 기존 노쇼 정산을 확정
+            VerificationStatus restoredStatus = meetVerification.restoreNoShowStatusFromDispute();
+
+            if (restoredStatus == VerificationStatus.HOST_NO_SHOW) {
+                matchService.markAuthorNoShow(dispute.getMatchId());
+            } else if (restoredStatus == VerificationStatus.GUEST_NO_SHOW) {
+                matchService.markApplicantNoShow(dispute.getMatchId());
+            } else if (restoredStatus == VerificationStatus.BOTH_NO_SHOW) {
+                matchService.markBothNoShow(dispute.getMatchId());
+            }
+
+            meetVerification.confirmNoShow();
+            chatService.makeReadOnlyChatRoom(match.getPostId());
+            return;
+        }
+
+        Long opponentId = submitterIsAuthor ? match.getApplicantId() : postMatchInfo.authorId();
+        int opponentDeposit = submitterIsAuthor ? match.getApplicantDeposit() : postMatchInfo.authorDeposit();
+
+        // 제출자 보증금은 switch에서 처리했고, 상대방 보증금은 판정 후 묶이지 않도록 전액 반환
+        userPointService.refundPoint(opponentId, opponentDeposit, dispute.getMatchId());
+
+        DisputeType disputeType = dispute.getDisputeType();
+        if (disputeType.isMeetCompletionType()) {
+            meetVerification.completeByDispute();
+            matchService.completeMatchByDispute(dispute.getMatchId());
+            chatService.scheduleChatRoomDeactivation(match.getPostId());
+            return;
+        }
+
+        if (disputeType.isMatchCancelType()) {
+            meetVerification.cancelNoShowByDispute();
+            matchService.cancelMatchByDispute(dispute.getMatchId());
+            chatService.makeReadOnlyChatRoom(match.getPostId());
+        }
+    }
+
     @Override
     @Transactional
     public AdminJudgeDisputeResponseDto overrideDisputeStatus(Long adminId, Long disputeId, AdminOverrideDisputeStatusRequestDto requestDto) {
