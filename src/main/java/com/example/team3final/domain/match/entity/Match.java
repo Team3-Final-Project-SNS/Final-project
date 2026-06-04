@@ -82,6 +82,17 @@ public class Match extends BaseTimeEntity {
         this.status = MatchStatus.DISPUTED;
     }
 
+    // 매치 상태 완료
+    public void completeByDispute() {
+        this.status = MatchStatus.COMPLETED;
+        this.completedAt = LocalDateTime.now();
+    }
+
+    // 매치 상태 취소
+    public void cancelByDispute() {
+        this.status = MatchStatus.CANCELLED;
+    }
+
     // ===== 조회 메서드 =====
 
     // 매칭 양측 당사자(등록자 / 신청자)인지 검증
