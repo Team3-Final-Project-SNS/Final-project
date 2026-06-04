@@ -58,18 +58,21 @@ public class AdminPostServiceImpl implements AdminPostService {
             throw new AdminException(ErrorCode.ADMIN_POST_NOT_OPEN);
         }
 
-        // 신고 연계 검증
-        // reportId로 신고 조회
-        Report report = reportService.getReportById(requestDto.getReportId());
+        // 신고 근거 삭제는 ACCEPTED 신고만 허용하고,
+        // reportId가 없으면 관리자 판단 삭제로 처리합니다.
+        Long reportId = requestDto.getReportId();
+        if (reportId != null) {
+            Report report = reportService.getReportById(reportId);
 
-        // 신고의 targetId가 요청 postId와 일치하는지 확인
-        if (!report.getTargetId().equals(postId)) {
-            throw new AdminException(ErrorCode.ADMIN_POST_ID_MISMATCH);
-        }
+            // 신고의 targetId가 요청 postId와 일치하는지 확인
+            if (!report.getTargetId().equals(postId)) {
+                throw new AdminException(ErrorCode.ADMIN_POST_ID_MISMATCH);
+            }
 
-        // 신고가 ACCEPTE 상태인지 확인
-        if (report.getStatus() != ReportStatus.ACCEPTED) {
-            throw new AdminException(ErrorCode.ADMIN_NOT_ACCEPTED);
+            // 신고가 ACCEPTED 상태인지 확인
+            if (report.getStatus() != ReportStatus.ACCEPTED) {
+                throw new AdminException(ErrorCode.ADMIN_NOT_ACCEPTED);
+            }
         }
 
         // PostService 통해서 강제 삭제 + 환불 처리
@@ -77,7 +80,7 @@ public class AdminPostServiceImpl implements AdminPostService {
 
         return AdminDeletePostResponseDto.of(
                 postId,
-                requestDto.getReportId(),
+                reportId,
                 requestDto.getReason(),
                 refundedPoint,
                 LocalDateTime.now()

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { ArrowLeft, Eye, FileText, Loader2, Search, Trash2, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Eye, FileText, Loader2, Search, Trash2, X } from 'lucide-react';
 import { deleteAdminPost, getAdminPost, getAdminPosts, AdminPostDetail, AdminPostItem } from '../../api/adminPostApi';
 import { PostStatus } from '../../api/postApi';
 import { getUniversities, UniversityResponse } from '../../api/univApi';
@@ -33,6 +33,9 @@ export default function AdminPostsPage() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [detailLoadingId, setDetailLoadingId] = useState<number | null>(null);
   const [selectedPost, setSelectedPost] = useState<AdminPostDetail | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminPostItem | null>(null);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteError, setDeleteError] = useState('');
   const [message, setMessage] = useState('');
 
   const loadPosts = async (nextPage = page) => {
@@ -92,36 +95,46 @@ export default function AdminPostsPage() {
     }
   };
 
-  const handleDelete = async (post: AdminPostItem) => {
-    const reportIdInput = prompt(`게시글 #${post.postId} 삭제 근거 신고 ID를 입력해주세요.`);
-    if (!reportIdInput) {
+  const openDeleteModal = (post: AdminPostItem) => {
+    setDeleteTarget(post);
+    setDeleteReason('');
+    setDeleteError('');
+  };
+
+  const closeDeleteModal = () => {
+    if (deletingId !== null) {
       return;
     }
 
-    const reportId = Number(reportIdInput);
-    if (!Number.isFinite(reportId) || reportId <= 0) {
-      setMessage('신고 ID는 숫자로 입력해야 합니다.');
+    setDeleteTarget(null);
+    setDeleteReason('');
+    setDeleteError('');
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) {
       return;
     }
 
-    const reason = prompt('게시글 강제 삭제 사유를 입력해주세요.');
-    if (!reason?.trim()) {
-      setMessage('삭제 사유는 필수입니다.');
+    const trimmedReason = deleteReason.trim();
+
+    if (!trimmedReason) {
+      setDeleteError('삭제 사유는 필수입니다.');
       return;
     }
 
-    if (!confirm(`게시글 #${post.postId}을 강제 삭제하시겠습니까?`)) {
-      return;
-    }
-
-    setDeletingId(post.postId);
+    setDeletingId(deleteTarget.postId);
     setMessage('');
+    setDeleteError('');
     try {
-      await deleteAdminPost(post.postId, reportId, reason.trim());
-      setMessage(`게시글 #${post.postId}을 삭제했습니다.`);
+      await deleteAdminPost(deleteTarget.postId, null, trimmedReason);
+      setMessage(`게시글 #${deleteTarget.postId}을 삭제했습니다.`);
+      setDeleteTarget(null);
+      setDeleteReason('');
+      setDeleteError('');
       await loadPosts(page);
     } catch (err: any) {
-      setMessage(err.response?.data?.message || '게시글 삭제에 실패했습니다.');
+      setDeleteError(err.response?.data?.message || '게시글 삭제에 실패했습니다.');
     } finally {
       setDeletingId(null);
     }
@@ -258,7 +271,7 @@ export default function AdminPostsPage() {
                     <button
                       type="button"
                       disabled={deletingId === post.postId}
-                      onClick={() => handleDelete(post)}
+                      onClick={() => openDeleteModal(post)}
                       className="inline-flex items-center justify-center gap-1 rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-500 transition-colors hover:bg-red-50 disabled:opacity-60"
                     >
                       {deletingId === post.postId ? <Loader2 className="animate-spin" size={14} /> : <Trash2 size={14} />}
@@ -311,7 +324,99 @@ export default function AdminPostsPage() {
       {selectedPost && (
         <PostDetailModal post={selectedPost} onClose={() => setSelectedPost(null)} />
       )}
+      {deleteTarget && (
+        <DeletePostModal
+          post={deleteTarget}
+          reason={deleteReason}
+          error={deleteError}
+          isDeleting={deletingId === deleteTarget.postId}
+          onReasonChange={setDeleteReason}
+          onClose={closeDeleteModal}
+          onDelete={handleDelete}
+        />
+      )}
       <AdminFloatingChatbot />
+    </div>
+  );
+}
+
+function DeletePostModal({
+  post,
+  reason,
+  error,
+  isDeleting,
+  onReasonChange,
+  onClose,
+  onDelete,
+}: {
+  post: AdminPostItem;
+  reason: string;
+  error: string;
+  isDeleting: boolean;
+  onReasonChange: (value: string) => void;
+  onClose: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+      <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold text-red-500">게시글 #{post.postId} 강제 삭제</p>
+            <h2 className="mt-1 text-2xl font-bold text-[#212121]">{post.placeName}</h2>
+            <p className="mt-1 text-sm font-semibold text-[#757575]">관리자 판단으로 게시글을 강제 삭제합니다.</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isDeleting}
+            className="rounded-full p-2 text-[#757575] hover:bg-[#f5f5f5] hover:text-[#212121] disabled:opacity-50"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
+            <AlertCircle size={17} className="mt-0.5 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <div className="space-y-4">
+          <label className="block">
+            <span className="mb-2 block text-sm font-bold text-[#616161]">삭제 사유</span>
+            <textarea
+              value={reason}
+              onChange={(event) => onReasonChange(event.target.value)}
+              disabled={isDeleting}
+              rows={4}
+              placeholder="예: 스팸, 운영 정책 위반, 관리자 판단 삭제"
+              className="w-full resize-none rounded-lg border border-[#e0e0e0] px-4 py-3 text-sm font-semibold outline-none focus:border-[#d84315] disabled:bg-[#f5f5f5]"
+            />
+          </label>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isDeleting}
+            className="h-11 rounded-lg border border-[#e0e0e0] bg-white px-5 text-sm font-bold text-[#616161] transition-colors hover:bg-[#f5f5f5] disabled:opacity-50"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={isDeleting}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-red-500 px-5 text-sm font-bold text-white transition-colors hover:bg-red-600 disabled:opacity-60"
+          >
+            {isDeleting ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
+            강제 삭제
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -26,7 +26,7 @@ export interface AdminPostDetail {
 
 export interface AdminDeletePostResponse {
   postId: number;
-  reportId: number;
+  reportId: number | null;
   reason: string;
   refundedPoint: number;
   deletedAt: string;
@@ -54,7 +54,7 @@ export const getAdminPosts = (
 export const getAdminPost = (postId: number) =>
   axiosInstance.get<ApiResponse<AdminPostDetail>>(`/api/v1/admin/posts/${postId}`);
 
-export const deleteAdminPost = (postId: number, reportId: number, reason: string) =>
+export const deleteAdminPost = (postId: number, reportId: number | null, reason: string) =>
   axiosInstance.delete<ApiResponse<AdminDeletePostResponse>>(`/api/v1/admin/posts/${postId}`, {
     data: {
       reportId,
