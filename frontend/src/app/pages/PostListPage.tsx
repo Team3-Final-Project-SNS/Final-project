@@ -222,8 +222,8 @@ export default function PostListPage() {
 // 게시글 모집 인원은 등록자를 포함해서 현재/최대 형식으로 보여줍니다.
 // 예: 1:1 게시글은 1/2, 단체 게시글은 1/5처럼 표시됩니다.
 function formatParticipantCount(currentApplicants?: number, maxApplicants?: number) {
-  const safeCurrent = currentApplicants && currentApplicants > 0 ? currentApplicants : 1;
-  const safeMax = maxApplicants && maxApplicants > 0 ? maxApplicants : 2;
+  const safeMax = maxApplicants && maxApplicants > 1 ? maxApplicants : 2;
+  const safeCurrent = Math.min(currentApplicants && currentApplicants > 0 ? currentApplicants : 1, safeMax);
   return `${safeCurrent}/${safeMax}`;
 }
 

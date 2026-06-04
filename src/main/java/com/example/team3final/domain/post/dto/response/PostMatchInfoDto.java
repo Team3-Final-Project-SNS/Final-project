@@ -20,8 +20,8 @@ public record PostMatchInfoDto(
                 post.getMeetAt(),
                 post.getPlaceName(),
                 post.getAuthorDeposit(),
-                post.getCurrentApplicants(),
-                post.getMaxApplicants()
+                Math.max(post.getCurrentApplicants(), 1),
+                Math.max(post.getMaxApplicants(), 2)
         );
     }
 }

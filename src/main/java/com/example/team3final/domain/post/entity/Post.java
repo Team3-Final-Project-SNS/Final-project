@@ -87,7 +87,7 @@ public class Post extends SoftDeleteEntity {
                 this.placeLng = placeLng;
                 this.content = content;
                 this.authorDeposit = authorDeposit;
-                this.maxApplicants = maxApplicants > 0 ? maxApplicants : 2; // 기본값 2명 (등록자 1명 + 신청자 1명)
+                this.maxApplicants = maxApplicants >= 2 ? maxApplicants : 2; // 기본값 2명 (등록자 1명 + 신청자 1명)
                 this.currentApplicants = 1;
                 this.status = PostStatus.OPEN;
         }
