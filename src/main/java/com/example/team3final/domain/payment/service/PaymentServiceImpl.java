@@ -19,11 +19,13 @@ import io.portone.sdk.server.payment.PaymentClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -222,6 +224,60 @@ public class PaymentServiceImpl implements PaymentService{
                 userId, paymentId, refundAmount);
 
         return CancelPaymentResponseDto.of(payment, refundAmount);
+    }
+
+    // 결제 실패 처리 (프론트 명시적 호출)
+    @Override
+    @Transactional
+    public void failPayment(Long userId, Long paymentId) {
+
+        // 결제 건 조회
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new PaymentException(ErrorCode.PAY_NOT_FOUND));
+
+        // 본인 결제 건인지 확인
+        if (!payment.isOwner(userId)) {
+            throw new PaymentException(ErrorCode.PAY_NOT_OWNER);
+        }
+
+        // READY 상태가 아니면 처리 불필요
+        // 이미 PAID/CANCELLED/FAILED면 무시 (멱등성 보장)
+        if (payment.getStatus() != PaymentStatus.READY) {
+            return;
+        }
+
+        // FAILED 처리
+        payment.markFailed("사용자 결제 취소");
+
+        log.info("[Payment] 결제 실패 처리 - userId: {}, paymentId: {}", userId, paymentId);
+    }
+
+    // ===== 스케줄러 — 오래된 READY 건 자동 만료 =====
+    /**
+     * 30분 이상 READY로 남아있는 결제 건을 FAILED로 일괄 처리
+     * 주기: 매 5분마다 실행
+     *
+     * 보험 역할: 프론트가 failPayment 호출을 누락했을 때 자동으로 정리
+     * ex) 네트워크 오류로 실패 API 못 보낸 경우, 브라우저 강제 종료 등
+     */
+    @Scheduled(cron = "0 */5 * * * *") // 매 5분마다 실행 (0초에 5분 간격)
+    @Transactional
+    public void expireStaleReadyPayments() {
+
+        // 10분 전 시각 기준 - 그 이전에 생성된 READY 건이 만료 대상
+        LocalDateTime expiredBefore = LocalDateTime.now().minusMinutes(10);
+
+        List<Payment> stalePayments = paymentRepository.findExpiredReadyPayments(expiredBefore);
+
+        if (stalePayments.isEmpty()) {
+            return;
+        }
+
+        // 각 건마다 FAILED 처리
+        stalePayments.forEach(payment ->
+                payment.markFailed("결제 미완료 자동 만료 (30분 초과)"));
+
+        log.info("[Payment] 자동 만료 처리 완료 - {}건 FAILED 전환", stalePayments.size());
     }
 
     // ===== private 헬퍼 =====

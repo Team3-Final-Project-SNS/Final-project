@@ -70,11 +70,12 @@ public class PaymentController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
+        Long userId = userDetails.getUserId();
         // size 최대 50 제한
         Pageable pageable = PageRequest.of(page, Math.min(size,50));
         return ResponseEntity.ok(
                 ApiResponseDto.success(
-                        paymentService.getPayments(userDetails.getUserId(), pageable)
+                        paymentService.getPayments(userId, pageable)
                 )
         );
     }
@@ -85,10 +86,24 @@ public class PaymentController {
             @AuthenticationPrincipal UserDetailsImpl userDetails,
             @PathVariable Long paymentId
     ) {
+        Long userId = userDetails.getUserId();
         return ResponseEntity.ok(
                 ApiResponseDto.success(
-                        paymentService.cancelPayment(userDetails.getUserId(), paymentId)
+                        paymentService.cancelPayment(userId, paymentId)
                 )
         );
+    }
+
+    // 결제 실패 처리
+    // 프론트가 결제창 취소 또는 실패 시 즉시 호출
+    @PatchMapping("/{paymentId}/fail")
+    public ResponseEntity<ApiResponseDto<Void>> failPayment(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @PathVariable Long paymentId
+    ) {
+        Long userId = userDetails.getUserId();
+        paymentService.failPayment(userId, paymentId);
+
+        return ResponseEntity.ok(ApiResponseDto.successWithNoContent());
     }
 }
