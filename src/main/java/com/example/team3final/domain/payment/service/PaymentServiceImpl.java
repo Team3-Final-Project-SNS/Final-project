@@ -264,8 +264,8 @@ public class PaymentServiceImpl implements PaymentService{
     @Transactional
     public void expireStaleReadyPayments() {
 
-        // 30분 전 시각 기준 - 그 이전에 생성된 READY 건이 만료 대상
-        LocalDateTime expiredBefore = LocalDateTime.now().minusMinutes(30);
+        // 10분 전 시각 기준 - 그 이전에 생성된 READY 건이 만료 대상
+        LocalDateTime expiredBefore = LocalDateTime.now().minusMinutes(10);
 
         List<Payment> stalePayments = paymentRepository.findExpiredReadyPayments(expiredBefore);
 
