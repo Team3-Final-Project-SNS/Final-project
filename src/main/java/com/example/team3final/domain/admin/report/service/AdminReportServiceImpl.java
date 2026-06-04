@@ -65,6 +65,24 @@ public class AdminReportServiceImpl implements AdminReportService {
         return PageResponseDto.from(dtoPage);
     }
 
+    // 신고 상세 조회
+    @Override
+    public AdminGetReportResponseDto getReport(Long adminId, Long reportId) {
+
+        // 관리자 존재 여부 확인
+        adminRepository.findById(adminId)
+                .orElseThrow(() -> new AdminException(ErrorCode.ADMIN_NOT_FOUND));
+
+        // 신고 단건 조회
+        Report report = reportService.getReportById(reportId);
+
+        // 신고자 닉네임은 User 도메인 Service를 통해 조회합니다.
+        String reporterNickname = userService.getUserNicknameMap(List.of(report.getReporterId()))
+                .getOrDefault(report.getReporterId(), "탈퇴한 유저");
+
+        return AdminGetReportResponseDto.of(report, reporterNickname);
+    }
+
     // 신고 접수
     @Override
     @Transactional
@@ -123,4 +141,3 @@ public class AdminReportServiceImpl implements AdminReportService {
         return AdminGetReportDetailResponseDto.of(report, reporterNickname);
     }
 }
-

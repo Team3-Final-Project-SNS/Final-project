@@ -26,6 +26,9 @@ export const getAdminReports = (status?: ReportStatus, page: number = 0, size: n
     params: { status, page, size },
   });
 
+export const getAdminReport = (reportId: number) =>
+  axiosInstance.get<ApiResponse<AdminReportItem>>(`/api/v1/admin/reports/${reportId}`);
+
 export const processAdminReport = (reportId: number, reportStatus: "ACCEPTED" | "REJECTED", comment?: string) =>
   axiosInstance.patch<ApiResponse<AdminProcessReportResponse>>(`/api/v1/admin/reports/${reportId}/process`, {
     reportStatus,

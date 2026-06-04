@@ -15,6 +15,8 @@ public record GetMatchesResponseDto(
         String opponentStudentNumber,   // 상대방 학번
         LocalDateTime meetAt,   // postMatchInfo.meetAt()
         String placeName,       // postMatchInfo.placeName()
+        int currentApplicants,  // 현재 참여 인원 (등록자 포함)
+        int maxApplicants,      // 최대 참여 인원 (등록자 포함)
         // ===== 내 예치 포인트 =====
         // 내가 등록자면 postMatchInfo.authorDeposit()
         // 내가 신청자면 match.getApplicantDeposit()
@@ -34,6 +36,8 @@ public record GetMatchesResponseDto(
             String opponentStudentNumber,
             LocalDateTime meetAt,
             String placeName,
+            int currentApplicants,
+            int maxApplicants,
             int myDeposit,
             boolean isAuthor,
             Long chatRoomId
@@ -47,6 +51,8 @@ public record GetMatchesResponseDto(
                 opponentStudentNumber,
                 meetAt,
                 placeName,
+                currentApplicants,
+                maxApplicants,
                 myDeposit,
                 isAuthor,
                 match.getStatus(),

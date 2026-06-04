@@ -59,3 +59,7 @@ export const getMyPayments = (page: number = 0, size: number = 20) =>
 
 export const cancelPayment = (paymentId: number) =>
   axiosInstance.patch<ApiResponse<CancelPaymentResponse>>(`/api/v1/payments/${paymentId}/cancel`);
+
+// PortOne 결제창에서 실패하거나 사용자가 취소한 결제 건을 FAILED 상태로 변경합니다.
+export const failPayment = (paymentId: number) =>
+  axiosInstance.patch<ApiResponse<null>>(`/api/v1/payments/${paymentId}/fail`);

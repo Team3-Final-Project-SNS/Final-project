@@ -466,11 +466,14 @@ public class MatchServiceImpl implements MatchService{
             String oppStudentNo= (opponentInfo != null) ? opponentInfo.studentNumber() : null;
             LocalDateTime meetAt = (postInfo != null) ? postInfo.meetAt() : null;
             String placeName     = (postInfo != null) ? postInfo.placeName() : null;
+            int currentApplicants = (postInfo != null) ? postInfo.currentApplicants() : 0;
+            int maxApplicants = (postInfo != null) ? postInfo.maxApplicants() : 0;
 
             return GetMatchesResponseDto.of(
                     match, opponentId,
                     oppNickname, oppMajor, oppStudentNo,
                     meetAt, placeName,
+                    currentApplicants, maxApplicants,
                     myDeposit, isAuthor, chatRoomId
             );
         });

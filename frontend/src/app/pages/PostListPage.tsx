@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { MapPin, Clock, Plus, AlertCircle, User } from 'lucide-react';
+import { MapPin, Clock, Plus, AlertCircle, User, Users, Thermometer } from 'lucide-react';
 import { getPosts, PostItemResponse } from '../../api/postApi';
 import { getUserMe } from '../../api/userApi';
 
@@ -165,6 +165,14 @@ export default function PostListPage() {
                             <User size={16} className="text-[#d84315]" />
                             {post.authorNickname}
                           </span>
+                          <span className="flex items-center gap-1.5">
+                            <Thermometer size={16} className="text-[#d84315]" />
+                            {formatMannerTemperature(post.authorMannerTemperature)}
+                          </span>
+                          <span className="flex items-center gap-1.5">
+                            <Users size={16} className="text-[#d84315]" />
+                            {formatParticipantCount(post.currentApplicants, post.maxApplicants)}
+                          </span>
                         </div>
                       </div>
 
@@ -209,4 +217,21 @@ export default function PostListPage() {
         </div>
       </div>
   );
+}
+
+// 게시글 모집 인원은 등록자를 포함해서 현재/최대 형식으로 보여줍니다.
+// 예: 1:1 게시글은 1/2, 단체 게시글은 1/5처럼 표시됩니다.
+function formatParticipantCount(currentApplicants?: number, maxApplicants?: number) {
+  const safeCurrent = currentApplicants && currentApplicants > 0 ? currentApplicants : 1;
+  const safeMax = maxApplicants && maxApplicants > 0 ? maxApplicants : 2;
+  return `${safeCurrent}/${safeMax}`;
+}
+
+// 작성자 매너온도는 소수점 1자리 온도 형식으로 표시합니다.
+function formatMannerTemperature(mannerTemperature?: number | null) {
+  if (mannerTemperature === null || mannerTemperature === undefined) {
+    return '36.5°C';
+  }
+
+  return `${Number(mannerTemperature).toFixed(1)}°C`;
 }

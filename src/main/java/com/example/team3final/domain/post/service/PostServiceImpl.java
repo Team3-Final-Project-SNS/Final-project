@@ -234,13 +234,14 @@ public class PostServiceImpl implements PostService{
 
             // 방어 코드: 혹시 작성자가 빠졌다면(탈퇴/삭제 등) NPE 대신 안전 처리
             if (authorInfo == null) {
-                return GetPostsItemResponseDto.from(post, null, null, null);
+                return GetPostsItemResponseDto.from(post, null, null, null, null);
             }
             return GetPostsItemResponseDto.from(
                     post,
                     authorInfo.nickname(),
                     authorInfo.major(),
-                    authorInfo.studentNumber()
+                    authorInfo.studentNumber(),
+                    authorInfo.mannerTemperature()
             );
         });
 
@@ -267,14 +268,15 @@ public class PostServiceImpl implements PostService{
             UserInfoDto authorInfo = authorMap.get(post.getAuthorId());
 
             if (authorInfo == null) {
-                return GetPostsItemResponseDto.from(post, null, null, null);
+                return GetPostsItemResponseDto.from(post, null, null, null, null);
             }
 
             return GetPostsItemResponseDto.from(
                     post,
                     authorInfo.nickname(),
                     authorInfo.major(),
-                    authorInfo.studentNumber()
+                    authorInfo.studentNumber(),
+                    authorInfo.mannerTemperature()
             );
         });
 

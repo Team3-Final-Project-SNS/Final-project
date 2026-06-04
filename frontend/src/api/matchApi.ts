@@ -13,6 +13,8 @@ export interface GetMatchesItemResponse {
     opponentStudentNumber: string;
     meetAt: string;
     placeName: string;
+    currentApplicants: number;
+    maxApplicants: number;
     myDeposit: number;
     isAuthor: boolean;
     status: MatchStatus;

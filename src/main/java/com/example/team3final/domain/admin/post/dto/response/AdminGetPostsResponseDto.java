@@ -11,6 +11,7 @@ public record AdminGetPostsResponseDto(
         Long postId,            // 게시글 ID — 프론트가 강제 삭제 API 호출 시 사용
         String authorNickname,  // 작성자 닉네임 — UserService S2S bulk 조회로 채움
         String placeName,       // 만남 장소명
+        String content,         // 한마디 — 목록에서 빠르게 확인하기 위해 노출
         LocalDateTime meetAt,   // 만남 희망 시간
         int authorDeposit,      // 책임비 포인트
         PostStatus status,      // 게시글 상태
@@ -23,6 +24,7 @@ public record AdminGetPostsResponseDto(
                 post.getId(),
                 authorNickname,
                 post.getPlaceName(),
+                post.getContent(),
                 post.getMeetAt(),
                 post.getAuthorDeposit(),
                 post.getStatus(),
