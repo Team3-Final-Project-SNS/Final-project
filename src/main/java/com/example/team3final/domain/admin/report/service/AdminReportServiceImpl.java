@@ -4,7 +4,8 @@ import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.AdminException;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.domain.admin.report.dto.request.AdminProcessReportRequestDto;
-import com.example.team3final.domain.admin.report.dto.response.AdminGetReportResponseDto;
+import com.example.team3final.domain.admin.report.dto.response.AdminGetReportDetailResponseDto;
+import com.example.team3final.domain.admin.report.dto.response.AdminGetReportsResponseDto;
 import com.example.team3final.domain.admin.report.dto.response.AdminProcessReportResponseDto;
 import com.example.team3final.domain.admin.repository.AdminRepository;
 import com.example.team3final.domain.report.entity.Report;
@@ -36,7 +37,7 @@ public class AdminReportServiceImpl implements AdminReportService {
 
     // 신고 목록 조회
     @Override
-    public PageResponseDto<AdminGetReportResponseDto> getReports(Long adminId, ReportStatus status, Pageable pageable) {
+    public PageResponseDto<AdminGetReportsResponseDto> getReports(Long adminId, ReportStatus status, Pageable pageable) {
 
         // 관리자 존재 여부 확인
         adminRepository.findById(adminId)
@@ -56,9 +57,9 @@ public class AdminReportServiceImpl implements AdminReportService {
         Map<Long, String> nicknameMap = userService.getUserNicknameMap(reporterIds);
 
         // Report 엔티티 DTO 변환
-        Page<AdminGetReportResponseDto> dtoPage = reportPage.map(report -> {
+        Page<AdminGetReportsResponseDto> dtoPage = reportPage.map(report -> {
             String reporterNickname = nicknameMap.getOrDefault(report.getReporterId(), "탈퇴한 유저");
-            return AdminGetReportResponseDto.of(report, reporterNickname);
+            return AdminGetReportsResponseDto.of(report, reporterNickname);
         });
 
         return PageResponseDto.from(dtoPage);
@@ -104,6 +105,22 @@ public class AdminReportServiceImpl implements AdminReportService {
         int rewardPoint = processedReport.isRewarded() ? REWARD_POINT : NO_REWARD_POINT;
 
         return AdminProcessReportResponseDto.of(processedReport, rewardPoint);
+    }
+
+    // 신고 상세 조회
+    @Override
+    public AdminGetReportDetailResponseDto getReport(Long adminId, Long reportId) {
+
+        // 관리자 검증
+        adminRepository.findById(adminId)
+                .orElseThrow(() -> new AdminException(ErrorCode.ADMIN_NOT_FOUND));
+
+        Report report = reportService.getReportById(reportId);
+
+        // 신고자 닉네임 단건 조회
+        String reporterNickname = userService.getUserInfo(report.getReporterId()).nickname();
+
+        return AdminGetReportDetailResponseDto.of(report, reporterNickname);
     }
 }
 
