@@ -16,6 +16,8 @@ import com.example.team3final.domain.inquiry.enums.InquiryAnswerStatus;
 import com.example.team3final.domain.inquiry.enums.InquiryType;
 import com.example.team3final.domain.inquiry.repository.InquiryRepository;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
+import com.example.team3final.domain.user.entity.User;
+import com.example.team3final.domain.user.enums.UserStatus;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -52,13 +54,20 @@ public class InquiryServiceImpl implements InquiryService {
     public CreateInquiryResponseDto createInquiry(Long userId, CreateInquiryRequestDto request) {
 
         // 유저 존재 여부 확인
-        userService.getUserInfo(userId);
+        User user = userService.findUserById(userId);
 
         // 1분 쿨다운 확인
         validateCooldown(userId);
 
         // 하루 20개 제한 확인
         validateDailyLimit(userId);
+
+        // 정지 계정 카테고리 제한
+        if (user.getStatus() == UserStatus.SUSPENDED
+                && request.getType() != InquiryType.ACCOUNT) {
+            // ACCOUNT 외 카테고리로 접수 시도 → 차단
+            throw new InquiryException(ErrorCode.SUSPENDED_INQUIRY_TYPE_RESTRICTED);
+        }
 
         // 검증 완료 후 문의 엔티티 생성
         Inquiry inquiry = Inquiry.builder()

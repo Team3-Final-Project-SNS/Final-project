@@ -33,8 +33,10 @@ public enum ErrorCode {
     USER_WITHDRAWN(HttpStatus.FORBIDDEN, "USER_004", "탈퇴된 계정입니다."),
     USER_SUSPENDED(HttpStatus.FORBIDDEN, "USER_005", "정지된 계정입니다."),
     USER_NOT_SUSPENDED(HttpStatus.BAD_REQUEST, "USER_006", "정지 상태의 계정만 해제할 수 있습니다."),
-    // common
-    USER_NO_FIELD_TO_UPDATE(HttpStatus.BAD_REQUEST, "COMMON_001", "수정할 필드가 한 개 이상 필요합니다."),
+    USER_NO_FIELD_TO_UPDATE(HttpStatus.BAD_REQUEST, "USER_007", "수정할 필드가 한 개 이상 필요합니다."),
+    // Suspended
+    SUSPENDED_ACCESS_DENIED(HttpStatus.FORBIDDEN, "SUSPENDED_001", "정지된 계정은 해당 기능을 이용할 수 없습니다."),
+    SUSPENDED_INQUIRY_TYPE_RESTRICTED(HttpStatus.FORBIDDEN, "SUSPENDED_002", "정지된 계정은 계정/인증 문의만 접수할 수 있습니다."),
 
     // Post
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "POST_001", "존재하지 않는 게시글입니다."),
