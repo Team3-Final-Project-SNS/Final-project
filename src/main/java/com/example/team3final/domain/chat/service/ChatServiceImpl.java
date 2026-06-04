@@ -320,4 +320,23 @@ public class ChatServiceImpl implements ChatService {
                         .build()
         );
     }
+
+    // 채팅방 즉시 읽기 전용 전환 - 노쇼 예정 시 내부 호출
+    // ACTIVE → READ_ONLY (메시지 조회만 가능, 전송 불가)
+    @Transactional
+    @Override
+    public void makeReadOnlyChatRoom(Long postId) {
+        // postId로 채팅방 조회, 없으면 예외
+        ChatRoom chatRoom = chatRoomRepository.findByPostId(postId)
+                .orElseThrow(() -> new ChatException(ErrorCode.CHAT_ROOM_NOT_FOUND));
+
+        // 이미 READ_ONLY 또는 DEACTIVATED면 스킵 (멱등성 보장)
+        if (!chatRoom.isActive()) {
+            return;
+        }
+
+        // ACTIVE → READ_ONLY 전환
+        // @Transactional 더티 체킹으로 자동 UPDATE
+        chatRoom.deactivateByNoShow();
+    }
 }
