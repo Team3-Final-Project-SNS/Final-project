@@ -10,6 +10,7 @@ import com.example.team3final.domain.match.dto.response.*;
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.repository.MatchRepository;
+import com.example.team3final.domain.meet.enums.VerificationStatus;
 import com.example.team3final.domain.meet.util.MeetRedisZSetKeys;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.dto.response.PostMatchInfoDto;
@@ -349,6 +350,39 @@ public class MatchServiceImpl implements MatchService{
         // 양측 모두 몰수
         userPointService.penaltyPoint(post.getAuthorId(), post.getAuthorDeposit(), matchId);
         userPointService.penaltyPoint(match.getApplicantId(), match.getApplicantDeposit(), matchId);
+    }
+
+    @Override
+    @Transactional
+    public void markNoShowByDisputeWithoutPointSettlement(Long matchId, VerificationStatus restoredStatus) {
+
+        // 상태를 확정할 Match를 조회
+        Match match = getMatchById(matchId);
+
+        // 관리자 이의제기 처리 가능한 상태인지 확인
+        if (!canResolveDispute(match)) {
+            return;
+        }
+
+        // 등록자 노쇼인 경우
+        if (restoredStatus == VerificationStatus.HOST_NO_SHOW) {
+
+            // Match 상태를 등록자 노쇼로 확정
+            match.markNoShow(MatchStatus.AUTHOR_NO_SHOW);
+        } else if (restoredStatus == VerificationStatus.GUEST_NO_SHOW) {
+
+            // Match 상태를 신청자 노쇼로 확정
+            match.markNoShow(MatchStatus.APPLICANT_NO_SHOW);
+        } else if (restoredStatus == VerificationStatus.BOTH_NO_SHOW) {
+
+            // Match 상태를 양쪽 노쇼로 확정
+            match.markNoShow(MatchStatus.BOTH_NO_SHOW);
+        } else {
+            // 노쇼 예정 상태가 아니라면 스킵
+            return;
+        }
+
+        postService.completePost(match.getPostId());
     }
 
     @Override

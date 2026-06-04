@@ -6,6 +6,7 @@ import com.example.team3final.domain.match.dto.request.CancelMatchRequestDto;
 import com.example.team3final.domain.match.dto.response.*;
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.enums.MatchStatus;
+import com.example.team3final.domain.meet.enums.VerificationStatus;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
@@ -48,6 +49,9 @@ public interface MatchService {
 
     // 양측 노쇼
     void markBothNoShow(Long matchId);
+
+    // 관리자 상태 판정 메서드
+    void markNoShowByDisputeWithoutPointSettlement(Long matchId, VerificationStatus restoredStatus);
 
     /**
      * 매칭 취소 — Controller 직접 호출 (명세서 5.3)
