@@ -13,8 +13,6 @@ public interface AdminReportService {
     // 신고 목록 조회
     PageResponseDto<AdminGetReportsResponseDto> getReports(Long adminId, ReportStatus status, Pageable pageable);
 
-    // 신고 상세 조회
-    AdminGetReportResponseDto getReport(Long adminId, Long reportId);
 
     // 신고 처리 (채택 / 기각)
     AdminProcessReportResponseDto processReport(Long adminId, Long reportId, AdminProcessReportRequestDto requestDto);

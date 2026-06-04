@@ -38,15 +38,6 @@ public class AdminReportController {
         return ResponseEntity.ok(ApiResponseDto.success(adminReportService.getReports(adminId, status, pageable)));
     }
 
-    // 신고 상세 조회
-    @GetMapping("/{reportId}")
-    public ResponseEntity<ApiResponseDto<AdminGetReportResponseDto>> getReport(
-            @AuthenticationPrincipal AdminDetailsImpl adminDetails,
-            @PathVariable Long reportId) {
-
-        Long adminId = adminDetails.getAdminId();
-        return ResponseEntity.ok(ApiResponseDto.success(adminReportService.getReport(adminId, reportId)));
-    }
 
     // 신고 처리
     @PatchMapping("/{reportId}/process")
