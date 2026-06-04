@@ -1,4 +1,4 @@
-package com.example.team3final.domain.admin.inquiry.dto.request;
+package com.example.team3final.domain.admin.inquiryAnswer.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

@@ -1,12 +1,12 @@
-package com.example.team3final.domain.admin.inquiry.controller;
+package com.example.team3final.domain.admin.inquiryAnswer.controller;
 
 import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.common.dto.response.PageResponseDto;
-import com.example.team3final.domain.admin.inquiry.dto.request.AdminCreateInquiryRequestDto;
-import com.example.team3final.domain.admin.inquiry.dto.response.AdminCreateInquiryResponseDto;
-import com.example.team3final.domain.admin.inquiry.dto.response.AdminGetInquiriesResponseDto;
-import com.example.team3final.domain.admin.inquiry.dto.response.AdminGetInquiryResponseDto;
-import com.example.team3final.domain.admin.inquiry.service.AdminInquiryService;
+import com.example.team3final.domain.admin.inquiryAnswer.dto.request.AdminCreateInquiryRequestDto;
+import com.example.team3final.domain.admin.inquiryAnswer.dto.response.AdminCreateInquiryResponseDto;
+import com.example.team3final.domain.admin.inquiryAnswer.dto.response.AdminGetInquiriesResponseDto;
+import com.example.team3final.domain.admin.inquiryAnswer.dto.response.AdminGetInquiryResponseDto;
+import com.example.team3final.domain.admin.inquiryAnswer.service.AdminInquiryAnswerService;
 import com.example.team3final.domain.admin.security.AdminDetailsImpl;
 import com.example.team3final.domain.inquiry.enums.InquiryAnswerStatus;
 import com.example.team3final.domain.inquiry.enums.InquiryType;
@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/admin")
 public class AdminInquiryController {
 
-    private final AdminInquiryService adminInquiryService;
+    private final AdminInquiryAnswerService adminInquiryAnswerService;
 
     // 고객 문의 상세 조회
     @GetMapping("/inquiries/{inquiryId}")
@@ -33,7 +33,7 @@ public class AdminInquiryController {
             @PathVariable Long inquiryId) {
 
         Long adminId = adminDetails.getAdminId();
-        return ResponseEntity.ok(ApiResponseDto.success(adminInquiryService.getInquiry(adminId, inquiryId)));
+        return ResponseEntity.ok(ApiResponseDto.success(adminInquiryAnswerService.getInquiry(adminId, inquiryId)));
     }
 
     // 고객 문의 목록 조회
@@ -47,7 +47,7 @@ public class AdminInquiryController {
 
         Long adminId = adminDetails.getAdminId();
         Pageable pageable = PageRequest.of(page, size);
-        return ResponseEntity.ok(ApiResponseDto.success(adminInquiryService.getInquiries(adminId, status, type, pageable)));
+        return ResponseEntity.ok(ApiResponseDto.success(adminInquiryAnswerService.getInquiries(adminId, status, type, pageable)));
     }
 
     // 고객 문의 답변
@@ -59,6 +59,6 @@ public class AdminInquiryController {
 
         Long adminId = adminDetails.getAdminId();
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponseDto.success(adminInquiryService.createAnswer(adminId, inquiryId, requestDto)));
+                .body(ApiResponseDto.success(adminInquiryAnswerService.createAnswer(adminId, inquiryId, requestDto)));
     }
 }

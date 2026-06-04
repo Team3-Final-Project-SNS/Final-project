@@ -1,7 +1,6 @@
 package com.example.team3final.domain.inquiry.service;
 
 import com.example.team3final.domain.admin.service.AdminService;
-import com.example.team3final.domain.admin.inquiryAnswer.service.InquiryAnswerService;
 import com.example.team3final.domain.inquiry.dto.request.CreateInquiryRequestDto;
 import com.example.team3final.domain.inquiry.dto.response.CreateInquiryResponseDto;
 import com.example.team3final.domain.inquiry.dto.response.GetOneInquiryResponseDto;

@@ -1,10 +1,9 @@
 package com.example.team3final.domain.admin.inquiry.controller;
 
-import com.example.team3final.domain.admin.inquiry.dto.response.AdminGetInquiryResponseDto;
-import com.example.team3final.domain.admin.inquiry.service.AdminInquiryService;
+import com.example.team3final.domain.admin.inquiryAnswer.dto.response.AdminGetInquiryResponseDto;
+import com.example.team3final.domain.admin.inquiryAnswer.service.AdminInquiryAnswerService;
 import com.example.team3final.domain.admin.entity.Admin;
 import com.example.team3final.domain.admin.security.AdminDetailsImpl;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,7 +29,7 @@ class AdminInquiryControllerTest {
     private MockMvc mockMvc;
 
     @MockitoBean
-    private AdminInquiryService adminInquiryService;
+    private AdminInquiryAnswerService adminInquiryAnswerService;
 
     @Test
     @DisplayName("문의 상세 조회 - 성공")
@@ -49,7 +48,7 @@ class AdminInquiryControllerTest {
                 com.example.team3final.domain.inquiry.enums.InquiryAnswerStatus.PENDING, 
                 null, java.time.LocalDateTime.now(), java.time.LocalDateTime.now()
         );
-        given(adminInquiryService.getInquiry(anyLong(), anyLong())).willReturn(responseDto);
+        given(adminInquiryAnswerService.getInquiry(anyLong(), anyLong())).willReturn(responseDto);
 
         // when & then
         mockMvc.perform(get("/api/v1/admin/inquiries/100")
