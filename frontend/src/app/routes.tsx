@@ -8,6 +8,7 @@ import AdminReportsPage from "./pages/AdminReportsPage";
 import AdminInquiriesPage from "./pages/AdminInquiriesPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import AdminPostsPage from "./pages/AdminPostsPage";
+import AdminPaymentsPage from "./pages/AdminPaymentsPage";
 import AdminComingSoonPage from "./pages/AdminComingSoonPage";
 import SignupPage from "./pages/SignupPage";
 import PostListPage from "./pages/PostListPage";
@@ -130,7 +131,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/admin/payments",
-    Component: AdminComingSoonPage,
+    Component: AdminPaymentsPage,
   },
   {
     path: "/admin/faq",

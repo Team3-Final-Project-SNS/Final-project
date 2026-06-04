@@ -3,6 +3,7 @@ package com.example.team3final.domain.post.dto.response;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public record GetPostsItemResponseDto(
@@ -11,9 +12,12 @@ public record GetPostsItemResponseDto(
         String authorNickname,
         String authorMajor,
         String authorStudentNumber,
+        BigDecimal authorMannerTemperature,
         LocalDateTime meetAt,
         String placeName,
         int authorDeposit,
+        int currentApplicants,
+        int maxApplicants,
         PostStatus status,
         LocalDateTime createAt
 ) {
@@ -24,12 +28,14 @@ public record GetPostsItemResponseDto(
      * @param authorNickname      작성자 닉네임 (User 도메인에서 조회)
      * @param authorMajor         작성자 학과
      * @param authorStudentNumber 작성자 학번
+     * @param authorMannerTemperature 작성자 매너온도
      */
     public static GetPostsItemResponseDto from(
             Post post,
             String authorNickname,
             String authorMajor,
-            String authorStudentNumber
+            String authorStudentNumber,
+            BigDecimal authorMannerTemperature
     ) {
         return new GetPostsItemResponseDto(
                 post.getId(),
@@ -37,9 +43,12 @@ public record GetPostsItemResponseDto(
                 authorNickname,
                 authorMajor,
                 authorStudentNumber,
+                authorMannerTemperature,
                 post.getMeetAt(),
                 post.getPlaceName(),
                 post.getAuthorDeposit(),
+                post.getCurrentApplicants(),
+                post.getMaxApplicants(),
                 post.getStatus(),
                 post.getCreatedAt()
         );

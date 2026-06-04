@@ -10,6 +10,7 @@ public record PostMatchInfoDto(
         LocalDateTime meetAt,
         String placeName,
         int authorDeposit,
+        int currentApplicants,
         int maxApplicants
 ) {
     public static PostMatchInfoDto from(Post post) {
@@ -19,6 +20,7 @@ public record PostMatchInfoDto(
                 post.getMeetAt(),
                 post.getPlaceName(),
                 post.getAuthorDeposit(),
+                post.getCurrentApplicants(),
                 post.getMaxApplicants()
         );
     }

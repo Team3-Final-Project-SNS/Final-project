@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { ArrowLeft, CheckCircle2, Loader2, XCircle } from 'lucide-react';
-import { AdminReportItem, getAdminReports, processAdminReport } from '../../api/adminReportApi';
+import { ArrowLeft, CheckCircle2, Eye, Loader2, X, XCircle } from 'lucide-react';
+import { AdminReportItem, getAdminReport, getAdminReports, processAdminReport } from '../../api/adminReportApi';
 import { ReportStatus } from '../../api/reportApi';
 import AdminFloatingChatbot from '../components/AdminFloatingChatbot';
 
@@ -12,6 +12,8 @@ export default function AdminReportsPage() {
   const [filter, setFilter] = useState<'ALL' | ReportStatus>('PENDING');
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<number | null>(null);
+  const [detailLoadingId, setDetailLoadingId] = useState<number | null>(null);
+  const [selectedReport, setSelectedReport] = useState<AdminReportItem | null>(null);
   const [message, setMessage] = useState('');
 
   const loadReports = async () => {
@@ -43,6 +45,20 @@ export default function AdminReportsPage() {
       setMessage(err.response?.data?.message || '신고 처리에 실패했습니다.');
     } finally {
       setProcessingId(null);
+    }
+  };
+
+  const handleOpenDetail = async (reportId: number) => {
+    setDetailLoadingId(reportId);
+    setMessage('');
+
+    try {
+      const response = await getAdminReport(reportId);
+      setSelectedReport(response.data.data);
+    } catch (err: any) {
+      setMessage(err.response?.data?.message || '신고 상세 정보를 불러오지 못했습니다.');
+    } finally {
+      setDetailLoadingId(null);
     }
   };
 
@@ -92,8 +108,18 @@ export default function AdminReportsPage() {
               <p className="mt-3 whitespace-pre-wrap rounded-lg bg-[#fafafa] p-3 text-sm text-[#424242]">
                 {report.detail || '상세 내용 없음'}
               </p>
-              {report.status === 'PENDING' && (
-                <div className="mt-4 flex justify-end gap-2">
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={detailLoadingId === report.reportId}
+                  onClick={() => handleOpenDetail(report.reportId)}
+                  className="inline-flex items-center gap-2 rounded-lg border border-[#e0e0e0] px-4 py-2.5 text-sm font-bold text-[#616161] hover:border-[#d84315] hover:text-[#d84315] disabled:opacity-60"
+                >
+                  {detailLoadingId === report.reportId ? <Loader2 className="animate-spin" size={16} /> : <Eye size={16} />}
+                  상세
+                </button>
+                {report.status === 'PENDING' && (
+                  <>
                   <button
                     type="button"
                     disabled={processingId === report.reportId}
@@ -112,8 +138,9 @@ export default function AdminReportsPage() {
                     <CheckCircle2 size={16} />
                     채택
                   </button>
-                </div>
-              )}
+                  </>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -122,7 +149,56 @@ export default function AdminReportsPage() {
           표시할 신고가 없습니다.
         </div>
       )}
+      {selectedReport && (
+        <ReportDetailModal report={selectedReport} onClose={() => setSelectedReport(null)} />
+      )}
     </AdminShell>
+  );
+}
+
+function ReportDetailModal({ report, onClose }: { report: AdminReportItem; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold text-[#d84315]">신고 #{report.reportId}</p>
+            <h2 className="mt-1 text-2xl font-bold text-[#212121]">신고 상세</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-2 text-[#757575] hover:bg-[#f5f5f5] hover:text-[#212121]"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="space-y-3 rounded-xl bg-[#fafafa] p-4 text-sm">
+          <InfoRow label="신고자" value={report.reporterNickname} />
+          <InfoRow label="대상 게시글" value={`#${report.targetId}`} />
+          <InfoRow label="신고 사유" value={report.reason} />
+          <InfoRow label="처리 상태" value={report.status} />
+          <InfoRow label="접수 시각" value={formatDateTime(report.createdAt)} />
+        </div>
+
+        <div className="mt-4 rounded-xl border border-[#eeeeee] p-4">
+          <p className="mb-2 text-sm font-bold text-[#616161]">상세 내용</p>
+          <p className="whitespace-pre-wrap text-sm leading-6 text-[#424242]">
+            {report.detail || '상세 내용 없음'}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-4">
+      <span className="font-bold text-[#757575]">{label}</span>
+      <span className="text-right font-semibold text-[#212121]">{value}</span>
+    </div>
   );
 }
 

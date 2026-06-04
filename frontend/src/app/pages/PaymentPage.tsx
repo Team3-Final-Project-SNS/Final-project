@@ -5,6 +5,7 @@ import {
   cancelPayment,
   createPayment,
   CreatePaymentResponse,
+  failPayment,
   getMyPayments,
   GetPaymentResponse,
   PayMethod,
@@ -98,12 +99,14 @@ export default function PaymentPage() {
       });
 
       if (!paymentResponse) {
+        await notifyPaymentFailed(payment.paymentId);
         setMessage('결제창이 닫혔습니다. 결제를 완료했다면 내역을 새로고침해 주세요.');
         await loadPayments();
         return;
       }
 
       if (paymentResponse.code) {
+        await notifyPaymentFailed(payment.paymentId);
         setError(paymentResponse.message || 'PortOne 결제가 완료되지 않았습니다.');
         await loadPayments();
         return;
@@ -410,6 +413,16 @@ function getErrorMessage(err: unknown, fallbackMessage: string) {
   }
 
   return fallbackMessage;
+}
+
+// PortOne 결제 실패/취소 시 백엔드 결제 상태를 FAILED로 정리합니다.
+// 이 알림 실패가 사용자 결제 흐름 전체를 깨지 않도록 에러는 콘솔에만 남깁니다.
+async function notifyPaymentFailed(paymentId: number) {
+  try {
+    await failPayment(paymentId);
+  } catch (err) {
+    console.error('Payment fail notification failed', err);
+  }
 }
 
 function getPortOnePayMethod(payMethod: PayMethod) {

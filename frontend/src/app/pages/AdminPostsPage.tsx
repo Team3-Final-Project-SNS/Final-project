@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { ArrowLeft, FileText, Loader2, Search, Trash2 } from 'lucide-react';
-import { deleteAdminPost, getAdminPosts, AdminPostItem } from '../../api/adminPostApi';
+import { ArrowLeft, Eye, FileText, Loader2, Search, Trash2, X } from 'lucide-react';
+import { deleteAdminPost, getAdminPost, getAdminPosts, AdminPostDetail, AdminPostItem } from '../../api/adminPostApi';
 import { PostStatus } from '../../api/postApi';
 import { getUniversities, UniversityResponse } from '../../api/univApi';
 import AdminFloatingChatbot from '../components/AdminFloatingChatbot';
@@ -25,11 +25,14 @@ export default function AdminPostsPage() {
   const [universities, setUniversities] = useState<UniversityResponse[]>([]);
   const [universityId, setUniversityId] = useState('ALL');
   const [status, setStatus] = useState<'ALL' | PostStatus>('ALL');
+  const [searchType, setSearchType] = useState<'PLACE' | 'AUTHOR'>('PLACE');
   const [keyword, setKeyword] = useState('');
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [detailLoadingId, setDetailLoadingId] = useState<number | null>(null);
+  const [selectedPost, setSelectedPost] = useState<AdminPostDetail | null>(null);
   const [message, setMessage] = useState('');
 
   const loadPosts = async (nextPage = page) => {
@@ -38,8 +41,9 @@ export default function AdminPostsPage() {
     try {
       const response = await getAdminPosts(
         universityId === 'ALL' ? undefined : Number(universityId),
+        searchType === 'AUTHOR' ? keyword.trim() || undefined : undefined,
         status === 'ALL' ? undefined : status,
-        keyword.trim() || undefined,
+        searchType === 'PLACE' ? keyword.trim() || undefined : undefined,
         nextPage,
         20,
       );
@@ -72,6 +76,20 @@ export default function AdminPostsPage() {
 
   const handleSearch = () => {
     loadPosts(0);
+  };
+
+  const handleOpenDetail = async (postId: number) => {
+    setDetailLoadingId(postId);
+    setMessage('');
+
+    try {
+      const response = await getAdminPost(postId);
+      setSelectedPost(response.data.data);
+    } catch (err: any) {
+      setMessage(err.response?.data?.message || '게시글 상세 정보를 불러오지 못했습니다.');
+    } finally {
+      setDetailLoadingId(null);
+    }
   };
 
   const handleDelete = async (post: AdminPostItem) => {
@@ -125,7 +143,7 @@ export default function AdminPostsPage() {
           </div>
         </div>
 
-        <div className="mb-5 grid gap-3 rounded-2xl border border-[#e0e0e0] bg-white p-4 md:grid-cols-[1fr_1fr_2fr_auto]">
+        <div className="mb-5 grid gap-3 rounded-2xl border border-[#e0e0e0] bg-white p-4 md:grid-cols-[1fr_1fr_1fr_2fr_auto]">
           <select
             value={universityId}
             onChange={(event) => setUniversityId(event.target.value)}
@@ -151,6 +169,15 @@ export default function AdminPostsPage() {
             <option value="CANCELLED">취소</option>
           </select>
 
+          <select
+            value={searchType}
+            onChange={(event) => setSearchType(event.target.value as 'PLACE' | 'AUTHOR')}
+            className="h-11 rounded-lg border border-[#e0e0e0] bg-white px-3 text-sm font-semibold text-[#424242] outline-none focus:border-[#d84315]"
+          >
+            <option value="PLACE">장소 검색</option>
+            <option value="AUTHOR">작성자 검색</option>
+          </select>
+
           <label className="flex h-11 items-center gap-2 rounded-lg border border-[#e0e0e0] bg-white px-3">
             <Search size={16} className="text-[#9e9e9e]" />
             <input
@@ -161,7 +188,7 @@ export default function AdminPostsPage() {
                   handleSearch();
                 }
               }}
-              placeholder="작성자, 장소 검색"
+              placeholder={searchType === 'AUTHOR' ? '작성자 닉네임 검색' : '장소명 검색'}
               className="w-full text-sm outline-none"
             />
           </label>
@@ -188,10 +215,11 @@ export default function AdminPostsPage() {
           </div>
         ) : (
           <div className="overflow-hidden rounded-2xl border border-[#e0e0e0] bg-white shadow-sm">
-            <div className="grid grid-cols-[0.7fr_1fr_1fr_1fr_0.8fr_0.8fr_0.7fr] gap-3 border-b border-[#eeeeee] bg-[#fafafa] px-5 py-3 text-xs font-bold text-[#757575]">
+            <div className="grid grid-cols-[0.5fr_0.8fr_1fr_2.5fr_1fr_0.7fr_0.7fr_1fr] gap-4 border-b border-[#eeeeee] bg-[#fafafa] px-5 py-3 text-xs font-bold text-[#757575]">
               <span>ID</span>
               <span>작성자</span>
               <span>장소</span>
+              <span>한마디</span>
               <span>만남 시간</span>
               <span>책임비</span>
               <span>상태</span>
@@ -202,11 +230,14 @@ export default function AdminPostsPage() {
               posts.map((post) => (
                 <div
                   key={post.postId}
-                  className="grid grid-cols-[0.7fr_1fr_1fr_1fr_0.8fr_0.8fr_0.7fr] items-center gap-3 border-b border-[#f5f5f5] px-5 py-4 text-sm last:border-b-0"
+                  className="grid grid-cols-[0.5fr_0.8fr_1fr_2.5fr_1fr_0.7fr_0.7fr_1fr] items-start gap-4 border-b border-[#f5f5f5] px-5 py-5 text-sm last:border-b-0"
                 >
                   <span className="font-bold text-[#757575]">#{post.postId}</span>
                   <span className="font-bold text-[#212121]">{post.authorNickname}</span>
                   <span className="text-[#616161]">{post.placeName}</span>
+                  <span className={`whitespace-pre-wrap break-words leading-6 ${post.content ? 'text-[#424242]' : 'text-[#9e9e9e]'}`}>
+                    {post.content || '한마디 없음'}
+                  </span>
                   <span className="text-xs font-semibold text-[#616161]">{formatDateTime(post.meetAt)}</span>
                   <span className="font-bold text-[#d84315]">{post.authorDeposit.toLocaleString()}P</span>
                   <span>
@@ -214,15 +245,26 @@ export default function AdminPostsPage() {
                       {statusLabels[post.status]}
                     </span>
                   </span>
-                  <button
-                    type="button"
-                    disabled={deletingId === post.postId}
-                    onClick={() => handleDelete(post)}
-                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-500 transition-colors hover:bg-red-50 disabled:opacity-60"
-                  >
-                    {deletingId === post.postId ? <Loader2 className="animate-spin" size={14} /> : <Trash2 size={14} />}
-                    삭제
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={detailLoadingId === post.postId}
+                      onClick={() => handleOpenDetail(post.postId)}
+                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-[#e0e0e0] px-3 py-2 text-xs font-bold text-[#616161] transition-colors hover:border-[#d84315] hover:text-[#d84315] disabled:opacity-60"
+                    >
+                      {detailLoadingId === post.postId ? <Loader2 className="animate-spin" size={14} /> : <Eye size={14} />}
+                      상세
+                    </button>
+                    <button
+                      type="button"
+                      disabled={deletingId === post.postId}
+                      onClick={() => handleDelete(post)}
+                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-500 transition-colors hover:bg-red-50 disabled:opacity-60"
+                    >
+                      {deletingId === post.postId ? <Loader2 className="animate-spin" size={14} /> : <Trash2 size={14} />}
+                      삭제
+                    </button>
+                  </div>
                 </div>
               ))
             ) : (
@@ -266,7 +308,56 @@ export default function AdminPostsPage() {
           </div>
         )}
       </main>
+      {selectedPost && (
+        <PostDetailModal post={selectedPost} onClose={() => setSelectedPost(null)} />
+      )}
       <AdminFloatingChatbot />
+    </div>
+  );
+}
+
+function PostDetailModal({ post, onClose }: { post: AdminPostDetail; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold text-[#d84315]">게시글 #{post.postId}</p>
+            <h2 className="mt-1 text-2xl font-bold text-[#212121]">{post.placeName}</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-2 text-[#757575] hover:bg-[#f5f5f5] hover:text-[#212121]"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="space-y-3 rounded-xl bg-[#fafafa] p-4 text-sm">
+          <InfoRow label="작성자" value={post.authorNickname} />
+          <InfoRow label="상태" value={statusLabels[post.status]} />
+          <InfoRow label="책임비" value={`${post.authorDeposit.toLocaleString()}P`} />
+          <InfoRow label="만남 시간" value={formatDateTime(post.meetAt)} />
+          <InfoRow label="작성일" value={formatDateTime(post.createdAt)} />
+        </div>
+
+        <div className="mt-4 rounded-xl border border-[#eeeeee] p-4">
+          <p className="mb-2 text-sm font-bold text-[#616161]">한마디</p>
+          <p className="whitespace-pre-wrap text-sm leading-6 text-[#424242]">
+            {post.content || '작성된 한마디가 없습니다.'}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-4">
+      <span className="font-bold text-[#757575]">{label}</span>
+      <span className="text-right font-semibold text-[#212121]">{value}</span>
     </div>
   );
 }

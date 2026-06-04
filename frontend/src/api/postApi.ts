@@ -9,9 +9,12 @@ export interface PostItemResponse {
     authorNickname: string;
     authorMajor: string;
     authorStudentNumber: string;
+    authorMannerTemperature: number | null;
     meetAt: string;
     placeName: string;
     authorDeposit: number;
+    currentApplicants: number;
+    maxApplicants: number;
     status: PostStatus;
     createAt: string; // backend says createAt
     createdAt?: string;
@@ -38,6 +41,8 @@ export interface GetPostResponse {
     placeLng: number;
     content: string;
     authorDeposit: number;
+    currentApplicants: number;
+    maxApplicants: number;
     status: PostStatus;
     isMine: boolean;
     createAt: string; // backend says createAt

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { AlertCircle, ArrowLeft, Check, Clock, MapPin, MessageCircle, Star, User } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Check, Clock, MapPin, MessageCircle, Star, User, Users } from 'lucide-react';
 import { getMyMatches, GetMatchesItemResponse, MatchStatus } from '../../api/matchApi';
 import { getUserMe } from '../../api/userApi';
 import {
@@ -398,6 +398,10 @@ function MatchResultCard({
             <MapPin size={16} className="text-[#d84315]" />
             {match.placeName}
           </span>
+          <span className="flex items-center gap-1.5 sm:col-span-2">
+            <Users size={16} className="text-[#d84315]" />
+            참여 인원 {formatParticipantCount(match)}
+          </span>
         </div>
 
         <div className="flex flex-wrap justify-end gap-2">
@@ -441,6 +445,18 @@ function MatchResultCard({
         </div>
       </div>
   );
+}
+
+// 내 매칭 결과에서는 게시글 기준 참여 인원을 보여줍니다.
+// 백엔드 값이 없을 때는 화면에 묶인 신청자 수 + 등록자 1명으로 보정합니다.
+function formatParticipantCount(match: DisplayMatch) {
+  const fallbackCurrentApplicants = match.opponentNicknames.length + 1;
+  const safeCurrent = match.currentApplicants && match.currentApplicants > 0
+      ? match.currentApplicants
+      : fallbackCurrentApplicants;
+  const safeMax = match.maxApplicants && match.maxApplicants > 0 ? match.maxApplicants : Math.max(2, safeCurrent);
+
+  return `${safeCurrent}/${safeMax}`;
 }
 
 function ReviewWriteModal({
