@@ -5,6 +5,7 @@ import com.example.team3final.common.exception.MeetException;
 import com.example.team3final.common.utils.GpsUtils;
 import com.example.team3final.domain.chat.service.ChatService;
 import com.example.team3final.domain.dispute.service.DisputeQueryService;
+import com.example.team3final.domain.location.service.UserLocationCleanupService;
 import com.example.team3final.domain.location.service.UserLocationService;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.entity.Match;
@@ -48,6 +49,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     private final PostService postQueryService;
     private final ChatService chatService;
     private final UserLocationService userLocationService;
+    private final UserLocationCleanupService userLocationCleanupService;
     private final UserService userService;
     private final NotificationPublisher notificationPublisher;
     private final DisputeQueryService disputeQueryService;
@@ -62,6 +64,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     private static final long QR_TOKEN_VALIDITY_MINUTES = 30;
     // 장소 인증 가능 시간 : 만남 시간 15분전 ~ 1시간
     private static final long VERIFICATION_BEFORE_MINUTES = 15;
+    // 화면 활성 시간
     private static final long VERIFICATION_AFTER_MINUTES = 60;
     // 노쇼 판정 기준 : GPS -> meetAt + 30분
     private static final long NO_SHOW_JUDGE_MINUTES = 30;
@@ -71,6 +74,10 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     private static final long EXTENSION_MINUTES = 15;
     // 노쇼 확정까지 이의제기 가능 시간: 24시간
     private static final long NO_SHOW_CONFIRM_HOURS = 24;
+    // 5초마다 위치 업데이트 정책을 기준으로 안전 여유 값 15초
+    private static final long LOCATION_FRESHNESS_SECONDS = 15;
+    // GPS 오차범위 고려한 노쇼 범위
+    private static final double NO_SHOW_RADIUS_METERS = 60.0;
 
     private static final List<VerificationStatus> NO_SHOW_STATUSES = List.of(
             VerificationStatus.HOST_NO_SHOW,
@@ -102,7 +109,14 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             throw new MeetException(ErrorCode.MATCH_NOT_PARTICIPANT);
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        // GPS 재 인증 차단을 위한 검증
+        if (NO_SHOW_STATUSES.contains(meetVerification.getStatus())
+                || meetVerification.getStatus() == VerificationStatus.DISPUTE
+                || meetVerification.getStatus() == VerificationStatus.NO_SHOW_CONFIRMED) {
+            throw new MeetException(ErrorCode.GPS_NOT_VERIFICATION_TIME);
+        }
+
+            LocalDateTime now = LocalDateTime.now();
         // 시작 시간은 원래 약속시간 기준 15분 전으로 고정
         LocalDateTime verificationStartTime = postInfo.meetAt().minusMinutes(VERIFICATION_BEFORE_MINUTES);
 
@@ -151,6 +165,10 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
         boolean bothVerified = meetVerification.getStatus() == VerificationStatus.VERIFIED;
 
+        if (bothVerified) {
+            issueQrTokenIfNeeded(meetVerification);
+        }
+
         // 4번 알림 - 상대방에게 장소 인증 완료 알림 발송
         // isAuthor면 상대방은 신청자(applicantId), 아니면 등록자(authorId)
         Long opponentId = isAuthor ? matchInfo.applicantId() : postInfo.authorId();
@@ -181,30 +199,13 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             throw new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED);
         }
 
-        // QR 토큰 이미 발급했는지 확인
-        if (meetVerification.getQrToken() != null) {
-            // 이미 만료됐으면 예외 던지기
-            if (meetVerification.isQrExpired()) {
-                throw new MeetException(ErrorCode.QR_EXPIRED);
-            }
+        // 장소 인증 완료 시 이미 생성 되어 있어야 함
+        issueQrTokenIfNeeded(meetVerification);
 
-            return QrResponseDto.of(matchId, meetVerification);
+        // 만약 QR 만료면 예외
+        if (meetVerification.isQrExpired()) {
+            throw new MeetException(ErrorCode.QR_EXPIRED);
         }
-
-        // QR 토큰 신규 발급
-        // "hp_qr_" -> API 명세서 상의 접두사, qr 토큰 식별 용도
-        String qrToken = "hp_qr_" + UUID.randomUUID().toString().replace("-", "");
-
-        // 양측 장소 인증 완료 시점 + 30분
-        // 둘 중 누가 먼저 올지 모르기 때문에, 둘 다 null이 아님이 보장된 상태일 때
-        LocalDateTime lastVerifiedAt = meetVerification.getAuthorPlaceVerifiedAt()
-                .isAfter(meetVerification.getApplicantPlaceVerifiedAt())
-                ? meetVerification.getAuthorPlaceVerifiedAt() : meetVerification.getApplicantPlaceVerifiedAt();
-
-        LocalDateTime expiresAt = lastVerifiedAt.plusMinutes(QR_TOKEN_VALIDITY_MINUTES);
-
-        // 엔티티에 QR 토큰 저장
-        meetVerification.issueQrToken(qrToken, expiresAt);
 
         return QrResponseDto.of(matchId, meetVerification);
     }
@@ -257,7 +258,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         meetVerification.meetVerifiedDone();
 
         // 위치 데이터 삭제
-        userLocationService.deleteLocationsByMatchId(matchId);
+        userLocationCleanupService.deleteLocationsByMatchId(matchId);
 
         // 만남 인증 완료 되는 순간 채팅방 비활성화 예약
         Long postId = matchInfo.postId();
@@ -363,7 +364,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             // 양측 모두 GPS 미인증 -> Both_No_Show
             if (!authorVerified && !applicantVerified) {
                 meetVerification.markBothNoShow();
-                userLocationService.deleteLocationsByMatchId(meetVerification.getMatchId());
+                userLocationCleanupService.deleteLocationsByMatchId(meetVerification.getMatchId());
                 chatService.makeReadOnlyChatRoom(currentPostId);
 
                 // 양측 모두 노쇼 예정 상태 진입 → Warning 발송
@@ -373,14 +374,14 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             } else if (authorVerified && !applicantVerified) {
                 // 신청자가 노쇼 -> GUEST_NO_SHOW
                 meetVerification.markApplicantNoShow();
-                userLocationService.deleteLocationsByMatchId(meetVerification.getMatchId());
+                userLocationCleanupService.deleteLocationsByMatchId(meetVerification.getMatchId());
                 chatService.makeReadOnlyChatRoom(currentPostId);
                 // 신청자에게 노쇼 예정 알림 발송
                 notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), meetVerification.getMatchId());
             } else if (!authorVerified) {
                 // 등록자 노쇼 -> HOST_NO_SHOW
                 meetVerification.markAuthorNoShow();
-                userLocationService.deleteLocationsByMatchId(meetVerification.getMatchId());
+                userLocationCleanupService.deleteLocationsByMatchId(meetVerification.getMatchId());
                 chatService.makeReadOnlyChatRoom(currentPostId);
                 // 등록자에게 노쇼 예정 알림 발송
                 notificationPublisher.sendNoShowWarning(postInfoDto.authorId(), meetVerification.getMatchId());
@@ -395,7 +396,6 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
         // VERIFIED 상태 + QR 만료 시간이 지난 verification 전체 조회
         // VERIFIED -> 양측 GPS 장소 인증 완료된 상태
-
         List<MeetVerification> expiresList = meetVerificationRepository
                 .findAllByStatusAndQrExpiresAtBefore(VerificationStatus.VERIFIED, LocalDateTime.now());
 
@@ -414,8 +414,10 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         // QR단계에서 만료된 건 -> 신청자가 스캔을 안 한 케이스 -> 일괄 신청자 노쇼
         for (MeetVerification meetVerification : expiresList) {
 
+            Long matchId = meetVerification.getMatchId();
+
             // matchId → MatchInfoDto → postId 추출
-            MatchInfoDto matchInfoDto = matchInfoDtoMap.get(meetVerification.getMatchId());
+            MatchInfoDto matchInfoDto = matchInfoDtoMap.get(matchId);
             if (matchInfoDto == null) {
                 // 데이터 정합성 이슈 → 해당 건 스킵
                 continue;
@@ -423,18 +425,48 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
             Long postId = matchInfoDto.postId();
 
-            // 자신의 상태를 신청자 노쇼로 변경
-            meetVerification.markApplicantNoShow();
+            PostInfoDto postInfoDto = postQueryService.getPostInfo(postId);
+            if (postInfoDto == null) {
+                continue;
+            }
+
+            boolean authorInRange = userLocationService.isFreshLocationWithinRadius(
+                    matchId,
+                    postInfoDto.authorId(),
+                    postInfoDto.placeLat(),
+                    postInfoDto.placeLng(),
+                    NO_SHOW_RADIUS_METERS,
+                    LOCATION_FRESHNESS_SECONDS
+            );
+
+            boolean applicantInRange = userLocationService.isFreshLocationWithinRadius(
+                    matchId,
+                    matchInfoDto.applicantId(),
+                    postInfoDto.placeLat(),
+                    postInfoDto.placeLng(),
+                    NO_SHOW_RADIUS_METERS,
+                    LOCATION_FRESHNESS_SECONDS
+            );
+
+            if (authorInRange && !applicantInRange) {
+                meetVerification.markApplicantNoShow();
+                notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), matchId);
+
+            } else if (!authorInRange && applicantInRange) {
+                meetVerification.markAuthorNoShow();
+                notificationPublisher.sendNoShowWarning(postInfoDto.authorId(), matchId);
+
+            } else {
+                meetVerification.markBothNoShow();
+                notificationPublisher.sendNoShowWarning(postInfoDto.authorId(), matchId);
+                notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), matchId);
+            }
 
             // 위치 정보 지우기
-            userLocationService.deleteLocationsByMatchId(meetVerification.getMatchId());
+            userLocationCleanupService.deleteLocationsByMatchId(meetVerification.getMatchId());
 
             // 채팅방 읽기전용으로 전환
             chatService.makeReadOnlyChatRoom(postId);
-
-            // 신청자에게 노쇼 예정 알림 발송
-            // matchInfoDto에서 applicantId 꺼내서 발송
-            notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), meetVerification.getMatchId());
         }
     }
 
@@ -754,6 +786,30 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     public MeetVerification getByMatchId(Long matchId) {
         return meetVerificationRepository.findByMatchId(matchId)
                 .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
+    }
+
+    private void issueQrTokenIfNeeded(MeetVerification meetVerification) {
+
+        // QR 토큰이 존재하면 스킵
+        if (meetVerification.getQrToken() != null) {
+            return;
+        }
+
+        // 등록자 / 신청자 둘 중 하나라도 인증 시각이 null이면 스킵
+        if (meetVerification.getAuthorPlaceVerifiedAt() == null || meetVerification.getApplicantPlaceVerifiedAt() == null) {
+            return;
+        }
+
+        // 장소 인증 완료 시각 -> 양측 장소 인증 완료 시각으로 부터 30분
+        LocalDateTime placeVerifiedCompletedAt = meetVerification.getAuthorPlaceVerifiedAt()
+                .isAfter(meetVerification.getApplicantPlaceVerifiedAt())
+                ? meetVerification.getAuthorPlaceVerifiedAt() : meetVerification.getApplicantPlaceVerifiedAt();
+
+        LocalDateTime expiresAt = placeVerifiedCompletedAt.plusMinutes(QR_TOKEN_VALIDITY_MINUTES);
+        String qrToken = "hp_qr_" + UUID.randomUUID().toString().replace("-", "");
+
+        meetVerification.issueQrToken(qrToken, expiresAt);
+
     }
 }
 
