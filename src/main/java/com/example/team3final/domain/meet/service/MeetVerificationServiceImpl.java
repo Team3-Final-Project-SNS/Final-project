@@ -364,7 +364,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             if (!authorVerified && !applicantVerified) {
                 meetVerification.markBothNoShow();
                 userLocationService.deleteLocationsByMatchId(meetVerification.getMatchId());
-                chatService.deactivateChatRoom(currentPostId);
+                chatService.makeReadOnlyChatRoom(currentPostId);
 
                 // 양측 모두 노쇼 예정 상태 진입 → Warning 발송
                 notificationPublisher.sendNoShowWarning(postInfoDto.authorId(), meetVerification.getMatchId());
@@ -374,14 +374,14 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                 // 신청자가 노쇼 -> GUEST_NO_SHOW
                 meetVerification.markApplicantNoShow();
                 userLocationService.deleteLocationsByMatchId(meetVerification.getMatchId());
-                chatService.deactivateChatRoom(currentPostId);
+                chatService.makeReadOnlyChatRoom(currentPostId);
                 // 신청자에게 노쇼 예정 알림 발송
                 notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), meetVerification.getMatchId());
             } else if (!authorVerified) {
                 // 등록자 노쇼 -> HOST_NO_SHOW
                 meetVerification.markAuthorNoShow();
                 userLocationService.deleteLocationsByMatchId(meetVerification.getMatchId());
-                chatService.deactivateChatRoom(currentPostId);
+                chatService.makeReadOnlyChatRoom(currentPostId);
                 // 등록자에게 노쇼 예정 알림 발송
                 notificationPublisher.sendNoShowWarning(postInfoDto.authorId(), meetVerification.getMatchId());
             }
@@ -429,8 +429,8 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             // 위치 정보 지우기
             userLocationService.deleteLocationsByMatchId(meetVerification.getMatchId());
 
-            // 채팅방 비활성화
-            chatService.deactivateChatRoom(postId);
+            // 채팅방 읽기전용으로 전환
+            chatService.makeReadOnlyChatRoom(postId);
 
             // 신청자에게 노쇼 예정 알림 발송
             // matchInfoDto에서 applicantId 꺼내서 발송

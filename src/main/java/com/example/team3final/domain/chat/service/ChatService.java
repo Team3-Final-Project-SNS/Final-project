@@ -44,4 +44,9 @@ public interface ChatService {
 
     // 그룹 채팅방에 신청자 멤버 추가 (두 번째 이후 신청자용)
     void addChatMember(Long postId, Long applicantId);
+
+    // 채팅방 즉시 읽기 전용 전환 - 노쇼 예정 시
+    // READ_ONLY: 메시지 조회 가능, 전송 불가
+    // 이의제기 기간(24시간) 채팅 기록 열람 필요
+    void makeReadOnlyChatRoom(Long postId);
 }
