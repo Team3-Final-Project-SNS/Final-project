@@ -58,14 +58,22 @@ export default function MyInfoPage() {
             <h1 className="text-3xl font-bold text-[#212121]">내 정보</h1>
             <p className="mt-2 text-sm text-[#757575]">회원 정보와 포인트를 확인할 수 있습니다.</p>
           </div>
-          <button
-              type="button"
-              onClick={handleLogout}
-              className="flex items-center gap-2 rounded-lg border border-[#e0e0e0] bg-white px-4 py-2 text-sm font-semibold text-[#616161] transition-colors hover:border-[#d84315] hover:text-[#d84315]"
-          >
-            <LogOut size={16} />
-            로그아웃
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+                to="/me/edit"
+                className="rounded-lg border border-[#d84315] bg-white px-4 py-2 text-sm font-semibold text-[#d84315] transition-colors hover:bg-[#fff3e0]"
+            >
+              내정보 수정하기
+            </Link>
+            <button
+                type="button"
+                onClick={handleLogout}
+                className="flex items-center gap-2 rounded-lg border border-[#e0e0e0] bg-white px-4 py-2 text-sm font-semibold text-[#616161] transition-colors hover:border-[#d84315] hover:text-[#d84315]"
+            >
+              <LogOut size={16} />
+              로그아웃
+            </button>
+          </div>
         </div>
 
         {error && (
