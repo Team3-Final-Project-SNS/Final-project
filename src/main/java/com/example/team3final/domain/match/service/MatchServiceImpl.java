@@ -15,6 +15,7 @@ import com.example.team3final.domain.post.dto.response.PostMatchInfoDto;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.service.PostService;
+import com.example.team3final.domain.report.service.ReportService;
 import com.example.team3final.domain.review.service.ReviewAvoidanceService;
 import com.example.team3final.domain.review.util.ReviewRedisZSetKeys;
 import com.example.team3final.domain.user.dto.response.UserInfoDto;
@@ -48,6 +49,7 @@ public class MatchServiceImpl implements MatchService{
     private final NotificationPublisher notificationPublisher;  // 알림 발송용
     private final ReviewAvoidanceService reviewAvoidanceService;
     private final StringRedisTemplate redisTemplate; // ZSet 예약용
+    private final ReportService reportService;
 
     @Override
     @Transactional
@@ -75,6 +77,12 @@ public class MatchServiceImpl implements MatchService{
         }
         if (post.getStatus() != PostStatus.OPEN) {
             throw new MatchException(ErrorCode.MATCH_POST_CLOSED);
+        }
+
+        // 신고 접수 중인 게시글 차단
+        boolean isUnderReport = reportService.existsPendingReport(post.getId());
+        if (isUnderReport) {
+            throw new MatchException(ErrorCode.MATCH_POST_UNDER_REPORT);
         }
 
         // 2-1. 중복 신청 차단 (같은 게시글에 같은 사용자 두 번 신청 불가)

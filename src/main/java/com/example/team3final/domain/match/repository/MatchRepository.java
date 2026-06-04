@@ -2,7 +2,6 @@ package com.example.team3final.domain.match.repository;
 
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.enums.MatchStatus;
-import org.hibernate.annotations.processing.SQL;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

@@ -32,4 +32,7 @@ public interface ReportService {
 
     // 신고 목록 조회
     Page<Report> getReportsForAdmin(ReportStatus status, Pageable pageable);
+
+    // 해당 게시글에 PENDING 상태 신고가 존재하는지 반환
+    boolean existsPendingReport(Long postId);
 }
