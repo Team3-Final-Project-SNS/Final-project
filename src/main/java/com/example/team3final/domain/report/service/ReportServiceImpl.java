@@ -200,6 +200,7 @@ public class ReportServiceImpl implements ReportService {
                 notificationPublisher.sendSystem(report.getTargetId(), "서비스 이용 제재 안내",
                         "다섯 번째 규정 위반으로 계정이 30일간 정지되었습니다.");
             }
+
             default -> {
                 // 6회 이상 → 영구정지
                 if (acceptedCount >= 6) {
@@ -209,13 +210,8 @@ public class ReportServiceImpl implements ReportService {
                 }
             }
         }
-
-        // 신고자에게 채택 알림 + 포상 포인트 알림
-        notificationPublisher.sendReportResult(report.getReporterId(), reportId);
+        // 신고자에게 포상금 지급 알림
         notificationPublisher.sendReportAcceptedPoint(report.getReporterId(), reportId);
-
-        // 피신고자에게 신고 처리 결과 알림
-        notificationPublisher.sendReportResult(report.getTargetId(), reportId);
     }
 
     // 신고 기각 - 관리자 호출용
@@ -244,7 +240,7 @@ public class ReportServiceImpl implements ReportService {
         }
 
         // 신고자에게 기각 알림
-        notificationPublisher.sendReportResult(report.getReporterId(), reportId);
+        notificationPublisher.sendReportRejected(report.getReporterId(), reportId);
     }
 
     @Override
