@@ -3,8 +3,10 @@ package com.example.team3final.common.config;
 import com.example.team3final.common.jwt.AdminJwtAuthenticationFilter;
 import com.example.team3final.common.jwt.JwtAuthenticationFilter;
 import com.example.team3final.common.jwt.JwtProvider;
+import com.example.team3final.common.jwt.SuspendedAccountFilter; // ← 추가
 import com.example.team3final.domain.admin.security.AdminDetailsService;
 import com.example.team3final.domain.user.service.CustomUserDetailsService;
+import com.fasterxml.jackson.databind.ObjectMapper; // ← 추가
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -28,6 +30,7 @@ public class SecurityConfig {
     private final JwtProvider jwtProvider;
     private final CustomUserDetailsService userDetailsService;
     private final AdminDetailsService adminDetailsService;
+    private final ObjectMapper objectMapper; // ← 추가: SuspendedAccountFilter에서 JSON 응답 작성에 사용
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -39,7 +42,7 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        //인증없이 접근 가능한 엔드포인트
+                        // 인증 없이 접근 가능한 엔드포인트
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(
                                 "/api/v1/auth/email/otp",
@@ -48,9 +51,9 @@ public class SecurityConfig {
                                 "/api/v1/auth/login",              // 로그인
                                 "/api/v1/auth/refresh",            // 토큰 재발급
                                 "/api/v1/universities",            // 대학 목록 (회원가입 페이지에서 사용)
-                                "/ws/**",                           // 웹소켓 경로
+                                "/ws/**",                          // 웹소켓 경로
                                 "/h2-console/**",
-                                "/api/v1/admin/auth/login"          // Admin 로그인 열어두기
+                                "/api/v1/admin/auth/login"         // Admin 로그인 열어두기
                         ).permitAll()
 
                         // Actuator 헬스체크 허용
@@ -61,16 +64,28 @@ public class SecurityConfig {
                 )
 
                 // Admin 필터 먼저 등록
+                // /api/v1/admin/** 경로만 처리 (AdminJwtAuthenticationFilter 내부 shouldNotFilter로 제어)
                 .addFilterBefore(
                         adminJwtAuthenticationFilter(),
-                        UsernamePasswordAuthenticationFilter.class)
+                        UsernamePasswordAuthenticationFilter.class
+                )
 
-                // JWT 필터를 Spring Security의 UsernamePasswordAuthenticationFilter 앞에 삽입
+                // JWT 필터: UsernamePasswordAuthenticationFilter 앞에 삽입
                 // → 모든 요청에서 JWT를 먼저 검증한 후 Spring Security가 처리
                 .addFilterBefore(
                         jwtAuthenticationFilter(),
                         UsernamePasswordAuthenticationFilter.class
+                )
+
+                // SuspendedAccountFilter: JwtAuthenticationFilter 이후에 실행
+                // 실행 순서: AdminJwtFilter → JwtAuthenticationFilter → SuspendedAccountFilter
+                // 이유: JwtAuthenticationFilter가 먼저 SecurityContext에 인증 정보를 저장해야
+                //       SuspendedAccountFilter가 UserDetailsImpl(status 포함)을 꺼낼 수 있음
+                .addFilterAfter(
+                        suspendedAccountFilter(),
+                        JwtAuthenticationFilter.class
                 );
+
         return http.build();
     }
 
@@ -79,6 +94,13 @@ public class SecurityConfig {
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
         return new JwtAuthenticationFilter(jwtProvider, userDetailsService);
+    }
+
+    // SuspendedAccountFilter 빈 생성
+    // ObjectMapper를 주입받아 필터 안에서 JSON 에러 응답을 직접 작성
+    @Bean
+    public SuspendedAccountFilter suspendedAccountFilter() {
+        return new SuspendedAccountFilter(objectMapper);
     }
 
     // BCrypt 암호화 인코더 — 회원가입 시 비밀번호 암호화, 로그인 시 비밀번호 검증에 사용
@@ -95,7 +117,7 @@ public class SecurityConfig {
         return authenticationConfiguration.getAuthenticationManager();
     }
 
-    // Admin 전용 JWT 필터 빈 등록 ← 추가
+    // Admin 전용 JWT 필터 빈 등록
     @Bean
     public AdminJwtAuthenticationFilter adminJwtAuthenticationFilter() {
         return new AdminJwtAuthenticationFilter(jwtProvider, adminDetailsService);
