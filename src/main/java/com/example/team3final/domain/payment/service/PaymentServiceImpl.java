@@ -3,6 +3,7 @@ package com.example.team3final.domain.payment.service;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.PaymentException;
+import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.payment.dto.request.CreatePaymentRequestDto;
 import com.example.team3final.domain.payment.dto.request.VerifyPaymentRequestDto;
 import com.example.team3final.domain.payment.dto.response.CancelPaymentResponseDto;
@@ -36,6 +37,7 @@ public class PaymentServiceImpl implements PaymentService{
     private final PaymentRepository paymentRepository;
     private final PaymentClient paymentClient;
     private final UserPointService userPointService;
+    private final NotificationPublisher notificationPublisher;
 
     // 결제 준비
     @Override
@@ -133,6 +135,9 @@ public class PaymentServiceImpl implements PaymentService{
 
         log.info("[Payment] 결제 검증 완료 - userId: {}, paymentId: {}, chargePoint: {}",
                 userId, paymentId, payment.getChargePoint());
+
+        // 30번 알림 - 결제 성공 알림
+        notificationPublisher.sendPaymentSuccess(userId, paymentId);
 
         return VerifyPaymentResponseDto.of(payment, request.getImpUid(), balanceAfter);
     }
@@ -248,6 +253,9 @@ public class PaymentServiceImpl implements PaymentService{
 
         // FAILED 처리
         payment.markFailed("사용자 결제 취소");
+
+        // 31번 알림 - 결제 실패 알림
+        notificationPublisher.sendPaymentFailed(userId, paymentId);
 
         log.info("[Payment] 결제 실패 처리 - userId: {}, paymentId: {}", userId, paymentId);
     }

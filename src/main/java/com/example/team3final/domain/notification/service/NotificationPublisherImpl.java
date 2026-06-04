@@ -138,15 +138,6 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.MEET, matchId);
     }
 
-    // 10. 신고 처리 결과 알림
-    @Override
-    public void sendReportResult(Long userId, Long reportId) {
-        publish(userId, NotificationType.REPORT_RESULT,
-                "신고 처리 결과가 등록되었습니다.",
-                "신고 처리 결과가 등록되었습니다. 확인해 주세요.",
-                RelatedDomain.REPORT, reportId);
-    }
-
     // 11. 이의제기 접수 알림 - 관리자에게
     @Override
     public void sendDisputeSubmitted(Long adminId, Long disputeId) {
@@ -165,21 +156,22 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.SYSTEM, null);
     }
 
-    // 13. 신고 채택 포인트 지급 알림
+    // 13. 신고 채택 포상금 지급 알림
     @Override
     public void sendReportAcceptedPoint(Long userId, Long reportId) {
-        publish(userId, NotificationType.POINT_CHANGED,
+        publish(userId, NotificationType.REPORT_REWARD,
                 "신고가 채택되었습니다.",
                 "신고가 채택되었습니다. 50포인트가 지급되었습니다.",
                 RelatedDomain.REPORT, reportId);
     }
 
-    // 14. 후기 작성 포인트 지급 알림
+
+    // 14. 후기 작성 포상금 지급 알림
     @Override
     public void sendReviewPoint(Long userId, Long reviewId) {
-        publish(userId, NotificationType.POINT_CHANGED,
-                "후기가 작성되었습니다.",
-                "후기가 작성되었습니다. 50포인트가 지급되었습니다.",
+        publish(userId, NotificationType.REVIEW_REWARD,
+                "후기 작성 포상금이 지급되었습니다.",
+                "후기 작성이 완료되었습니다. 50포인트가 지급되었습니다.",
                 RelatedDomain.POINT, reviewId);
     }
 
@@ -304,5 +296,41 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 "후기 작성 마지막 날입니다.",
                 "오늘이 후기를 작성할 수 있는 마지막 날입니다. 서둘러 작성해 주세요.",
                 RelatedDomain.MEET, matchId);
+    }
+
+    // 30. 결제 성공 알림
+    @Override
+    public void sendPaymentSuccess(Long userId, Long paymentId) {
+        publish(userId, NotificationType.PAYMENT_SUCCESS,
+                "결제가 완료되었습니다.",
+                "결제가 완료되었습니다. 포인트가 지급되었습니다.",
+                RelatedDomain.POINT, paymentId);
+    }
+
+    // 31. 결제 실패 알림
+    @Override
+    public void sendPaymentFailed(Long userId, Long paymentId) {
+        publish(userId, NotificationType.PAYMENT_FAILED,
+                "결제에 실패했습니다.",
+                "결제에 실패했습니다. 다시 시도해 주세요.",
+                RelatedDomain.POINT, paymentId);
+    }
+
+    // 32. GPS 반경 이탈 경고 알림
+    @Override
+    public void sendGpsOutOfRange(Long userId, Long matchId) {
+        publish(userId, NotificationType.GPS_OUT_OF_RANGE,
+                "약속 장소 반경을 벗어났습니다.",
+                "약속 장소 반경을 벗어났습니다. 위치를 확인해 주세요.",
+                RelatedDomain.MEET, matchId);
+    }
+
+    // 33. 신고 기각 알림 - 신고자에게
+    @Override
+    public void sendReportRejected(Long userId, Long reportId) {
+        publish(userId, NotificationType.REPORT_REJECTED,
+                "신고가 기각되었습니다.",
+                "접수하신 신고가 검토 결과 기각되었습니다.",
+                RelatedDomain.REPORT, reportId);
     }
 }
