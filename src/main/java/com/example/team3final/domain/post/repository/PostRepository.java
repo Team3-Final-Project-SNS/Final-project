@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
 
@@ -32,6 +33,12 @@ public interface PostRepository extends JpaRepository<Post, Long> {
      */
     @Query("SELECT p FROM Post p WHERE p.id IN :postIds")
     List<Post> findAllByIdIncludingDeleted(@Param("postIds")List<Long> postIds);
+
+    // soft delete된 게시글 포함 단건 조회 -> 삭제 사유 조회 전용
+    @Query("""
+           SELECT p FROM Post p WHERE p.id = :postId
+           """)
+    Optional<Post> findByIdIncludingDeleted(@Param("postId") Long postId);
 
     Page<Post> findByAuthorIdInAndStatus(
             List<Long> authorIds,

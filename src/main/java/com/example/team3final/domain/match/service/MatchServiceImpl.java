@@ -18,6 +18,7 @@ import com.example.team3final.domain.post.dto.response.PostMatchInfoDto;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.service.PostService;
+import com.example.team3final.domain.report.service.ReportService;
 import com.example.team3final.domain.review.service.ReviewAvoidanceService;
 import com.example.team3final.domain.review.util.ReviewRedisZSetKeys;
 import com.example.team3final.domain.user.dto.response.UserInfoDto;
@@ -51,6 +52,7 @@ public class MatchServiceImpl implements MatchService{
     private final NotificationPublisher notificationPublisher;  // 알림 발송용
     private final ReviewAvoidanceService reviewAvoidanceService;
     private final StringRedisTemplate redisTemplate; // ZSet 예약용
+    private final ReportService reportService;
     private final UserLocationCleanupService userLocationCleanupService;
 
     @Override
@@ -81,12 +83,17 @@ public class MatchServiceImpl implements MatchService{
             throw new MatchException(ErrorCode.MATCH_POST_CLOSED);
         }
 
+        // 신고 접수 중인 게시글 차단
+        boolean isUnderReport = reportService.existsPendingReport(post.getId());
+        if (isUnderReport) {
+            throw new MatchException(ErrorCode.MATCH_POST_UNDER_REPORT);
+        }
+
         // 2-1. 중복 신청 차단 (같은 게시글에 같은 사용자 두 번 신청 불가)
-        //   그룹 매칭에서 의미가 생김 — 1:1에선 본인 게시글 차단(2-1)에 흡수되지만,
-        //   그룹에선 별도 신청자가 두 번 들어오는 걸 막아야 함.
-        //   MATCHED/CANCELLED 등 상태 무관하게 같은 (postId, applicantId) 조합 존재 여부만 봄
-        //   → 취소 후 재신청을 막을지는 정책 확인 필요. 일단 막는 방향.
-        if (matchRepository.existsByPostIdAndApplicantId(postId, applicantId)) {
+        // MATCHED 상태인 경우만 중복으로 판단
+        // 기획서: "Post 상태 OPEN (재신청 가능)" → CANCELLED된 매칭은 재신청 허용
+        if (matchRepository.existsByPostIdAndApplicantIdAndStatus(
+                postId, applicantId, MatchStatus.MATCHED)) {
             throw new MatchException(ErrorCode.MATCH_DUPLICATE_APPLY);
         }
 
@@ -144,28 +151,35 @@ public class MatchServiceImpl implements MatchService{
         // score = 알림 발송할 Unix Timestamp
         // member = matchId (스케줄러가 꺼내서 알림 발송에 사용)
         LocalDateTime meetAt = post.getMeetAt();
+        LocalDateTime now = LocalDateTime.now();
 
-        // 30분 전 알림 예약 (meetAt - 30분 시각에 발송)
-        redisTemplate.opsForZSet().add(
-                MeetRedisZSetKeys.REMINDER_30,
-                String.valueOf(savedMatch.getId()),
-                meetAt.minusMinutes(30).toEpochSecond(ZoneOffset.ofHours(9))
-        );
+        // 30분 전 알림 예약 - 현재 시각이 meetAt-30분 이전일 때만 등록
+        // 이미 지난 시점이면 스킵 (매칭 완료 시점이 약속시간 임박 후인 경우 방지)
+        if (now.isBefore(meetAt.minusMinutes(30))) {
+            redisTemplate.opsForZSet().add(
+                    MeetRedisZSetKeys.REMINDER_30,
+                    String.valueOf(savedMatch.getId()),
+                    meetAt.minusMinutes(30).toEpochSecond(ZoneOffset.ofHours(9))
+            );
+        }
 
-        // 15분 전 알림 예약 (meetAt - 15분 시각에 발송)
-        redisTemplate.opsForZSet().add(
-                MeetRedisZSetKeys.REMINDER_15,
-                String.valueOf(savedMatch.getId()),
-                meetAt.minusMinutes(15).toEpochSecond(ZoneOffset.ofHours(9))
-        );
+        // 15분 전 알림 예약 - 현재 시각이 meetAt-15분 이전일 때만 등록
+        if (now.isBefore(meetAt.minusMinutes(15))) {
+            redisTemplate.opsForZSet().add(
+                    MeetRedisZSetKeys.REMINDER_15,
+                    String.valueOf(savedMatch.getId()),
+                    meetAt.minusMinutes(15).toEpochSecond(ZoneOffset.ofHours(9))
+            );
+        }
 
-        // 임박 알림 예약 (meetAt - 5분 시각에 발송)
-        redisTemplate.opsForZSet().add(
-                MeetRedisZSetKeys.REMINDER_IMMINENT,
-                String.valueOf(savedMatch.getId()),
-                meetAt.minusMinutes(5).toEpochSecond(ZoneOffset.ofHours(9))
-        );
-
+        // 임박 알림 예약 - 현재 시각이 meetAt-5분 이전일 때만 등록
+        if (now.isBefore(meetAt.minusMinutes(5))) {
+            redisTemplate.opsForZSet().add(
+                    MeetRedisZSetKeys.REMINDER_IMMINENT,
+                    String.valueOf(savedMatch.getId()),
+                    meetAt.minusMinutes(5).toEpochSecond(ZoneOffset.ofHours(9))
+            );
+        }
 
         return CreateMatchResponseDto.of(
                 savedMatch,
@@ -181,7 +195,7 @@ public class MatchServiceImpl implements MatchService{
     public boolean hasAppliedToPost(Long postId, Long applicantId) {
         // 중복 신청 여부는 Match 도메인의 데이터 규칙이므로,
         // 다른 도메인은 Repository 대신 이 서비스 메서드를 통해 확인합니다.
-        return matchRepository.existsByPostIdAndApplicantId(postId, applicantId);
+        return matchRepository.existsByPostIdAndApplicantIdAndStatus(postId, applicantId, MatchStatus.MATCHED);
     }
 
     @Override
@@ -456,13 +470,55 @@ public class MatchServiceImpl implements MatchService{
             // 나머지 참여자(HOST + 다른 GUEST)는 계속 채팅 이용 가능
             chatService.removeChatMember(match.getPostId(), userId);
         } else {
+
             // HOST(등록자) 취소 — 게시글 CANCELLED + 채팅방 완전 비활성화
+            // BUG-05 수정 — 기존 코드는 match.getApplicantId() 단 1명만 환불
+            // 그룹 매칭에서 GUEST가 여러 명이면 나머지는 환불되지 않는 치명적 버그
+            // 해결: 해당 postId에 연결된 모든 MATCHED 상태 매칭을 조회해서 일괄 처리
+
+            List<Match> allGuestMatches = matchRepository.findAllByPostIdAndStatus(
+                    match.getPostId(), MatchStatus.MATCHED);
+            // findAllByPostIdAndStatus: post_id = ? AND status = 'MATCHED' 인 매칭 전체 조회
+
+            // 모든 GUEST에게 전액 환불 + 매칭 취소 상태 변경
+            for (Match guestMatch : allGuestMatches) {
+                // 각 GUEST의 예치금 전액 환불
+                // HOST가 취소한 것이므로 GUEST 귀책 없음 → 전액 반환
+                userPointService.refundPoint(
+                        guestMatch.getApplicantId(),  // 환불받을 GUEST ID
+                        guestMatch.getApplicantDeposit(), // 환불 금액 (GUEST가 예치한 금액)
+                        guestMatch.getId()            // 포인트 거래 기록용 matchId
+                );
+
+                // 매칭 상태 CANCELLED로 변경
+                guestMatch.cancel();
+            }
+
+            // HOST는 50% 환불 (HOST가 취소했으므로 패널티)
+            userPointService.partialRefundPoint(userId, post.getAuthorDeposit(), matchId);
+
+            // 게시글 상태 CANCELLED로 변경
             post.cancel();
+
+            // 채팅방 비활성화
             chatService.deactivateChatRoom(match.getPostId());
+
+            // 모든 GUEST에게 HOST 취소 알림 발송
+            for (Match guestMatch : allGuestMatches) {
+                // 각 GUEST에게 "HOST가 매칭을 취소했습니다" 알림
+                notificationPublisher.sendHostCancelled(
+                        guestMatch.getApplicantId(), // 알림 수신자 (GUEST)
+                        guestMatch.getId()           // 관련 매칭 ID
+                );
+            }
         }
 
         // 2번 알림 - 상대방에게 매칭 취소 알림 발송
-        notificationPublisher.sendMatchCancelled(opponentId, matchId);
+        // GUEST가 취소한 경우에만 상대방(HOST)에게 알림 발송
+        // HOST가 취소한 경우는 위 for문에서 이미 모든 GUEST에게 발송 완료
+        if (cancelerIsApplicant) {
+            notificationPublisher.sendGuestCancelled(opponentId, matchId);
+        }
 
         // 매칭 취소 시 ZSet 알림 예약 제거
         // 취소된 매칭은 알림 발송 불필요
