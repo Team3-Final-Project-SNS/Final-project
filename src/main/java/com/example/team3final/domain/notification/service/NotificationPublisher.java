@@ -22,8 +22,11 @@ public interface NotificationPublisher {
     // 1. 게시글에 누군가 신청했을 때 - 게시글 작성자에게
     void sendMatchApplied(Long userId, Long matchId);
 
-    // 2. 게시글 신청을 취소했을 때 - 게시글 작성자에게
-    void sendMatchCancelled(Long userId, Long matchId);
+    // 2-1. GUEST가 신청을 취소했을 때 - 게시글 작성자(HOST)에게
+    void sendGuestCancelled(Long userId, Long matchId);
+
+    // 2-2. HOST가 매칭을 취소했을 때 - 신청자(GUEST)에게
+    void sendHostCancelled(Long userId, Long matchId);
 
     // 3. 채팅 메세지 수신 알림 - 메세지 수신자에게
     void sendChatReceived(Long userId, Long chatRoomId);
