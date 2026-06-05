@@ -48,7 +48,7 @@ public class MeetReminderScheduler {
             MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
             Long authorId = postService.getPostById(matchInfo.postId()).getAuthorId();
 
-            // 등록자 + 신청자 양측에게 알림 발송
+            // 5. 만남 30분 전 알림 - 만남 참여자 모두에게
             notificationPublisher.sendMeetReminder30(authorId, matchId);
             notificationPublisher.sendMeetReminder30(matchInfo.applicantId(), matchId);
         }
@@ -68,6 +68,7 @@ public class MeetReminderScheduler {
             MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
             Long authorId = postService.getPostById(matchInfo.postId()).getAuthorId();
 
+            // 6. 만남 15분 전 알림 - 만남 참여자 모두에게
             notificationPublisher.sendMeetReminder15(authorId, matchId);
             notificationPublisher.sendMeetReminder15(matchInfo.applicantId(), matchId);
         }
@@ -87,6 +88,7 @@ public class MeetReminderScheduler {
             MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
             Long authorId = postService.getPostById(matchInfo.postId()).getAuthorId();
 
+            // 7. 만남 5분 전 임박 알림 - 만남 참여자 모두에게
             notificationPublisher.sendMeetImminent(authorId, matchId);
             notificationPublisher.sendMeetImminent(matchInfo.applicantId(), matchId);
         }
