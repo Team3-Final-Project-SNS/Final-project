@@ -113,4 +113,6 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
     @Query("SELECT p.authorId FROM Match m JOIN Post p ON m.postId = p.id WHERE m.id = :matchId")
     Long findAuthorIdByMatchId(@Param("matchId") Long matchId);
 
+    long countByPostId(Long postId);
+    // Spring Data JPA가 자동으로 "SELECT COUNT(*) FROM matches WHERE post_id = ?" 생성
 }

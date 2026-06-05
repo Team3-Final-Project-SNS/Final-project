@@ -3,12 +3,14 @@ package com.example.team3final.domain.post.repository;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import jakarta.persistence.LockModeType;
+import jakarta.persistence.QueryHint;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
@@ -122,6 +124,15 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             @Param("now")     LocalDateTime now   // LocalDateTime.now()
     );
 
+    // 동시성 제어 테스트 관련 메서드
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "0"))
+    @Query("SELECT p FROM Post p WHERE p.id = :id")
+    Optional<Post> findByIdWithPessimisticLockNowait(@Param("id") Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Post p WHERE p.id = :id")
+    Optional<Post> findByIdWithPessimisticLock(@Param("id") Long id);
 
 
  // ai 매칭 도메인에서 활용. toolcalling에서 활용하기 위해서.
