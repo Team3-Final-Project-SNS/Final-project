@@ -136,4 +136,15 @@ public class PostController {
 
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
+
+    // 내 삭제된 게시글의 삭제 사유 조회
+    @GetMapping("/{postId}/delete-reason")
+    public ResponseEntity<ApiResponseDto<DeletedPostReasonResponseDto>> getDeletedPostReason(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @PathVariable Long postId
+    ) {
+
+        Long userId = userDetails.getUserId();
+        return ResponseEntity.ok(ApiResponseDto.success(postService.getDeletedPostReason(postId, userId)));
+    }
 }

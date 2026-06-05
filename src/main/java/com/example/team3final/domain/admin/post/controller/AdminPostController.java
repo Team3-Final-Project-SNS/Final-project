@@ -6,6 +6,7 @@ import com.example.team3final.domain.admin.post.dto.request.AdminDeletePostReque
 import com.example.team3final.domain.admin.post.dto.response.AdminDeletePostResponseDto;
 import com.example.team3final.domain.admin.post.dto.response.AdminGetPostResponseDto;
 import com.example.team3final.domain.admin.post.dto.response.AdminGetPostsResponseDto;
+import com.example.team3final.domain.admin.post.dto.response.AdminRestorePostResponseDto;
 import com.example.team3final.domain.admin.post.service.AdminPostService;
 import com.example.team3final.domain.admin.security.AdminDetailsImpl;
 import com.example.team3final.domain.post.enums.PostStatus;
@@ -61,5 +62,15 @@ public class AdminPostController {
 
         Long adminId = adminDetails.getAdminId();
         return ResponseEntity.ok(ApiResponseDto.success(adminPostService.getPost(adminId, postId)));
+    }
+
+    // 강제 삭제 게시글 복구
+    @PostMapping("/posts/{postId}/restore")
+    public ResponseEntity<ApiResponseDto<AdminRestorePostResponseDto>> restorePost(
+            @AuthenticationPrincipal AdminDetailsImpl adminDetails,
+            @PathVariable Long postId) {
+
+        Long adminId = adminDetails.getAdminId();
+        return ResponseEntity.ok(ApiResponseDto.success(adminPostService.restorePost(adminId, postId)));
     }
 }

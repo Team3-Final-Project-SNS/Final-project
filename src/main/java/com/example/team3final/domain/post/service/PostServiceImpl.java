@@ -24,7 +24,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -45,15 +44,21 @@ public class PostServiceImpl implements PostService{
     @Transactional
     public CreatePostResponseDto createPost(Long authorId, CreatePostRequestDto request) {
 
-        // 1. 비즈니스 규칙 검증
+        // 만남 시간 검증
         if (request.getMeetAt().isBefore(LocalDateTime.now())) {
             throw new PostException(ErrorCode.POST_INVALID_MEET_AT);
         }
 
-        // 책임비 검증 - (1) 최소 200P 단위, (2) 100P 단위
-        if (request.getAuthorDeposit() < Post.MIN_AUTHOR_DEPOSIT
-                || request.getAuthorDeposit() % Post.DEPOSIT_UNIT != 0) {
+        // 책임비 검증 (1) 최소 200P 이상인지
+        if (request.getAuthorDeposit() < Post.MIN_AUTHOR_DEPOSIT) {
             throw new PostException(ErrorCode.POST_INVALID_DEPOSIT);
+        }
+
+        // 책임비 검증 (2) 100P 단위인지 — BUG-07 수정
+        // % 는 나머지 연산자 → 100으로 나눴을 때 나머지가 0이 아니면 단위 위반
+        // ex) 150 % 100 = 50 → 예외 / 300 % 100 = 0 → 통과
+        if (request.getAuthorDeposit() % 100 != 0) {
+            throw new PostException(ErrorCode.POST_INVALID_DEPOSIT_UNIT);
         }
 
         // 2. 포인트 차감
@@ -102,9 +107,9 @@ public class PostServiceImpl implements PostService{
         Integer newDeposit = request.getAuthorDeposit();
 
         if (newDeposit != null) {
-            // 100P 단위 검증
-            if (newDeposit % Post.DEPOSIT_UNIT != 0) {
-                throw new PostException(ErrorCode.POST_INVALID_DEPOSIT);
+            // 수정 시에도 동일한 100P 단위 검증 — BUG-07 수정
+            if (newDeposit % 100 != 0) {
+                throw new PostException(ErrorCode.POST_INVALID_DEPOSIT_UNIT);
             }
 
             // 차액 계산 — 양수면 추가 차감, 음수면 환불
@@ -373,26 +378,18 @@ public class PostServiceImpl implements PostService{
                 ));
     }
 
+    // 게시글 강제 삭제 사유를 받아서 포인트 반환
     @Override
-    public int forceDeletePost(Post post) {
+    public int forceDeletePost(Post post, String reason) {
 
         // 작성자에게 예치 포인트 전액 환불
         int refundedPoint = post.getAuthorDeposit();
-
         userPointService.refundPoint(post.getAuthorId(), refundedPoint, null);
 
-        // 게시글 소프트 삭제
-        //    postRepository.delete(post) 대신 post.delete() 호출
-        //
-        //    이유: postRepository.delete()는 JPA가 내부적으로 @SQLDelete 어노테이션의
-        //    "UPDATE posts SET deleted_at = NOW() WHERE post_id = ?"를 실행하긴 하지만,
-        //    코드만 보면 "hard delete처럼 보임" → 가독성 저하 + 실수 위험
-        //
-        //    post.delete()를 명시적으로 호출하면:
-        //    - SoftDeleteEntity.delete()가 deletedAt = LocalDateTime.now() 세팅
-        //    - @Transactional + 더티 체킹으로 트랜잭션 종료 시 자동 UPDATE 쿼리 실행
-        //    - 일반 유저 deletePost()와 동일한 방식 → 코드 일관성 유지
-        post.delete();
+        // 소프트 삭제 + 사유 영속화
+        // post.delete(reason) 가 deleteReason 세팅 후 deletedAt=now() 세팅
+        // @Transactional 더티 체킹으로 트랜잭션 종료 시 두 컬럼 모두 UPDATE
+        post.deleteAndReason(reason);
 
         // 22번 알림 - 게시글 작성자에게 강제 삭제 안내 발송
         notificationPublisher.sendSystem(
@@ -402,6 +399,59 @@ public class PostServiceImpl implements PostService{
         );
 
         return refundedPoint;
+    }
+
+    // 작성자 본인이 자신의 삭제된 게시글 사유 조회 (알림 진입로 / 마이페이지용)
+    @Override
+    public DeletedPostReasonResponseDto getDeletedPostReason(Long postId, Long userId) {
+
+        // 삭제 포함 조회
+        Post post = postRepository.findByIdIncludingDeleted(postId)
+                .orElseThrow(() -> new PostException(ErrorCode.POST_NOT_FOUND));
+
+        // 본인 게시글만 사유 열람 가능
+        if (!post.isAuthor(userId)) {
+            throw new PostException(ErrorCode.POST_NOT_AUTHOR);
+        }
+
+        // 실제로 삭제된 글인지 확인
+        if (!post.isDeleted()) {
+            throw new PostException(ErrorCode.POST_NOT_DELETED);
+        }
+
+        return DeletedPostReasonResponseDto.from(post);
+    }
+
+    // 강제 삭제 게시글 복구
+    @Override
+    @Transactional
+    public int restorePost(Post post) {
+
+        // 복구할 예치금 -> 삭제 당시 환불했던 책임비
+        int redepositPoint = post.getAuthorDeposit();
+
+        // 삭제 때 작성자에게 환불했으므로, 복구 시 다시 차감
+        // 잔액 부족 시 user.deduct() 내부에서 예외 발생
+        userPointService.deductPoint(post.getAuthorId(), redepositPoint, null);
+
+        // 게시글 복구
+        post.restore();
+
+        // 작성자에게 복구 안내 알림
+        notificationPublisher.sendSystem(
+                post.getAuthorId(),
+                "게시글이 복구되었습니다.",
+                "관리자에 의해 삭제되었던 게시물이 복구되어, 예치 포인트가 다시 차감되었습니다."
+        );
+
+        return redepositPoint;
+    }
+
+    // 삭제 포함 단건 조회
+    @Override
+    public Post getPostByIdIncludingDeleted(Long postId) {
+        return postRepository.findByIdIncludingDeleted(postId)
+                .orElseThrow( () -> new PostException(ErrorCode.POST_NOT_FOUND));
     }
 
     // 관리자 게시글 목록 조회, 전체 대학 조회와 특정 대학 필터 분기 처리

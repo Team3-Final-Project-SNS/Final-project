@@ -22,4 +22,9 @@ public abstract class SoftDeleteEntity extends BaseUpdateEntity {
     public boolean isDeleted() {
         return this.deletedAt != null;
     }
+
+    // Soft Delete 복구
+    public void restore() {
+        this.deletedAt = null;
+    }
 }

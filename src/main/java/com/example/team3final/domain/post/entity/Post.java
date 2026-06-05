@@ -76,6 +76,10 @@ public class Post extends SoftDeleteEntity {
         @Column(name = "current_applicants", nullable = false)
         private int currentApplicants;
 
+        // 강제 삭제 사유 추가 (관리자)
+        @Column(name = "delete_reason", length = 500)
+        private String deleteReason;
+
         @Builder
         private Post(Long authorId, LocalDateTime meetAt, String placeName,
                      BigDecimal placeLat, BigDecimal placeLng, String content,
@@ -148,6 +152,18 @@ public class Post extends SoftDeleteEntity {
         // 소프트 삭제 — 실제 행 삭제 대신 deleted_at 만 찍음
         public void delete() {
                 super.delete();
+        }
+
+        // 관리자 강제 삭제 전용 (사유 포함)
+        public void deleteAndReason(String reason) {
+                this.deleteReason = reason;     // 사유 저장
+                super.delete();                 // 똑같이 deletedAt = now()
+        }
+
+        // 강제 삭제 복구 메서드
+        public void restore() {
+                super.restore();           // deletedAt = null
+                this.deleteReason = null;  // 삭제 사유도 같이 비움
         }
 
         // ===== 조회 메서드 =====
