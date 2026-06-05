@@ -119,8 +119,17 @@ public interface PostService {
      */
     Map<Long, PostMatchInfoDto> getPostMatchInfos(List<Long> postIds);
 
-    // Admin 도메인에서 사용할 게시글 강제 삭제 후 환불된 포인트 반환
-    int forceDeletePost(Post post);
+    // 게시글 강제 삭제 사유를 받아서 환불된 포인트 반환
+    int forceDeletePost(Post post, String reason);
+
+    // 작성자 본인이 자신의 삭제된 게시글 사유 조회 (알림 진입로 / 마이페이지용)
+    DeletedPostReasonResponseDto getDeletedPostReason(Long postId, Long userId);
+
+    // 강제 삭제 게시글 복구
+    int restorePost(Post post);
+
+    // 삭제 포함 단건 조회
+    Post getPostByIdIncludingDeleted(Long postId);
 
     // 관리자 게시글 목록 조회
     Page<Post> getPostsForAdmin(List<Long> authorIds, PostStatus status, String keyword, Pageable pageable);

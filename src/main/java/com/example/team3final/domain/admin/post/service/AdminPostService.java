@@ -5,6 +5,7 @@ import com.example.team3final.domain.admin.post.dto.request.AdminDeletePostReque
 import com.example.team3final.domain.admin.post.dto.response.AdminDeletePostResponseDto;
 import com.example.team3final.domain.admin.post.dto.response.AdminGetPostResponseDto;
 import com.example.team3final.domain.admin.post.dto.response.AdminGetPostsResponseDto;
+import com.example.team3final.domain.admin.post.dto.response.AdminRestorePostResponseDto;
 import com.example.team3final.domain.post.enums.PostStatus;
 import org.springframework.data.domain.Pageable;
 
@@ -25,4 +26,7 @@ public interface AdminPostService {
 
     // 관리자 게시글 상세 조회
     AdminGetPostResponseDto getPost(Long adminId, Long postId);
+
+    // 강제 삭제한 게시글 복구
+    AdminRestorePostResponseDto restorePost(Long adminId, Long postId);
 }

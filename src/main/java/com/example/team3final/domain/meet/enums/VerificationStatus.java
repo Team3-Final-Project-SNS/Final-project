@@ -13,6 +13,7 @@ public enum VerificationStatus {
     HOST_NO_SHOW("등록자 노쇼"),      // 등록자 노쇼 판정 (예정 상태)
     GUEST_NO_SHOW("신청자 노쇼"),     // 신청자 노쇼 판정 (예정 상태)
     BOTH_NO_SHOW("양측 모두 노쇼"),   // 양측 모두 노쇼 판정 (예정 상태)
+    NO_SHOW_CANCELLED("노쇼 취소"),       // 관리자 이의제기 판정으로 노쇼가 취소됨
     NO_SHOW_CONFIRMED("노쇼 확정"),       // 24시간 경과 후 최종 확정
     DISPUTE("이의 제기 접수 중");         // 이의제기 접수 중
 

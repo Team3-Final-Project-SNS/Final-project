@@ -12,6 +12,7 @@ import com.example.team3final.domain.dispute.repository.DisputeRepository;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.service.MatchService;
 import com.example.team3final.domain.meet.dto.response.MeetVerificationResponseDto;
+import com.example.team3final.domain.meet.entity.MeetVerification;
 import com.example.team3final.domain.meet.enums.VerificationStatus;
 import com.example.team3final.domain.meet.service.MeetVerificationService;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
@@ -106,6 +107,11 @@ public class DisputeServiceImpl implements DisputeService {
                 .parentDisputeId(null)
                 .build();
         Dispute saved = disputeRepository.save(dispute);
+
+        // 이의제기 접수 시 노쇼 예정 상태를 보존하고 관리자 검토 상태로 전환합니다.
+        MeetVerification meetVerification = meetVerificationService.getByMatchId(matchId);
+        meetVerification.markDispute();
+        matchService.markDisputed(matchId);
 
         // 11번 알림 - 관리자에게 이의제기 접수 알림 발송
         Long adminId = adminService.getAdminId();
