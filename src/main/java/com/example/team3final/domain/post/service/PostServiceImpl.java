@@ -296,6 +296,14 @@ public class PostServiceImpl implements PostService{
     }
 
     @Override
+    @Transactional
+    public Post getPostByIdWithLock(Long postId) {
+        // DB에서 PESSIMISTIC_WRITE 락을 걸고 게시글 조회
+        return postRepository.findByIdWithLock(postId)
+                .orElseThrow(() -> new PostException(ErrorCode.POST_NOT_FOUND));
+    }
+
+    @Override
     public PostInfoDto getPostInfo(Long postId) {
         // 내부적으로 getPostById 재사용 → 중복 제거
         Post post = getPostById(postId);

@@ -7,6 +7,9 @@ import com.example.team3final.domain.payment.dto.response.CancelPaymentResponseD
 import com.example.team3final.domain.payment.dto.response.CreatePaymentResponseDto;
 import com.example.team3final.domain.payment.dto.response.GetPaymentResponseDto;
 import com.example.team3final.domain.payment.dto.response.VerifyPaymentResponseDto;
+import com.example.team3final.domain.payment.entity.Payment;
+import com.example.team3final.domain.payment.enums.PaymentStatus;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 public interface PaymentService {
@@ -26,4 +29,7 @@ public interface PaymentService {
 
     // 결제 실패 처리 — 프론트가 결제창 취소/실패 시 호출
     void failPayment(Long userId, Long paymentId);
+
+    // 관리자 결제 내역 조회
+    Page<Payment> getPaymentsForAdmin(Long userId, PaymentStatus status, Pageable pageable);
 }

@@ -175,8 +175,11 @@ public enum ErrorCode {
     INQUIRY_CANCEL_FORBIDDEN(HttpStatus.CONFLICT, "INQUIRY_004", "처리가 시작된 문의는 취소할 수 없습니다."),
     INQUIRY_DAILY_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "INQUIRY_005", "하루 최대 5개의 문의만 접수할 수 있습니다."),
     INQUIRY_COOLDOWN(HttpStatus.TOO_MANY_REQUESTS, "INQUIRY_006", "문의 접수 후 1분 뒤에 다시 접수할 수 있습니다."),
-    INQUIRY_ALREADY_ANSWERED(HttpStatus.CONFLICT, "INQUIRY_007", "이미 답변이 완료된 문의입니다.");
+    INQUIRY_ALREADY_ANSWERED(HttpStatus.CONFLICT, "INQUIRY_007", "이미 답변이 완료된 문의입니다."),
 
+
+    // Location
+    LOCATION_NOT_TRACKABLE(HttpStatus.UNPROCESSABLE_ENTITY, "LOCATION_001", "MATCHED 상태의 매칭에서만 위치를 공유할 수 있습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;
