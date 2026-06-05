@@ -66,7 +66,7 @@ public class ExtensionTimeoutScheduler {
                 // EXPIRED 처리
                 mv.expireExtension();
 
-                // 만료 알림 발송
+                // 21. 만남 시간 연장 만료 알림 - 연장 요청자에게
                 notificationPublisher.sendMeetExtendExpired(mv.getExtensionRequesterId(), mv.getMatchId());
             });
         }
