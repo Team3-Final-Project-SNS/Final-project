@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router';
-import { createPost } from '../../api/postApi';
+import { useNavigate, useParams } from 'react-router';
+import { createPost, getPost, updatePost } from '../../api/postApi';
 import axiosInstance from '../../api/axiosInstance';
 import { AlertCircle, Loader2, MapPin, Search, X } from 'lucide-react';
 
@@ -12,8 +12,23 @@ interface KakaoPlace {
     address_name: string; // 도로명 주소
 }
 
+function toDateInputValue(value: Date) {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function toTimeInputValue(value: Date) {
+    const hours = String(value.getHours()).padStart(2, '0');
+    const minutes = String(value.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+}
+
 export default function PostCreatePage() {
     const navigate = useNavigate();
+    const { id } = useParams();
+    const isEditMode = Boolean(id);
 
     // ── 기존 상태 ────────────────────────────────────────
     const [placeName, setPlaceName] = useState('');
@@ -31,6 +46,7 @@ export default function PostCreatePage() {
     const [points, setPoints] = useState(1000);
     const [userPoints, setUserPoints] = useState(0);
     const [loading, setLoading] = useState(false);
+    const [initialLoading, setInitialLoading] = useState(isEditMode);
     const [error, setError] = useState('');
 
     // ── 최대 참여 인원 (신규) ─────────────────────────────
@@ -55,6 +71,38 @@ export default function PostCreatePage() {
         };
         fetchUser();
     }, []);
+
+    useEffect(() => {
+        if (!id) {
+            return;
+        }
+
+        const fetchPost = async () => {
+            setInitialLoading(true);
+            setError('');
+            try {
+                const res = await getPost(Number(id));
+                const post = res.data.data;
+                const meetAt = new Date(post.meetAt);
+
+                setPlaceName(post.placeName);
+                setPlaceLat(post.placeLat);
+                setPlaceLng(post.placeLng);
+                setSearchKeyword(post.placeName);
+                setDate(toDateInputValue(meetAt));
+                setTime(toTimeInputValue(meetAt));
+                setContent(post.content || '');
+                setPoints(post.authorDeposit);
+                setMaxApplicants(post.maxApplicants);
+            } catch (err: any) {
+                setError(err.response?.data?.message || '게시글 정보를 불러오지 못했습니다.');
+            } finally {
+                setInitialLoading(false);
+            }
+        };
+
+        fetchPost();
+    }, [id]);
 
     const afterPoints = userPoints - points;
 
@@ -113,7 +161,7 @@ export default function PostCreatePage() {
         }
     };
 
-    // ── 게시글 등록 ───────────────────────────────────────
+    // ── 게시글 등록/수정 ───────────────────────────────────────
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!placeName || !date || !time) {
@@ -129,18 +177,30 @@ export default function PostCreatePage() {
         setError('');
         try {
             const meetAt = `${date}T${time}:00`;
-            await createPost({
-                meetAt,
-                placeName,
-                placeLat,
-                placeLng,
-                content,
-                authorDeposit: points,
-                maxApplicants // ← 추가된 필드
-            });
-            navigate('/posts');
+            if (isEditMode && id) {
+                await updatePost(Number(id), {
+                    meetAt,
+                    placeName,
+                    placeLat,
+                    placeLng,
+                    content,
+                    authorDeposit: points,
+                });
+                navigate(`/posts/${id}`);
+            } else {
+                await createPost({
+                    meetAt,
+                    placeName,
+                    placeLat,
+                    placeLng,
+                    content,
+                    authorDeposit: points,
+                    maxApplicants
+                });
+                navigate('/posts');
+            }
         } catch (err: any) {
-            setError(err.response?.data?.message || '게시글 작성에 실패했습니다.');
+            setError(err.response?.data?.message || (isEditMode ? '게시글 수정에 실패했습니다.' : '게시글 작성에 실패했습니다.'));
         } finally {
             setLoading(false);
         }
@@ -149,10 +209,23 @@ export default function PostCreatePage() {
     const pointOptions = [1000, 2000, 3000, 5000];
     const isPlaceSelected = placeLat !== null && placeLng !== null;
 
+    if (initialLoading) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20">
+                <Loader2 className="mb-4 animate-spin text-[#d84315]" size={40} />
+                <p className="text-[#616161]">게시글 정보를 불러오는 중...</p>
+            </div>
+        );
+    }
+
     return (
         <div className="max-w-2xl mx-auto">
-            <h1 className="text-3xl font-bold text-[#212121] mb-2 text-center">밥 같이 먹을 사람 구하기 🍚</h1>
-            <p className="text-center text-[#616161] mb-8">간단한 정보만 입력하면 매칭이 시작됩니다</p>
+            <h1 className="text-3xl font-bold text-[#212121] mb-2 text-center">
+                {isEditMode ? '게시글 수정하기' : '밥 같이 먹을 사람 구하기 🍚'}
+            </h1>
+            <p className="text-center text-[#616161] mb-8">
+                {isEditMode ? '변경할 내용을 수정한 뒤 저장해주세요' : '간단한 정보만 입력하면 매칭이 시작됩니다'}
+            </p>
 
             <form onSubmit={handleSubmit} className="bg-white border border-[#e0e0e0] rounded-2xl p-8 shadow-sm">
                 {error && (
@@ -274,28 +347,29 @@ export default function PostCreatePage() {
                             </div>
                         </div>
 
-                        {/* 최대 참여 인원 (신규) */}
-                        <div>
-                            <label className="block text-sm font-medium text-[#424242] mb-2">
-                                최대 참여 인원
-                            </label>
-                            <div className="flex gap-2 flex-wrap">
-                                {[2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-                                    <button
-                                        key={num}
-                                        type="button"
-                                        onClick={() => setMaxApplicants(num)}
-                                        className={`px-4 py-3 rounded-lg font-semibold transition-colors ${
-                                            maxApplicants === num
-                                                ? 'bg-[#d84315] text-white'
-                                                : 'bg-white border border-[#e0e0e0] text-[#616161] hover:border-[#d84315]'
-                                        }`}
-                                    >
-                                        {num}명
-                                    </button>
-                                ))}
+                        {!isEditMode && (
+                            <div>
+                                <label className="block text-sm font-medium text-[#424242] mb-2">
+                                    최대 참여 인원
+                                </label>
+                                <div className="flex gap-2 flex-wrap">
+                                    {[2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                                        <button
+                                            key={num}
+                                            type="button"
+                                            onClick={() => setMaxApplicants(num)}
+                                            className={`px-4 py-3 rounded-lg font-semibold transition-colors ${
+                                                maxApplicants === num
+                                                    ? 'bg-[#d84315] text-white'
+                                                    : 'bg-white border border-[#e0e0e0] text-[#616161] hover:border-[#d84315]'
+                                            }`}
+                                        >
+                                            {num}명
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         {/* 한마디 */}
                         <div>
@@ -352,7 +426,7 @@ export default function PostCreatePage() {
                     disabled={loading}
                     className="w-full bg-[#d84315] text-white py-4 rounded-xl font-bold text-lg hover:bg-[#bf360c] transition-all shadow-md hover:shadow-lg disabled:bg-[#e0e0e0] flex items-center justify-center"
                 >
-                    {loading ? <Loader2 className="animate-spin" /> : '게시글 올리기'}
+                    {loading ? <Loader2 className="animate-spin" /> : isEditMode ? '수정 완료' : '게시글 올리기'}
                 </button>
             </form>
         </div>
