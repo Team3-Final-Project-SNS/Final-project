@@ -252,44 +252,83 @@ public class MeetVerification {
         this.imminentSent = true;
     }
 
-    // 노쇼 예정 상태에서 이의제기 접수 시 호출
-    // 현재 노쇼 상태를 disputedFromStatus에 백업하고 DISPUTE로 전환
-    // 이후 판정 결과에 따라 restoreNoShowStatusFromDispute() 또는 completeByDispute()로 처리됨
+    /**
+     * [이의제기 접수] 노쇼 예정 상태에서 이의제기 접수 시 호출
+     * - 현재 노쇼 상태를 disputedFromStatus에 백업하고 DISPUTE로 전환
+     * - 이후 판정 결과에 따라 아래 3개 메소드 중 하나로 처리됨:
+     *   REJECTED          → rejectDispute()
+     *   PARTIALLY_ACCEPTED → partiallyAcceptDispute()
+     *   ACCEPTED          → completeByDispute()
+     */
     public void markDispute() {
+        // 노쇼 예정 상태(HOST/GUEST/BOTH_NO_SHOW)가 아니면 이의제기 불가
         if (this.status != VerificationStatus.HOST_NO_SHOW
                 && this.status != VerificationStatus.GUEST_NO_SHOW
                 && this.status != VerificationStatus.BOTH_NO_SHOW) {
             throw new IllegalStateException("노쇼 예정 상태에서만 이의제기 상태로 전환할 수 있습니다.");
         }
 
+        // 원래 노쇼 상태를 백업 (판정 후 복원 또는 참조용)
         this.disputedFromStatus = this.status;
+        // 이의제기 검토 중 상태로 전환
         this.status = VerificationStatus.DISPUTE;
     }
 
-    // 이의제기 기각(REJECTED) 또는 부분 수용(PARTIALLY_ACCEPTED) 시 호출
-    // 백업해둔 원래 노쇼 상태를 복원하고 백업 필드를 비움
-    // 복원된 상태를 반환하면 호출자(AdminDisputeService)가 적절한 노쇼 정산을 이어서 실행
-    public VerificationStatus restoreNoShowStatusFromDispute() {
+    /**
+     * [기각 - REJECTED] 이의제기 기각 시 호출
+     * - 정책: 정당한 사유 없음 → 노쇼 확정 → 예치 포인트 전액 몰수
+     * - 백업해둔 원래 노쇼 상태(HOST/GUEST/BOTH_NO_SHOW)를 복원
+     * - 반환된 상태값을 AdminDisputeService에서 받아 포인트 몰수 처리에 사용
+     */
+    public VerificationStatus rejectDispute() {
+        // DISPUTE 상태이고 백업된 노쇼 상태가 있을 때만 복원 가능
         if (this.status == VerificationStatus.DISPUTE && this.disputedFromStatus != null) {
+            // 원래 노쇼 상태로 복원 (HOST_NO_SHOW / GUEST_NO_SHOW / BOTH_NO_SHOW)
             this.status = this.disputedFromStatus;
+            // 백업 필드 초기화
             this.disputedFromStatus = null;
         }
+        // 복원된 노쇼 상태를 반환 → 호출자(AdminDisputeService)가 포인트 몰수 처리에 사용
         return this.status;
     }
 
-    // 이의제기 수용(ACCEPTED) + 실제 만남 인정 시 호출
-    // GPS/QR 오류로 인증만 실패했지만 실제 만남은 있었던 경우
-    public void completeByDispute() {
-        this.status = VerificationStatus.DONE;
-        this.isMeetVerified = true;
-        this.completedAt = LocalDateTime.now();
+    /**
+     * [부분 수용 - PARTIALLY_ACCEPTED] 이의제기 부분 수용 시 호출
+     * - 정책: 응급실/장례식 등 불가피한 사유로 실제 만남이 이루어지지 않은 경우
+     * - 노쇼가 아닌 매칭 취소로 처리 → 예치 포인트 50% 반환
+     * - "만남은 없었지만 정상적인 취소 사유가 인정된" 케이스
+     */
+    public void partiallyAcceptDispute() {
+        // DISPUTE 상태에서만 호출 가능
+        if (this.status != VerificationStatus.DISPUTE) {
+            throw new IllegalStateException("이의제기 검토 중 상태에서만 부분 수용 처리할 수 있습니다.");
+        }
+
+        // 노쇼가 아닌 취소로 상태 전환 (포인트 50% 반환은 Service에서 처리)
+        this.status = VerificationStatus.NO_SHOW_CANCELLED;
+        // 백업 필드 초기화
         this.disputedFromStatus = null;
     }
 
-    // 이의제기 수용(ACCEPTED) + 매칭 취소 인정 시 호출
-    // 장례식/응급실 등 불가피한 사유로 노쇼가 아닌 취소로 처리하는 경우
-    public void cancelNoShowByDispute() {
-        this.status = VerificationStatus.NO_SHOW_CANCELLED;
+    /**
+     * [수용 - ACCEPTED] 이의제기 수용 시 호출
+     * - 정책: 실제 만남은 있었으나 서비스 오류(GPS/QR 인식 오류 등)로 인증만 실패한 경우
+     * - 만남 완료(DONE)로 처리 → 예치 포인트 100% 반환
+     * - "만남은 있었지만 시스템 문제로 인증이 안된" 케이스
+     */
+    public void completeByDispute() {
+        // DISPUTE 상태에서만 호출 가능
+        if (this.status != VerificationStatus.DISPUTE) {
+            throw new IllegalStateException("이의제기 검토 중 상태에서만 수용 처리할 수 있습니다.");
+        }
+
+        // 정상 만남 완료 상태로 전환
+        this.status = VerificationStatus.DONE;
+        // 만남 인증 완료 처리 (실제 만남이 있었음을 인정)
+        this.isMeetVerified = true;
+        // 완료 시각 기록
+        this.completedAt = LocalDateTime.now();
+        // 백업 필드 초기화
         this.disputedFromStatus = null;
     }
 }
