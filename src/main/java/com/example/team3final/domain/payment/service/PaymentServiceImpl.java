@@ -137,7 +137,7 @@ public class PaymentServiceImpl implements PaymentService{
         log.info("[Payment] 결제 검증 완료 - userId: {}, paymentId: {}, chargePoint: {}",
                 userId, paymentId, payment.getChargePoint());
 
-        // 30번 알림 - 결제 성공 알림
+        // 29. 결제 성공 알림 - 결제 사용자에게
         notificationPublisher.sendPaymentSuccess(userId, paymentId);
 
         return VerifyPaymentResponseDto.of(payment, request.getImpUid(), balanceAfter);
@@ -255,7 +255,7 @@ public class PaymentServiceImpl implements PaymentService{
         // FAILED 처리
         payment.markFailed("사용자 결제 취소");
 
-        // 31번 알림 - 결제 실패 알림
+        // 30. 결제 실패 알림 - 결제 사용자에게
         notificationPublisher.sendPaymentFailed(userId, paymentId);
 
         log.info("[Payment] 결제 실패 처리 - userId: {}, paymentId: {}", userId, paymentId);
