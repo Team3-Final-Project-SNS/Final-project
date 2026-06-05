@@ -109,7 +109,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             throw new MeetException(ErrorCode.MATCH_NOT_PARTICIPANT);
         }
 
-        // GPS 재 인증 차단을 위한 검증
+        // 노쇼 예정, 이의제기 중, 노쇼 확정 상태에서는 GPS 재인증 차단
         if (NO_SHOW_STATUSES.contains(meetVerification.getStatus())
                 || meetVerification.getStatus() == VerificationStatus.DISPUTE
                 || meetVerification.getStatus() == VerificationStatus.NO_SHOW_CONFIRMED) {
@@ -120,8 +120,10 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         // 시작 시간은 원래 약속시간 기준 15분 전으로 고정
         LocalDateTime verificationStartTime = postInfo.meetAt().minusMinutes(VERIFICATION_BEFORE_MINUTES);
 
-        // 종료 시각은 연장 여부에 따라 다르게 계산
-        // 연장 수락된 경우면 extendedMeetAt 기준, 없으면 원래 meetAt 기준
+        // 연장 수락 시 실제 약속시간이 바뀌므로 종료 시각도 그에 맞게 조정
+        // 연장 미사용 → 원래 meetAt + 60분
+        // 연장 수락 → extendedMeetAt(meetAt + 15분) + 60분
+        // extendedMeetAt은 acceptExtension() 시점에 채워지므로 null이면 미사용을 의미
         LocalDateTime effectiveMeetAt = meetVerification.getExtendedMeetAt()
                 != null ? meetVerification.getExtendedMeetAt() : postInfo.meetAt();
 
@@ -167,6 +169,9 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
         boolean bothVerified = meetVerification.getStatus() == VerificationStatus.VERIFIED;
 
+        // 양측 장소 인증이 완료된 순간 QR을 즉시 발급
+        // 등록자가 먼저 인증하든 신청자가 먼저 하든 마지막 인증 완료 시점에 한 번만 발급됨
+        // (내부에서 이미 토큰이 있으면 스킵 — 중복 발급 방지)
         if (bothVerified) {
             issueQrTokenIfNeeded(meetVerification);
         }
@@ -201,7 +206,8 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             throw new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED);
         }
 
-        // 장소 인증 완료 시 이미 생성 되어 있어야 함
+        // 장소 인증 완료 시 createPlaceVerification()에서 이미 발급했지만
+        // 혹시 발급이 누락된 경우를 대비한 안전망 — 없으면 발급, 있으면 스킵
         issueQrTokenIfNeeded(meetVerification);
 
         // 만약 QR 만료면 예외
@@ -264,6 +270,8 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
         // 만남 인증 완료 되는 순간 채팅방 비활성화 예약
         Long postId = matchInfo.postId();
+
+        // 만남 인증 완료 즉시 채팅방을 닫지 않고 "2시간 후 비활성화"를 예약
         chatService.scheduleChatRoomDeactivation(postId);
 
         // Match 상태 COMPLETED로 변경
@@ -298,7 +306,9 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         meetVerificationRepository.save(MeetVerification.createPending(matchId));
     }
 
-    // GPS 노쇼
+    // GPS 노쇼 배치 판정 — 스케줄러가 주기적으로 호출
+    // 판정 대상: PENDING 상태 (양측 GPS 인증이 모두 완료되지 않은 매칭)
+    // 판정 시점: meetAt + 30분이 지난 건 (인증 가능 시간이 완전히 지난 후)
     @Override
     @Transactional
     public void judgeGpsNoShow() {
@@ -347,12 +357,13 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                 continue;
             }
 
-            // 연장 수락된 경우 실제 약속시간은 -> extendedMeetAt
-            // extendedMeetAt이 null이면 원래 meetAt 사용
+            // 연장 수락된 매칭은 원래 meetAt이 아닌 extendedMeetAt을 기준으로 노쇼 판정
+            // 연장 안 했으면 extendedMeetAt이 null이므로 원래 meetAt 사용
             LocalDateTime effectiveMeetAt = meetVerification.getExtendedMeetAt()
                     != null ? meetVerification.getExtendedMeetAt() : postInfoDto.meetAt();
 
-            // meetAt + 30분이 아직 안 지났으면 판정 시점 전이므로, 다음건으로
+            // 판정 기준 시각(meetAt + 30분)이 아직 안 지났으면 이번 배치에서 스킵
+            // 다음 스케줄러 실행 때 다시 평가됨
             LocalDateTime deadline = effectiveMeetAt.plusMinutes(NO_SHOW_JUDGE_MINUTES);
             if (now.isBefore(deadline)) {
                 continue;
@@ -391,7 +402,8 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         }
     }
 
-    // QR 노쇼
+    // QR 노쇼 배치 판정 — 스케줄러가 주기적으로 호출
+    // 판정 대상: VERIFIED 상태(양측 GPS 인증 완료) + QR 만료 시간이 지난 매칭 = 장소는 도착했는데 30분 안에 QR 인증을 못 한 케이스
     @Override
     @Transactional
     public void judgeQrNoShow() {
@@ -432,6 +444,9 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                 continue;
             }
 
+            // 두 사람이 지금도 반경 안에 있는지 확인
+            // true  -> 최근 15초 이내 위치 업데이트 + 반경 60m 이내 → 아직 현장에 있음
+            // false -> 위치 없음 or 오래된 위치 or 반경 밖 → 자리를 뜬 것으로 판단
             boolean authorInRange = userLocationService.isFreshLocationWithinRadius(
                     matchId,
                     postInfoDto.authorId(),
@@ -450,14 +465,17 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                     LOCATION_FRESHNESS_SECONDS
             );
 
+            // 등록자는 있고 신청자가 없는 경우
             if (authorInRange && !applicantInRange) {
                 meetVerification.markApplicantNoShow();
                 notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), matchId);
 
+                // 신청자는 있고 등록자가 없는 경우
             } else if (!authorInRange && applicantInRange) {
                 meetVerification.markAuthorNoShow();
                 notificationPublisher.sendNoShowWarning(postInfoDto.authorId(), matchId);
 
+                // 둘 다 없을 때
             } else {
                 meetVerification.markBothNoShow();
                 notificationPublisher.sendNoShowWarning(postInfoDto.authorId(), matchId);
@@ -514,8 +532,9 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
             Long matchId = meetVerification.getMatchId();
 
-            // 이의제기가 아직 검토 중인 건 스킵
-            // 관리자가 ACCEPTED / REJECTED 판정을 내릴 때까지 대기
+            // 이의제기가 아직 검토 중인 건은 확정 처리 대상에서 제외
+            // 관리자가 ACCEPTED / REJECTED 판정을 내릴 때까지 24시간 타이머를 멈춤
+            // 판정이 나면 AdminDisputeService에서 직접 confirmNoShow()를 호출
             if (activeDisputeMatchIds.contains(matchId)) {
                 continue;
             }
@@ -790,19 +809,21 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                 .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
     }
 
+    // QR 토큰 발급 — 중복 발급 방지 포함
+    // 호출 시점: 양측 GPS 인증 완료 직후
     private void issueQrTokenIfNeeded(MeetVerification meetVerification) {
 
-        // QR 토큰이 존재하면 스킵
+        // 이미 발급된 토큰이 있으면 스킵 — 멱등성 보장 (여러 번 호출해도 1번만 발급됨)
         if (meetVerification.getQrToken() != null) {
             return;
         }
 
-        // 등록자 / 신청자 둘 중 하나라도 인증 시각이 null이면 스킵
+        // 양측 GPS 인증이 완료되지 않았으면 스킵 (정상적으로는 도달하지 않아야 하는 방어 코드)
         if (meetVerification.getAuthorPlaceVerifiedAt() == null || meetVerification.getApplicantPlaceVerifiedAt() == null) {
             return;
         }
 
-        // 장소 인증 완료 시각 -> 양측 장소 인증 완료 시각으로 부터 30분
+        // QR 만료 시각 = 양측 중 더 나중에 인증한 시각 + 30분
         LocalDateTime placeVerifiedCompletedAt = meetVerification.getAuthorPlaceVerifiedAt()
                 .isAfter(meetVerification.getApplicantPlaceVerifiedAt())
                 ? meetVerification.getAuthorPlaceVerifiedAt() : meetVerification.getApplicantPlaceVerifiedAt();
