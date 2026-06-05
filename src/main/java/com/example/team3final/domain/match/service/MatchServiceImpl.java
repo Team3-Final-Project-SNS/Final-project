@@ -400,7 +400,11 @@ public class MatchServiceImpl implements MatchService{
         }
 
         // 2번 알림 - 상대방에게 매칭 취소 알림 발송
-        notificationPublisher.sendMatchCancelled(opponentId, matchId);
+        // GUEST가 취소한 경우에만 상대방(HOST)에게 알림 발송
+        // HOST가 취소한 경우는 위 for문에서 이미 모든 GUEST에게 발송 완료
+        if (cancelerIsApplicant) {
+            notificationPublisher.sendMatchCancelled(opponentId, matchId);
+        }
 
         // 매칭 취소 시 ZSet 알림 예약 제거
         // 취소된 매칭은 알림 발송 불필요
