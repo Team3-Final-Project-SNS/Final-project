@@ -11,8 +11,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
-import javax.sql.DataSource;
-
 /**
  * RAG 전용 PostgreSQL + pgvector VectorStore 설정입니다.
  *
@@ -28,22 +26,10 @@ public class AiRagVectorStoreConfig {
     private final AiProperties aiProperties;
 
     @Bean
-    public DataSource ragDataSource() {
+    public VectorStore vectorStore(EmbeddingModel embeddingModel) {
         AiProperties.RagStore ragStore = aiProperties.getRagStore();
 
-        DriverManagerDataSource dataSource = new DriverManagerDataSource();
-        dataSource.setDriverClassName(ragStore.getDriverClassName());
-        dataSource.setUrl(ragStore.getUrl());
-        dataSource.setUsername(ragStore.getUsername());
-        dataSource.setPassword(ragStore.getPassword());
-        return dataSource;
-    }
-
-    @Bean
-    public VectorStore vectorStore(DataSource ragDataSource, EmbeddingModel embeddingModel) {
-        AiProperties.RagStore ragStore = aiProperties.getRagStore();
-
-        return PgVectorStore.builder(new JdbcTemplate(ragDataSource), embeddingModel)
+        return PgVectorStore.builder(new JdbcTemplate(createRagDataSource(ragStore)), embeddingModel)
                 .schemaName(ragStore.getSchemaName())
                 .vectorTableName(ragStore.getTableName())
                 .dimensions(ragStore.getDimensions())
@@ -51,5 +37,14 @@ public class AiRagVectorStoreConfig {
                 .distanceType(PgVectorStore.PgDistanceType.valueOf(ragStore.getDistanceType()))
                 .indexType(PgVectorStore.PgIndexType.valueOf(ragStore.getIndexType()))
                 .build();
+    }
+
+    private DriverManagerDataSource createRagDataSource(AiProperties.RagStore ragStore) {
+        DriverManagerDataSource dataSource = new DriverManagerDataSource();
+        dataSource.setDriverClassName(ragStore.getDriverClassName());
+        dataSource.setUrl(ragStore.getUrl());
+        dataSource.setUsername(ragStore.getUsername());
+        dataSource.setPassword(ragStore.getPassword());
+        return dataSource;
     }
 }

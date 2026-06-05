@@ -92,6 +92,20 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # ── PostgreSQL + pgvector (RAG 전용) ────────────────────────────
+  rag-postgres:
+    image: pgvector/pgvector:pg16
+    container_name: hankkipot-rag-postgres
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: 12345678
+    ports:
+      - "5432:5432"
+    volumes:
+      - rag_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
   # ── Spring Boot 앱 ───────────────────────────────────────────
   app:
     build:
@@ -201,3 +215,4 @@ services:
 volumes:
   mysql_data:
   redis_data:
+  rag_postgres_data:

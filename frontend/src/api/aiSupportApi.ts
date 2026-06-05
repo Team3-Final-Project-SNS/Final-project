@@ -9,6 +9,7 @@ export type AiSupportCategory =
   | 'REPORT'
   | 'ACCOUNT'
   | 'MEET'
+  | 'REVIEW'
   | 'GENERAL';
 
 export interface AiSupportChatResponse {
