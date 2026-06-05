@@ -23,7 +23,7 @@ public class AiProperties {
 
     private ChatFeature matching = new ChatFeature();
     private ChatFeature support = new ChatFeature();
-    private Feature report = new Feature();
+    private ChatFeature report = new ChatFeature();
     private ModerationFeature moderation = new ModerationFeature();
     private Metrics metrics = new Metrics();
     private Prompt prompt = new Prompt();

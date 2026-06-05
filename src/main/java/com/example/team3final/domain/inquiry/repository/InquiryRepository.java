@@ -13,6 +13,9 @@ import java.time.LocalDateTime;
 
 public interface InquiryRepository extends JpaRepository<Inquiry, Long> {
 
+    // AI_report 관리자 콘솔 챗봇의 대시보드 요약용 읽기 전용 집계입니다.
+    long countByAnswerStatus(InquiryAnswerStatus answerStatus);
+
     // 특정 유저의 특정 시간 내 문의 개수 카운트
     @Query("""
         SELECT COUNT(i)
