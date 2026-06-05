@@ -23,7 +23,8 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
     Optional<Report> findByIdAndReporterId(Long id, Long reporterId);
 
     // 이미 신고한 대상인지 확인 (중복 신고 방지)
-    boolean existsByReporterIdAndTargetId(Long reporterId, Long targetId);
+    boolean existsByReporterIdAndTargetIdAndStatusIn(
+            Long reporterId, Long targetId, java.util.Collection<ReportStatus> statuses);
 
     // 관리자용 신고 목록 조회 - 상태 필터
     @Query("""
@@ -39,12 +40,9 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
     // 피신고자 채택 횟수 조회 (제재 정책용)
     int countByTargetIdAndStatus(Long targetId, ReportStatus status);
 
-    // 기각된 신고에 대해 3일 이내 재신고 확인
-    boolean existsByReporterIdAndTargetIdAndStatusAndCreatedAtAfter(
-            Long reporterId, Long targetId, ReportStatus status, LocalDateTime after);
-
     // 기각된 신고 단건 조회
-    Optional<Report> findByReporterIdAndTargetIdAndStatus(Long reporterId, Long targetId, ReportStatus status);
+    Optional<Report> findTopByReporterIdAndTargetIdAndStatusOrderByProcessedAtDesc(
+            Long reporterId, Long targetId, ReportStatus status);
 
     // 특정 신고자의 기각된 신고 횟수 조회
     int countByReporterIdAndStatus(Long reporterId, ReportStatus status);
