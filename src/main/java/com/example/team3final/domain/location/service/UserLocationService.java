@@ -14,9 +14,7 @@ public interface UserLocationService {
     // 양측 위치 조회
     GetLocationResponseDto getLocations(Long matchId, Long userId);
 
-    // 위치 판정 메서드
-    // 기존에는 QR 만료 시 신청자만 노쇼 처리했는데, 만료 시점의 최신 위치를 보고
-    // 등록자/신청자/양측 노쇼를 나눠야 함
+    // QR 만료 시 노쇼 판정을 위해 호출되는 메서드
     boolean isFreshLocationWithinRadius(
             Long matchId,
             Long userId,

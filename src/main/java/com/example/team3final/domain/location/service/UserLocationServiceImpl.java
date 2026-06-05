@@ -131,6 +131,8 @@ public class UserLocationServiceImpl implements UserLocationService {
         return GetLocationResponseDto.of(myLocation, opponentLocation);
     }
 
+    // QR 만료 시 노쇼 판정을 위해 호출되는 메서드
+    // "이 유저가 지금도 약속 장소 반경 안에 있는가?"를 판단
     @Override
     public boolean isFreshLocationWithinRadius(
             Long matchId,
@@ -141,8 +143,10 @@ public class UserLocationServiceImpl implements UserLocationService {
             long freshnessSeconds
     ) {
         return userLocationRepository.findByMatchIdAndUserId(matchId, userId)
+                // 현재 시각 - freshnessSeconds 이후에 업데이트된 위치만 통과
                 .filter(location -> !location.getUpdatedAt()
                         .isBefore(LocalDateTime.now().minusSeconds(freshnessSeconds)))
+                // 약속 장소로부터 radiusMeters 이내인 위치만 통과
                 .filter(location -> {
                     double distance = GpsUtils.calculateDistance(
                             location.getLatitude().doubleValue(),
@@ -152,7 +156,7 @@ public class UserLocationServiceImpl implements UserLocationService {
                     );
                     return distance <= radiusMeters;
                 })
-                .isPresent();
+                .isPresent(); // 두 필터를 모두 통과한 위치가 있으면 true
     }
 }
 
