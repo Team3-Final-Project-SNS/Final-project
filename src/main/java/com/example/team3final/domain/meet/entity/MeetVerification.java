@@ -35,7 +35,7 @@ public class MeetVerification {
 
     // QR 토큰 -> 등록자가 만남 QR을 요청할 때 서버가 발급하는 토큰 문자열
     // 초기 생성 시점엔 null → 장소 인증 완료 후 발급
-    @Column(name = "qr_token", length = 255)
+    @Column(name = "qr_token")
     private String qrToken;
 
     // 만남 인증 여부
@@ -59,11 +59,11 @@ public class MeetVerification {
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
-    // 만남 시간 15분 연장 사용 여부 (성공 1회 한정)
+    // 만남 시간 10분 연장 사용 여부 (성공 1회 한정)
     @Column(name = "is_extended", nullable = false)
     private boolean isExtended = false;
 
-    // 연장된 최종 만남 시각 (수락 시 post.meetAt + 15분 저장)
+    // 연장된 최종 만남 시각 (수락 시 post.meetAt + 10분 저장)
     @Column(name = "extended_meet_at")
     private LocalDateTime extendedMeetAt;
 
@@ -205,10 +205,10 @@ public class MeetVerification {
     public void acceptExtension(LocalDateTime meetAt, long extensionMinutes) {
         this.extensionStatus = ExtensionStatus.ACCEPTED;
         this.isExtended = true;
-        this.extendedMeetAt = meetAt.plusMinutes(extensionMinutes); // 원래 약속 시간에서 + 15분
+        this.extendedMeetAt = meetAt.plusMinutes(extensionMinutes); // 원래 약속 시간에서 + 10분
     }
 
-    // QR 만료 시각 15분 연장 (수락 시 함께 호출)
+    // QR 만료 시각 10분 연장 (수락 시 함께 호출)
     public void extendQrExpiry(long extensionMinutes) {
         if (this.qrExpiresAt != null) {
             this.qrExpiresAt = this.qrExpiresAt.plusMinutes(extensionMinutes);

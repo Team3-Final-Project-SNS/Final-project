@@ -58,27 +58,26 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     // 한국 시간대 오프셋 — Unix Timestamp 변환 시 KST(UTC+9) 기준 적용
     private static final ZoneOffset KST = ZoneOffset.ofHours(9);
 
-    // GPS 오차범위까지 고려한 인증 반경
-    private static final double PLACE_VERIFICATION_RADIUS_METERS = 60.0;
-    // QR 토큰 TTL - 장소 인증 완료 시점 + 30분
+    // QR 토큰 TTL - 상호 장소 인증 완료 시점 + 30분
     private static final long QR_TOKEN_VALIDITY_MINUTES = 30;
-    // 장소 인증 가능 시간 : 만남 시간 15분전 ~ 1시간
-    private static final long VERIFICATION_BEFORE_MINUTES = 15;
-    // 화면 활성 시간
-    private static final long VERIFICATION_AFTER_MINUTES = 60;
-    // 노쇼 판정 기준 : GPS -> meetAt + 30분
-    private static final long NO_SHOW_JUDGE_MINUTES = 30;
+    // 장소 인증 가능 시간 : 만남 시간 10분 전 ~ 30분간
+    private static final long VERIFICATION_BEFORE_MINUTES = 10;
+    // 장소 인증 활성 시간 (인증 시작 시각 기준 30분)
+    private static final long VERIFICATION_AFTER_MINUTES = 30;
+    // 노쇼 판정 기준 : 장소 인증 종료 시각 기준 (meetAt - 10분 시작 + 30분 = meetAt + 20분)
+    private static final long NO_SHOW_JUDGE_MINUTES = 20;
     // 연장 요청 타임아웃 : 요청 시각 + 5분
     private static final long EXTENSION_TIMEOUT_MINUTES = 5;
-    // 연장 시간
-    private static final long EXTENSION_MINUTES = 15;
+    // 연장 시간 : 1회 10분
+    private static final long EXTENSION_MINUTES = 10;
     // 노쇼 확정까지 이의제기 가능 시간: 24시간
     private static final long NO_SHOW_CONFIRM_HOURS = 24;
     // 5초마다 위치 업데이트 정책을 기준으로 안전 여유 값 15초
     private static final long LOCATION_FRESHNESS_SECONDS = 15;
-    // GPS 오차범위 고려한 노쇼 범위
+    // GPS 오차범위 고려한 노쇼 범위 (정책 50m + 오차 10m)
     private static final double NO_SHOW_RADIUS_METERS = 60.0;
 
+    // 노쇼 예정 상태 목록 — 이의제기/확정 처리 대상
     private static final List<VerificationStatus> NO_SHOW_STATUSES = List.of(
             VerificationStatus.HOST_NO_SHOW,
             VerificationStatus.GUEST_NO_SHOW,
@@ -93,21 +92,14 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             Long matchId,
             PlaceVerificationRequestDto requestDto) {
 
-        // matchId로 MeetVerification 조회
-        MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
-                .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
+        // MeetVerification + MatchInfo + PostInfo 한 번에 조회
+        MeetContext ctx = loadMeetContext(matchId);
+        MeetVerification meetVerification = ctx.meetVerification();
+        MatchInfoDto matchInfo = ctx.matchInfo();
+        PostInfoDto postInfo = ctx.postInfo();
 
-        // MatchInfoDto 조회
-        MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
-
-        // PostInfoDto 조회
-        // match -> postId -> post 순서대로 (Match에는 authorId 없음)
-        PostInfoDto postInfo = postQueryService.getPostInfo(matchInfo.postId());
-
-        // 매칭 당사자가 맞는지 검증 (등록자 or 신청자인지)
-        if (!matchInfo.isParticipant(userId, postInfo.authorId())) {
-            throw new MeetException(ErrorCode.MATCH_NOT_PARTICIPANT);
-        }
+        // 매칭 당사자 검증 (등록자 or 신청자인지)
+        validateParticipant(userId, matchInfo, postInfo);
 
         // 노쇼 예정, 이의제기 중, 노쇼 확정 상태에서는 GPS 재인증 차단
         if (NO_SHOW_STATUSES.contains(meetVerification.getStatus())
@@ -116,25 +108,28 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             throw new MeetException(ErrorCode.GPS_NOT_VERIFICATION_TIME);
         }
 
-            LocalDateTime now = LocalDateTime.now();
-        // 시작 시간은 원래 약속시간 기준 15분 전으로 고정
+        LocalDateTime now = LocalDateTime.now();
+
+        // 시작 시간은 원래 약속시간 기준 10분 전으로 고정
         LocalDateTime verificationStartTime = postInfo.meetAt().minusMinutes(VERIFICATION_BEFORE_MINUTES);
 
         // 연장 수락 시 실제 약속시간이 바뀌므로 종료 시각도 그에 맞게 조정
-        // 연장 미사용 → 원래 meetAt + 60분
-        // 연장 수락 → extendedMeetAt(meetAt + 15분) + 60분
+        // 연장 미사용 → 원래 meetAt + 20분
+        // 연장 수락 → extendedMeetAt(meetAt + 10분) + 20분
         // extendedMeetAt은 acceptExtension() 시점에 채워지므로 null이면 미사용을 의미
-        LocalDateTime effectiveMeetAt = meetVerification.getExtendedMeetAt()
-                != null ? meetVerification.getExtendedMeetAt() : postInfo.meetAt();
+        LocalDateTime effectiveMeetAt = meetVerification.getExtendedMeetAt() != null
+                ? meetVerification.getExtendedMeetAt()
+                : postInfo.meetAt();
 
         LocalDateTime verificationEndTime = effectiveMeetAt.plusMinutes(VERIFICATION_AFTER_MINUTES);
 
+        // 인증 가능 시간 범위 체크
         if (now.isBefore(verificationStartTime) || now.isAfter(verificationEndTime)) {
             throw new MeetException(ErrorCode.GPS_NOT_VERIFICATION_TIME);
         }
 
         // 이미 본인이 인증 완료했는지 체크
-        // userId 기반으로 등록저/신청자 구분하여 각각 체크
+        // userId 기반으로 등록자/신청자 구분하여 각각 체크
         boolean isAuthor = userId.equals(postInfo.authorId());
         if (isAuthor && meetVerification.isAuthorPlaceVerified()) {
             throw new MeetException(ErrorCode.GPS_ALREADY_VERIFIED);
@@ -169,25 +164,23 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             issueQrTokenIfNeeded(meetVerification);
         }
 
-        // 4번 알림 - 상대방에게 장소 인증 완료 알림 발송
+        // 상대방에게 장소 인증 완료 알림 발송
         // isAuthor면 상대방은 신청자(applicantId), 아니면 등록자(authorId)
         Long opponentId = isAuthor ? matchInfo.applicantId() : postInfo.authorId();
         notificationPublisher.sendPlaceVerified(opponentId, matchId);
 
-
         return PlaceVerificationResponseDto.of(meetVerification, distanceMeters, bothVerified);
     }
 
+    // QR 코드 조회 (등록자 전용)
     @Override
     @Transactional
     public QrResponseDto getMeetQr(Long userId, Long matchId) {
-        // matchId 조회
-        MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
-                .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
 
-        // MatchInfoDto -> PostInfoDto 순으로 타서 authorId 획득
-        MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
-        PostInfoDto postInfo = postQueryService.getPostInfo(matchInfo.postId());
+        // MeetVerification + MatchInfo + PostInfo 한 번에 조회
+        MeetContext ctx = loadMeetContext(matchId);
+        MeetVerification meetVerification = ctx.meetVerification();
+        PostInfoDto postInfo = ctx.postInfo();
 
         // 등록자인지 확인 (QR 발급은 등록자만 가능!)
         if (!userId.equals(postInfo.authorId())) {
@@ -203,7 +196,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         // 혹시 발급이 누락된 경우를 대비한 안전망 — 없으면 발급, 있으면 스킵
         issueQrTokenIfNeeded(meetVerification);
 
-        // 만약 QR 만료면 예외
+        // QR 만료 여부 체크
         if (meetVerification.isQrExpired()) {
             throw new MeetException(ErrorCode.QR_EXPIRED);
         }
@@ -211,16 +204,17 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         return QrResponseDto.of(matchId, meetVerification);
     }
 
-    // QR 스캔
+    // QR 스캔 (신청자 전용)
     @Override
     @Transactional
     public QrScanResponseDto createQrScan(Long userId, Long matchId, QrScanRequestDto requestDto) {
 
-        // matchId로 조회 MeetVerification 조회
+        // matchId로 MeetVerification 조회
+        // createQrScan은 신청자 검증만 필요하므로 PostInfo까지는 불필요 — 개별 조회
         MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
                 .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
 
-        // MatchInfoDto 조회로 신청자 검증
+        // 신청자 검증을 위해 MatchInfo만 조회
         MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
 
         // 신청자인지 확인 (QR 스캔은 신청자만 가능!)
@@ -248,24 +242,20 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             throw new MeetException(ErrorCode.SCAN_INVALID_QR_TOKEN);
         }
 
-        // 매치 단건 조회
+        // 매치 단건 조회 — 신청자 예치금 확인용
         Match match = matchService.getMatchById(matchId);
 
-        // refundedPoint 실제 값 연결
-        // 신청자의 예치금
+        // 신청자의 예치금 (환불 응답 DTO에 포함)
         int refundedPoint = match.getApplicantDeposit();
 
         // 만남 인증 완료 처리
         meetVerification.meetVerifiedDone();
 
-        // 위치 데이터 삭제
+        // 위치 데이터 삭제 (개인정보 최소 수집 원칙)
         userLocationCleanupService.deleteLocationsByMatchId(matchId);
 
-        // 만남 인증 완료 되는 순간 채팅방 비활성화 예약
-        Long postId = matchInfo.postId();
-
         // 만남 인증 완료 즉시 채팅방을 닫지 않고 "2시간 후 비활성화"를 예약
-        chatService.scheduleChatRoomDeactivation(postId);
+        chatService.scheduleChatRoomDeactivation(matchInfo.postId());
 
         // Match 상태 COMPLETED로 변경
         matchService.completeMatch(matchId);
@@ -273,25 +263,20 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         return QrScanResponseDto.of(matchId, meetVerification, MatchStatus.COMPLETED, refundedPoint);
     }
 
-    // QR 인증 상태 조회
+    // 인증 상태 조회
     @Override
     public MeetVerificationResponseDto getMeetVerification(Long userId, Long matchId) {
 
-        MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
-                .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
-
-        // MatchInfoDto → PostInfoDto 순으로 타서 authorId 획득
-        MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
-        PostInfoDto postInfo = postQueryService.getPostInfo(matchInfo.postId());
+        // MeetVerification + MatchInfo + PostInfo 한 번에 조회
+        MeetContext ctx = loadMeetContext(matchId);
 
         // 매칭 당사자 검증
-        if (!matchInfo.isParticipant(userId, postInfo.authorId())) {
-            throw new MeetException(ErrorCode.MATCH_NOT_PARTICIPANT);
-        }
+        validateParticipant(userId, ctx.matchInfo(), ctx.postInfo());
 
-        return MeetVerificationResponseDto.of(matchId, meetVerification);
+        return MeetVerificationResponseDto.of(matchId, ctx.meetVerification());
     }
 
+    // 매칭 생성 시 PENDING 초기화
     @Override
     @Transactional
     public void createPendingVerification(Long matchId) {
@@ -301,7 +286,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
     // GPS 노쇼 배치 판정 — 스케줄러가 주기적으로 호출
     // 판정 대상: PENDING 상태 (양측 GPS 인증이 모두 완료되지 않은 매칭)
-    // 판정 시점: meetAt + 30분이 지난 건 (인증 가능 시간이 완전히 지난 후)
+    // 판정 시점: meetAt + 20분이 지난 건 (장소 인증 가능 시간이 완전히 지난 후)
     @Override
     @Transactional
     public void judgeGpsNoShow() {
@@ -312,50 +297,39 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         // PENDING = 양측 GPS 장소 인증이 모두 완료되지 않은 매칭
         List<MeetVerification> pendingList = meetVerificationRepository.findAllByStatus(VerificationStatus.PENDING);
 
-        // 빈 리스트 방어
-        // 후속 IN쿼리에 빈 컬렉션이 들어가면 일부 DB에서 SQL 문법 오류가 발생함!
-        // 불필요한 외부 서비스 호출도 미리 차단
+        // 빈 리스트 방어 — IN쿼리 빈 컬렉션 오류 + 불필요한 외부 서비스 호출 차단
         if (pendingList.isEmpty()) {
             return;
         }
 
-        // 각 verification에서 matchId만 추출
+        // matchId 목록 추출
         List<Long> matchIds = pendingList.stream()
                 .map(MeetVerification::getMatchId)
                 .toList();
 
-        // Match 도메인에 한 번에 조회 요청 (벌크 조회)
-        Map<Long, MatchInfoDto> matchInfoDtoMap = matchService.getMatchInfos(matchIds);
-
-        // 위에서 받은 MatchInfo들에서 postId만 추출
-        List<Long> postIds = matchInfoDtoMap.values()
-                .stream()
-                .map(MatchInfoDto::postId)
-                .toList();
-
-        // Post 도메인에 한 번에 조회 요청
-        Map<Long, PostInfoDto> postInfoDtoMap = postQueryService.getPostInfos(postIds);
+        // Match + Post 벌크 조회 (N+1 방지)
+        BulkMatchContext bulk = loadBulkMatchContext(matchIds);
 
         for (MeetVerification meetVerification : pendingList) {
-            // 만약, 누락 된 matchId가 Map에 없을 수 있으므로, 이러한 경우 null 반환
-            MatchInfoDto matchInfoDto = matchInfoDtoMap.get(meetVerification.getMatchId());
+
+            MatchInfoDto matchInfoDto = bulk.matchInfoMap().get(meetVerification.getMatchId());
             if (matchInfoDto == null) {
-                // 데이터 정합성이 깨졌을 때를 대비한 방어 -> 해당 건만 스킵
+                // 데이터 정합성이 깨졌을 때를 대비한 방어 — 해당 건만 스킵
                 continue;
             }
 
-            Long currentPostId = matchInfoDto.postId();
-            PostInfoDto postInfoDto = postInfoDtoMap.get(currentPostId);
+            PostInfoDto postInfoDto = bulk.postInfoMap().get(matchInfoDto.postId());
             if (postInfoDto == null) {
                 continue;
             }
 
             // 연장 수락된 매칭은 원래 meetAt이 아닌 extendedMeetAt을 기준으로 노쇼 판정
             // 연장 안 했으면 extendedMeetAt이 null이므로 원래 meetAt 사용
-            LocalDateTime effectiveMeetAt = meetVerification.getExtendedMeetAt()
-                    != null ? meetVerification.getExtendedMeetAt() : postInfoDto.meetAt();
+            LocalDateTime effectiveMeetAt = meetVerification.getExtendedMeetAt() != null
+                    ? meetVerification.getExtendedMeetAt()
+                    : postInfoDto.meetAt();
 
-            // 판정 기준 시각(meetAt + 30분)이 아직 안 지났으면 이번 배치에서 스킵
+            // 판정 기준 시각(meetAt + 20분, 장소 인증 종료 시각)이 아직 안 지났으면 이번 배치에서 스킵
             // 다음 스케줄러 실행 때 다시 평가됨
             LocalDateTime deadline = effectiveMeetAt.plusMinutes(NO_SHOW_JUDGE_MINUTES);
             if (now.isBefore(deadline)) {
@@ -367,43 +341,40 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             boolean applicantVerified = meetVerification.isApplicantPlaceVerified();
 
             // 노쇼 판정 분기
-            // 양측 모두 GPS 미인증 -> Both_No_Show
             if (!authorVerified && !applicantVerified) {
+                // 양측 모두 GPS 미인증 → BOTH_NO_SHOW
                 meetVerification.markBothNoShow();
                 userLocationCleanupService.deleteLocationsByMatchId(meetVerification.getMatchId());
-
-                // 양측 모두 노쇼 예정 상태 진입 → Warning 발송
                 notificationPublisher.sendNoShowWarning(postInfoDto.authorId(), meetVerification.getMatchId());
                 notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), meetVerification.getMatchId());
 
             } else if (authorVerified && !applicantVerified) {
-                // 신청자가 노쇼 -> GUEST_NO_SHOW
+                // 신청자만 미인증 → GUEST_NO_SHOW
                 meetVerification.markApplicantNoShow();
                 userLocationCleanupService.deleteLocationsByMatchId(meetVerification.getMatchId());
-                // 신청자에게 노쇼 예정 알림 발송
                 notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), meetVerification.getMatchId());
+
             } else if (!authorVerified) {
-                // 등록자 노쇼 -> HOST_NO_SHOW
+                // 등록자만 미인증 → HOST_NO_SHOW
                 meetVerification.markAuthorNoShow();
                 userLocationCleanupService.deleteLocationsByMatchId(meetVerification.getMatchId());
-                // 등록자에게 노쇼 예정 알림 발송
                 notificationPublisher.sendNoShowWarning(postInfoDto.authorId(), meetVerification.getMatchId());
             }
         }
     }
 
     // QR 노쇼 배치 판정 — 스케줄러가 주기적으로 호출
-    // 판정 대상: VERIFIED 상태(양측 GPS 인증 완료) + QR 만료 시간이 지난 매칭 = 장소는 도착했는데 30분 안에 QR 인증을 못 한 케이스
+    // 판정 대상: VERIFIED 상태 + QR 만료 시간이 지난 매칭
+    //           (장소는 도착했는데 30분 안에 QR 인증을 못 한 케이스)
     @Override
     @Transactional
     public void judgeQrNoShow() {
 
         // VERIFIED 상태 + QR 만료 시간이 지난 verification 전체 조회
-        // VERIFIED -> 양측 GPS 장소 인증 완료된 상태
         List<MeetVerification> expiresList = meetVerificationRepository
                 .findAllByStatusAndQrExpiresAtBefore(VerificationStatus.VERIFIED, LocalDateTime.now());
 
-        // 빈 리스트 방어 -> 불필요한 반복문 진입 차단
+        // 빈 리스트 방어
         if (expiresList.isEmpty()) {
             return;
         }
@@ -413,30 +384,27 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                 .map(MeetVerification::getMatchId)
                 .toList();
 
+        // Match 벌크 조회 (judgeQrNoShow는 postInfo를 루프 안에서 개별 조회 — 기존 구조 유지)
         Map<Long, MatchInfoDto> matchInfoDtoMap = matchService.getMatchInfos(matchIds);
 
-        // QR단계에서 만료된 건 -> 신청자가 스캔을 안 한 케이스 -> 일괄 신청자 노쇼
         for (MeetVerification meetVerification : expiresList) {
 
             Long matchId = meetVerification.getMatchId();
 
-            // matchId → MatchInfoDto → postId 추출
             MatchInfoDto matchInfoDto = matchInfoDtoMap.get(matchId);
             if (matchInfoDto == null) {
                 // 데이터 정합성 이슈 → 해당 건 스킵
                 continue;
             }
 
-            Long postId = matchInfoDto.postId();
-
-            PostInfoDto postInfoDto = postQueryService.getPostInfo(postId);
+            PostInfoDto postInfoDto = postQueryService.getPostInfo(matchInfoDto.postId());
             if (postInfoDto == null) {
                 continue;
             }
 
             // 두 사람이 지금도 반경 안에 있는지 확인
-            // true  -> 최근 15초 이내 위치 업데이트 + 반경 60m 이내 → 아직 현장에 있음
-            // false -> 위치 없음 or 오래된 위치 or 반경 밖 → 자리를 뜬 것으로 판단
+            // true  → 최근 15초 이내 위치 업데이트 + 반경 60m 이내 → 아직 현장에 있음
+            // false → 위치 없음 or 오래된 위치 or 반경 밖 → 자리를 뜬 것으로 판단
             boolean authorInRange = userLocationService.isFreshLocationWithinRadius(
                     matchId,
                     postInfoDto.authorId(),
@@ -455,29 +423,31 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                     LOCATION_FRESHNESS_SECONDS
             );
 
-            // 등록자는 있고 신청자가 없는 경우
+            // 위치 기반 노쇼 판정 분기
             if (authorInRange && !applicantInRange) {
+                // 등록자는 있고 신청자가 없는 경우 → GUEST_NO_SHOW
                 meetVerification.markApplicantNoShow();
                 notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), matchId);
 
-                // 신청자는 있고 등록자가 없는 경우
             } else if (!authorInRange && applicantInRange) {
+                // 신청자는 있고 등록자가 없는 경우 → HOST_NO_SHOW
                 meetVerification.markAuthorNoShow();
                 notificationPublisher.sendNoShowWarning(postInfoDto.authorId(), matchId);
 
-                // 둘 다 없을 때
             } else {
+                // 둘 다 없거나 둘 다 있는데 QR 만료 → BOTH_NO_SHOW
                 meetVerification.markBothNoShow();
                 notificationPublisher.sendNoShowWarning(postInfoDto.authorId(), matchId);
                 notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), matchId);
             }
 
-            // 위치 정보 지우기
+            // 위치 정보 삭제 (개인정보 최소 수집 원칙)
             userLocationCleanupService.deleteLocationsByMatchId(meetVerification.getMatchId());
         }
     }
 
-    // 노쇼 확정
+    // 노쇼 확정 — 스케줄러가 주기적으로 호출
+    // 노쇼 예정 상태에서 24시간이 지나면 최종 확정 처리
     @Override
     @Transactional
     public void judgeNoShowConfirmed() {
@@ -490,29 +460,20 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         List<MeetVerification> noShowList = meetVerificationRepository
                 .findAllByStatusInAndNoShowDecidedAtBefore(NO_SHOW_STATUSES, deadline);
 
-        // 처리할 건이 없으면 조기 종료 — 불필요한 외부 서비스 호출 방지
+        // 처리할 건이 없으면 조기 종료
         if (noShowList.isEmpty()) {
             return;
         }
 
-        // 이후 벌크 조회에 사용할 matchId 목록 추출
+        // matchId 목록 추출
         List<Long> matchIds = noShowList.stream()
                 .map(MeetVerification::getMatchId)
                 .toList();
 
-        // Match 정보 벌크 조회 — applicantId 확보용 (N+1 방지)
-        Map<Long, MatchInfoDto> matchInfoMap = matchService.getMatchInfos(matchIds);
+        // Match + Post 벌크 조회 (N+1 방지)
+        BulkMatchContext bulk = loadBulkMatchContext(matchIds);
 
-        // postId 목록 추출 — Post 벌크 조회 준비
-        List<Long> postIds = matchInfoMap.values().stream()
-                .map(MatchInfoDto::postId)
-                .distinct()
-                .toList();
-
-        // Post 정보 벌크 조회 — authorId 확보용 (N+1 방지)
-        Map<Long, PostInfoDto> postInfoMap = postQueryService.getPostInfos(postIds);
-
-        // // 관리자가 아직 검토 중인 이의제기가 있는 matchId Set 조회
+        // 관리자가 아직 검토 중인 이의제기가 있는 matchId Set 조회
         Set<Long> activeDisputeMatchIds = disputeQueryService.getMatchIdsWithActiveDispute(matchIds);
 
         for (MeetVerification meetVerification : noShowList) {
@@ -527,10 +488,10 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             }
 
             // 데이터 정합성 방어 — Match 또는 Post 정보가 없으면 해당 건만 스킵
-            MatchInfoDto matchInfoDto = matchInfoMap.get(matchId);
+            MatchInfoDto matchInfoDto = bulk.matchInfoMap().get(matchId);
             if (matchInfoDto == null) continue;
 
-            PostInfoDto postInfoDto = postInfoMap.get(matchInfoDto.postId());
+            PostInfoDto postInfoDto = bulk.postInfoMap().get(matchInfoDto.postId());
             if (postInfoDto == null) continue;
 
             VerificationStatus status = meetVerification.getStatus();
@@ -539,20 +500,17 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             if (status == VerificationStatus.BOTH_NO_SHOW) {
                 // 양측 모두 노쇼 확정 — 양측 예치금 전부 몰수
                 matchService.markBothNoShow(matchId);
-                // 양측에게 노쇼 확정 알림 발송
                 notificationPublisher.sendNoShowConfirmed(postInfoDto.authorId(), matchId);
                 notificationPublisher.sendNoShowConfirmed(matchInfoDto.applicantId(), matchId);
 
             } else if (status == VerificationStatus.GUEST_NO_SHOW) {
                 // 신청자만 노쇼 확정 — 신청자 예치금 몰수 + 등록자 환급
                 matchService.markApplicantNoShow(matchId);
-                // 노쇼 당사자인 신청자에게만 확정 알림 발송
                 notificationPublisher.sendNoShowConfirmed(matchInfoDto.applicantId(), matchId);
 
             } else if (status == VerificationStatus.HOST_NO_SHOW) {
                 // 등록자만 노쇼 확정 — 등록자 예치금 몰수 + 신청자 환급
                 matchService.markAuthorNoShow(matchId);
-                // 노쇼 당사자인 등록자에게만 확정 알림 발송
                 notificationPublisher.sendNoShowConfirmed(postInfoDto.authorId(), matchId);
             }
 
@@ -564,29 +522,25 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         }
     }
 
-    // Admin 도메인에서 사용할 노쇼 후보군 조회
+    // 노쇼 후보군 조회 (Admin 전용)
     @Override
     public Page<MeetVerification> getNoShowCandidates(Pageable pageable) {
         return meetVerificationRepository.findAllByStatusIn(NO_SHOW_STATUSES, pageable);
     }
 
-    // 연장 요청
+    // 만남 시간 연장 요청
     @Override
     @Transactional
     public CreateMeetExtensionResponseDto createMeetExtension(Long userId, Long matchId) {
 
-        // MeetVerification 조회
-        MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
-                .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
+        // MeetVerification + MatchInfo + PostInfo 한 번에 조회
+        MeetContext ctx = loadMeetContext(matchId);
+        MeetVerification meetVerification = ctx.meetVerification();
+        MatchInfoDto matchInfoDto = ctx.matchInfo();
+        PostInfoDto postInfoDto = ctx.postInfo();
 
-        // Match, Post 정보 조회
-        MatchInfoDto matchInfoDto = matchService.getMatchInfo(matchId);
-        PostInfoDto postInfoDto = postQueryService.getPostInfo(matchInfoDto.postId());
-
-        // 당사자 확인
-        if (!matchInfoDto.isParticipant(userId, postInfoDto.authorId())) {
-            throw new MeetException(ErrorCode.MATCH_NOT_PARTICIPANT);
-        }
+        // 매칭 당사자 확인
+        validateParticipant(userId, matchInfoDto, postInfoDto);
 
         // MATCH 상태 확인 (노쇼 판정 이후 or 완료된 매칭엔 연장 불가)
         if (matchInfoDto.status() != MatchStatus.MATCHED) {
@@ -598,18 +552,17 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             throw new MeetException(ErrorCode.MEET_EXTEND_BEFORE_MEET_AT);
         }
 
-        // ACCEPTED -> 이미 1회 연장 성공 -> 영영 불가,
-        // REJECTED -> 거절됨 -> 영영 불가
+        // ACCEPTED → 이미 1회 연장 성공 → 영영 불가
+        // REJECTED → 거절됨 → 영영 불가
         if (meetVerification.isExtended() || meetVerification.getExtensionStatus() == ExtensionStatus.REJECTED) {
             throw new MeetException(ErrorCode.MEET_EXTEND_ALREADY_ACCEPTED);
         }
 
-        // 진행 중인 요청(REQUESTED) 체크 전에 만료 여부를 먼저 확인,
+        // 진행 중인 요청(REQUESTED) 체크 전에 만료 여부를 먼저 확인
         // 스케줄러가 EXPIRED로 전환하지 않은 타이밍에도 재요청을 허용하기 위함
         if (meetVerification.getExtensionStatus() == ExtensionStatus.REQUESTED) {
-
-            // 5분 타임아웃이 지났으면 -> 즉시 EXPIRED 처리 후 요청 허용
             if (meetVerification.isExtensionExpired()) {
+                // 5분 타임아웃이 지났으면 → 즉시 EXPIRED 처리 후 요청 허용
                 meetVerification.expireExtension();
             } else {
                 // 아직 5분 안 지났으면 진행 중인 요청이 있으므로 차단
@@ -621,7 +574,9 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         meetVerification.requestExtension(userId);
 
         // 상대방에게 연장 요청 알림 발송
-        Long opponentId = userId.equals(postInfoDto.authorId()) ? matchInfoDto.applicantId() : postInfoDto.authorId();
+        Long opponentId = userId.equals(postInfoDto.authorId())
+                ? matchInfoDto.applicantId()
+                : postInfoDto.authorId();
         notificationPublisher.sendMeetExtendRequested(opponentId, matchId);
 
         // 연장 타임아웃 ZSet 예약
@@ -639,28 +594,22 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         return CreateMeetExtensionResponseDto.of(meetVerification, requesterNickname, postInfoDto.meetAt());
     }
 
-    // 연장 수락
+    // 만남 시간 연장 수락
     @Override
     @Transactional
     public AcceptMeetExtensionResponseDto acceptMeetExtension(Long userId, Long matchId) {
 
-        MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
-                .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
+        // MeetVerification + MatchInfo + PostInfo 한 번에 조회
+        MeetContext ctx = loadMeetContext(matchId);
+        MeetVerification meetVerification = ctx.meetVerification();
+        MatchInfoDto matchInfoDto = ctx.matchInfo();
+        PostInfoDto postInfoDto = ctx.postInfo();
 
-        MatchInfoDto matchInfoDto = matchService.getMatchInfo(matchId);
-        PostInfoDto postInfoDto = postQueryService.getPostInfo(matchInfoDto.postId());
+        // 매칭 당사자 확인
+        validateParticipant(userId, matchInfoDto, postInfoDto);
 
-        // 당사자 확인
-        if (!matchInfoDto.isParticipant(userId, postInfoDto.authorId())) {
-            throw new MeetException(ErrorCode.MATCH_NOT_PARTICIPANT);
-        }
-
-        // 만료 여부 확인
-        if (meetVerification.getExtensionStatus() == ExtensionStatus.REQUESTED && meetVerification.isExtensionExpired()) {
-            // 만료 처리 후 예외던지기
-            meetVerification.expireExtension();
-            throw new MeetException(ErrorCode.MEET_EXTEND_EXPIRED);
-        }
+        // 연장 요청 만료 여부 확인 + 즉시 만료 처리
+        validateExtensionNotExpired(meetVerification);
 
         // 응답 가능한 요청이 있는지 확인
         if (meetVerification.getExtensionStatus() != ExtensionStatus.REQUESTED) {
@@ -672,10 +621,10 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             throw new MeetException(ErrorCode.MEET_EXTEND_SELF_RESPONSE);
         }
 
-        // 수락 처리 -> meetAt + 15분을 extendedMeetAt에 저장
+        // 수락 처리 → meetAt + 10분을 extendedMeetAt에 저장
         meetVerification.acceptExtension(postInfoDto.meetAt(), EXTENSION_MINUTES);
 
-        // QR 만료 시각도 15분 연장
+        // QR 만료 시각도 10분 연장
         meetVerification.extendQrExpiry(EXTENSION_MINUTES);
 
         // 연장 요청자에게 수락 알림 발송
@@ -690,27 +639,22 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         return AcceptMeetExtensionResponseDto.of(meetVerification, postInfoDto.meetAt());
     }
 
-    // 연장 거절
+    // 만남 시간 연장 거절
     @Override
     @Transactional
     public RejectMeetExtensionResponseDto rejectMeetExtension(Long userId, Long matchId) {
 
-        MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
-                .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
+        // MeetVerification + MatchInfo + PostInfo 한 번에 조회
+        MeetContext ctx = loadMeetContext(matchId);
+        MeetVerification meetVerification = ctx.meetVerification();
+        MatchInfoDto matchInfoDto = ctx.matchInfo();
+        PostInfoDto postInfoDto = ctx.postInfo();
 
-        MatchInfoDto matchInfoDto = matchService.getMatchInfo(matchId);
-        PostInfoDto postInfoDto = postQueryService.getPostInfo(matchInfoDto.postId());
+        // 매칭 당사자 확인
+        validateParticipant(userId, matchInfoDto, postInfoDto);
 
-        // 당사자 확인
-        if (!matchInfoDto.isParticipant(userId, postInfoDto.authorId())) {
-            throw new MeetException(ErrorCode.MATCH_NOT_PARTICIPANT);
-        }
-
-        // 만료 여부 확인
-        if (meetVerification.getExtensionStatus() == ExtensionStatus.REQUESTED && meetVerification.isExtensionExpired()) {
-            meetVerification.expireExtension();
-            throw new MeetException(ErrorCode.MEET_EXTEND_EXPIRED);
-        }
+        // 연장 요청 만료 여부 확인 + 즉시 만료 처리
+        validateExtensionNotExpired(meetVerification);
 
         // 응답 가능한 요청 있는지 확인
         if (meetVerification.getExtensionStatus() != ExtensionStatus.REQUESTED) {
@@ -735,25 +679,22 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         );
 
         return RejectMeetExtensionResponseDto.from(meetVerification);
-
     }
 
     // 연장 상태 조회
     @Override
     public GetMeetExtensionResponseDto getMeetExtension(Long userId, Long matchId) {
 
-        MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
-                .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
+        // MeetVerification + MatchInfo + PostInfo 한 번에 조회
+        MeetContext ctx = loadMeetContext(matchId);
+        MeetVerification meetVerification = ctx.meetVerification();
+        MatchInfoDto matchInfoDto = ctx.matchInfo();
+        PostInfoDto postInfoDto = ctx.postInfo();
 
-        MatchInfoDto matchInfoDto = matchService.getMatchInfo(matchId);
-        PostInfoDto postInfoDto = postQueryService.getPostInfo(matchInfoDto.postId());
+        // 매칭 당사자 확인
+        validateParticipant(userId, matchInfoDto, postInfoDto);
 
-        // 당사자 확인
-        if (!matchInfoDto.isParticipant(userId, postInfoDto.authorId())) {
-            throw new MeetException(ErrorCode.MATCH_NOT_PARTICIPANT);
-        }
-
-        // NONE 상태면 아직 요청자 없음 -> 닉네임 null 처리
+        // NONE 상태면 아직 요청자 없음 → 닉네임 null 처리
         String requesterNickname = null;
         if (meetVerification.getExtensionRequesterId() != null) {
             requesterNickname = userService.getUserInfo(meetVerification.getExtensionRequesterId()).nickname();
@@ -762,7 +703,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         return GetMeetExtensionResponseDto.of(meetVerification, requesterNickname, postInfoDto.meetAt(), userId);
     }
 
-    // 요청 시간 만료
+    // 연장 요청 타임아웃 일괄 처리 — 스케줄러가 주기적으로 호출
     @Override
     @Transactional
     public void expireTimeoutExtensions() {
@@ -790,14 +731,16 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             // 만료 알림 발송
             notificationPublisher.sendMeetExtendExpired(mv.getExtensionRequesterId(), mv.getMatchId());
         });
-
     }
 
+    // matchId로 MeetVerification 단건 조회 (외부 도메인 사용)
     @Override
     public MeetVerification getByMatchId(Long matchId) {
         return meetVerificationRepository.findByMatchId(matchId)
                 .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
     }
+
+    // ======== private 헬퍼 메서드 ==============================================
 
     // QR 토큰 발급 — 중복 발급 방지 포함
     // 호출 시점: 양측 GPS 인증 완료 직후
@@ -809,21 +752,80 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         }
 
         // 양측 GPS 인증이 완료되지 않았으면 스킵 (정상적으로는 도달하지 않아야 하는 방어 코드)
-        if (meetVerification.getAuthorPlaceVerifiedAt() == null || meetVerification.getApplicantPlaceVerifiedAt() == null) {
+        if (meetVerification.getAuthorPlaceVerifiedAt() == null
+                || meetVerification.getApplicantPlaceVerifiedAt() == null) {
             return;
         }
 
         // QR 만료 시각 = 양측 중 더 나중에 인증한 시각 + 30분
         LocalDateTime placeVerifiedCompletedAt = meetVerification.getAuthorPlaceVerifiedAt()
                 .isAfter(meetVerification.getApplicantPlaceVerifiedAt())
-                ? meetVerification.getAuthorPlaceVerifiedAt() : meetVerification.getApplicantPlaceVerifiedAt();
+                ? meetVerification.getAuthorPlaceVerifiedAt()
+                : meetVerification.getApplicantPlaceVerifiedAt();
 
         LocalDateTime expiresAt = placeVerifiedCompletedAt.plusMinutes(QR_TOKEN_VALIDITY_MINUTES);
         String qrToken = "hp_qr_" + UUID.randomUUID().toString().replace("-", "");
 
         meetVerification.issueQrToken(qrToken, expiresAt);
+    }
 
+    // ① MeetVerification + MatchInfo + PostInfo 한 번에 조회
+    // 사용 위치: createPlaceVerification, getMeetQr, getMeetVerification,
+    //            createMeetExtension, acceptMeetExtension, rejectMeetExtension, getMeetExtension
+    private record MeetContext(
+            MeetVerification meetVerification,
+            MatchInfoDto matchInfo,
+            PostInfoDto postInfo
+    ) {}
+
+    private MeetContext loadMeetContext(Long matchId) {
+        // matchId로 MeetVerification 조회, 없으면 예외
+        MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
+                .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
+        // matchId로 매칭 정보 조회
+        MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
+        // 매칭 정보에서 postId를 꺼내 게시글 정보 조회
+        PostInfoDto postInfo = postQueryService.getPostInfo(matchInfo.postId());
+        return new MeetContext(meetVerification, matchInfo, postInfo);
+    }
+
+    // ② 매칭 당사자 검증
+    // 사용 위치: createPlaceVerification, getMeetVerification, createMeetExtension,
+    //            acceptMeetExtension, rejectMeetExtension, getMeetExtension
+    private void validateParticipant(Long userId, MatchInfoDto matchInfo, PostInfoDto postInfo) {
+        // 등록자(authorId) 또는 신청자(applicantId)가 아니면 예외
+        if (!matchInfo.isParticipant(userId, postInfo.authorId())) {
+            throw new MeetException(ErrorCode.MATCH_NOT_PARTICIPANT);
+        }
+    }
+
+    // ③ 연장 만료 여부 확인 + 즉시 만료 처리
+    // 사용 위치: acceptMeetExtension, rejectMeetExtension
+    private void validateExtensionNotExpired(MeetVerification meetVerification) {
+        // REQUESTED 상태에서 5분 타임아웃이 지났으면 즉시 EXPIRED 처리 후 예외
+        if (meetVerification.getExtensionStatus() == ExtensionStatus.REQUESTED
+                && meetVerification.isExtensionExpired()) {
+            meetVerification.expireExtension();
+            throw new MeetException(ErrorCode.MEET_EXTEND_EXPIRED);
+        }
+    }
+
+    // ④ matchId 목록으로 MatchInfo + PostInfo 벌크 조회
+    // 사용 위치: judgeGpsNoShow, judgeNoShowConfirmed
+    private record BulkMatchContext(
+            Map<Long, MatchInfoDto> matchInfoMap,
+            Map<Long, PostInfoDto> postInfoMap
+    ) {}
+
+    private BulkMatchContext loadBulkMatchContext(List<Long> matchIds) {
+        // Match 도메인 벌크 조회 (N+1 방지)
+        Map<Long, MatchInfoDto> matchInfoMap = matchService.getMatchInfos(matchIds);
+        // Match에서 postId만 뽑아서 Post 도메인 벌크 조회
+        List<Long> postIds = matchInfoMap.values().stream()
+                .map(MatchInfoDto::postId)
+                .distinct()
+                .toList();
+        Map<Long, PostInfoDto> postInfoMap = postQueryService.getPostInfos(postIds);
+        return new BulkMatchContext(matchInfoMap, postInfoMap);
     }
 }
-
-
