@@ -40,7 +40,7 @@ public class ReportServiceImpl implements ReportService {
 
     // 포상 지급 포인트
     private static final int REPORT_REWARD_POINT = 50;
-    // 기각 3번 초과에 확인용
+    // 기각 횟수가 이 값의 배수가 될 때마다 신고 기능 박탈 (3, 6, 9...)
     private static final int REPORT_BAN_THRESHOLD = 3;
     // 10일 박탈에 활용
     private static final int REPORT_BAN_DAYS = 10;
@@ -230,12 +230,12 @@ public class ReportServiceImpl implements ReportService {
         // 기각 처리
         report.reject(adminId);
 
-        // 신고자의 기각 누적 횟수 조회
+        // 신고자(신고를 한 사람)의 기각 누적 횟수 조회
         int rejectedCount = reportRepository.countByReporterIdAndStatus(
                 report.getReporterId(), ReportStatus.REJECTED);
 
-        // 기각 3회 초과 시 신고 기능 10일 박탈
-        if (rejectedCount > REPORT_BAN_THRESHOLD) {
+        // 기각 횟수가 3의 배수(3, 6, 9...)가 될 때마다 신고 기능 10일 박탈
+        if (rejectedCount > 0 && rejectedCount % REPORT_BAN_THRESHOLD == 0) {  // count가 3의 배수일 때 기능 박탈
             userService.banReportFeature(report.getReporterId(), REPORT_BAN_DAYS);
         }
 
