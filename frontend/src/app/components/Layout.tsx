@@ -61,22 +61,18 @@ export default function Layout() {
     setNotificationLoading(true);
     try {
       const res = await getNotifications(0, 10);
-      setNotifications(res.data.data.content);
+      const nextNotifications = res.data.data.content;
+      setNotifications(nextNotifications);
+
+      if (nextNotifications.some((notification) => !notification.isRead)) {
+        await markAllNotificationsRead();
+        setUnreadCount(0);
+      }
     } catch (err) {
       console.error('Failed to load notifications', err);
       setNotifications([]);
     } finally {
       setNotificationLoading(false);
-    }
-  };
-
-  const handleReadAllNotifications = async () => {
-    try {
-      await markAllNotificationsRead();
-      setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
-      setUnreadCount(0);
-    } catch (err) {
-      console.error('Failed to mark notifications read', err);
     }
   };
 
@@ -148,13 +144,6 @@ export default function Layout() {
                     <div className="absolute right-0 top-9 z-50 w-80 overflow-hidden rounded-xl border border-[#e0e0e0] bg-white shadow-xl">
                       <div className="flex items-center justify-between border-b border-[#eeeeee] px-4 py-3">
                         <h3 className="text-sm font-bold text-[#212121]">알림</h3>
-                        <button
-                            type="button"
-                            onClick={handleReadAllNotifications}
-                            className="text-xs font-semibold text-[#d84315] hover:underline"
-                        >
-                          모두 읽음
-                        </button>
                       </div>
 
                       {notificationLoading ? (

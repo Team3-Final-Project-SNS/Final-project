@@ -90,89 +90,107 @@ export default function MatchingAiChatPage() {
   };
 
   return (
-      <div className="mx-auto max-w-4xl">
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-[#fff3e0] px-3 py-1 text-xs font-bold text-[#ef6c00]">
-              <Sparkles size={14} />
-              AI 매칭 추천
+    <div className="mx-auto max-w-4xl">
+      <section className="overflow-hidden rounded-[34px] border border-[#f0e1d2] bg-[#fffaf4] shadow-2xl">
+        <div className="flex flex-col gap-5 border-b border-[#f2e4d6] px-6 py-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <RiceMascot />
+            <div>
+              <div className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-[#fff3e0] px-3 py-1 text-xs font-bold text-[#ef6c00]">
+                <Sparkles size={14} />
+                AI 매칭 추천
+              </div>
+              <h1 className="text-3xl font-extrabold text-[#2a211b]">한끼팟 매칭 AI</h1>
+              <p className="mt-1 text-sm font-semibold text-[#9a7a62]">
+                원하는 시간, 메뉴, 분위기를 말하면 어울리는 식사팟을 찾아드릴게요.
+              </p>
             </div>
-            <h1 className="text-3xl font-bold text-[#212121]">식사팟 추천 챗봇</h1>
-            <p className="mt-2 text-sm text-[#757575]">조건을 입력하면 참여 가능한 게시글을 후보 안에서 추천합니다.</p>
           </div>
           <Link
-              to="/posts"
-              className="inline-flex items-center justify-center rounded-lg border border-[#e0e0e0] bg-white px-4 py-2.5 text-sm font-semibold text-[#616161] transition-colors hover:border-[#d84315] hover:text-[#d84315]"
+            to="/posts"
+            className="inline-flex h-11 items-center justify-center rounded-2xl border border-[#ead8c5] bg-white px-4 text-sm font-bold text-[#6d5a50] transition-colors hover:border-[#d84315] hover:text-[#d84315]"
           >
             게시글 보기
           </Link>
         </div>
 
-        <div className="mb-4 rounded-2xl border border-[#e0e0e0] bg-white p-4 shadow-sm">
-          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#424242]">
-            <Bot size={18} className="text-[#d84315]" />
-            추천 질문
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {EXAMPLE_QUESTIONS.map((question) => (
-                <button
+        <div className="p-6">
+          <div className="rounded-[28px] bg-white p-6 shadow-sm">
+            <div className="mb-5 flex items-start gap-4">
+              <RiceMascot size="small" />
+              <div>
+                <p className="text-lg font-extrabold text-[#2a211b]">한끼팟</p>
+                <p className="mt-1 text-base leading-7 text-[#4e3c32]">
+                  조건을 편하게 입력해 주세요. 현재 신청 가능한 식사팟 중심으로 추천할게요.
+                </p>
+              </div>
+            </div>
+
+            <div className="mb-5 rounded-2xl bg-[#fffaf4] p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-bold text-[#4e3c32]">
+                <Bot size={17} className="text-[#d84315]" />
+                추천 질문
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {EXAMPLE_QUESTIONS.map((question) => (
+                  <button
                     key={question}
                     type="button"
                     onClick={() => submitMessage(question)}
                     disabled={loading}
-                    className="rounded-full border border-[#e0e0e0] bg-[#fafafa] px-3 py-2 text-xs font-semibold text-[#616161] transition-colors hover:border-[#d84315] hover:bg-[#fff3e0] hover:text-[#d84315] disabled:opacity-60"
-                >
-                  {question}
-                </button>
-            ))}
-          </div>
-        </div>
-
-        {error && (
-            <div className="mb-4 flex items-start gap-2 rounded-lg border border-[#ef5350] bg-[#ffebee] px-4 py-3 text-sm text-[#c62828]">
-              <AlertCircle size={18} className="mt-0.5 shrink-0" />
-              <span>{error}</span>
+                    className="rounded-full border border-[#ead8c5] bg-white px-3 py-2 text-xs font-semibold text-[#6d5a50] transition-colors hover:border-[#d84315] hover:bg-[#fff3e0] hover:text-[#d84315] disabled:opacity-60"
+                  >
+                    {question}
+                  </button>
+                ))}
+              </div>
             </div>
-        )}
 
-        <div className="rounded-2xl border border-[#e0e0e0] bg-white shadow-sm">
-          <div className="h-[560px] overflow-y-auto px-4 py-5 sm:px-6">
-            <div className="space-y-5">
-              {messages.map((message) => (
+            {error && (
+              <div className="mb-4 flex items-start gap-2 rounded-2xl border border-[#ef5350] bg-[#ffebee] px-4 py-3 text-sm text-[#c62828]">
+                <AlertCircle size={18} className="mt-0.5 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <div className="h-[520px] overflow-y-auto pr-1">
+              <div className="space-y-4">
+                {messages.map((message) => (
                   <ChatBubble key={message.id} message={message} />
-              ))}
-              {loading && (
+                ))}
+                {loading && (
                   <div className="flex justify-start">
-                    <div className="inline-flex items-center gap-2 rounded-2xl bg-[#f5f5f5] px-4 py-3 text-sm font-semibold text-[#616161]">
-                      <Loader2 size={16} className="animate-spin text-[#d84315]" />
+                    <div className="inline-flex items-center gap-2 rounded-[22px] bg-[#fff3e0] px-5 py-3.5 text-base font-semibold text-[#3d2b22]">
+                      <Loader2 size={18} className="animate-spin text-[#d84315]" />
                       추천을 찾는 중...
                     </div>
                   </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
 
-          <form onSubmit={handleSubmit} className="border-t border-[#eeeeee] p-4">
-            <div className="flex gap-2">
+            <form onSubmit={handleSubmit} className="mt-5 flex gap-3">
               <input
-                  value={input}
-                  onChange={(event) => setInput(event.target.value)}
-                  placeholder="예: 오늘 3시쯤 양식 먹을 사람 2명 정도 추천해줘"
-                  className="min-w-0 flex-1 rounded-xl border border-[#e0e0e0] px-4 py-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#d84315]"
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                placeholder="예: 오늘 3시쯤 양식 먹을 사람 2명 정도 추천해줘"
+                disabled={loading}
+                className="h-14 min-w-0 flex-1 rounded-2xl border border-[#ead8c5] px-4 text-base outline-none transition-colors focus:border-[#d84315]"
               />
               <button
-                  type="submit"
-                  disabled={loading || input.trim().length === 0}
-                  className="inline-flex w-12 shrink-0 items-center justify-center rounded-xl bg-[#d84315] text-white shadow-md transition-colors hover:bg-[#bf360c] disabled:bg-[#e0e0e0] disabled:shadow-none"
-                  aria-label="메시지 전송"
-                  title="메시지 전송"
+                type="submit"
+                disabled={loading || input.trim().length === 0}
+                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#ff7043] text-white transition-colors hover:bg-[#d84315] disabled:bg-[#e0e0e0]"
+                aria-label="메시지 전송"
+                title="메시지 전송"
               >
-                {loading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
+                {loading ? <Loader2 size={22} className="animate-spin" /> : <Send size={24} />}
               </button>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
-      </div>
+      </section>
+    </div>
   );
 }
 
@@ -184,16 +202,16 @@ function ChatBubble({ message }: { message: ChatMessage }) {
       <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
         <div className={`max-w-[92%] ${isUser ? 'sm:max-w-[72%]' : 'w-full'}`}>
           <div
-              className={`rounded-2xl px-4 py-3 text-sm leading-6 ${
+              className={`rounded-[22px] px-5 py-3.5 text-base leading-7 ${
                   isUser
                       ? 'bg-[#d84315] text-white'
-                      : 'border border-[#eeeeee] bg-[#fafafa] text-[#424242]'
+                      : 'bg-[#fff3e0] text-[#3d2b22]'
               }`}
           >
             {!isUser && (
-                <div className="mb-2 flex items-center gap-2 text-xs font-bold text-[#d84315]">
-                  <Bot size={15} />
-                  한끼 AI
+                <div className="mb-2 flex items-center gap-2 text-sm font-extrabold text-[#d84315]">
+                  <RiceMascot size="tiny" />
+                  한끼팟
                 </div>
             )}
             <p className="whitespace-pre-wrap">{message.content}</p>
@@ -241,6 +259,21 @@ function ChatBubble({ message }: { message: ChatMessage }) {
           )}
         </div>
       </div>
+  );
+}
+
+function RiceMascot({ size = 'default' }: { size?: 'default' | 'small' | 'tiny' }) {
+  const containerSize = size === 'tiny' ? 'h-7 w-7' : size === 'small' ? 'h-12 w-12' : 'h-16 w-16';
+
+  return (
+    <div className={`${containerSize} relative shrink-0 rounded-3xl bg-[#fff7ed]`}>
+      <span className="absolute left-[8%] top-[34%] h-[50%] w-[50%] rounded-full bg-[#ff9f43] shadow-[inset_0_-2px_0_rgba(0,0,0,0.12)]" />
+      <span className="absolute right-[8%] top-[34%] h-[50%] w-[50%] rounded-full bg-[#4fc3c7] shadow-[inset_0_-2px_0_rgba(0,0,0,0.12)]" />
+      <span className="absolute left-1/2 top-[15%] h-[56%] w-[56%] -translate-x-1/2 rounded-full bg-[#8bc34a] shadow-[inset_0_-2px_0_rgba(0,0,0,0.12)]" />
+      <span className="absolute bottom-[15%] left-1/2 h-[32%] w-[66%] -translate-x-1/2 rounded-b-full rounded-t-md bg-white shadow-[0_2px_0_#7b4b2a]" />
+      <span className="absolute left-[38%] top-[38%] h-[10%] w-[10%] rounded-full bg-[#3d2b22]" />
+      <span className="absolute right-[38%] top-[38%] h-[10%] w-[10%] rounded-full bg-[#3d2b22]" />
+    </div>
   );
 }
 
