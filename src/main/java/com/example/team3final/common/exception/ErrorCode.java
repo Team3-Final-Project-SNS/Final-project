@@ -47,6 +47,8 @@ public enum ErrorCode {
     POST_NOT_OPEN(HttpStatus.UNPROCESSABLE_ENTITY, "POST_006", "OPEN 상태의 게시글만 수정/삭제할 수 있습니다."),
     POST_INVALID_PAGE_SIZE(HttpStatus.BAD_REQUEST, "POST_007", "페이지 크기는 최대 50까지 요청할 수 있습니다."),
     POST_NOT_MATCHED(HttpStatus.UNPROCESSABLE_ENTITY, "POST_008", "매칭된 게시글만 완료 처리할 수 있습니다."),
+    POST_INVALID_DEPOSIT_UNIT(HttpStatus.BAD_REQUEST, "POST_009", "책임비는 100P 단위로만 설정할 수 있습니다."),
+    POST_NOT_DELETED(HttpStatus.UNPROCESSABLE_ENTITY, "POST_010", "삭제된 게시글이 아닙니다."),
 
     // Match
     MATCH_NOT_FOUND(HttpStatus.NOT_FOUND, "MATCH_001", "존재하지 않는 매칭입니다."),
@@ -58,6 +60,7 @@ public enum ErrorCode {
     MATCH_AFTER_MEET_TIME(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_007", "약속 시간 이후에는 취소할 수 없습니다."),
     MATCH_DUPLICATE_APPLY(HttpStatus.BAD_REQUEST, "MATCH_008", "이미 신청한 게시글입니다. 재신청은 불가합니다."),
     MATCH_AVOIDED_USER(HttpStatus.FORBIDDEN, "MATCH_009", "다시 만나고 싶지 않아요 관계의 게시글에는 신청할 수 없습니다."),
+    MATCH_POST_UNDER_REPORT(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_010", "신고 접수 중인 게시글에는 신청할 수 없습니다."),
 
     // Review
     REVIEW_NOT_COMPLETED_MATCH(HttpStatus.UNPROCESSABLE_ENTITY, "REVIEW_001", "만남 완료 상태의 매칭만 후기를 작성할 수 있습니다."),
@@ -123,14 +126,17 @@ public enum ErrorCode {
     ADMIN_USER_ALREADY_SUSPENDED(HttpStatus.CONFLICT, "ADMIN_005", "이미 정지된 계정입니다."),
     // Post 강제 삭제
     ADMIN_POST_NOT_OPEN(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_006", "OPEN 상태의 게시글만 삭제할 수 있습니다."),
+    ADMIN_PENDING_REPORT_EXISTS(HttpStatus.CONFLICT, "ADMIN_007", "미처리된 신고가 있는 게시글입니다. 신고를 채택한 뒤 삭제해 주세요."),
+    // Post 복구
+    ADMIN_POST_NOT_DELETED(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_008", "삭제된 게시글만 복구할 수 있습니다."),
     // Report
-    ADMIN_INVALID_REPORT_STATUS(HttpStatus.BAD_REQUEST, "ADMIN_007", "ACCEPTED 또는 REJECTED만 처리 가능합니다."),
-    ADMIN_NOT_ACCEPTED(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_008", "채택(ACCEPTED)된 신고만 게시글 삭제에 사용할 수 있습니다."),
-    ADMIN_POST_ID_MISMATCH(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_009", "신고 대상 게시글과 요청 게시글이 일치하지 않습니다."),
+    ADMIN_INVALID_REPORT_STATUS(HttpStatus.BAD_REQUEST, "ADMIN_009", "ACCEPTED 또는 REJECTED만 처리 가능합니다."),
+    ADMIN_NOT_ACCEPTED(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_010", "채택(ACCEPTED)된 신고만 게시글 삭제에 사용할 수 있습니다."),
+    ADMIN_POST_ID_MISMATCH(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_011", "신고 대상 게시글과 요청 게시글이 일치하지 않습니다."),
     // Dispute
-    ADMIN_DISPUTE_ALREADY_PROCESSED(HttpStatus.CONFLICT, "ADMIN_010", "이미 판정이 완료된 이의제기입니다."),
-    ADMIN_DISPUTE_NOT_UNDER_REVIEW(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_011", "UNDER_REVIEW 상태에서만 판정 가능합니다."),
-    ADMIN_DISPUTE_INVALID_STATUS(HttpStatus.BAD_REQUEST, "ADMIN_012", "유효하지 않은 판정 상태입니다."),
+    ADMIN_DISPUTE_ALREADY_PROCESSED(HttpStatus.CONFLICT, "ADMIN_012", "이미 판정이 완료된 이의제기입니다."),
+    ADMIN_DISPUTE_NOT_UNDER_REVIEW(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_013", "UNDER_REVIEW 상태에서만 판정 가능합니다."),
+    ADMIN_DISPUTE_INVALID_STATUS(HttpStatus.BAD_REQUEST, "ADMIN_014", "유효하지 않은 판정 상태입니다."),
 
     // Report
     REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "REPORT_001", "존재하지 않는 신고입니다."),
