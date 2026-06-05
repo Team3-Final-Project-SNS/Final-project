@@ -80,6 +80,10 @@ public class Post extends SoftDeleteEntity {
         @Column(name = "delete_reason", length = 500)
         private String deleteReason;
 
+        // 동시성 제어 테스트용 필드(낙관적 락 필요)
+        @Version
+        private Long version;
+
         @Builder
         private Post(Long authorId, LocalDateTime meetAt, String placeName,
                      BigDecimal placeLat, BigDecimal placeLng, String content,
@@ -164,6 +168,12 @@ public class Post extends SoftDeleteEntity {
         public void restore() {
                 super.restore();           // deletedAt = null
                 this.deleteReason = null;  // 삭제 사유도 같이 비움
+        }
+
+        // 동시성 테스트 전용 : 게시글 상태 변경
+        // MatchConcurrencyService에서 매칭 확정 시 OPEN → MATCHED 변경에 사용
+        public void changeStatus(PostStatus status) {
+                this.status = status;
         }
 
         // ===== 조회 메서드 =====
