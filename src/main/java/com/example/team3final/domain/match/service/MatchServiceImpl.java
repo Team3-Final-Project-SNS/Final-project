@@ -3,6 +3,7 @@ package com.example.team3final.domain.match.service;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.MatchException;
+import com.example.team3final.domain.admin.dispute.service.AdminDisputeService;
 import com.example.team3final.domain.chat.service.ChatService;
 import com.example.team3final.domain.location.service.UserLocationCleanupService;
 import com.example.team3final.domain.match.dto.request.CancelMatchRequestDto;
@@ -289,7 +290,8 @@ public class MatchServiceImpl implements MatchService{
             return;
         }
 
-        // 관리자 판정 취소는 사용자 취소가 아니므로 50% 패널티 로직을 타지 않음
+        // 포인트 정산은 호출자(AdminDisputeService.judgeDispute + applyDisputeJudgment)에서 이미 완료
+        // 여기서는 Match/Post 상태 전이만 처리
         match.cancelByDispute();
         postService.getPostById(match.getPostId()).cancel();
     }
