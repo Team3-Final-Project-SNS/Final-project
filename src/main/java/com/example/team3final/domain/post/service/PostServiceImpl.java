@@ -399,11 +399,10 @@ public class PostServiceImpl implements PostService{
         // @Transactional 더티 체킹으로 트랜잭션 종료 시 두 컬럼 모두 UPDATE
         post.deleteAndReason(reason);
 
-        // 22번 알림 - 게시글 작성자에게 강제 삭제 안내 발송
-        notificationPublisher.sendSystem(
-                post.getAuthorId(),
-                "게시글이 삭제되었습니다.",
-                "해당 게시물이 신고 접수 및 관리자 판단에 의해 삭제되었습니다. 자세한 사항은 고객센터를 확인해 주세요."
+        // 41. 게시글 삭제 알림 - 게시글 작성자에게
+        notificationPublisher.sendPostDeleted(
+                post.getAuthorId(), // userId (Long)
+                post.getId()        // postId (Long) -> 이 부분이 누락되었었습니다!
         );
 
         return refundedPoint;
@@ -445,11 +444,10 @@ public class PostServiceImpl implements PostService{
         // 게시글 복구
         post.restore();
 
-        // 작성자에게 복구 안내 알림
-        notificationPublisher.sendSystem(
-                post.getAuthorId(),
-                "게시글이 복구되었습니다.",
-                "관리자에 의해 삭제되었던 게시물이 복구되어, 예치 포인트가 다시 차감되었습니다."
+        // 42. 게시글 복구 알림 - 게시글 작성자에게
+        notificationPublisher.sendPostRestored(
+                post.getAuthorId(), // userId (Long)
+                post.getId()        // postId (Long) -> 엔티티 식별자 메서드명에 맞게 입력 (ex: post.getPostId())
         );
 
         return redepositPoint;
