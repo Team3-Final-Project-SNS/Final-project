@@ -5,8 +5,19 @@ import com.example.team3final.domain.ai.support.dto.response.AiSupportChatRespon
 
 /**
  * 고객센터 AI 채팅 기능의 서비스 계약입니다.
+ *
+ * 구현체는 LLM 호출뿐 아니라 대화 저장, RAG 검색, Tool 바인딩,
+ * fallback 응답, AI 호출 메트릭 저장까지 하나의 요청 흐름으로 처리합니다.
  */
 public interface AiSupportService {
 
+    /**
+     * 로그인 사용자의 고객센터 자연어 문의를 처리합니다.
+     *
+     * @param userId JWT에서 확인한 사용자 ID
+     * @param email JWT에서 확인한 사용자 email. LLM Tool 파라미터로 받지 않고 서버가 고정합니다.
+     * @param request 사용자 메시지와 conversationId
+     * @return 프론트에 보여줄 답변, 카테고리, 요약, fallback 여부
+     */
     AiSupportChatResponseDto chat(Long userId, String email, AiSupportChatRequestDto request);
 }

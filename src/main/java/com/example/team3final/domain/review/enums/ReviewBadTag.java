@@ -11,8 +11,8 @@ import lombok.RequiredArgsConstructor;
 public enum ReviewBadTag {
 
     LATE("약속 시간에 늦었어요", -1),
-    NO_REPLY("답장이 잘 오지 않았어요", -1),
-    UNCOMFORTABLE("대화가 불편했어요", -1),
+    NO_REPLY("소통이 잘 안 되고 조금 어수선했어요", -1),
+    UNCOMFORTABLE("생각했던 만남(모임)과 성격이 달랐어요", -1),
     BAD_MANNER("식사 매너가 아쉬웠어요", -1),
     DO_NOT_WANT_TO_MEET_AGAIN("다시 만나고 싶지 않아요", -1);
 

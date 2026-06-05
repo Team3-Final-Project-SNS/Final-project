@@ -11,10 +11,10 @@ import lombok.RequiredArgsConstructor;
 public enum ReviewGoodTag {
 
     ON_TIME("시간 약속을 잘 지켜요", 1),
-    KIND("친절해요", 1),
-    GOOD_COMMUNICATION("대화가 잘 통해요", 1),
+    KIND("대화 코드가 잘 맛았어요", 1),
+    GOOD_COMMUNICATION("부감 없이 편하게 밥 먹는 분귀기였어요", 1),
     CLEAN_MANNER("식사 매너가 좋아요", 1),
-    WANT_MEET_AGAIN("다시 만나고 싶어요", 1);
+    WANT_MEET_AGAIN("다음에 또 한 끼 같이하고 싶어요", 1);
 
     private final String description;
     private final int scoreDelta;

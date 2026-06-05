@@ -7,6 +7,8 @@ import com.example.team3final.domain.ai.support.enums.AiSupportCategory;
  *
  * AI 답변, 분류된 문의 카테고리, 대화 요약, 추가 조치 필요 여부,
  * fallback 사용 여부를 클라이언트에 반환합니다.
+ *
+ * fallbackUsed가 true이면 LLM/Tool/RAG 처리 중 문제가 있어 기본 안내 응답을 반환한 것입니다.
  */
 public record AiSupportChatResponseDto(
         String conversationId,

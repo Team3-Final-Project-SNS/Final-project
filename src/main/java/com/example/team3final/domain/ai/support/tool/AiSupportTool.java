@@ -7,147 +7,134 @@ import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StreamUtils;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 /**
  * 고객센터 AI가 답변 근거를 얻기 위해 호출하는 Spring AI Tool입니다.
  *
  * 기능/정책 안내는 카테고리별 가이드로 제공하고,
  * 개인 상태가 필요한 질문은 로그인 사용자의 포인트와 계정 상태를 조회합니다.
+ *
+ * 주의:
+ * 이 클래스의 public 메서드가 모두 LLM에 직접 노출되는 것은 아닙니다.
+ * 실제 채팅 요청에서는 AiSupportSessionTool을 LLM에 넘기고,
+ * AiSupportSessionTool이 현재 로그인 사용자의 email을 고정한 뒤 이 클래스를 호출합니다.
  */
 @Component
 @RequiredArgsConstructor
 public class AiSupportTool {
 
+    private static final int MAX_GUIDE_LENGTH = 4_000;
+
     private final UserService userService;
+    private final ResourceLoader resourceLoader;
 
 
     /**
      * 카테고리별 고객센터 안내 문서를 조회합니다.
      *
      * LLM은 사용자의 자연어 질문을 MATCH, POST, POINT, CHAT, REPORT,
-     * ACCOUNT, MEET, GENERAL 중 하나로 분류한 뒤 이 Tool을 호출합니다.
-     * 현재는 switch 기반 기본 안내를 반환하지만, 추후 RAG 문서 검색으로 교체해도
-     * 서비스 계층의 Tool 호출 흐름은 유지할 수 있습니다.
+     * ACCOUNT, MEET, REVIEW, GENERAL 중 하나로 분류한 뒤 이 Tool을 호출합니다.
+     * Tool은 카테고리에 매핑된 내부 고객센터 정책 문서를 읽어 반환합니다.
      *
      * @ToolParam은 LLM이 Tool을 호출할 때 어떤 인자를 넣어야 하는지 알려주는 설명서입니다.
      * 여기서는 category가 필수이며, 허용 enum 값을 description에 적어 모델의 잘못된 호출을 줄입니다.
      */
     @Tool(
-            description = "한끼팟 기능, 정책, 사용 방법을 카테고리별로 조회합니다.",
+            description = "한끼팟 기능, 정책, 사용 방법을 내부 정책 문서 기반으로 카테고리별 조회합니다.",
             resultConverter = AiSupportToolResultConverter.class
     )
     public AiSupportGuideToolResult getServiceGuide(
-            @ToolParam(description = "문의 카테고리. MATCH, POST, POINT, CHAT, REPORT, ACCOUNT, MEET, GENERAL 중 하나", required = true)
+            @ToolParam(description = "문의 카테고리. MATCH, POST, POINT, CHAT, REPORT, ACCOUNT, MEET, REVIEW, GENERAL 중 하나", required = true)
             AiSupportCategory category
     ) {
+        AiSupportGuideDocument document = resolveGuideDocument(category);
+
+        // RAG 검색 결과가 없거나 Tool 호출이 필요한 경우에도 같은 정책 문서를 기준으로 답하게 합니다.
+        // 즉, 고객센터 정책의 단일 기준은 src/main/resources/rag-docs/support/*.md 입니다.
+        return new AiSupportGuideToolResult(
+                category,
+                document.title(),
+                readSupportPolicyDocument(document.path()),
+                document.relatedApi(),
+                true
+        );
+    }
+
+    private AiSupportGuideDocument resolveGuideDocument(AiSupportCategory category) {
+        // 여러 카테고리가 하나의 정책 문서를 공유할 수 있습니다.
+        // 예: MATCH와 POST는 모두 매칭/게시글 정책 문서에서 관리합니다.
         return switch (category) {
-            case MATCH -> new AiSupportGuideToolResult(
-                    AiSupportCategory.MATCH,
+            case MATCH -> new AiSupportGuideDocument(
                     "매칭 신청 및 취소 안내",
-                    """
-                    모집 중인 게시글에 신청하면 매칭이 생성됩니다.
-                    본인이 작성한 게시글에는 신청할 수 없습니다.
-                    이미 신청한 게시글에는 중복 신청할 수 없습니다.
-                    모집이 종료되었거나 인원이 마감된 게시글에는 신청할 수 없습니다.
-                    약속 시간이 지난 뒤에는 매칭 취소가 제한됩니다.
-                    매칭 취소 시 시점과 정책에 따라 예치 포인트가 전액 또는 일부 반환될 수 있습니다.
-                    """,
-                    "/api/v1/matches",
-                    true
+                    "matching-policy.md",
+                    "/api/v1/matches"
             );
-            case POST -> new AiSupportGuideToolResult(
-                    AiSupportCategory.POST,
+            case POST -> new AiSupportGuideDocument(
                     "게시글 작성 및 관리 안내",
-                    """
-                    게시글 작성 시 만남 시간, 장소, 한마디, 책임비, 모집 인원을 입력합니다.
-                    만남 시간은 현재 이후여야 합니다.
-                    책임비는 최소 200P 이상이며 100P 단위로 설정합니다.
-                    게시글 작성자는 책임비를 예치합니다.
-                    OPEN 상태의 본인 게시글만 수정 또는 삭제할 수 있습니다.
-                    매칭이 확정되었거나 완료된 게시글은 일반 수정/삭제가 제한됩니다.
-                    """,
-                    "/api/v1/posts",
-                    true
+                    "matching-policy.md",
+                    "/api/v1/posts"
             );
-            case POINT -> new AiSupportGuideToolResult(
-                    AiSupportCategory.POINT,
+            case POINT -> new AiSupportGuideDocument(
                     "포인트와 정산 안내",
-                    """
-                    회원가입 시 가입 보너스 포인트가 지급됩니다.
-                    포인트는 책임비 예치, 충전, 환불, 패널티, 신고 포상 등으로 변동됩니다.
-                    충전 패키지는 3,000P, 5,000P, 10,000P, 20,000P 단위입니다.
-                    정상 완료 또는 취소 정책에 따라 예치 포인트가 반환될 수 있습니다.
-                    노쇼 등 패널티 상황에서는 포인트가 차감될 수 있습니다.
-                    포인트 변동 내역은 포인트 거래내역에서 확인할 수 있습니다.
-                    """,
-                    "/api/v1/point-transactions",
-                    true
+                    "point-policy.md",
+                    "/api/v1/point-transactions"
             );
-            case CHAT -> new AiSupportGuideToolResult(
-                    AiSupportCategory.CHAT,
+            case CHAT -> new AiSupportGuideDocument(
                     "채팅 및 알림 안내",
-                    """
-                    매칭이 생성되면 매칭 참여자 간 채팅방을 사용할 수 있습니다.
-                    채팅 메시지는 부적절한 표현 필터링 대상이 될 수 있습니다.
-                    신고 처리 결과, 포인트 지급, 매칭 관련 주요 이벤트는 알림으로 안내됩니다.
-                    채팅방이 비활성화된 경우 메시지 전송이 제한될 수 있습니다.
-                    """,
-                    "/api/v1/chat",
-                    true
+                    "chat-notification-policy.md",
+                    "/api/v1/chat"
             );
-            case REPORT -> new AiSupportGuideToolResult(
-                    AiSupportCategory.REPORT,
+            case REPORT -> new AiSupportGuideDocument(
                     "신고 접수 및 처리 안내",
-                    """
-                    게시글에 문제가 있으면 신고를 접수할 수 있습니다.
-                    본인 게시글은 신고할 수 없습니다.
-                    같은 대상에 대한 중복 신고는 제한됩니다.
-                    신고 사유는 스팸, 음란, 사기, 욕설/비방, 기타로 구분됩니다.
-                    신고가 채택되면 신고자에게 50P 포상이 지급될 수 있습니다.
-                    신고가 기각된 경우 일정 기간 동일 대상 재신고가 제한될 수 있습니다.
-                    """,
-                    "/api/v1/reports",
-                    true
+                    "report-policy.md",
+                    "/api/v1/reports"
             );
-            case ACCOUNT -> new AiSupportGuideToolResult(
-                    AiSupportCategory.ACCOUNT,
+            case ACCOUNT -> new AiSupportGuideDocument(
                     "회원가입, 로그인, 계정 안내",
-                    """
-                    학교 이메일 인증을 통해 가입합니다.
-                    등록된 학교 도메인이 아니면 가입이 제한될 수 있습니다.
-                    닉네임은 중복 사용할 수 없습니다.
-                    계정이 정지 또는 탈퇴 상태이면 서비스 이용이 제한될 수 있습니다.
-                    비밀번호와 닉네임, 학과 정보는 내 정보 수정에서 변경할 수 있습니다.
-                    """,
-                    "/api/v1/auth, /api/v1/users",
-                    true
+                    "account-policy.md",
+                    "/api/v1/auth, /api/v1/users"
             );
-            case MEET -> new AiSupportGuideToolResult(
-                    AiSupportCategory.MEET,
+            case MEET -> new AiSupportGuideDocument(
                     "만남 인증과 노쇼 안내",
-                    """
-                    매칭 후 약속 장소에서 GPS 장소 인증을 진행합니다.
-                    장소 인증은 약속 장소 반경 기준과 인증 가능 시간 조건을 만족해야 합니다.
-                    이후 QR 인증으로 실제 만남 완료 여부를 확인할 수 있습니다.
-                    인증을 완료하지 않으면 노쇼 후보로 판정될 수 있습니다.
-                    필요한 경우 만남 시간 연장을 요청할 수 있으며, 상대방 수락이 필요합니다.
-                    """,
-                    "/api/v1/meets",
-                    true
+                    "no-show-policy.md",
+                    "/api/v1/meets"
             );
-            case GENERAL -> new AiSupportGuideToolResult(
-                    AiSupportCategory.GENERAL,
+            case REVIEW -> new AiSupportGuideDocument(
+                    "후기와 매너온도 안내",
+                    "review-policy.md",
+                    "/api/v1/reviews"
+            );
+            case GENERAL -> new AiSupportGuideDocument(
                     "고객센터 이용 안내",
-                    """
-                    AI 고객센터는 한끼팟 기능 사용법과 기본 정책을 안내합니다.
-                    결제 오류, 계정 제재 이의, 예외적인 환불 요청처럼 개인 확인이 필요한 문제는 1:1 문의로 접수해야 합니다.
-                    문의는 하루 접수 제한과 짧은 쿨다운이 있을 수 있습니다.
-                    """,
-                    "/api/v1/inquiries",
-                    true
+                    "account-policy.md",
+                    "/api/v1/inquiries"
             );
         };
+    }
+
+    private String readSupportPolicyDocument(String filename) {
+        Resource resource = resourceLoader.getResource("classpath:rag-docs/support/" + filename);
+
+        try {
+            if (!resource.exists()) {
+                // 문서 누락은 Tool 실패로 던지지 않고 명시적인 안내 문구로 반환합니다.
+                // 그래야 LLM이 없는 정책을 지어내지 않고 사용자에게 확인 필요 상황을 설명할 수 있습니다.
+                return "해당 카테고리의 내부 정책 문서를 찾을 수 없습니다. 확인이 필요한 내용은 1:1 문의로 안내하세요.";
+            }
+
+            String content = StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
+            // 긴 문서를 그대로 Tool 결과로 넘기면 토큰 비용이 커지므로 상한을 둡니다.
+            return truncate(content, MAX_GUIDE_LENGTH);
+        } catch (IOException e) {
+            return "내부 정책 문서를 읽는 중 오류가 발생했습니다. 정책을 단정하지 말고 1:1 문의 또는 관리자 확인을 안내하세요.";
+        }
     }
 
     /**
@@ -158,6 +145,8 @@ public class AiSupportTool {
      * 답변에 필요한 최소 사용자 컨텍스트만 제공합니다.
      */
     public AiSupportUserContextToolResult getUserSupportContext(String email) {
+        // email은 LLM이 입력한 값이 아니라 인증된 사용자 정보에서 온 값입니다.
+        // 다른 사용자의 포인트/상태를 질문해도 현재 로그인 사용자 컨텍스트만 조회됩니다.
         User user = userService.findByEmail(email);
         UserInfoDto userInfo = userService.getUserInfo(user.getId());
 
@@ -169,5 +158,20 @@ public class AiSupportTool {
                 user.getTotalPoint(),
                 user.getStatus().name()
         );
+    }
+
+    private String truncate(String value, int maxLength) {
+        if (value == null || value.length() <= maxLength) {
+            return value;
+        }
+
+        return value.substring(0, maxLength);
+    }
+
+    private record AiSupportGuideDocument(
+            String title,
+            String path,
+            String relatedApi
+    ) {
     }
 }

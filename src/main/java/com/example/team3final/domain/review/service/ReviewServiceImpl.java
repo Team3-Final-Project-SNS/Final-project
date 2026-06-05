@@ -285,18 +285,27 @@ public class ReviewServiceImpl implements ReviewService {
     /**
      * 선택된 태그를 기반으로 점수 변화량을 계산합니다.
      *
-     * 좋아요 태그는 각 +1점,
-     * 아쉬워요 태그는 각 -1점으로 계산합니다.
+     * 좋아요 태그는 각 +1점, 아쉬워요 태그는 각 -1점으로 계산하되,
+     * 상대방이 선택한 태그 개수를 역산할 수 없도록 한 만남당 최대/최소 점수 제한을 둡니다.
      */
     private int calculateTagScoreDelta(List<ReviewGoodTag> goodTags, List<ReviewBadTag> badTags) {
         int goodScore = goodTags.stream()
-                .mapToInt(ReviewGoodTag::getScoreDelta)
-                .sum();
-        int badScore = badTags.stream()
-                .mapToInt(ReviewBadTag::getScoreDelta)
+                .mapToInt(ReviewGoodTag::getScoreDelta) // 원래 로직 유지
                 .sum();
 
-        return goodScore + badScore;
+        int badScore = badTags.stream()
+                .mapToInt(ReviewBadTag::getScoreDelta) // 원래 로직 유지
+                .sum();
+
+        int totalRawScore = goodScore + badScore;
+
+        // 익명성 보장을 위한 한 만남(식사)당 점수 제한 설정
+        // 좋았어요를 5개 다 골라도 최대 2점, 아쉬웠어요를 다 골라도 최소 -3점
+        int maxLimit = 2;
+        int minLimit = -3;
+
+        // 범위를 제한하여 리턴 (-3 ~ +2 사이의 값만 나옴)
+        return Math.max(minLimit, Math.min(maxLimit, totalRawScore));
     }
 
 

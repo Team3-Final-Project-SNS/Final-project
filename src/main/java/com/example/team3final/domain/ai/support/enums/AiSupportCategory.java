@@ -27,6 +27,8 @@ public enum AiSupportCategory {
 
     MEET("노쇼 관련 문의"),
 
+    REVIEW("후기, 매너온도 관련 문의"),
+
     GENERAL("일반 문의");
 
     private final String description;
