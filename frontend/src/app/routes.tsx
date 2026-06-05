@@ -39,6 +39,7 @@ export const router = createBrowserRouter([
     children: [
       { path: "posts", Component: PostListPage },
       { path: "posts/new", Component: PostCreatePage },
+      { path: "posts/:id/edit", Component: PostCreatePage },
       { path: "posts/:id", Component: PostDetailPage },
       { path: "matches", Component: MatchesPage },
       { path: "ai/matching", Component: MatchingAiChatPage },
@@ -58,6 +59,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, Component: PostListPage },
       { path: "new", Component: PostCreatePage },
+      { path: ":id/edit", Component: PostCreatePage },
       { path: ":id", Component: PostDetailPage },
     ],
   },

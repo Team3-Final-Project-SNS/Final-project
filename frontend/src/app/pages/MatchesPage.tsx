@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { MapPin, Clock, MessageCircle, AlertCircle, Loader2, XCircle, Star, Check } from 'lucide-react';
 import { getMyMatches, GetMatchesItemResponse, MatchStatus, updateMatchCancel } from '../../api/matchApi';
 import { getUserMe } from '../../api/userApi';
@@ -11,7 +11,18 @@ import {
   ReviewItem,
 } from '../../api/reviewApi';
 
-type FilterStatus = MatchStatus | '전체';
+type FilterStatus = MatchStatus | '전체' | 'NO_SHOW';
+
+const noShowStatuses: MatchStatus[] = ['AUTHOR_NO_SHOW', 'APPLICANT_NO_SHOW', 'BOTH_NO_SHOW'];
+
+const filterOptions: { value: FilterStatus; label: string }[] = [
+  { value: '전체', label: '전체' },
+  { value: 'MATCHED', label: '진행 중' },
+  { value: 'COMPLETED', label: '완료됨' },
+  { value: 'CANCELLED', label: '취소됨' },
+  { value: 'NO_SHOW', label: '노쇼' },
+  { value: 'DISPUTED', label: '이의제기' },
+];
 
 const goodTagOptions: { value: ReviewGoodTag; label: string }[] = [
   { value: 'ON_TIME', label: '시간 약속을 잘 지켜요' },
@@ -46,10 +57,13 @@ type DisplayMatch = GetMatchesItemResponse & {
 };
 
 export default function MatchesPage() {
+  const [searchParams] = useSearchParams();
   const [matches, setMatches] = useState<GetMatchesItemResponse[]>([]);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [writtenReviews, setWrittenReviews] = useState<Record<number, WrittenReview>>({});
-  const [activeFilter, setActiveFilter] = useState<FilterStatus>('전체');
+  const [activeFilter, setActiveFilter] = useState<FilterStatus>(
+      searchParams.get('filter') === 'NO_SHOW' ? 'NO_SHOW' : '전체'
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [page, setPage] = useState(0);
@@ -66,12 +80,21 @@ export default function MatchesPage() {
       setLoading(true);
       setError('');
       try {
-        const statusParam = activeFilter === '전체' ? undefined : activeFilter as MatchStatus;
+        const matchRequest =
+            activeFilter === 'NO_SHOW'
+                ? Promise.all(noShowStatuses.map((status) => getMyMatches(status, page, 10)))
+                : getMyMatches(activeFilter === '전체' ? undefined : activeFilter as MatchStatus, page, 10);
+
         const [matchRes, userRes] = await Promise.all([
-          getMyMatches(statusParam, page, 10),
+          matchRequest,
           currentUserId === null ? getUserMe() : Promise.resolve(null),
         ]);
-        const nextMatches = matchRes.data.data.content;
+        const nextMatches = Array.isArray(matchRes)
+            ? matchRes.flatMap((res) => res.data.data.content)
+            : matchRes.data.data.content;
+        const nextTotalPages = Array.isArray(matchRes)
+            ? Math.max(1, ...matchRes.map((res) => res.data.data.totalPages))
+            : matchRes.data.data.totalPages;
         const userId = currentUserId ?? userRes!.data.data.userId;
 
         if (currentUserId === null) {
@@ -80,7 +103,7 @@ export default function MatchesPage() {
 
         // backend PageResponseDto has 'content', 'page', 'size', 'totalPages', 'hasNext'
         setMatches(nextMatches);
-        setTotalPages(matchRes.data.data.totalPages);
+        setTotalPages(nextTotalPages);
 
         const completedMatches = nextMatches.filter((match) => match.status === 'COMPLETED');
         if (completedMatches.length > 0) {
@@ -169,6 +192,10 @@ export default function MatchesPage() {
         return { text: '만남 완료', color: 'bg-[#2196f3] text-white' };
       case 'CANCELLED':
         return { text: '취소됨', color: 'bg-[#9e9e9e] text-white' };
+      case 'AUTHOR_NO_SHOW':
+      case 'APPLICANT_NO_SHOW':
+      case 'BOTH_NO_SHOW':
+        return { text: '노쇼', color: 'bg-[#c62828] text-white' };
       default:
         return { text: status, color: 'bg-gray-200 text-gray-700' };
     }
@@ -200,26 +227,20 @@ export default function MatchesPage() {
 
         <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
 
-          {['전체', 'MATCHED', 'COMPLETED', 'CANCELLED', 'AUTHOR_NO_SHOW', 'APPLICANT_NO_SHOW', 'BOTH_NO_SHOW', 'DISPUTED'].map((filter) => (
+          {filterOptions.map((filter) => (
               <button
-                  key={filter}
+                  key={filter.value}
                   onClick={() => {
-                      setActiveFilter(filter as FilterStatus);
+                      setActiveFilter(filter.value);
                       setPage(0);
                   }}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
-                      activeFilter === filter
+                      activeFilter === filter.value
                           ? 'bg-[#d84315] text-white'
                           : 'bg-white border border-[#e0e0e0] text-[#616161] hover:border-[#d84315]'
                   }`}
               >
-                {filter === '전체' ? '전체' :
-                    filter === 'MATCHED' ? '진행 중' :
-                        filter === 'COMPLETED' ? '완료됨' :
-                            filter === 'CANCELLED' ? '취소됨' :
-                                filter === 'AUTHOR_NO_SHOW' ? '등록자 노쇼' :
-                                    filter === 'APPLICANT_NO_SHOW' ? '신청자 노쇼' :
-                                        filter === 'BOTH_NO_SHOW' ? '양측 노쇼' : '이의제기'}
+                {filter.label}
               </button>
           ))}
         </div>
