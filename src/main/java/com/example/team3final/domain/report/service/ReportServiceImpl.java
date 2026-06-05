@@ -52,8 +52,10 @@ public class ReportServiceImpl implements ReportService {
     @Transactional
     public CreateReportResponseDto createReport(Long reporterId, CreateReportRequestDto request) {
 
-        // 신고 대상 게시글 존재 여부 확인 + 본인 게시글 신고 차단
-        Post post = postService.getPostById(request.getTargetId());
+        // 신고 접수 중 관리자 삭제가 동시에 들어올 수 있으므로 락 조회 사용.
+        // 관리자 삭제도 같은 Post row를 잠그면 신고 생성/관리자 삭제 순서가 정리됨.
+        Post post = postService.getPostByIdWithLock(request.getTargetId());
+
         if (post.getAuthorId().equals(reporterId)) {
             throw new ReportException(ErrorCode.REPORT_SELF_REPORT);
         }

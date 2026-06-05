@@ -131,6 +131,10 @@ public interface PostService {
     // 삭제 포함 단건 조회
     Post getPostByIdIncludingDeleted(Long postId);
 
+    // 비관적 락을 걸어서 게시글을 조회하는 메서드.
+    // 관리자 삭제, 신고 접수처럼 동시성 제어가 필요한 흐름에서 사용.
+    Post getPostByIdWithLock(Long postId);
+
     // 관리자 게시글 목록 조회
     Page<Post> getPostsForAdmin(List<Long> authorIds, PostStatus status, String keyword, Pageable pageable);
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { createPost, getPost, updatePost } from '../../api/postApi';
 import axiosInstance from '../../api/axiosInstance';
-import { AlertCircle, Loader2, MapPin, Search, X } from 'lucide-react';
+import { AlertCircle, ChevronDown, Loader2, MapPin, Search, X } from 'lucide-react';
 
 // 카카오 장소 검색 결과 타입
 interface KakaoPlace {
@@ -24,6 +24,24 @@ function toTimeInputValue(value: Date) {
     const minutes = String(value.getMinutes()).padStart(2, '0');
     return `${hours}:${minutes}`;
 }
+
+function toTenMinuteTimeInputValue(value: Date) {
+    const rounded = new Date(value);
+    const minutes = rounded.getMinutes();
+    const nextTenMinute = Math.round(minutes / 10) * 10;
+
+    if (nextTenMinute === 60) {
+        rounded.setHours(rounded.getHours() + 1);
+        rounded.setMinutes(0, 0, 0);
+    } else {
+        rounded.setMinutes(nextTenMinute, 0, 0);
+    }
+
+    return toTimeInputValue(rounded);
+}
+
+const hourOptions = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, '0'));
+const minuteOptions = ['00', '10', '20', '30', '40', '50'];
 
 export default function PostCreatePage() {
     const navigate = useNavigate();
@@ -58,6 +76,7 @@ export default function PostCreatePage() {
     const [searchResults, setSearchResults] = useState<KakaoPlace[]>([]);
     const [showResults, setShowResults] = useState(false);
     const [searchLoading, setSearchLoading] = useState(false);
+    const [openTimeDropdown, setOpenTimeDropdown] = useState<'hour' | 'minute' | null>(null);
 
     // ── 유저 포인트 조회 ──────────────────────────────────
     useEffect(() => {
@@ -90,7 +109,7 @@ export default function PostCreatePage() {
                 setPlaceLng(post.placeLng);
                 setSearchKeyword(post.placeName);
                 setDate(toDateInputValue(meetAt));
-                setTime(toTimeInputValue(meetAt));
+                setTime(toTenMinuteTimeInputValue(meetAt));
                 setContent(post.content || '');
                 setPoints(post.authorDeposit);
                 setMaxApplicants(post.maxApplicants);
@@ -208,6 +227,13 @@ export default function PostCreatePage() {
 
     const pointOptions = [1000, 2000, 3000, 5000];
     const isPlaceSelected = placeLat !== null && placeLng !== null;
+    const [selectedHour, selectedMinute] = time.split(':');
+    const normalizedMinute = minuteOptions.includes(selectedMinute) ? selectedMinute : '00';
+
+    const handleTimeChange = (nextHour: string, nextMinute: string) => {
+        setTime(`${nextHour}:${nextMinute}`);
+        setOpenTimeDropdown(null);
+    };
 
     if (initialLoading) {
         return (
@@ -337,13 +363,60 @@ export default function PostCreatePage() {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-[#424242] mb-2">시간</label>
-                                <input
-                                    type="time"
-                                    value={time}
-                                    onChange={(e) => setTime(e.target.value)}
-                                    className="w-full px-4 py-3 border border-[#e0e0e0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#d84315] focus:border-transparent"
-                                    required
-                                />
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="relative">
+                                        <button
+                                            type="button"
+                                            onClick={() => setOpenTimeDropdown((prev) => (prev === 'hour' ? null : 'hour'))}
+                                            className="flex w-full items-center justify-between rounded-lg border border-[#e0e0e0] bg-white px-4 py-3 text-left focus:outline-none focus:ring-2 focus:ring-[#d84315] focus:border-transparent"
+                                        >
+                                            <span>{selectedHour}시</span>
+                                            <ChevronDown size={18} className="text-[#616161]" />
+                                        </button>
+                                        {openTimeDropdown === 'hour' && (
+                                            <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 max-h-56 overflow-y-auto rounded-lg border border-[#e0e0e0] bg-white shadow-xl">
+                                                {hourOptions.map((hour) => (
+                                                    <button
+                                                        key={hour}
+                                                        type="button"
+                                                        onClick={() => handleTimeChange(hour, normalizedMinute)}
+                                                        className={`w-full px-4 py-3 text-left text-sm transition-colors hover:bg-[#fff3e0] ${
+                                                            selectedHour === hour ? 'bg-[#fff3e0] font-bold text-[#d84315]' : 'bg-white text-[#212121]'
+                                                        }`}
+                                                    >
+                                                        {hour}시
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="relative">
+                                        <button
+                                            type="button"
+                                            onClick={() => setOpenTimeDropdown((prev) => (prev === 'minute' ? null : 'minute'))}
+                                            className="flex w-full items-center justify-between rounded-lg border border-[#e0e0e0] bg-white px-4 py-3 text-left focus:outline-none focus:ring-2 focus:ring-[#d84315] focus:border-transparent"
+                                        >
+                                            <span>{normalizedMinute}분</span>
+                                            <ChevronDown size={18} className="text-[#616161]" />
+                                        </button>
+                                        {openTimeDropdown === 'minute' && (
+                                            <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 overflow-hidden rounded-lg border border-[#e0e0e0] bg-white shadow-xl">
+                                                {minuteOptions.map((minute) => (
+                                                    <button
+                                                        key={minute}
+                                                        type="button"
+                                                        onClick={() => handleTimeChange(selectedHour, minute)}
+                                                        className={`w-full px-4 py-3 text-left text-sm transition-colors hover:bg-[#fff3e0] ${
+                                                            normalizedMinute === minute ? 'bg-[#fff3e0] font-bold text-[#d84315]' : 'bg-white text-[#212121]'
+                                                        }`}
+                                                    >
+                                                        {minute}분
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
