@@ -1,5 +1,7 @@
 package com.example.team3final.domain.ai.report.tool;
 
+import com.example.team3final.domain.ai.report.dashboard.dto.AiReportDashboardSnapshotDto;
+import com.example.team3final.domain.ai.report.dashboard.service.AiReportDashboardQueryService;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.service.PostService;
 import com.example.team3final.domain.report.entity.Report;
@@ -31,6 +33,7 @@ public class AiReportTool {
     private final ReportService reportService;
     private final PostService postService;
     private final UserService userService;
+    private final AiReportDashboardQueryService aiReportDashboardQueryService;
 
     /**
      * 특정 신고 건의 분석에 필요한 전체 맥락을 조회합니다.
@@ -147,6 +150,46 @@ public class AiReportTool {
                 .limit(resultLimit)
                 .map(this::toResult)
                 .toList();
+    }
+
+    /**
+     * 관리자 콘솔 홈에서 AI가 사용할 운영 현황 요약을 조회합니다.
+     *
+     * 게시글, 신고, 문의, 유저, 결제의 핵심 카운트만 반환하며
+     * 개인정보나 결제 식별자 같은 상세 데이터는 포함하지 않습니다.
+     */
+    @Tool(
+            description = "관리자 콘솔 대시보드의 게시글, 신고, 문의, 유저, 결제 현황 요약 카운트를 조회합니다.",
+            resultConverter = AiReportToolResultConverter.class
+    )
+    public AiReportDashboardToolResult getAdminDashboardSnapshot() {
+        // Tool은 Repository를 직접 호출하지 않습니다.
+        // 팀 컨벤션에 맞춰 AI_report 내부 QueryService를 통해 대시보드 집계를 조회합니다.
+        AiReportDashboardSnapshotDto snapshot = aiReportDashboardQueryService.getSnapshot();
+
+        return new AiReportDashboardToolResult(
+                snapshot.totalPostCount(),
+                snapshot.openPostCount(),
+                snapshot.matchedPostCount(),
+                snapshot.expiredPostCount(),
+                snapshot.totalReportCount(),
+                snapshot.pendingReportCount(),
+                snapshot.acceptedReportCount(),
+                snapshot.rejectedReportCount(),
+                snapshot.totalInquiryCount(),
+                snapshot.pendingInquiryCount(),
+                snapshot.answeredInquiryCount(),
+                snapshot.totalUserCount(),
+                snapshot.activeUserCount(),
+                snapshot.suspendedUserCount(),
+                snapshot.withdrawnUserCount(),
+                snapshot.totalPaymentCount(),
+                snapshot.readyPaymentCount(),
+                snapshot.paidPaymentCount(),
+                snapshot.cancelledPaymentCount(),
+                snapshot.failedPaymentCount(),
+                snapshot.paidPaymentAmount()
+        );
     }
 
     /**

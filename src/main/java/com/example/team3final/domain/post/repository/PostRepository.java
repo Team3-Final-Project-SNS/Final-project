@@ -17,6 +17,9 @@ import java.util.Optional;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
 
+    // AI_report 관리자 콘솔 챗봇의 대시보드 요약용 읽기 전용 집계입니다.
+    long countByStatus(PostStatus status);
+
     /**
      * soft delete된 게시글 포함 IN 조회 — 매칭 목록 조회 전용
      *
