@@ -210,8 +210,10 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
         applyDisputeJudgment(dispute, requestDto.getStatus(), match, postMatchInfo, submitterIsAuthor);
 
         if (requestDto.getStatus() == DisputeStatus.HOLD) {
+            // 24. 이의제기 보류 알림 - 이의제기 신청자에게
             notificationPublisher.sendDisputePending(dispute.getSubmitterId(), disputeId);
         } else {
+            // 23. 이의제기 판정 결과 알림 - 이의제기 신청자에게
             // 나머지 판정은 일반 판정 결과 알림 발송 (HOLD 포함)
             notificationPublisher.sendDisputeResult(dispute.getSubmitterId(), disputeId);
         }
@@ -321,7 +323,7 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
         // 상태 전이 제약 없이 강제 변경
         dispute.forceChangeStatus(requestDto.getStatus(), adminId, requestDto.getComment());
 
-        // 강제 변경도 유저에게 알림 발송
+        // 23. 이의제기 판정 결과 알림 - 이의제기 신청자에게
         notificationPublisher.sendDisputeResult(dispute.getSubmitterId(), disputeId);
 
         return AdminJudgeDisputeResponseDto.of(dispute, 0);

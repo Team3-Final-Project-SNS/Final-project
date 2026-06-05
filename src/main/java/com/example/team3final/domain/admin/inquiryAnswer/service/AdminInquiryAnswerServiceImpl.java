@@ -143,7 +143,7 @@ public class AdminInquiryAnswerServiceImpl implements AdminInquiryAnswerService 
         // Inquiry 상태를 ANSWERED로 변경
         inquiry.answer();
 
-        // 문의 작성자에게 답변 완료 알림 발송
+        // 34. 문의 답변 완료 알림 - 문의 작성자에게
         notificationPublisher.sendInquiryAnswered(inquiry.getUserId(), inquiryId);
 
         return AdminCreateInquiryResponseDto.from(inquiryAnswer);
