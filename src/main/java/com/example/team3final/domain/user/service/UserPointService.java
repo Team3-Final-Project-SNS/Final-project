@@ -68,4 +68,7 @@ public interface UserPointService {
      * @return 실제로 회수된 금액
      */
     int withdrawChargedPoint(Long userId, int amount, Long paymentId);
+
+    // 유저 포인트 총 보유량 조회 (유료 + 무료 포인트)
+    int getTotalPoint(Long userId);
 }
