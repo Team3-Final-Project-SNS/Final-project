@@ -232,7 +232,14 @@ export default function PlaceVerificationPage() {
 
         // role 기준으로 마커 색깔 결정
         // AUTHOR(등록자): 파란색 / APPLICANT(신청자): 주황색
-        const markerColor = opponentPosition.role === 'AUTHOR' ? '#2196f3' : '#F97316';
+        const markerColor = '#F97316';
+        const markerContent = `<div style="
+                width: 16px; height: 16px;
+                background: ${markerColor};
+                border: 3px solid white;
+                border-radius: 50%;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            "></div>`;
 
         const latlng = new window.kakao.maps.LatLng(
             opponentPosition.latitude,
@@ -242,18 +249,13 @@ export default function PlaceVerificationPage() {
         if (opponentOverlayRef.current) {
             // 이미 마커가 있으면 위치만 업데이트
             opponentOverlayRef.current.setPosition(latlng);
+            opponentOverlayRef.current.setContent(markerContent);
         } else {
             // 새로 생성
             opponentOverlayRef.current = new window.kakao.maps.CustomOverlay({
                 map: mapRef.current,
                 position: latlng,
-                content: `<div style="
-                width: 16px; height: 16px;
-                background: ${markerColor};
-                border: 3px solid white;
-                border-radius: 50%;
-                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-            "></div>`,
+                content: markerContent,
                 yAnchor: 0.5,
                 xAnchor: 0.5,
             });

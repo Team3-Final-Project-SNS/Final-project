@@ -34,12 +34,15 @@ public class UserLocation {
     private Long userId;
 
     // 위도 - Post 엔티티와 동일한 타입 사용
-    @Column(name = "latitude", nullable = false)
+    @Column(name = "latitude", nullable = false, precision = 10, scale = 7)
     private BigDecimal latitude;
 
     // 경도
-    @Column(name = "longitude", nullable = false)
+    @Column(name = "longitude", nullable = false, precision = 10, scale = 7)
     private BigDecimal longitude;
+
+    // precision = 10: 전체 숫자 자릿수 최대 10자리
+    // scale = 7: 소수점 아래 7자리
 
     // 마지막 위치 업데이트 시각 - 1초마다 갱신
     @Column(name = "updated_at", nullable = false)

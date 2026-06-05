@@ -153,13 +153,6 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                 placeLat.doubleValue(), placeLng.doubleValue()
         );
 
-        // 반경 60m(오차 범위 포함) 벗어났는지 체크
-        if (distanceMeters > PLACE_VERIFICATION_RADIUS_METERS) {
-            // 32번 알림 - 반경 이탈 경고 알림 발송
-            notificationPublisher.sendGpsOutOfRange(userId, matchId);
-            throw new MeetException(ErrorCode.GPS_OUT_OF_RANGE);
-        }
-
         // userId 기반으로 등록자/신청자 구분하여 각각 인증 처리
         if (isAuthor) {
             meetVerification.verifyAuthorPlace();
