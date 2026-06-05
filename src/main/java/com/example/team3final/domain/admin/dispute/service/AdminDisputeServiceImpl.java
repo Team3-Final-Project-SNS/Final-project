@@ -228,7 +228,7 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
             PostMatchInfoDto postMatchInfo,
             boolean submitterIsAuthor) {
 
-        // 보류 상태면 스킵
+        // 보류(HOLD) 상태면 추가 처리 없이 스킵
         if (judgment == DisputeStatus.HOLD) {
             return;
         }
@@ -236,96 +236,75 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
         // 이의제기 대상 매칭의 인증 정보를 조회
         MeetVerification meetVerification = meetVerificationService.getByMatchId(dispute.getMatchId());
 
-        // 이의제기 상태가 50% 부분 수용 판정인 경우
+        // ── 부분 수용(PARTIALLY_ACCEPTED) ──────────────────────────────────────
+        // 정책: 응급실/장례식 등 불가피한 사유 → 실제 만남 없음 → 매칭 취소 → 예치금 50% 반환
+        // 포인트 50% 반환은 judgeDispute()의 PARTIALLY_ACCEPTED 분기에서 이미 처리됨
         if (judgment == DisputeStatus.PARTIALLY_ACCEPTED) {
 
-            // DISPUTE 상태로 바꾸기 전에 저장해 둔 기존 노쇼 예정 상태를 복원
-            VerificationStatus restoredStatus = meetVerification.restoreNoShowStatusFromDispute();
+            // MeetVerification 상태를 NO_SHOW_CANCELLED로 전환
+            meetVerification.partiallyAcceptDispute();
 
-            // 이미 judgeDispute()에서 제출자에게 50% 반환했으므로,
-            // 여기서는 포인트 정산 없이 Match/Post 상태만 노쇼 결과로 확정
-            matchService.markNoShowByDisputeWithoutPointSettlement(dispute.getMatchId(), restoredStatus);
-
-            // 관리자 판정이 끝나면 최종 노쇼 확정 상태로 변경
-            meetVerification.confirmNoShow();
-
-            // 노쇼로 종결된 매칭이므로 채팅방을 읽기 전용으로 전환
-            chatService.makeReadOnlyChatRoom(match.getPostId());
-
-            return;
-        }
-
-        // REJECTED인 경우
-        if (judgment == DisputeStatus.REJECTED) {
-
-            // DISPUTE 상태로 바꾸기 전의 기존 노쇼 예정 상태를 복원
-            VerificationStatus restoredStatus = meetVerification.restoreNoShowStatusFromDispute();
-
-            // 등록자가 노쇼였던 경우 일반 등록자 노쇼 정산을 확정
-            if (restoredStatus == VerificationStatus.HOST_NO_SHOW) {
-                matchService.markAuthorNoShow(dispute.getMatchId());
-
-                // 신청자가 노쇼였던 경우 일반 신청자 노쇼 정산을 확정
-            } else if (restoredStatus == VerificationStatus.GUEST_NO_SHOW) {
-                matchService.markApplicantNoShow(dispute.getMatchId());
-
-                // 양쪽 모두 노쇼였던 경우 양쪽 노쇼 정산을 확정
-            } else if (restoredStatus == VerificationStatus.BOTH_NO_SHOW) {
-                matchService.markBothNoShow(dispute.getMatchId());
-            }
-
-            // 관리자 판정이 끝났으므로 인증 상태를 최종 노쇼 확정 상태로 변경
-            meetVerification.confirmNoShow();
-
-            // 노쇼로 종결된 매칭이므로 채팅방을 읽기 전용으로 전환
-            chatService.makeReadOnlyChatRoom(match.getPostId());
-
-            return;
-        }
-
-        // 여기부터는 ACCEPTED 판정 흐름
-        // 제출자 보증금 100% 반환은 judgeDispute()의 ACCEPTED 분기에서 이미 처리
-
-        // 제출자가 등록자라면 상대방은 신청자이고, 제출자가 신청자라면 상대방은 등록자
-        Long opponentId = submitterIsAuthor ? match.getApplicantId() : postMatchInfo.authorId();
-
-        // 상대방에게 반환할 보증금 금액을 계산
-        int opponentDeposit = submitterIsAuthor ? match.getApplicantDeposit() : postMatchInfo.authorDeposit();
-
-        // ACCEPTED에서는 제출자뿐 아니라 상대방 보증금도 묶어둘 이유가 없으므로 전액 반환
-        userPointService.refundPoint(opponentId, opponentDeposit, dispute.getMatchId());
-
-        // 이의제기 사유가 만남 완료 인정 유형인지, 매칭 취소 인정 유형인지 확인
-        DisputeType disputeType = dispute.getDisputeType();
-
-        // 실제 만남이 있었지만 QR/GPS/스마트폰 문제로 인증만 실패한 경우
-        if (disputeType.isMeetCompletionType()) {
-
-            // 인증 상태를 DONE으로 변경
-            meetVerification.completeByDispute();
-
-            // Match/Post를 완료 상태로 변경
-            matchService.completeMatchByDispute(dispute.getMatchId());
-
-            // 정상 완료 흐름처럼 채팅방 비활성화를 예약
-            chatService.scheduleChatRoomDeactivation(match.getPostId());
-
-
-            return;
-        }
-
-        // 관리자가 노쇼가 아니라 매칭 취소로 보는 것이 맞다고 판단한 경우
-        if (disputeType.isMatchCancelType()) {
-
-            // 인증 상태를 NO_SHOW_CANCELLED로 변경
-            meetVerification.cancelNoShowByDispute();
-
-            // Match/Post를 취소 상태로 변경
+            // Match/Post 상태를 취소로 확정
             matchService.cancelMatchByDispute(dispute.getMatchId());
 
             // 취소된 매칭이므로 채팅방을 읽기 전용으로 전환
             chatService.makeReadOnlyChatRoom(match.getPostId());
+
+            return;
         }
+
+        // ── 기각(REJECTED) ──────────────────────────────────────────────────────
+        // 정책: 사유 불충분 → 노쇼 확정 → 예치 포인트 전액 몰수
+        if (judgment == DisputeStatus.REJECTED) {
+
+            // 백업해둔 원래 노쇼 상태(HOST/GUEST/BOTH_NO_SHOW)를 복원
+            VerificationStatus restoredStatus = meetVerification.rejectDispute();
+
+            // 복원된 노쇼 상태에 따라 포인트 몰수 대상자 확정
+            if (restoredStatus == VerificationStatus.HOST_NO_SHOW) {
+                // 등록자가 노쇼 → 등록자 포인트 몰수
+                matchService.markAuthorNoShow(dispute.getMatchId());
+
+            } else if (restoredStatus == VerificationStatus.GUEST_NO_SHOW) {
+                // 신청자가 노쇼 → 신청자 포인트 몰수
+                matchService.markApplicantNoShow(dispute.getMatchId());
+
+            } else if (restoredStatus == VerificationStatus.BOTH_NO_SHOW) {
+                // 양쪽 모두 노쇼 → 양쪽 포인트 몰수
+                matchService.markBothNoShow(dispute.getMatchId());
+            }
+
+            // 인증 상태를 최종 노쇼 확정으로 변경
+            meetVerification.confirmNoShow();
+
+            // 노쇼로 종결된 매칭이므로 채팅방을 읽기 전용으로 전환
+            chatService.makeReadOnlyChatRoom(match.getPostId());
+
+            return;
+        }
+
+        // ── 수용(ACCEPTED) ──────────────────────────────────────────────────────
+        // 정책: 실제 만남은 있었으나 서비스 오류(GPS/QR 인식 오류 등)로 인증만 실패한 경우
+        // → 만남 완료(DONE)로 처리 → 예치 포인트 100% 반환
+        // 제출자 보증금 100% 반환은 judgeDispute()의 ACCEPTED 분기에서 이미 처리됨
+
+        // 상대방 ID 확정 (제출자가 등록자면 상대방은 신청자, 반대도 동일)
+        Long opponentId = submitterIsAuthor ? match.getApplicantId() : postMatchInfo.authorId();
+
+        // 상대방 보증금 금액 확정
+        int opponentDeposit = submitterIsAuthor ? match.getApplicantDeposit() : postMatchInfo.authorDeposit();
+
+        // 상대방 보증금 전액 반환 (ACCEPTED이므로 양쪽 모두 반환)
+        userPointService.refundPoint(opponentId, opponentDeposit, dispute.getMatchId());
+
+        // 인증 상태를 DONE으로 전환 (실제 만남이 있었음을 인정)
+        meetVerification.completeByDispute();
+
+        // Match/Post를 완료 상태로 변경
+        matchService.completeMatchByDispute(dispute.getMatchId());
+
+        // 정상 완료 흐름처럼 채팅방 비활성화 예약
+        chatService.scheduleChatRoomDeactivation(match.getPostId());
     }
 
     @Override
