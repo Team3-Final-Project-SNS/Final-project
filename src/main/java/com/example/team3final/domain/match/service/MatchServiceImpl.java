@@ -147,28 +147,35 @@ public class MatchServiceImpl implements MatchService{
         // score = 알림 발송할 Unix Timestamp
         // member = matchId (스케줄러가 꺼내서 알림 발송에 사용)
         LocalDateTime meetAt = post.getMeetAt();
+        LocalDateTime now = LocalDateTime.now();
 
-        // 30분 전 알림 예약 (meetAt - 30분 시각에 발송)
-        redisTemplate.opsForZSet().add(
-                MeetRedisZSetKeys.REMINDER_30,
-                String.valueOf(savedMatch.getId()),
-                meetAt.minusMinutes(30).toEpochSecond(ZoneOffset.ofHours(9))
-        );
+        // 30분 전 알림 예약 - 현재 시각이 meetAt-30분 이전일 때만 등록
+        // 이미 지난 시점이면 스킵 (매칭 완료 시점이 약속시간 임박 후인 경우 방지)
+        if (now.isBefore(meetAt.minusMinutes(30))) {
+            redisTemplate.opsForZSet().add(
+                    MeetRedisZSetKeys.REMINDER_30,
+                    String.valueOf(savedMatch.getId()),
+                    meetAt.minusMinutes(30).toEpochSecond(ZoneOffset.ofHours(9))
+            );
+        }
 
-        // 15분 전 알림 예약 (meetAt - 15분 시각에 발송)
-        redisTemplate.opsForZSet().add(
-                MeetRedisZSetKeys.REMINDER_15,
-                String.valueOf(savedMatch.getId()),
-                meetAt.minusMinutes(15).toEpochSecond(ZoneOffset.ofHours(9))
-        );
+        // 15분 전 알림 예약 - 현재 시각이 meetAt-15분 이전일 때만 등록
+        if (now.isBefore(meetAt.minusMinutes(15))) {
+            redisTemplate.opsForZSet().add(
+                    MeetRedisZSetKeys.REMINDER_15,
+                    String.valueOf(savedMatch.getId()),
+                    meetAt.minusMinutes(15).toEpochSecond(ZoneOffset.ofHours(9))
+            );
+        }
 
-        // 임박 알림 예약 (meetAt - 5분 시각에 발송)
-        redisTemplate.opsForZSet().add(
-                MeetRedisZSetKeys.REMINDER_IMMINENT,
-                String.valueOf(savedMatch.getId()),
-                meetAt.minusMinutes(5).toEpochSecond(ZoneOffset.ofHours(9))
-        );
-
+        // 임박 알림 예약 - 현재 시각이 meetAt-5분 이전일 때만 등록
+        if (now.isBefore(meetAt.minusMinutes(5))) {
+            redisTemplate.opsForZSet().add(
+                    MeetRedisZSetKeys.REMINDER_IMMINENT,
+                    String.valueOf(savedMatch.getId()),
+                    meetAt.minusMinutes(5).toEpochSecond(ZoneOffset.ofHours(9))
+            );
+        }
 
         return CreateMatchResponseDto.of(
                 savedMatch,
