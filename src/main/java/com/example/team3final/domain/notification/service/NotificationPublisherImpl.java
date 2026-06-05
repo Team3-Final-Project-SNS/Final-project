@@ -66,12 +66,21 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.MATCH, matchId);
     }
 
-    // 2. 매칭 취소 알림
+    // 2-1. GUEST가 신청을 취소했을 때 - HOST에게
     @Override
-    public void sendMatchCancelled(Long userId, Long matchId) {
+    public void sendGuestCancelled(Long userId, Long matchId) {
         publish(userId, NotificationType.MATCH_CANCELLED,
                 "신청이 취소되었습니다.",
                 "신청자가 참여 신청을 취소했습니다.",
+                RelatedDomain.MATCH, matchId);
+    }
+
+    // 2-2. HOST가 매칭을 취소했을 때 - GUEST에게
+    @Override
+    public void sendHostCancelled(Long userId, Long matchId) {
+        publish(userId, NotificationType.MATCH_CANCELLED,
+                "매칭이 취소되었습니다.",
+                "게시글 등록자가 매칭을 취소했습니다.",
                 RelatedDomain.MATCH, matchId);
     }
 

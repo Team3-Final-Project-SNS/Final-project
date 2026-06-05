@@ -399,7 +399,7 @@ public class MatchServiceImpl implements MatchService{
             // 모든 GUEST에게 HOST 취소 알림 발송
             for (Match guestMatch : allGuestMatches) {
                 // 각 GUEST에게 "HOST가 매칭을 취소했습니다" 알림
-                notificationPublisher.sendMatchCancelled(
+                notificationPublisher.sendHostCancelled(
                         guestMatch.getApplicantId(), // 알림 수신자 (GUEST)
                         guestMatch.getId()           // 관련 매칭 ID
                 );
@@ -410,7 +410,7 @@ public class MatchServiceImpl implements MatchService{
         // GUEST가 취소한 경우에만 상대방(HOST)에게 알림 발송
         // HOST가 취소한 경우는 위 for문에서 이미 모든 GUEST에게 발송 완료
         if (cancelerIsApplicant) {
-            notificationPublisher.sendMatchCancelled(opponentId, matchId);
+            notificationPublisher.sendGuestCancelled(opponentId, matchId);
         }
 
         // 매칭 취소 시 ZSet 알림 예약 제거
