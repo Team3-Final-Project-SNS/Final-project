@@ -1,6 +1,7 @@
 package com.example.team3final.domain.payment.repository;
 
 import com.example.team3final.domain.payment.entity.Payment;
+import com.example.team3final.domain.payment.enums.PaymentStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -39,4 +40,22 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
           AND p.createdAt < :expiredBefore
         """)
     List<Payment> findExpiredReadyPayments(@Param("expiredBefore") LocalDateTime expiredBefore);
+
+
+    // 관리자 결제 내역 조회
+    // userId가 null이면 전체 사용자 결제내역 조회.
+    // status가 null이면 모든 결제 상태 조회.
+    // userId와 status가 둘 다 있으면 특정 유저의 특정 상태 결제내역만 조회.
+    // 정렬은 최신 결제순.
+    @Query("""
+        SELECT p FROM Payment p
+        WHERE (:userId IS NULL OR p.userId = :userId)
+          AND (:status IS NULL OR p.status = :status)
+        ORDER BY p.createdAt DESC
+        """)
+    Page<Payment> findAllForAdmin(
+            @Param("userId") Long userId,
+            @Param("status") PaymentStatus status,
+            Pageable pageable
+    );
 }
