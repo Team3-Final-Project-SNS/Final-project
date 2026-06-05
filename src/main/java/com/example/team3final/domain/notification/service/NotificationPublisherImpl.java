@@ -9,13 +9,20 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import java.util.UUID;
 
+// 알림 발송 구현체 (NotificationPublisher 인터페이스)
+// 각 sendXxx() 메서드는 DB에 직접 저장하지 않고 Kafka 알림 이벤트를 발행한다.
+// 실제 DB 저장 + SSE 전송은 NotificationEventConsumer가 처리한다.
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class NotificationPublisherImpl implements NotificationPublisher {
 
+    // Kafka에 String 메시지를 발행하는 도구
     private final KafkaTemplate<String, String> kafkaTemplate;
+
+    // DTO -> JSON 문자열 변환 도구
     private final ObjectMapper objectMapper;
 
     // ==================== 공통 메서드 ====================
@@ -25,8 +32,19 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     private void publish(Long receiverId, NotificationType type, String title,
                          String content, RelatedDomain relatedDomain, Long relatedId) {
         try {
+
+            // 멱등성을 위한 이벤트 고유 ID 생성
+            // Consumer가 이 ID를 Redis에 기록해 중복 처리 방지
+            String eventId = UUID.randomUUID().toString();
+
             NotificationEvent event = new NotificationEvent(
-                    receiverId, type, title, content, relatedDomain, relatedId
+                    eventId,
+                    receiverId,
+                    type,
+                    title,
+                    content,
+                    relatedDomain,
+                    relatedId
             );
 
             // Kafka key는 receiverId로 설정
@@ -40,6 +58,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
             kafkaTemplate.send(KafkaTopics.NOTIFICATIONS, key, message)
                     .whenComplete((result, ex) -> {
                         if (ex == null) {
+                            // 전송 성공
                             log.info("[Kafka Notification Producer] 알림 이벤트 발행 성공" +
                                             " - receiverId: {}, type: {}, relatedId: {}",
                                     receiverId, type, relatedId);
@@ -48,6 +67,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                             log.error("[Kafka Notification Producer] 알림 이벤트 발행 실패 → DLQ 발행" +
                                             " - receiverId: {}, type: {}, error: {}",
                                     receiverId, type, ex.getMessage());
+                            // DLQ에 원본 메시지 그대로 발행
                             kafkaTemplate.send(KafkaTopics.NOTIFICATIONS_DLQ, key, message);
                         }
                     });
@@ -453,10 +473,19 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     // content는 호출하는 쪽(Service)에서 상황에 맞게 전달
     // ex) 관리자 강제 삭제: "해당 게시물이 신고 접수 및 관리자 판단에 의해 삭제되었습니다."
     @Override
-    public void sendPostDeleted(Long userId, Long postId, String content) {
+    public void sendPostDeleted(Long userId, Long postId) {
         publish(userId, NotificationType.POST_DELETED,
                 "게시글이 삭제되었습니다.",
-                content,
+                "해당 게시물이 신고 접수 및 관리자 판단에 의해 삭제되었습니다. 자세한 사항은 고객센터를 확인해 주세요.",
+                RelatedDomain.POST, postId);
+    }
+
+    // 42. 게시글 복구 알림 - 게시글 작성자에게
+    @Override
+    public void sendPostRestored(Long userId, Long postId) {
+        publish(userId, NotificationType.POST_RESTORED,
+                "게시글이 복구되었습니다.",
+                "관리자에 의해 삭제되었던 게시물이 복구되어, 예치 포인트가 다시 차감되었습니다.",
                 RelatedDomain.POST, postId);
     }
 }

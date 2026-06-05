@@ -37,13 +37,13 @@ public interface NotificationPublisher {
     void sendHostCancelled(Long userId, Long matchId);
 
     // ── 만남 시간 ─────────────────────────────────────────────────────────
-    // 5. 만남 30분 전 알림 - 만남 참여자에게
+    // 5. 만남 30분 전 알림 - 만남 참여자 모두에게
     void sendMeetReminder30(Long userId, Long matchId);
 
-    // 6. 만남 15분 전 알림 - 만남 참여자에게
+    // 6. 만남 15분 전 알림 - 만남 참여자 모두에게
     void sendMeetReminder15(Long userId, Long matchId);
 
-    // 7. 만남 5분 전 임박 알림 - 만남 참여자에게
+    // 7. 만남 5분 전 임박 알림 - 만남 참여자 모두에게
     void sendMeetImminent(Long userId, Long matchId);
 
     // 8. 만남 시간 10분 경과 알림 - 만남 참여자에게
@@ -59,7 +59,7 @@ public interface NotificationPublisher {
     // 11. 후기 작성 포인트 지급 알림 - 후기 작성자에게
     void sendReviewPoint(Long userId, Long reviewId);
 
-    // 12. 매너 온도 상승 알림 - 후기 대상자에게
+    // 12. 매너 온도 상승 알림 - 후기로 인한 매너온도 반영자에게
     void sendMannerTemperatureChanged(Long userId);
 
     // ── 채팅 / 장소 인증 ──────────────────────────────────────────────────
@@ -157,5 +157,8 @@ public interface NotificationPublisher {
     void sendPostExpired(Long userId, Long postId);
 
     // 41. 게시글 삭제 알림 - 게시글 작성자에게
-    void sendPostDeleted(Long userId, Long postId, String content);
+    void sendPostDeleted(Long userId, Long postId);
+
+    // 42. 게시글 복구 알림 - 게시글 작성자에게
+    void sendPostRestored(Long userId, Long postId);
 }

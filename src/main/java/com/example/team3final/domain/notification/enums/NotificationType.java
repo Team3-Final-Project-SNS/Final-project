@@ -68,7 +68,8 @@ public enum NotificationType {
     POST_WARNED_2("게시글 신고 경고 2회"),                 // 38
     POST_EXPIRING_SOON("게시글 만료 임박"),                // 39
     POST_EXPIRED("게시글 만료"),                           // 40
-    POST_DELETED("게시글 삭제");                           // 41
+    POST_DELETED("게시글 삭제"),                           // 41
+    POST_RESTORED("게시글 복구");                          // 42
 
     private final String description;
 }
