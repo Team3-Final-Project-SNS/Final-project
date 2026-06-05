@@ -248,7 +248,8 @@ public class MatchServiceImpl implements MatchService{
 
         Match match = getMatchById(matchId);
 
-        // 노쇼 이의제기 접수 시 목록/상세에서 관리자 검토 중 상태로 보임
+        // MATCHED 상태일 때만 DISPUTED로 전환
+        // DISPUTED 중인 건에 중복 이의제기가 들어와도 상태가 다시 바뀌지 않도록 방어
         if (match.getStatus() == MatchStatus.MATCHED) {
             match.dispute();
         }
@@ -260,14 +261,17 @@ public class MatchServiceImpl implements MatchService{
 
         Match match = getMatchById(matchId);
 
+        // MATCHED 또는 DISPUTED 상태만 판정 가능 (이미 종결된 건은 스킵)
         if (!canResolveDispute(match)) {
             return;
         }
 
-        // 관리자 판정 완료는 이미 별도 포인트 정산을 했으므로 상태와 리뷰 알림만 처리
+        // 포인트 정산은 호출자(AdminDisputeService)에서 이미 완료
+        // 상태 전이 + 후기 알림 예약만 처리
         match.completeByDispute();
         postService.completePost(match.getPostId());
 
+        // 정상 완료 흐름과 동일하게 후기 마지막 날 알림 예약
         LocalDateTime reviewDeadlineReminderAt = match.getCompletedAt()
                 .plusDays(7)
                 .toLocalDate()
@@ -302,7 +306,8 @@ public class MatchServiceImpl implements MatchService{
 
         Match match = getMatchById(matchId);
 
-        // MATCHED 아니면 스킵 (스케줄러 중단 방지 → 예외 대신 return)
+        // MATCHED 또는 DISPUTED 상태만 노쇼 확정 처리 가능
+        // 스케줄러 배치에서 호출되므로 예외 대신 return으로 중단 방지
         if (!canFinalizeNoShow(match)) {
             return;
         }
@@ -311,7 +316,8 @@ public class MatchServiceImpl implements MatchService{
         postService.completePost(match.getPostId());
 
         Post post = postService.getPostById(match.getPostId());
-        // 등록자(노쇼 당사자) 몰수 / 신청자(피해자) 전액 환급
+        // 등록자(노쇼 당사자): 예치금 전액 몰수 (패널티)
+        // 신청자(피해자): 예치금 전액 환급
         userPointService.penaltyPoint(post.getAuthorId(), post.getAuthorDeposit(), matchId);
         userPointService.refundPoint(match.getApplicantId(), match.getApplicantDeposit(), matchId);
     }
@@ -322,6 +328,8 @@ public class MatchServiceImpl implements MatchService{
 
         Match match = getMatchById(matchId);
 
+        // MATCHED 또는 DISPUTED 상태만 노쇼 확정 처리 가능
+        // 스케줄러 배치에서 호출되므로 예외 대신 return으로 중단 방지
         if (!canFinalizeNoShow(match)) {
             return;
         }
@@ -330,7 +338,8 @@ public class MatchServiceImpl implements MatchService{
         postService.completePost(match.getPostId());
 
         Post post = postService.getPostById(match.getPostId());
-        // 등록자(피해자) 전액 환급 / 신청자(노쇼 당사자) 몰수
+        // 등록자(피해자): 예치금 전액 환급
+        // 신청자(노쇼 당사자): 예치금 전액 몰수 (패널티)
         userPointService.refundPoint(post.getAuthorId(), post.getAuthorDeposit(), matchId);
         userPointService.penaltyPoint(match.getApplicantId(), match.getApplicantDeposit(), matchId);
     }
@@ -341,6 +350,8 @@ public class MatchServiceImpl implements MatchService{
 
         Match match = getMatchById(matchId);
 
+        // MATCHED 또는 DISPUTED 상태만 노쇼 확정 처리 가능
+        // 스케줄러 배치에서 호출되므로 예외 대신 return으로 중단 방지
         if (!canFinalizeNoShow(match)) {
             return;
         }
@@ -349,7 +360,7 @@ public class MatchServiceImpl implements MatchService{
         postService.completePost(match.getPostId());
 
         Post post = postService.getPostById(match.getPostId());
-        // 양측 모두 몰수
+        // 양측 모두 노쇼 → 양측 예치금 전부 몰수
         userPointService.penaltyPoint(post.getAuthorId(), post.getAuthorDeposit(), matchId);
         userPointService.penaltyPoint(match.getApplicantId(), match.getApplicantDeposit(), matchId);
     }
@@ -366,7 +377,9 @@ public class MatchServiceImpl implements MatchService{
             return;
         }
 
-        // 등록자 노쇼인 경우
+        // restoredStatus = 이의제기 진입 전 백업해둔 원래 노쇼 예정 상태
+        // PARTIALLY_ACCEPTED 판정 시: 이의제기자는 50% 환불됐고 상대방 포인트는 그대로
+        // 포인트 정산 없이 Match 상태만 원래 노쇼 결과대로 확정
         if (restoredStatus == VerificationStatus.HOST_NO_SHOW) {
 
             // Match 상태를 등록자 노쇼로 확정
@@ -380,7 +393,7 @@ public class MatchServiceImpl implements MatchService{
             // Match 상태를 양쪽 노쇼로 확정
             match.markNoShow(MatchStatus.BOTH_NO_SHOW);
         } else {
-            // 노쇼 예정 상태가 아니라면 스킵
+            // HOST/GUEST/BOTH_NO_SHOW 외의 상태가 넘어오면 정상 플로우 이탈 → 스킵
             return;
         }
 
@@ -613,10 +626,16 @@ public class MatchServiceImpl implements MatchService{
                 ));
     }
 
+    // canFinalizeNoShow: 배치 노쇼 확정 처리 가능 여부
+    // MATCHED(정상 매칭 중) 또는 DISPUTED(이의제기 기각 후 노쇼 확정 흐름) 두 케이스만 허용
+    // 이미 COMPLETED/CANCELLED 등으로 종결된 건은 배치에서 재처리 방지
     private boolean canFinalizeNoShow(Match match) {
         return match.getStatus() == MatchStatus.MATCHED || match.getStatus() == MatchStatus.DISPUTED;
     }
 
+    // canResolveDispute: 이의제기 판정 결과 처리 가능 여부
+    // canFinalizeNoShow와 허용 조건은 동일하지만 호출 목적이 다름
+    // → "노쇼 확정(배치)" vs "이의제기 판정 후처리(관리자)" 의도를 이름으로 구분
     private boolean canResolveDispute(Match match) {
         return match.getStatus() == MatchStatus.MATCHED || match.getStatus() == MatchStatus.DISPUTED;
     }
