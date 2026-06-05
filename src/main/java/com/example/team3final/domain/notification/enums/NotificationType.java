@@ -33,8 +33,7 @@ public enum NotificationType {
     REVIEW_REWARD("후기 작성 포상금 지급"),            // 14. 후기 작성 시 50P 포상금 지급
     PAYMENT_SUCCESS("결제 성공"),                   // 30. 결제 완료 후 포인트 지급
     PAYMENT_FAILED("결제 실패"),                    // 31. 결제 실패 안내
-    GPS_OUT_OF_RANGE("반경 이탈 경고"),              // 32. 장소 인증 중 반경 이탈 시
-    REPORT_REJECTED("신고 기각 안내"),               // 33. 신고 기각 시 신고자에게
+    REPORT_REJECTED("신고 기각 안내"),               // 32. 신고 기각 시 신고자에게
     SYSTEM("시스템 공지");                          // 12. 공지/게시글 삭제/만료/제재 안내
 
     private final String description;
