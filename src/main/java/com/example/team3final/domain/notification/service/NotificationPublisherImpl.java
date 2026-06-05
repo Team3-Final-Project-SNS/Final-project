@@ -10,6 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.UUID;
+
 // 알림 발송 구현체 (NotificationPublisher 인터페이스)
 // 각 sendXxx() 메서드는 DB에 직접 저장하지 않고 Kafka 알림 이벤트를 발행한다.
 // 실제 DB 저장 + SSE 전송은 NotificationEventConsumer가 처리한다.
@@ -31,7 +33,13 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     private void publish(Long receiverId, NotificationType type, String title,
                          String content, RelatedDomain relatedDomain, Long relatedId) {
         try {
+
+            // 멱등성을 위한 이벤트 고유 ID 생성
+            // Consumer가 이 ID를 Redis에 기록해 중복 처리 방지
+            String eventId = UUID.randomUUID().toString();
+
             NotificationEvent event = new NotificationEvent(
+                    eventId,
                     receiverId,
                     type,
                     title,
@@ -341,16 +349,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.POINT, paymentId);
     }
 
-    // 32. GPS 반경 이탈 경고 알림
-    @Override
-    public void sendGpsOutOfRange(Long userId, Long matchId) {
-        publish(userId, NotificationType.GPS_OUT_OF_RANGE,
-                "약속 장소 반경을 벗어났습니다.",
-                "약속 장소 반경을 벗어났습니다. 위치를 확인해 주세요.",
-                RelatedDomain.MEET, matchId);
-    }
-
-    // 33. 신고 기각 알림 - 신고자에게
+    // 32. 신고 기각 알림 - 신고자에게
     @Override
     public void sendReportRejected(Long userId, Long reportId) {
         publish(userId, NotificationType.REPORT_REJECTED,

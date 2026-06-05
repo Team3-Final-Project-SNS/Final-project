@@ -21,8 +21,16 @@ export interface AiSupportChatResponse {
   fallbackUsed: boolean;
 }
 
+const AI_SUPPORT_CHAT_TIMEOUT_MS = 20000;
+
 export const chatAiSupport = (message: string, conversationId?: string | null) =>
-  axiosInstance.post<ApiResponse<AiSupportChatResponse>>('/api/v1/ai/support/chat', {
-    conversationId,
-    message,
-  });
+  axiosInstance.post<ApiResponse<AiSupportChatResponse>>(
+    '/api/v1/ai/support/chat',
+    {
+      conversationId,
+      message,
+    },
+    {
+      timeout: AI_SUPPORT_CHAT_TIMEOUT_MS,
+    },
+  );

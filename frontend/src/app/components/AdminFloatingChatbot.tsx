@@ -22,11 +22,11 @@ type FloatingChatbotProps = {
 };
 
 export default function AdminFloatingChatbot({
-  title = '한끼팟 관리자 도우미',
-  subtitle = '관리자 도우미',
+  title = '한끼팟 관리자 AI',
+  subtitle = '콘솔 Advisor',
   botName = '한끼팟',
-  greeting = '관리자님, 무엇을 도와드릴까요?',
-  initialMessage = '안녕하세요. 한끼팟 관리자 도우미입니다. 궁금한 내용을 입력해 주세요.',
+  greeting = '관리자님, 콘솔 현황과 운영 정책을 물어보세요.',
+  initialMessage = '안녕하세요. 한끼팟 관리자 AI입니다. 게시글, 신고, 문의, 유저, 결제, FAQ 현황이나 처리 기준을 질문해 주세요.',
   replyMessage = '확인했습니다. 관리자 콘솔에서 필요한 내용을 차근차근 도와드릴게요.',
   showAdminHat = true,
   useAiReportApi = true,
@@ -113,8 +113,8 @@ export default function AdminFloatingChatbot({
         id: Date.now() + 1,
         sender: 'bot',
         content: serverMessage
-          ? `AI 신고 요약 요청에 실패했습니다.\n사유: ${serverMessage}`
-          : 'AI 신고 요약 요청에 실패했습니다. 잠시 후 다시 시도해주세요.',
+          ? `관리자 AI 요청에 실패했습니다.\n사유: ${serverMessage}`
+          : '관리자 AI 요청에 실패했습니다. 잠시 후 다시 시도해주세요.',
       };
       setMessages((prev) => [...prev, botMessage]);
     } finally {

@@ -1,5 +1,6 @@
 package com.example.team3final.domain.notification.pubsub;
 
+import com.example.team3final.common.kafka.KafkaIdempotencyService;
 import com.example.team3final.common.kafka.KafkaTopics;
 import com.example.team3final.domain.notification.dto.event.NotificationEvent;
 import com.example.team3final.domain.notification.dto.response.GetNotificationsResponseDto;
@@ -25,6 +26,8 @@ public class NotificationEventConsumer {
     private final NotificationRepository notificationRepository;
     private final SseEmitterRepository sseEmitterRepository;
     private final ObjectMapper objectMapper;
+    // 멱등성 체크 서비스 주입
+    private final KafkaIdempotencyService kafkaIdempotencyService;
 
     // Kafka notifications 토픽에서 알림 이벤트가 오면 자동으로 호출됨
     // NotificationPublisherImpl -> Kafka -> 이 메서드 -> DB 저장 + SSE 전송
@@ -37,6 +40,13 @@ public class NotificationEventConsumer {
         try {
             // JSON 문자열 -> NotificationEvent 변환
             NotificationEvent event = objectMapper.readValue(message, NotificationEvent.class);
+
+            // 이미 처리한 이벤트인지 확인
+            // eventId가 Redis에 있으면 중복 메시지 → 스킵
+            // eventId가 Redis에 없으면 처음 수신 → 정상 처리 후 Redis에 기록
+            if (!kafkaIdempotencyService.isFirstProcessing(event.eventId())) {
+                return;
+            }
 
             // DB에 알림 저장
             Notification notification = Notification.builder()

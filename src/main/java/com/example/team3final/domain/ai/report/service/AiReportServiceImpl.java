@@ -182,10 +182,6 @@ public class AiReportServiceImpl implements AiReportService {
             );
         }
 
-        if (action == AiReportChatAction.GENERAL_GUIDE) {
-            return buildGeneralGuide(adminId, request.message());
-        }
-
         return clarify(requiredText(
                 intent == null ? null : intent.clarificationMessage(),
                 "신고 ID를 지정해 분석을 요청하거나, 고위험 유저 조회를 요청해주세요."
@@ -463,16 +459,13 @@ public class AiReportServiceImpl implements AiReportService {
                             action enum:
                             - ANALYZE_REPORT: 특정 신고 ID 1건을 분석해 달라는 요청
                             - HIGH_RISK_USERS: 신고 누적 기반 고위험 유저 후보를 보여 달라는 요청
-                            - GENERAL_GUIDE: 인사, 자기소개, 기능 설명, 신고 관리 방법 등 일반적인 관리자 도움말 요청
-                            - CLARIFY: 신고 분석을 요청했지만 신고 ID가 없는 경우처럼 실행에 필요한 정보가 부족한 경우
+                            - CLARIFY: 신고 ID가 없거나 요청이 불명확해서 추가 질문이 필요한 경우
 
                             규칙:
                             - "12번 신고", "신고 12 분석"처럼 숫자와 신고 분석 의도가 있으면 ANALYZE_REPORT로 판단하고 reportId에 숫자를 넣는다.
                             - "고위험", "위험 유저", "신고 많은 유저", "블랙리스트 후보"처럼 유저 목록 요청이면 HIGH_RISK_USERS로 판단한다.
                             - HIGH_RISK_USERS에서 인원 숫자가 있으면 limit에 넣고, 없으면 5를 넣는다.
                             - ANALYZE_REPORT인데 신고 ID 숫자가 없으면 CLARIFY로 판단한다.
-                            - "너 누구야", "뭐 할 수 있어", "신고 처리는 어떻게 해"처럼 특정 신고 ID 분석이 아닌 질문은 GENERAL_GUIDE로 판단한다.
-                            - 신고 관리와 무관한 잡담도 GENERAL_GUIDE로 판단하되, 답변은 한끼팟 관리자 도우미 역할 안에서 하도록 한다.
                             - 응답은 요청받은 Java record 스키마에 맞춘다.
                             """)
                     .user(message)
@@ -539,17 +532,8 @@ public class AiReportServiceImpl implements AiReportService {
             );
         }
 
-        if (containsAny(normalized, "신고 분석", "리포트 분석", "report 분석", "신고 봐", "신고 확인")) {
-            return new AiReportChatIntentResult(
-                    AiReportChatAction.CLARIFY,
-                    null,
-                    null,
-                    "분석할 신고 ID를 알려주세요. 예: 12번 신고 분석해줘"
-            );
-        }
-
         return new AiReportChatIntentResult(
-                AiReportChatAction.GENERAL_GUIDE,
+                AiReportChatAction.CLARIFY,
                 null,
                 null,
                 null

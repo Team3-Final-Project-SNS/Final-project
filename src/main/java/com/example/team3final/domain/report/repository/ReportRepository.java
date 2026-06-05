@@ -13,6 +13,9 @@ import java.util.Optional;
 
 public interface ReportRepository extends JpaRepository<Report, Long> {
 
+    // AI_report 관리자 콘솔 챗봇의 대시보드 요약용 읽기 전용 집계입니다.
+    long countByStatus(ReportStatus status);
+
     // 내 신고 내역 조회 (최신순 페이징)
     Page<Report> findByReporterIdOrderByCreatedAtDesc(Long reporterId, Pageable pageable);
 

@@ -1,6 +1,7 @@
 package com.example.team3final.domain.payment.repository;
 
 import com.example.team3final.domain.payment.entity.Payment;
+import com.example.team3final.domain.payment.enums.PaymentStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,6 +12,17 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
+
+    // AI_report 관리자 콘솔 챗봇의 대시보드 요약용 읽기 전용 집계입니다.
+    long countByStatus(PaymentStatus status);
+
+    // AI_report 관리자 콘솔 챗봇에서 완료 결제 금액 합계를 안내할 때만 사용합니다.
+    @Query("""
+            SELECT COALESCE(SUM(p.amount), 0)
+            FROM Payment p
+            WHERE p.status = :status
+            """)
+    long sumAmountByStatus(@Param("status") PaymentStatus status);
 
     /**
      * merchant_uid 채번용 — 오늘 전체 결제 건수 카운트
