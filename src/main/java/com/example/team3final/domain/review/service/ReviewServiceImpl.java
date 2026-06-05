@@ -41,7 +41,6 @@ import java.util.stream.Collectors;
 
 /**
  * 후기 작성과 조회 비즈니스 로직을 처리하는 서비스 구현체입니다.
- *
  * Match, Post, User, Point 도메인과 서비스-to-서비스 방식으로 협력합니다.
  * Review 도메인은 매칭/게시글/유저 Repository를 직접 참조하지 않고,
  * 각 도메인 Service를 통해 필요한 정보만 조회합니다.
@@ -53,14 +52,12 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * 후기 작성 가능 기간입니다.
-     *
      * 매칭 완료 시점으로부터 7일 이내에만 후기를 작성할 수 있습니다.
      */
     private static final int REVIEW_WRITE_DEADLINE_DAYS = 7;
 
     /**
      * 기본 매너 온도입니다.
-     *
      * 후기가 없거나 평균 점수 변화량이 0이면 36.5도를 기준으로 유지합니다.
      */
     private static final BigDecimal BASE_MANNER_TEMPERATURE = new BigDecimal("36.5");
@@ -68,7 +65,6 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * 태그 점수 변화량을 매너 온도에 반영하는 가중치입니다.
-     *
      * 예: 평균 태그 점수 +2라면 36.5 + (2 * 0.5) = 37.5도
      */
     private static final BigDecimal MANNER_WEIGHT = new BigDecimal("0.5");
@@ -96,7 +92,6 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * 후기를 생성합니다.
-     *
      * 처리 흐름:
      * 1. 매칭/게시글 정보 조회
      * 2. 작성자가 신청자인지 검증
@@ -145,7 +140,7 @@ public class ReviewServiceImpl implements ReviewService {
                 Review.REVIEW_REWARD_POINT,
                 match.getId()
         );
-        // 후기 작성자에게 포인트 지급 알림 발송
+        // 11. 후기 작성 포인트 지급 알림 - 후기 작성자에게
         notificationPublisher.sendReviewPoint(review.getWriterId(), review.getId());
 
         // 다시 만나고 싶지 않아요를 선택하면 양방향 회피 관계를 저장합니다.
@@ -160,7 +155,7 @@ public class ReviewServiceImpl implements ReviewService {
                 calculateMeetingAverageScore(postMatchIds)
         );
 
-        // 27번 알림 - 만남을 주선한 등록자에게 매너 온도 변경 알림 발송
+        // 12. 매너 온도 상승 알림 - 후기로 인한 매너온도 반영자에게
         notificationPublisher.sendMannerTemperatureChanged(authorId);
 
         UserInfoDto targetInfo = userService.getUserInfo(authorId);
@@ -178,7 +173,6 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * 로그인 사용자가 직접 작성한 후기 목록을 조회합니다.
-     *
      * 사용자는 받은 후기 목록을 볼 수 없고,
      * 본인이 작성한 후기만 매칭 결과 화면에서 다시 확인할 수 있습니다.
      */
@@ -226,7 +220,6 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * 후기 작성 가능 조건을 검증합니다.
-     *
      * 검증 항목:
      * - 작성자가 해당 매칭의 신청자인지
      * - 등록자가 후기를 작성하지 않는지
@@ -268,7 +261,6 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * 후기 태그 선택 조건을 검증합니다.
-     *
      * 좋아요 태그와 아쉬워요 태그는 동시에 선택할 수 없고,
      * 둘 중 하나는 반드시 선택해야 합니다.
      */
@@ -284,7 +276,6 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * 선택된 태그를 기반으로 점수 변화량을 계산합니다.
-     *
      * 좋아요 태그는 각 +1점, 아쉬워요 태그는 각 -1점으로 계산하되,
      * 상대방이 선택한 태그 개수를 역산할 수 없도록 한 만남당 최대/최소 점수 제한을 둡니다.
      */
@@ -340,7 +331,6 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * 한 만남에 작성된 리뷰들의 평균 점수를 계산합니다.
-     *
      * 1:1 만남은 리뷰가 1개이므로 해당 리뷰 점수가 평균이 됩니다.
      * 단체 만남은 여러 신청자의 리뷰 점수를 평균 내어 등록자의 매너온도에 반영합니다.
      */
@@ -367,7 +357,6 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * 만남 리뷰 평균 변화량만 등록자 매너온도에 반영합니다.
-     *
      * 단체 만남에서 리뷰 점수를 단순 누적하면 신청자 수가 많을수록 영향이 과해집니다.
      * 그래서 새 리뷰 작성 전 평균과 작성 후 평균의 차이만큼만 현재 매너온도에 더합니다.
      */
@@ -389,11 +378,8 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * 매너 온도를 허용 범위 안으로 제한합니다.
-     *
      * 최소 0도, 최대 99도 범위를 벗어나지 않도록 보정합니다.
-     *
      * compareTo는 BigDecimal 비교용 메서드이다.
-     *
      * 이런식으로 이미 정의되어 있다.
      * a.compareTo(b) < 0  // a가 b보다 작다
      * a.compareTo(b) > 0  // a가 b보다 크다
@@ -413,7 +399,6 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * 후기 ID별 좋아요 태그 목록을 Map 형태로 변환합니다.
-     *
      * 받은 후기 목록 조회 시 각 후기마다 태그를 따로 조회하면 N+1 문제가 생길 수 있으므로,
      * reviewIds로 한 번에 조회한 뒤 reviewId 기준으로 그룹핑합니다.
      */
@@ -433,7 +418,6 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * 후기 ID별 아쉬워요 태그 목록을 Map 형태로 변환합니다.
-     *
      * 받은 후기 목록 조회 시 각 후기마다 태그를 따로 조회하지 않기 위해,
      * reviewIds로 한 번에 조회한 뒤 reviewId 기준으로 그룹핑합니다.
      */
@@ -453,9 +437,7 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * 후기 목록에서 reviewId만 추출합니다.
-     *
      * 좋아요/아쉬워요 태그를 bulk 조회할 때 사용합니다.
-     *
      * 예를 들어, 이런식으로 가능.
      * 리뷰 1번: ON_TIME, KIND
      * 리뷰 2번: GOOD_COMMUNICATION
@@ -476,7 +458,6 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * 요청으로 들어온 태그 목록에서 중복 값을 제거합니다.
-     *
      * LinkedHashSet을 사용해 사용자가 선택한 순서는 유지하면서,
      * 같은 태그가 중복 저장되지 않도록 합니다.
      */
@@ -487,9 +468,4 @@ public class ReviewServiceImpl implements ReviewService {
 
         return new LinkedHashSet<>(values).stream().toList();
     }
-
-
-
-
-
 }
