@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @Getter
 @Entity
 @Table(
-        name = "user_location",
+        name = "user_locations",
         // DB 레벨에서 match_id + user_id 조합 중복 방지
         // 한 매칭에서 유저당 위치 레코드 1개만 존재하도록 보장
         uniqueConstraints = @UniqueConstraint(

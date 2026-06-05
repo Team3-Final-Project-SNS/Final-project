@@ -46,6 +46,11 @@ public class MeetVerification {
     @Column(name = "status", nullable = false, length = 20)
     private VerificationStatus status;
 
+    // 이의 제기 상태 체크를 위한 필드값
+    @Enumerated(EnumType.STRING)
+    @Column(name = "disputed_from_status", length = 20)
+    private VerificationStatus disputedFromStatus;
+
     // QR 토큰 만료 시각: 장소 인증 완료 시점 + 30분
     @Column(name = "qr_expires_at")
     private LocalDateTime qrExpiresAt;
@@ -132,13 +137,14 @@ public class MeetVerification {
         }
     }
 
-    // QR 토큰 발급
+    // QR 토큰 저장
+    // 발급 로직은 서비스(issueQrTokenIfNeeded)가 담당
     public void issueQrToken(String qrToken, LocalDateTime qrExpiresAt) {
         this.qrToken = qrToken;
         this.qrExpiresAt = qrExpiresAt;
     }
 
-    // QR 스캔으로 만남 인증 최종 완료 처리
+    // 만남 인증 최종 성공 처리 -> QR 스캔 성공 시 신청자가 호출
     public void meetVerifiedDone() {
         this.status = VerificationStatus.DONE;
         this.isMeetVerified = true;
@@ -224,7 +230,9 @@ public class MeetVerification {
         this.extensionStatus = ExtensionStatus.EXPIRED;
     }
 
-    // 연장 요청 만료 여부 확인
+    // 연장 요청이 5분 타임아웃됐는지 실시간 확인
+    // 스케줄러가 EXPIRED로 바꾸기 전에 수락/거절 요청이 들어오면
+    // 이 메서드로 먼저 만료 여부를 체크해서 즉시 EXPIRED 처리함
     public boolean isExtensionExpired() {
         return this.extensionRequestedAt != null && LocalDateTime.now().isAfter(this.extensionRequestedAt.plusMinutes(5));
     }
@@ -242,5 +250,46 @@ public class MeetVerification {
     // 임박 알림 발송 완료 처리
     public void markImminentSent() {
         this.imminentSent = true;
+    }
+
+    // 노쇼 예정 상태에서 이의제기 접수 시 호출
+    // 현재 노쇼 상태를 disputedFromStatus에 백업하고 DISPUTE로 전환
+    // 이후 판정 결과에 따라 restoreNoShowStatusFromDispute() 또는 completeByDispute()로 처리됨
+    public void markDispute() {
+        if (this.status != VerificationStatus.HOST_NO_SHOW
+                && this.status != VerificationStatus.GUEST_NO_SHOW
+                && this.status != VerificationStatus.BOTH_NO_SHOW) {
+            throw new IllegalStateException("노쇼 예정 상태에서만 이의제기 상태로 전환할 수 있습니다.");
+        }
+
+        this.disputedFromStatus = this.status;
+        this.status = VerificationStatus.DISPUTE;
+    }
+
+    // 이의제기 기각(REJECTED) 또는 부분 수용(PARTIALLY_ACCEPTED) 시 호출
+    // 백업해둔 원래 노쇼 상태를 복원하고 백업 필드를 비움
+    // 복원된 상태를 반환하면 호출자(AdminDisputeService)가 적절한 노쇼 정산을 이어서 실행
+    public VerificationStatus restoreNoShowStatusFromDispute() {
+        if (this.status == VerificationStatus.DISPUTE && this.disputedFromStatus != null) {
+            this.status = this.disputedFromStatus;
+            this.disputedFromStatus = null;
+        }
+        return this.status;
+    }
+
+    // 이의제기 수용(ACCEPTED) + 실제 만남 인정 시 호출
+    // GPS/QR 오류로 인증만 실패했지만 실제 만남은 있었던 경우
+    public void completeByDispute() {
+        this.status = VerificationStatus.DONE;
+        this.isMeetVerified = true;
+        this.completedAt = LocalDateTime.now();
+        this.disputedFromStatus = null;
+    }
+
+    // 이의제기 수용(ACCEPTED) + 매칭 취소 인정 시 호출
+    // 장례식/응급실 등 불가피한 사유로 노쇼가 아닌 취소로 처리하는 경우
+    public void cancelNoShowByDispute() {
+        this.status = VerificationStatus.NO_SHOW_CANCELLED;
+        this.disputedFromStatus = null;
     }
 }

@@ -2,10 +2,12 @@ package com.example.team3final.domain.match.service;
 
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.MatchException;
+import com.example.team3final.domain.admin.dispute.service.AdminDisputeService;
 import com.example.team3final.domain.match.dto.request.CancelMatchRequestDto;
 import com.example.team3final.domain.match.dto.response.*;
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.enums.MatchStatus;
+import com.example.team3final.domain.meet.enums.VerificationStatus;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
@@ -31,14 +33,40 @@ public interface MatchService {
      */
     void completeMatch(Long matchId);
 
-    // 등록자 노쇼
+    // 이의제기 접수 시 호출 — Match 상태를 DISPUTED로 변경
+    // MeetVerification.markDispute()와 함께 호출되어 양측 상태를 동시에 이의제기 상태로 전환
+    // 포인트 정산 없음 — 이의제기가 종결될 때까지 예치금 보류
+    void markDisputed(Long matchId);
+
+    // 이의제기 판정: 만남 완료 인정
+    // GPS/QR 오류 등으로 인증만 실패했고 실제 만남은 있었다고 관리자가 판정한 경우
+    // 포인트 환불은 호출자(AdminDisputeService.judgeDispute ACCEPTED 분기)에서 처리됨
+    // 여기서는 Match→COMPLETED, Post→COMPLETED, 후기 알림 예약만 처리
+    void completeMatchByDispute(Long matchId);
+
+    // 이의제기 판정: 매칭 취소 인정
+    // 장례식/응급실 등 불가피한 사유로 노쇼가 아닌 취소로 인정된 경우
+    // 포인트 환불은 호출자(AdminDisputeService.applyDisputeJudgment ACCEPTED 분기)에서 처리됨
+    // 여기서는 Match→CANCELLED, Post→CANCELLED 상태 전이만 처리
+    void cancelMatchByDispute(Long matchId);
+
+    // 등록자 노쇼 확정 — 배치(judgeNoShowConfirmed) 또는 이의제기 REJECTED 판정 시 호출
+    // 처리: Match→AUTHOR_NO_SHOW, Post→COMPLETED, 등록자 예치금 몰수, 신청자 전액 환급
     void markAuthorNoShow(Long matchId);
 
-    // 신청자 노쇼
+    // 신청자 노쇼 확정 — 배치(judgeNoShowConfirmed) 또는 이의제기 REJECTED 판정 시 호출
+    // 처리: Match→APPLICANT_NO_SHOW, Post→COMPLETED, 신청자 예치금 몰수, 등록자 전액 환급
     void markApplicantNoShow(Long matchId);
 
-    // 양측 노쇼
+    // 양측 노쇼 확정 — 배치(judgeNoShowConfirmed) 또는 이의제기 REJECTED 판정 시 호출
+    // 처리: Match→BOTH_NO_SHOW, Post→COMPLETED, 양측 예치금 모두 몰수
     void markBothNoShow(Long matchId);
+
+    // 이의제기 부분 수용(PARTIALLY_ACCEPTED) 판정 시 호출
+    // 이의제기자에게 50% 환불은 judgeDispute()에서 이미 처리됨
+    // 여기서는 포인트 정산 없이 restoredStatus 기반으로 Match 노쇼 상태만 확정
+    // restoredStatus: DISPUTE 진입 전 백업해둔 원래 노쇼 예정 상태 (HOST/GUEST/BOTH_NO_SHOW)
+    void markNoShowByDisputeWithoutPointSettlement(Long matchId, VerificationStatus restoredStatus);
 
     /**
      * 매칭 취소 — Controller 직접 호출 (명세서 5.3)

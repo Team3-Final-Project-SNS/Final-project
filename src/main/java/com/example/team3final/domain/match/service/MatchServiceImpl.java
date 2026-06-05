@@ -3,12 +3,15 @@ package com.example.team3final.domain.match.service;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.MatchException;
+import com.example.team3final.domain.admin.dispute.service.AdminDisputeService;
 import com.example.team3final.domain.chat.service.ChatService;
+import com.example.team3final.domain.location.service.UserLocationCleanupService;
 import com.example.team3final.domain.match.dto.request.CancelMatchRequestDto;
 import com.example.team3final.domain.match.dto.response.*;
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.repository.MatchRepository;
+import com.example.team3final.domain.meet.enums.VerificationStatus;
 import com.example.team3final.domain.meet.util.MeetRedisZSetKeys;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.dto.response.PostMatchInfoDto;
@@ -50,6 +53,7 @@ public class MatchServiceImpl implements MatchService{
     private final ReviewAvoidanceService reviewAvoidanceService;
     private final StringRedisTemplate redisTemplate; // ZSet 예약용
     private final ReportService reportService;
+    private final UserLocationCleanupService userLocationCleanupService;
 
     @Override
     @Transactional
@@ -254,12 +258,71 @@ public class MatchServiceImpl implements MatchService{
 
     @Override
     @Transactional
+    public void markDisputed(Long matchId) {
+
+        Match match = getMatchById(matchId);
+
+        // MATCHED 상태일 때만 DISPUTED로 전환
+        // DISPUTED 중인 건에 중복 이의제기가 들어와도 상태가 다시 바뀌지 않도록 방어
+        if (match.getStatus() == MatchStatus.MATCHED) {
+            match.dispute();
+        }
+    }
+
+    @Override
+    @Transactional
+    public void completeMatchByDispute(Long matchId) {
+
+        Match match = getMatchById(matchId);
+
+        // MATCHED 또는 DISPUTED 상태만 판정 가능 (이미 종결된 건은 스킵)
+        if (!canResolveDispute(match)) {
+            return;
+        }
+
+        // 포인트 정산은 호출자(AdminDisputeService)에서 이미 완료
+        // 상태 전이 + 후기 알림 예약만 처리
+        match.completeByDispute();
+        postService.completePost(match.getPostId());
+
+        // 정상 완료 흐름과 동일하게 후기 마지막 날 알림 예약
+        LocalDateTime reviewDeadlineReminderAt = match.getCompletedAt()
+                .plusDays(7)
+                .toLocalDate()
+                .atTime(9, 0);
+
+        redisTemplate.opsForZSet().add(
+                ReviewRedisZSetKeys.DEADLINE_REMINDER,
+                String.valueOf(match.getId()),
+                reviewDeadlineReminderAt.toEpochSecond(ZoneOffset.ofHours(9))
+        );
+    }
+
+    @Override
+    @Transactional
+    public void cancelMatchByDispute(Long matchId) {
+
+        Match match = getMatchById(matchId);
+
+        if (!canResolveDispute(match)) {
+            return;
+        }
+
+        // 포인트 정산은 호출자(AdminDisputeService.judgeDispute + applyDisputeJudgment)에서 이미 완료
+        // 여기서는 Match/Post 상태 전이만 처리
+        match.cancelByDispute();
+        postService.getPostById(match.getPostId()).cancel();
+    }
+
+    @Override
+    @Transactional
     public void markAuthorNoShow(Long matchId) {
 
         Match match = getMatchById(matchId);
 
-        // MATCHED 아니면 스킵 (스케줄러 중단 방지 → 예외 대신 return)
-        if (match.getStatus() != MatchStatus.MATCHED) {
+        // MATCHED 또는 DISPUTED 상태만 노쇼 확정 처리 가능
+        // 스케줄러 배치에서 호출되므로 예외 대신 return으로 중단 방지
+        if (!canFinalizeNoShow(match)) {
             return;
         }
 
@@ -267,7 +330,8 @@ public class MatchServiceImpl implements MatchService{
         postService.completePost(match.getPostId());
 
         Post post = postService.getPostById(match.getPostId());
-        // 등록자(노쇼 당사자) 몰수 / 신청자(피해자) 전액 환급
+        // 등록자(노쇼 당사자): 예치금 전액 몰수 (패널티)
+        // 신청자(피해자): 예치금 전액 환급
         userPointService.penaltyPoint(post.getAuthorId(), post.getAuthorDeposit(), matchId);
         userPointService.refundPoint(match.getApplicantId(), match.getApplicantDeposit(), matchId);
     }
@@ -278,7 +342,9 @@ public class MatchServiceImpl implements MatchService{
 
         Match match = getMatchById(matchId);
 
-        if (match.getStatus() != MatchStatus.MATCHED) {
+        // MATCHED 또는 DISPUTED 상태만 노쇼 확정 처리 가능
+        // 스케줄러 배치에서 호출되므로 예외 대신 return으로 중단 방지
+        if (!canFinalizeNoShow(match)) {
             return;
         }
 
@@ -286,7 +352,8 @@ public class MatchServiceImpl implements MatchService{
         postService.completePost(match.getPostId());
 
         Post post = postService.getPostById(match.getPostId());
-        // 등록자(피해자) 전액 환급 / 신청자(노쇼 당사자) 몰수
+        // 등록자(피해자): 예치금 전액 환급
+        // 신청자(노쇼 당사자): 예치금 전액 몰수 (패널티)
         userPointService.refundPoint(post.getAuthorId(), post.getAuthorDeposit(), matchId);
         userPointService.penaltyPoint(match.getApplicantId(), match.getApplicantDeposit(), matchId);
     }
@@ -297,7 +364,9 @@ public class MatchServiceImpl implements MatchService{
 
         Match match = getMatchById(matchId);
 
-        if (match.getStatus() != MatchStatus.MATCHED) {
+        // MATCHED 또는 DISPUTED 상태만 노쇼 확정 처리 가능
+        // 스케줄러 배치에서 호출되므로 예외 대신 return으로 중단 방지
+        if (!canFinalizeNoShow(match)) {
             return;
         }
 
@@ -305,9 +374,44 @@ public class MatchServiceImpl implements MatchService{
         postService.completePost(match.getPostId());
 
         Post post = postService.getPostById(match.getPostId());
-        // 양측 모두 몰수
+        // 양측 모두 노쇼 → 양측 예치금 전부 몰수
         userPointService.penaltyPoint(post.getAuthorId(), post.getAuthorDeposit(), matchId);
         userPointService.penaltyPoint(match.getApplicantId(), match.getApplicantDeposit(), matchId);
+    }
+
+    @Override
+    @Transactional
+    public void markNoShowByDisputeWithoutPointSettlement(Long matchId, VerificationStatus restoredStatus) {
+
+        // 상태를 확정할 Match를 조회
+        Match match = getMatchById(matchId);
+
+        // 관리자 이의제기 처리 가능한 상태인지 확인
+        if (!canResolveDispute(match)) {
+            return;
+        }
+
+        // restoredStatus = 이의제기 진입 전 백업해둔 원래 노쇼 예정 상태
+        // PARTIALLY_ACCEPTED 판정 시: 이의제기자는 50% 환불됐고 상대방 포인트는 그대로
+        // 포인트 정산 없이 Match 상태만 원래 노쇼 결과대로 확정
+        if (restoredStatus == VerificationStatus.HOST_NO_SHOW) {
+
+            // Match 상태를 등록자 노쇼로 확정
+            match.markNoShow(MatchStatus.AUTHOR_NO_SHOW);
+        } else if (restoredStatus == VerificationStatus.GUEST_NO_SHOW) {
+
+            // Match 상태를 신청자 노쇼로 확정
+            match.markNoShow(MatchStatus.APPLICANT_NO_SHOW);
+        } else if (restoredStatus == VerificationStatus.BOTH_NO_SHOW) {
+
+            // Match 상태를 양쪽 노쇼로 확정
+            match.markNoShow(MatchStatus.BOTH_NO_SHOW);
+        } else {
+            // HOST/GUEST/BOTH_NO_SHOW 외의 상태가 넘어오면 정상 플로우 이탈 → 스킵
+            return;
+        }
+
+        postService.completePost(match.getPostId());
     }
 
     @Override
@@ -352,6 +456,9 @@ public class MatchServiceImpl implements MatchService{
 
         match.cancel();
         post.decreaseCurrentApplicants(); // 참여 인원 감소
+
+        // 매칭 취소되면 장소 데이터 삭제
+        userLocationCleanupService.deleteLocationsByMatchId(matchId);
 
         if (cancelerIsApplicant) {
             // GUEST(신청자) 취소
@@ -573,5 +680,19 @@ public class MatchServiceImpl implements MatchService{
                         Match::getId,
                         MatchInfoDto::from
                 ));
+    }
+
+    // canFinalizeNoShow: 배치 노쇼 확정 처리 가능 여부
+    // MATCHED(정상 매칭 중) 또는 DISPUTED(이의제기 기각 후 노쇼 확정 흐름) 두 케이스만 허용
+    // 이미 COMPLETED/CANCELLED 등으로 종결된 건은 배치에서 재처리 방지
+    private boolean canFinalizeNoShow(Match match) {
+        return match.getStatus() == MatchStatus.MATCHED || match.getStatus() == MatchStatus.DISPUTED;
+    }
+
+    // canResolveDispute: 이의제기 판정 결과 처리 가능 여부
+    // canFinalizeNoShow와 허용 조건은 동일하지만 호출 목적이 다름
+    // → "노쇼 확정(배치)" vs "이의제기 판정 후처리(관리자)" 의도를 이름으로 구분
+    private boolean canResolveDispute(Match match) {
+        return match.getStatus() == MatchStatus.MATCHED || match.getStatus() == MatchStatus.DISPUTED;
     }
 }

@@ -4,7 +4,7 @@ import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.domain.meet.dto.request.PlaceVerificationRequestDto;
 import com.example.team3final.domain.meet.dto.request.QrScanRequestDto;
 import com.example.team3final.domain.meet.dto.response.*;
-import com.example.team3final.domain.meet.service.MeetVerificationServiceImpl;
+import com.example.team3final.domain.meet.service.MeetVerificationService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/matches")
 public class MeetVerificationController {
 
-    private final MeetVerificationServiceImpl meetVerificationService;
+    private final MeetVerificationService meetVerificationService;
 
     // GPS 장소 인증 API
     @PostMapping("/{matchId}/place-verification")
@@ -28,7 +28,7 @@ public class MeetVerificationController {
             @Valid @RequestBody PlaceVerificationRequestDto requestDto) {
 
         Long userId = userDetails.getUserId();
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponseDto.success(
+        return ResponseEntity.ok(ApiResponseDto.success(
                 meetVerificationService.createPlaceVerification(userId, matchId, requestDto)));
     }
 
@@ -51,7 +51,7 @@ public class MeetVerificationController {
             @Valid @RequestBody QrScanRequestDto requestDto) {
 
         Long userId = userDetails.getUserId();
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponseDto.success(
+        return ResponseEntity.ok(ApiResponseDto.success(
                 meetVerificationService.createQrScan(userId, matchId, requestDto)));
     }
 

@@ -8,6 +8,7 @@ import com.example.team3final.domain.admin.post.dto.request.AdminDeletePostReque
 import com.example.team3final.domain.admin.post.dto.response.AdminDeletePostResponseDto;
 import com.example.team3final.domain.admin.post.dto.response.AdminGetPostResponseDto;
 import com.example.team3final.domain.admin.post.dto.response.AdminGetPostsResponseDto;
+import com.example.team3final.domain.admin.post.dto.response.AdminRestorePostResponseDto;
 import com.example.team3final.domain.admin.repository.AdminRepository;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
@@ -36,6 +37,7 @@ public class AdminPostServiceImpl implements AdminPostService {
     private final ReportService reportService;
     private final UserService userService;
 
+    // 게시글 강제 삭제
     @Override
     @Transactional
     public AdminDeletePostResponseDto deletePost(Long adminId, Long postId, AdminDeletePostRequestDto requestDto) {
@@ -58,25 +60,44 @@ public class AdminPostServiceImpl implements AdminPostService {
             throw new AdminException(ErrorCode.ADMIN_POST_NOT_OPEN);
         }
 
-        // 신고 근거 삭제는 ACCEPTED 신고만 허용하고,
-        // reportId가 없으면 관리자 판단 삭제로 처리합니다.
         Long reportId = requestDto.getReportId();
+
+        // 신고 기반 삭제 vs 직권 삭제 분기
         if (reportId != null) {
+
+            // 신고 기반 삭제 (신고자에게 포상 지급되는 케이스)
             Report report = reportService.getReportById(reportId);
 
-            // 신고의 targetId가 요청 postId와 일치하는지 확인
+            // 신고 대상 게시글과 요청 게시글 일치 검증
             if (!report.getTargetId().equals(postId)) {
                 throw new AdminException(ErrorCode.ADMIN_POST_ID_MISMATCH);
             }
 
-            // 신고가 ACCEPTED 상태인지 확인
-            if (report.getStatus() != ReportStatus.ACCEPTED) {
-                throw new AdminException(ErrorCode.ADMIN_NOT_ACCEPTED);
+            // 신고 상태별 처리
+            switch (report.getStatus()) {
+                case PENDING ->
+                    // 미처리 신고 -> 채택 후 삭제
+                        reportService.acceptReport(reportId, adminId);
+
+                case ACCEPTED -> {
+                    // 이미 채택된 신고 -> 포상은 채택 시점에 이미 지급됨
+                }
+
+                // REJECTED / WITHDRAWN 신고로는 삭제 근거 X
+                default -> throw new AdminException(ErrorCode.ADMIN_NOT_ACCEPTED);
+            }
+        } else {
+
+            // 직권 삭제
+            // 단, 미처리 신고가 남아있으면 막고, 채택 후 삭제로 유도
+            // TODO: 동시성 제어용 비관적 락은 이후 단계에서 추가
+            if (reportService.existsPendingReport(postId)) {
+                throw new AdminException(ErrorCode.ADMIN_PENDING_REPORT_EXISTS);
             }
         }
 
         // PostService 통해서 강제 삭제 + 환불 처리
-        int refundedPoint = postService.forceDeletePost(post);
+        int refundedPoint = postService.forceDeletePost(post, requestDto.getReason());
 
         return AdminDeletePostResponseDto.of(
                 postId,
@@ -177,5 +198,32 @@ public class AdminPostServiceImpl implements AdminPostService {
 
         // 4. DTO 변환 후 반환
         return AdminGetPostResponseDto.of(post, authorNickname);
+    }
+
+    // 강제 삭제 게시글 복구
+    @Override
+    @Transactional
+    public AdminRestorePostResponseDto restorePost(Long adminId, Long postId) {
+
+        // 관리자 + 슈퍼 어드민 검증
+        Admin admin = adminRepository.findById(adminId)
+                .orElseThrow(() -> new AdminException(ErrorCode.ADMIN_NOT_FOUND));
+
+        if (!admin.isActiveAndSuperAdmin()) {
+            throw new AdminException(ErrorCode.ADMIN_SUPER_REQUIRED);
+        }
+
+        // 삭제 포함 조회
+        Post post = postService.getPostByIdIncludingDeleted(postId);
+
+        // 실제로 삭제된 글인지 확인
+        if (!post.isDeleted()) {
+            throw new AdminException(ErrorCode.ADMIN_POST_NOT_DELETED);
+        }
+
+        // 복구
+        int redeposited = postService.restorePost(post);
+
+        return AdminRestorePostResponseDto.of(postId, redeposited, LocalDateTime.now());
     }
 }

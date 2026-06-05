@@ -46,7 +46,7 @@ public class Match extends BaseTimeEntity {
         this.postId = postId;
         this.applicantId = applicantId;
         this.applicantDeposit = applicantDeposit;
-        this.status = MatchStatus.MATCHED;
+        this.status = MatchStatus.MATCHED; // 생성 시점에 상태 고정 — 외부 주입 불가
     }
 
     // ===== 비즈니스 메서드 =====
@@ -82,6 +82,17 @@ public class Match extends BaseTimeEntity {
         this.status = MatchStatus.DISPUTED;
     }
 
+    // 매치 상태 완료
+    public void completeByDispute() {
+        this.status = MatchStatus.COMPLETED;
+        this.completedAt = LocalDateTime.now();
+    }
+
+    // 매치 상태 취소
+    public void cancelByDispute() {
+        this.status = MatchStatus.CANCELLED;
+    }
+
     // ===== 조회 메서드 =====
 
     // 매칭 양측 당사자(등록자 / 신청자)인지 검증
@@ -89,6 +100,7 @@ public class Match extends BaseTimeEntity {
         return authorId.equals(userId) || this.applicantId.equals(userId);
     }
 
+    // 신청자 본인 여부 확인 — QR 스캔 권한 체크(신청자만 스캔 가능)에 사용
     public boolean isApplicant(Long userId) {
         return this.applicantId.equals(userId);
     }
