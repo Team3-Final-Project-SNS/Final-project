@@ -29,7 +29,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/admin/ai/reports")
+@RequestMapping({"/api/v1/admin/ai/reports", "/api/v1/admin/ai/console"})
 public class AiReportController {
 
     private final AiReportService aiReportService;

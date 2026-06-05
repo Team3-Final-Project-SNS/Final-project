@@ -9,6 +9,9 @@ import com.example.team3final.domain.ai.common.enums.AiFeature;
 import com.example.team3final.domain.ai.common.enums.AiPromptType;
 import com.example.team3final.domain.ai.common.service.AiCallMetricService;
 import com.example.team3final.domain.ai.prompt.service.AiPromptFileService;
+import com.example.team3final.domain.ai.rag.dto.AiRagSearchResultDto;
+import com.example.team3final.domain.ai.rag.dto.AiRagSourceDto;
+import com.example.team3final.domain.ai.rag.service.AiRagRetrieverService;
 import com.example.team3final.domain.ai.report.dto.request.AiReportChatRequestDto;
 import com.example.team3final.domain.ai.report.dto.response.*;
 import com.example.team3final.domain.ai.report.entity.AiReportSummary;
@@ -26,10 +29,12 @@ import org.springframework.ai.chat.client.ResponseEntity;
 import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -60,7 +65,9 @@ public class AiReportServiceImpl implements AiReportService {
     private static final String DEFAULT_REPORT_PROMPT = """
             너는 한끼팟 관리자 전용 신고 분석 AI다.
             반드시 제공된 Tool을 먼저 호출해서 신고 원문과 누적 신고 맥락을 확인한다.
-            RAG나 외부 지식은 사용하지 말고 Tool 결과와 현재 서비스 제재 정책만 근거로 판단한다.
+            REPORT RAG 정책 문서가 제공되면 Tool 결과와 함께 근거로 사용한다.
+            REPORT RAG 정책 문서가 없으면 Retrieval Augmentation Advisor 전략에 따라 GPT의 일반 운영 판단으로 보강하되,
+            내부 정책 근거가 없음을 명시하고 보수적으로 관리자 추가 검토를 권고한다.
             AI 판단은 최종 처분이 아니라 관리자 의사결정을 돕는 참고 의견이다.
 
             처리 제안 enum:
@@ -93,6 +100,7 @@ public class AiReportServiceImpl implements AiReportService {
     private final AiProperties aiProperties;
     private final AdminService adminService;
     private final ReportService reportService;
+    private final AiRagRetrieverService aiRagRetrieverService;
 
     public AiReportServiceImpl(
             ChatClient.Builder chatClientBuilder,
@@ -102,7 +110,8 @@ public class AiReportServiceImpl implements AiReportService {
             AiCallMetricService aiCallMetricService,
             AiProperties aiProperties,
             AdminService adminService,
-            ReportService reportService
+            ReportService reportService,
+            ObjectProvider<AiRagRetrieverService> aiRagRetrieverServiceProvider
     ) {
         this.chatClient = chatClientBuilder.build();
         this.aiPromptFileService = aiPromptFileService;
@@ -112,6 +121,7 @@ public class AiReportServiceImpl implements AiReportService {
         this.aiProperties = aiProperties;
         this.adminService = adminService;
         this.reportService = reportService;
+        this.aiRagRetrieverService = aiRagRetrieverServiceProvider.getIfAvailable();
     }
 
 
@@ -125,9 +135,13 @@ public class AiReportServiceImpl implements AiReportService {
     public AiReportChatResponseDto chat(Long adminId, AiReportChatRequestDto request) {
         validateAdmin(adminId);
 
+        // 관리자 홈 챗봇의 단일 진입점입니다.
+        // 자연어 요청을 먼저 분류한 뒤, 기존 신고 분석 기능과 콘솔 운영 안내 기능으로 나눠 실행합니다.
+        // 프론트는 /admin/ai/console/chat 하나만 호출하고, 백엔드가 내부 액션을 선택합니다.
         AiReportChatIntentResult intent = classifyChatIntent(request.message());
         AiReportChatAction action = resolveChatAction(intent);
 
+        // "12번 신고 분석해줘"처럼 특정 신고 ID가 있는 경우 기존 단건 신고 분석 로직을 재사용합니다.
         if (action == AiReportChatAction.ANALYZE_REPORT) {
             if (intent == null || intent.reportId() == null) {
                 return clarify("분석할 신고 ID를 알려주세요. 예: 12번 신고 분석해줘");
@@ -143,6 +157,7 @@ public class AiReportServiceImpl implements AiReportService {
             );
         }
 
+        // "고위험 유저 보여줘"처럼 신고 누적 기반 후보 조회는 Tool 기반 고위험 유저 분석으로 보냅니다.
         if (action == AiReportChatAction.HIGH_RISK_USERS) {
             int limit = normalizeLimit(intent == null ? null : intent.limit());
             AiReportHighRiskUsersResponseDto highRiskUsers = getHighRiskUsers(adminId, limit);
@@ -155,10 +170,131 @@ public class AiReportServiceImpl implements AiReportService {
             );
         }
 
+        // 게시글/문의/유저/결제/FAQ/대시보드 질문은 관리자 콘솔 Advisor 답변으로 처리합니다.
+        // 이 경로에서 REPORT RAG 문서와 대시보드 스냅샷 Tool을 함께 사용할 수 있습니다.
+        if (action == AiReportChatAction.GENERAL_GUIDE) {
+            return answerAdminConsoleGuide(adminId, request.message());
+        }
+
         return clarify(requiredText(
                 intent == null ? null : intent.clarificationMessage(),
-                "신고 ID를 지정해 분석을 요청하거나, 고위험 유저 조회를 요청해주세요."
+                "신고 ID를 지정해 분석을 요청하거나, 관리자 콘솔에서 확인할 메뉴나 운영 정보를 알려주세요."
         ));
+    }
+
+    /**
+     * 관리자 콘솔 일반 질문에 답합니다.
+     *
+     * REPORT RAG 문서의 관리자 운영 정책과 getAdminDashboardSnapshot Tool 결과를 함께 사용할 수 있게 하여
+     * 홈 대시보드의 게시글, 신고, 문의, 유저, 결제, FAQ 관련 질문까지 처리합니다.
+     */
+    private AiReportChatResponseDto answerAdminConsoleGuide(Long adminId, String message) {
+        String requestId = UUID.randomUUID().toString();
+        long startedAt = System.currentTimeMillis();
+        Integer promptTokens = null;
+        Integer completionTokens = null;
+        Integer totalTokens = null;
+
+        try {
+            AiReportRagContext ragContext = buildReportRagContext("""
+                    관리자 콘솔 일반 운영 질문
+                    질문: %s
+                    대상 메뉴: 게시글 보기, 신고 관리, 고객 문의 관리, 유저 목록, 주문 결제 관리, FAQ
+                    관리자 ID: %d
+                    """.formatted(message, adminId));
+
+            // 일반 콘솔 안내는 구조화 DTO가 아니라 자연어 답변이 목적입니다.
+            // 다만 현재 현황 숫자가 필요한 질문에는 LLM이 getAdminDashboardSnapshot Tool을 호출해
+            // 실제 DB 카운트를 근거로 답변하도록 합니다.
+            ChatResponse response = chatClient
+                    .prompt()
+                    .system("""
+                            너는 한끼팟 관리자 콘솔 전용 AI Advisor다.
+
+                            역할:
+                            - 관리자 홈 대시보드, 게시글 보기, 신고 관리, 고객 문의 관리, 유저 목록, 주문 결제 관리, FAQ에 대해 답한다.
+                            - 운영 정책과 화면 사용법은 REPORT RAG 정책 문서를 우선 근거로 사용한다.
+                            - 현재 카운트나 우선 확인 영역이 필요하면 getAdminDashboardSnapshot Tool을 호출한다.
+                            - 신고 단건 분석이나 고위험 유저 조회처럼 별도 실행 액션이 필요한 요청은 이미 라우터가 처리하므로, 여기서는 일반 운영 안내에 집중한다.
+                            - 삭제, 계정 정지, 환불, 신고 채택, 문의 답변 등록 같은 실제 조치는 직접 실행하지 않는다.
+
+                            Retrieval Augmentation Advisor:
+                            - RAG 출처가 있으면 그 출처를 근거로 답한다.
+                            - RAG 출처가 "출처 없음"이면 GPT가 일반적인 관리자 운영 판단으로 보강하되, 내부 정책 문서 근거가 없음을 밝히고 보수적으로 안내한다.
+
+                            REPORT RAG 정책 문서 검색 결과:
+                            %s
+
+                            REPORT RAG 출처:
+                            %s
+
+                            응답 규칙:
+                            - 한국어로 짧고 실무적으로 답한다.
+                            - 관리자가 이동해야 할 메뉴명을 명확히 말한다.
+                            - Tool로 조회한 숫자가 있으면 숫자를 그대로 사용한다.
+                            - 출처가 있으면 마지막에 "출처:"로 문서명을 적는다.
+                            """.formatted(ragContext.context(), ragContext.sources()))
+                    .user(message)
+                    .options(OpenAiChatOptions.builder()
+                            .model(aiProperties.getReport().getModel())
+                            .maxTokens(aiProperties.getReport().getMaxTokens())
+                            .temperature(aiProperties.getReport().getTemperature())
+                            .build())
+                    .tools(aiReportTool)
+                    .call()
+                    .chatResponse();
+
+            TokenUsage tokenUsage = extractTokenUsage(response);
+            promptTokens = tokenUsage.promptTokens();
+            completionTokens = tokenUsage.completionTokens();
+            totalTokens = tokenUsage.totalTokens();
+
+            saveMetric(
+                    requestId,
+                    adminId,
+                    startedAt,
+                    AiCallStatus.SUCCESS,
+                    null,
+                    null,
+                    null,
+                    null,
+                    promptTokens,
+                    completionTokens,
+                    totalTokens
+            );
+
+            return new AiReportChatResponseDto(
+                    requiredText(extractContent(response), "관리자 콘솔에서 확인할 메뉴나 조건을 조금 더 구체적으로 알려주세요."),
+                    AiReportChatAction.GENERAL_GUIDE,
+                    null,
+                    null,
+                    false
+            );
+        } catch (Exception e) {
+            log.error("[AiReportService] 관리자 콘솔 AI 안내 실패", e);
+
+            saveMetric(
+                    requestId,
+                    adminId,
+                    startedAt,
+                    AiCallStatus.FALLBACK,
+                    resolveErrorType(e),
+                    e.getMessage(),
+                    null,
+                    null,
+                    promptTokens,
+                    completionTokens,
+                    totalTokens
+            );
+
+            return new AiReportChatResponseDto(
+                    "관리자 콘솔 AI 안내 생성에 실패했습니다. 게시글, 신고, 고객 문의, 유저, 주문 결제, FAQ 메뉴에서 직접 현황을 확인해주세요.",
+                    AiReportChatAction.GENERAL_GUIDE,
+                    null,
+                    null,
+                    true
+            );
+        }
     }
 
 
@@ -188,7 +324,13 @@ public class AiReportServiceImpl implements AiReportService {
 
         try {
             Report report = reportService.getReportById(reportId);
-            AiPromptFileService.RenderedPrompt prompt = renderPrompt(reportId, adminId);
+            AiReportRagContext ragContext = buildReportRagContext("""
+                    관리자 신고 단건 분석 요청
+                    신고 ID: %d
+                    신고 사유: %s
+                    관리자 ID: %d
+                    """.formatted(reportId, report.getReason(), adminId));
+            AiPromptFileService.RenderedPrompt prompt = renderPrompt(reportId, adminId, ragContext);
             promptTemplateId = prompt.promptTemplateId();
             promptVersion = prompt.version();
 
@@ -302,7 +444,13 @@ public class AiReportServiceImpl implements AiReportService {
         Integer totalTokens = null;
 
         try {
-            AiPromptFileService.RenderedPrompt prompt = renderPrompt(null, adminId);
+            AiReportRagContext ragContext = buildReportRagContext("""
+                    관리자 고위험 유저 후보 조회 요청
+                    최근 신고, 누적 채택 신고, 제재 우선순위, 관리자 권장 조치 기준
+                    조회 제한: %d명
+                    관리자 ID: %d
+                    """.formatted(limit, adminId));
+            AiPromptFileService.RenderedPrompt prompt = renderPrompt(null, adminId, ragContext);
             promptTemplateId = prompt.promptTemplateId();
             promptVersion = prompt.version();
 
@@ -388,19 +536,104 @@ public class AiReportServiceImpl implements AiReportService {
      * 프롬프트 템플릿이 없거나 파일을 읽지 못하면 DEFAULT_REPORT_PROMPT를 반환하여
      * 신고 AI 기능이 완전히 중단되지 않도록 합니다.
      */
-    private AiPromptFileService.RenderedPrompt renderPrompt(Long reportId, Long adminId) {
+    private AiPromptFileService.RenderedPrompt renderPrompt(Long reportId, Long adminId, AiReportRagContext ragContext) {
         try {
             return aiPromptFileService.renderWithMetadata(
                     AiPromptType.REPORT_SUMMARY,
                     Map.of(
                             "reportId", reportId == null ? "미지정" : reportId,
-                            "adminId", adminId
+                            "adminId", adminId,
+                            "ragContext", ragContext.context(),
+                            "ragSources", ragContext.sources()
                     )
             );
         } catch (AiException e) {
             log.warn("[AiReportService] REPORT_SUMMARY 프롬프트 로드 실패. 기본 fallback 프롬프트를 사용합니다.", e);
             return new AiPromptFileService.RenderedPrompt(DEFAULT_REPORT_PROMPT, null, null);
         }
+    }
+
+    /**
+     * 관리자 신고 AI가 사용할 REPORT RAG 컨텍스트를 생성합니다.
+     *
+     * pgvector에 관련 정책 문서가 있으면 내부 정책 근거로 주입하고, 결과가 없으면
+     * Retrieval Augmentation Advisor 전략을 명시해 GPT가 관리자 판단 보조 답변을 생성하되
+     * 내부 정책 출처가 없음을 밝히고 보수적으로 추가 검토를 권고하게 합니다.
+     */
+    private AiReportRagContext buildReportRagContext(String retrievalQuestion) {
+        if (aiRagRetrieverService == null) {
+            return new AiReportRagContext(
+                    "REPORT RAG 정책 문서 검색이 비활성화되어 있습니다. Tool 결과를 우선하고, 부족한 운영 판단은 GPT가 보수적으로 보강하되 내부 정책 출처 없음과 관리자 추가 검토 필요를 명시하세요.",
+                    "출처 없음"
+            );
+        }
+
+        try {
+            List<AiRagSearchResultDto> results = aiRagRetrieverService.search(
+                    retrievalQuestion,
+                    AiFeature.REPORT,
+                    aiProperties.getReport().getRag().getTopK(),
+                    aiProperties.getReport().getRag().getSimilarityThreshold()
+            );
+
+            if (results.isEmpty()) {
+                // pgvector에 관련 문서가 없는 경우에도 답변 자체는 끊지 않습니다.
+                // 대신 내부 정책 근거가 없음을 프롬프트에 명시하고, GPT는 보수적인 운영 안내만 생성합니다.
+                return new AiReportRagContext(
+                        "REPORT 정책 문서에서 관련 근거를 찾지 못했습니다. Retrieval Augmentation Advisor 전략에 따라 GPT가 Tool 결과와 일반적인 관리자 운영 원칙으로 답변을 보강하되, 내부 정책 문서 근거가 없으므로 조치를 단정하지 말고 NEEDS_REVIEW 또는 관리자 추가 확인을 우선 권고하세요.",
+                        "출처 없음"
+                );
+            }
+
+            return new AiReportRagContext(formatRagContext(results), formatRagSources(results));
+        } catch (Exception e) {
+            log.warn("[AiReportService] REPORT RAG 검색 실패. GPT 보강 전략으로 답변을 생성합니다.", e);
+            return new AiReportRagContext(
+                    "REPORT 정책 문서 검색 중 오류가 발생했습니다. Tool 결과를 우선하고, 부족한 부분은 GPT가 보수적으로 보강하되 내부 정책 출처 없음과 관리자 추가 검토 필요를 명시하세요.",
+                    "출처 없음"
+            );
+        }
+    }
+
+    private String formatRagContext(List<AiRagSearchResultDto> results) {
+        StringBuilder sb = new StringBuilder();
+
+        for (int i = 0; i < results.size(); i++) {
+            AiRagSearchResultDto result = results.get(i);
+            sb.append("[관리자 정책 문서 ")
+                    .append(i + 1)
+                    .append("]\n")
+                    .append("출처: ")
+                    .append(displaySource(result.source()))
+                    .append("\n")
+                    .append("내용:\n")
+                    .append(truncate(result.content(), 1200))
+                    .append("\n\n");
+        }
+
+        return sb.toString();
+    }
+
+    private String formatRagSources(List<AiRagSearchResultDto> results) {
+        LinkedHashSet<String> sources = new LinkedHashSet<>();
+
+        for (AiRagSearchResultDto result : results) {
+            sources.add(displaySource(result.source()));
+        }
+
+        return sources.isEmpty() ? "출처 없음" : String.join("\n", sources.stream()
+                .map(source -> "- " + source)
+                .toList());
+    }
+
+    private String displaySource(AiRagSourceDto source) {
+        if (source == null || source.source() == null || source.source().isBlank()) {
+            return "출처 미상";
+        }
+
+        String value = source.source().replace("\\", "/");
+        int index = value.indexOf("/rag-docs/");
+        return index >= 0 ? value.substring(index + "/rag-docs/".length()) : value;
     }
 
     /**
@@ -423,13 +656,16 @@ public class AiReportServiceImpl implements AiReportService {
                             action enum:
                             - ANALYZE_REPORT: 특정 신고 ID 1건을 분석해 달라는 요청
                             - HIGH_RISK_USERS: 신고 누적 기반 고위험 유저 후보를 보여 달라는 요청
-                            - CLARIFY: 신고 ID가 없거나 요청이 불명확해서 추가 질문이 필요한 경우
+                            - GENERAL_GUIDE: 관리자 콘솔 메뉴, 대시보드 현황, 게시글/문의/유저/결제/FAQ 운영 안내 요청
+                            - CLARIFY: 신고 분석 요청인데 신고 ID가 없어서 추가 질문이 필요한 경우
 
                             규칙:
                             - "12번 신고", "신고 12 분석"처럼 숫자와 신고 분석 의도가 있으면 ANALYZE_REPORT로 판단하고 reportId에 숫자를 넣는다.
                             - "고위험", "위험 유저", "신고 많은 유저", "블랙리스트 후보"처럼 유저 목록 요청이면 HIGH_RISK_USERS로 판단한다.
                             - HIGH_RISK_USERS에서 인원 숫자가 있으면 limit에 넣고, 없으면 5를 넣는다.
                             - ANALYZE_REPORT인데 신고 ID 숫자가 없으면 CLARIFY로 판단한다.
+                            - 게시글, 문의, 유저, 결제, FAQ, 대시보드, 관리자 콘솔 사용법, 현재 현황 질문은 GENERAL_GUIDE로 판단한다.
+                            - 특정 기능 실행 의도가 아니어도 관리자 콘솔 운영과 관련 있으면 GENERAL_GUIDE로 판단한다.
                             - 응답은 요청받은 Java record 스키마에 맞춘다.
                             """)
                     .user(message)
@@ -479,11 +715,23 @@ public class AiReportServiceImpl implements AiReportService {
             );
         }
 
+        if (containsAny(
+                normalized,
+                "대시보드", "콘솔", "게시글", "문의", "유저", "사용자", "회원", "결제", "주문", "faq", "도움말", "메뉴", "현황", "몇", "몇건", "몇 건"
+        )) {
+            return new AiReportChatIntentResult(
+                    AiReportChatAction.GENERAL_GUIDE,
+                    null,
+                    null,
+                    null
+            );
+        }
+
         return new AiReportChatIntentResult(
-                AiReportChatAction.CLARIFY,
+                AiReportChatAction.GENERAL_GUIDE,
                 null,
                 null,
-                "신고 ID를 지정해 분석을 요청하거나, 고위험 유저 조회를 요청해주세요."
+                null
         );
     }
 
@@ -839,6 +1087,14 @@ public class AiReportServiceImpl implements AiReportService {
         );
     }
 
+    private String extractContent(ChatResponse chatResponse) {
+        if (chatResponse == null || chatResponse.getResult() == null || chatResponse.getResult().getOutput() == null) {
+            return null;
+        }
+
+        return chatResponse.getResult().getOutput().getText();
+    }
+
     /**
      * AI 호출 토큰 사용량을 내부에서 다루기 위한 값 객체입니다.
      *
@@ -853,6 +1109,12 @@ public class AiReportServiceImpl implements AiReportService {
         private static TokenUsage empty() {
             return new TokenUsage(null, null, null);
         }
+    }
+
+    private record AiReportRagContext(
+            String context,
+            String sources
+    ) {
     }
 
     /**

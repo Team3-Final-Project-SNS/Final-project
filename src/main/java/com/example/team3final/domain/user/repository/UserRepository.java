@@ -14,6 +14,9 @@ import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
 
+    // AI_report 관리자 콘솔 챗봇의 대시보드 요약용 읽기 전용 집계입니다.
+    long countByStatus(UserStatus status);
+
     // 이메일로 User Entity를 조회합니다.
     Optional<User> findByEmail(String email);
 

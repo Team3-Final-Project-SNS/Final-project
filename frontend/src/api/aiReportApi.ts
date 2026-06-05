@@ -2,8 +2,8 @@ import axiosInstance from './axiosInstance';
 import { ApiResponse } from './authApi';
 import { ReportReason } from './reportApi';
 
-export type AiReportChatAction = 'ANALYZE_REPORT' | 'HIGH_RISK_USERS' | 'ASK_FOR_MORE_INFO' | 'GENERAL_GUIDE';
-export type AiReportRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type AiReportChatAction = 'ANALYZE_REPORT' | 'HIGH_RISK_USERS' | 'GENERAL_GUIDE' | 'CLARIFY';
+export type AiReportRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 export type AiReportDecisionSuggestion = 'ACCEPT' | 'REJECT' | 'NEEDS_REVIEW';
 
 export interface AiReportAnalysis {
@@ -48,7 +48,15 @@ export interface AiReportChatResponse {
   fallbackUsed: boolean;
 }
 
+const AI_REPORT_CHAT_TIMEOUT_MS = 20000;
+
 export const chatAiReport = (message: string) =>
-  axiosInstance.post<ApiResponse<AiReportChatResponse>>('/api/v1/admin/ai/reports/chat', {
-    message,
-  });
+  axiosInstance.post<ApiResponse<AiReportChatResponse>>(
+    '/api/v1/admin/ai/console/chat',
+    {
+      message,
+    },
+    {
+      timeout: AI_REPORT_CHAT_TIMEOUT_MS,
+    },
+  );
