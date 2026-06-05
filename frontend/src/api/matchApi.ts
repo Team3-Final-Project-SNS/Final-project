@@ -3,6 +3,7 @@ import { ApiResponse } from "./authApi";
 import { PageResponse } from "./postApi";
 
 export type MatchStatus = "MATCHED" | "COMPLETED" | "CANCELLED" | "AUTHOR_NO_SHOW" | "APPLICANT_NO_SHOW" | "BOTH_NO_SHOW" | "DISPUTED";
+export type DisputeType = "FUNERAL_CEREMONY" | "MEDICAL_EMERGENCY" | "PHONE_MALFUNCTION" | "GPS_ERROR" | "QR_ERROR" | "ADMIN_OVERRIDE";
 
 export interface GetMatchesItemResponse {
     matchId: number;
@@ -78,3 +79,18 @@ export const getMyMatches = (status?: MatchStatus, page: number = 0, size: numbe
 // 매칭 상세 조회
 export const getMatchDetail = (matchId: number) =>
     axiosInstance.get<ApiResponse<GetMatchResponse>>(`/api/v1/matches/${matchId}`);
+
+export interface CreateDisputeRequest {
+    disputeType: DisputeType;
+    reason: string;
+}
+
+export interface CreateDisputeResponse {
+    disputeId: number;
+    matchId: number;
+    status: string;
+}
+
+// 노쇼 이의제기 제출
+export const createDispute = (matchId: number, request: CreateDisputeRequest) =>
+    axiosInstance.post<ApiResponse<CreateDisputeResponse>>(`/api/v1/matches/${matchId}/disputes`, request);

@@ -76,6 +76,10 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     private static final long LOCATION_FRESHNESS_SECONDS = 15;
     // GPS 오차범위 고려한 노쇼 범위 (정책 50m + 오차 10m)
     private static final double NO_SHOW_RADIUS_METERS = 60.0;
+    // 장소 인증 허용 반경
+    // 사용자에게 안내되는 약속 장소 반경은 50m.
+    // 다만 GPS 오차를 고려해서 서버 검증은 10m 여유를 둔 60m까지 허용.
+    private static final double PLACE_VERIFICATION_RADIUS_METERS = 60.0;
 
     // 노쇼 예정 상태 목록 — 이의제기/확정 처리 대상
     private static final List<VerificationStatus> NO_SHOW_STATUSES = List.of(
@@ -147,6 +151,13 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                 requestDto.getCurrentLat().doubleValue(), requestDto.getCurrentLng().doubleValue(),
                 placeLat.doubleValue(), placeLng.doubleValue()
         );
+
+        // 현재 위치와 약속 장소 사이의 거리가 허용 반경을 넘었는지 확인,
+        // 실제 서버 검증 기준은 오차10m를 포함한 60m
+        if (distanceMeters > PLACE_VERIFICATION_RADIUS_METERS) {
+            // 60m 밖이면 장소 인증을 처리하지 않고 예외 발생.
+            throw new MeetException(ErrorCode.GPS_OUT_OF_RANGE);
+        }
 
         // userId 기반으로 등록자/신청자 구분하여 각각 인증 처리
         if (isAuthor) {
@@ -561,7 +572,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         // 진행 중인 요청(REQUESTED) 체크 전에 만료 여부를 먼저 확인
         // 스케줄러가 EXPIRED로 전환하지 않은 타이밍에도 재요청을 허용하기 위함
         if (meetVerification.getExtensionStatus() == ExtensionStatus.REQUESTED) {
-            if (meetVerification.isExtensionExpired()) {
+            if (meetVerification.isExtensionExpired(EXTENSION_TIMEOUT_MINUTES)) {
                 // 5분 타임아웃이 지났으면 → 즉시 EXPIRED 처리 후 요청 허용
                 meetVerification.expireExtension();
             } else {
@@ -804,7 +815,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     private void validateExtensionNotExpired(MeetVerification meetVerification) {
         // REQUESTED 상태에서 5분 타임아웃이 지났으면 즉시 EXPIRED 처리 후 예외
         if (meetVerification.getExtensionStatus() == ExtensionStatus.REQUESTED
-                && meetVerification.isExtensionExpired()) {
+                && meetVerification.isExtensionExpired(EXTENSION_TIMEOUT_MINUTES)) {
             meetVerification.expireExtension();
             throw new MeetException(ErrorCode.MEET_EXTEND_EXPIRED);
         }

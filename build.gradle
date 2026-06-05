@@ -37,6 +37,10 @@ dependencies {
     // Redis 연동을 위한 의존성 (OTP 임시 저장 + 발송 제한 + 채팅 Pub/Sub 메시지 브로커)
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
+    // Redisson: Redis 분산 락 라이브러리
+    // Spring Boot 자동 설정 지원 버전 사용
+    implementation 'org.redisson:redisson-spring-boot-starter:3.27.2'
+
     // Kafka 메시지 브로커 (채팅 메시지 분배 + 알림 이벤트 발행/구독)
     implementation 'org.springframework.kafka:spring-kafka'
 

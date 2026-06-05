@@ -217,4 +217,12 @@ public class UserPointServiceImpl implements UserPointService{
                         .build()
         );
     }
+
+    // 유저 포인트 총 보유량 조회 (유료 + 무료 포인트)
+    @Override
+    @Transactional(readOnly = true)
+    public int getTotalPoint(Long userId) {
+        User user = getUserOrThrow(userId);
+        return user.getTotalPoint();
+    }
 }

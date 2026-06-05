@@ -2,11 +2,15 @@ package com.example.team3final.domain.post.repository;
 
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.QueryHint;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
@@ -14,6 +18,9 @@ import java.util.List;
 import java.util.Optional;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
+
+    // AI_report 관리자 콘솔 챗봇의 대시보드 요약용 읽기 전용 집계입니다.
+    long countByStatus(PostStatus status);
 
     /**
      * soft delete된 게시글 포함 IN 조회 — 매칭 목록 조회 전용
@@ -33,6 +40,13 @@ public interface PostRepository extends JpaRepository<Post, Long> {
      */
     @Query("SELECT p FROM Post p WHERE p.id IN :postIds")
     List<Post> findAllByIdIncludingDeleted(@Param("postIds")List<Long> postIds);
+
+    // 게시글을 PESSIMISTIC_WRITE 락으로 조회
+    // 이 메서드가 트랜잭션 안에서 실행되면 해당 Post row에 write lock이 걸림.
+    // 같은 게시글을 다른 트랜잭션에서 동시에 PESSIMISTIC_WRITE로 잡으려 하면 대기하게 됨.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Post p WHERE p.id = :postId")
+    Optional<Post> findByIdWithLock(@Param("postId") Long postId);
 
     // soft delete된 게시글 포함 단건 조회 -> 삭제 사유 조회 전용
     @Query("""
@@ -110,6 +124,15 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             @Param("now")     LocalDateTime now   // LocalDateTime.now()
     );
 
+    // 동시성 제어 테스트 관련 메서드
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "0"))
+    @Query("SELECT p FROM Post p WHERE p.id = :id")
+    Optional<Post> findByIdWithPessimisticLockNowait(@Param("id") Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Post p WHERE p.id = :id")
+    Optional<Post> findByIdWithPessimisticLock(@Param("id") Long id);
 
 
  // ai 매칭 도메인에서 활용. toolcalling에서 활용하기 위해서.

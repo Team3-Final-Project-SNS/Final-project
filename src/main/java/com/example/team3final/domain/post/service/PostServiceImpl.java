@@ -296,6 +296,14 @@ public class PostServiceImpl implements PostService{
     }
 
     @Override
+    @Transactional
+    public Post getPostByIdWithLock(Long postId) {
+        // DB에서 PESSIMISTIC_WRITE 락을 걸고 게시글 조회
+        return postRepository.findByIdWithLock(postId)
+                .orElseThrow(() -> new PostException(ErrorCode.POST_NOT_FOUND));
+    }
+
+    @Override
     public PostInfoDto getPostInfo(Long postId) {
         // 내부적으로 getPostById 재사용 → 중복 제거
         Post post = getPostById(postId);
@@ -476,6 +484,71 @@ public class PostServiceImpl implements PostService{
         );
 
         return posts.getContent();
+    }
+
+    // ── 동시성 테스트용 추가 구현 ──────────────────────────────────────
+
+    /**
+     * 전략 A 전용: 비관적 락 + NOWAIT
+     *
+     * @Lock(PESSIMISTIC_WRITE) + timeout=0 조합
+     *   → JPA가 "SELECT ... FOR UPDATE NOWAIT" 쿼리 실행
+     *   → 다른 트랜잭션이 락을 잡고 있으면 즉시 LockTimeoutException
+     *
+     * @Transactional이 필요한 이유:
+     *   비관적 락은 반드시 트랜잭션 안에서만 유효
+     *   트랜잭션이 없으면 락을 잡자마자 바로 해제되어 의미 없음
+     *   MatchConcurrencyService의 @Transactional이 전파(REQUIRED)되므로
+     *   별도 선언 없어도 되지만, 명시적으로 선언해서 의도를 드러냄
+     */
+    @Override
+    @Transactional
+    public Post getPostWithPessimisticLockNowait(Long postId) {
+        // PostRepository에 추가한 findByIdWithPessimisticLockNowait() 호출
+        // → @Lock(PESSIMISTIC_WRITE) + @QueryHint(timeout=0) 적용된 메서드
+        return postRepository.findByIdWithPessimisticLockNowait(postId)
+                .orElseThrow(() -> new PostException(ErrorCode.POST_NOT_FOUND));
+    }
+
+    /**
+     * 전략 B 전용: 비관적 락 + 대기 O
+     *
+     * @Lock(PESSIMISTIC_WRITE) 만 적용 (timeout 힌트 없음)
+     *   → JPA가 "SELECT ... FOR UPDATE" 쿼리 실행
+     *   → innodb_lock_wait_timeout 설정값만큼 대기 후 타임아웃
+     */
+    @Override
+    @Transactional
+    public Post getPostWithPessimisticLock(Long postId) {
+        // PostRepository에 추가한 findByIdWithPessimisticLock() 호출
+        // → @Lock(PESSIMISTIC_WRITE) 만 적용된 메서드 (NOWAIT 없음)
+        return postRepository.findByIdWithPessimisticLock(postId)
+                .orElseThrow(() -> new PostException(ErrorCode.POST_NOT_FOUND));
+    }
+
+    /**
+     * 동시성 테스트 전용: 게시글 상태 변경
+     *
+     * MatchConcurrencyService에서 매칭 확정 시 OPEN → MATCHED 변경에 사용
+     * 기존 completePost()는 COMPLETED 전용이라 별도로 분리
+     *
+     * JPA 변경감지(Dirty Checking) 동작 원리:
+     *   @Transactional 안에서 조회한 엔티티를 수정하면
+     *   트랜잭션 커밋 시점에 JPA가 변경사항을 감지하고 UPDATE 쿼리 자동 실행
+     *   → postRepository.save(post) 를 명시적으로 호출하지 않아도 됨
+     */
+    @Override
+    @Transactional
+    public void changePostStatus(Long postId, PostStatus status) {
+        // 1. 기존 getPostById() 재사용 → 중복 조회 로직 없음
+        Post post = getPostById(postId);
+
+        // 2. 도메인 메서드로 상태 변경 (컨벤션: 상태 변경은 엔티티 내부 메서드가 책임)
+        //    Post 엔티티에 changeStatus() 도메인 메서드가 있어야 함
+        //    없다면 아래처럼 추가: public void changeStatus(PostStatus status) { this.status = status; }
+        post.changeStatus(status);
+
+        // 3. 명시적 save() 없음 → @Transactional + Dirty Checking이 자동 UPDATE 처리
     }
 
 }

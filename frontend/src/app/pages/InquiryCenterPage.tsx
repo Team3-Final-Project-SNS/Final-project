@@ -1,6 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { AlertCircle, ArrowLeft, Loader2, MessageSquare, Send, Trash2 } from 'lucide-react';
-import { Link } from 'react-router';
+import { AlertCircle, ArrowLeft, FileText, Loader2, MessageSquare, Send, Siren, Trash2 } from 'lucide-react';
 import {
   cancelInquiry,
   createInquiry,
@@ -11,6 +10,13 @@ import {
   InquiryListItem,
   InquiryType,
 } from '../../api/inquiryApi';
+import {
+  createDispute,
+  DisputeType,
+  GetMatchesItemResponse,
+  getMyMatches,
+  MatchStatus,
+} from '../../api/matchApi';
 import AdminFloatingChatbot from '../components/AdminFloatingChatbot';
 
 const inquiryTypes: { value: InquiryType; label: string }[] = [
@@ -21,6 +27,16 @@ const inquiryTypes: { value: InquiryType; label: string }[] = [
   { value: 'USAGE', label: '이용 방법' },
   { value: 'HISTORY', label: '이용 내역' },
   { value: 'OTHER', label: '기타' },
+];
+
+const noShowStatuses: MatchStatus[] = ['AUTHOR_NO_SHOW', 'APPLICANT_NO_SHOW', 'BOTH_NO_SHOW'];
+
+const disputeTypes: { value: DisputeType; label: string }[] = [
+  { value: 'FUNERAL_CEREMONY', label: '(경)조사' },
+  { value: 'MEDICAL_EMERGENCY', label: '응급실' },
+  { value: 'PHONE_MALFUNCTION', label: '스마트폰 고장' },
+  { value: 'GPS_ERROR', label: 'GPS 인증 오류' },
+  { value: 'QR_ERROR', label: 'QR 코드 인식 오류' },
 ];
 
 const statusLabels: Record<InquiryAnswerStatus, string> = {
@@ -38,6 +54,7 @@ const statusClasses: Record<InquiryAnswerStatus, string> = {
 };
 
 export default function InquiryCenterPage() {
+  const [view, setView] = useState<'menu' | 'inquiry' | 'noShow'>('menu');
   const [items, setItems] = useState<InquiryListItem[]>([]);
   const [selected, setSelected] = useState<InquiryDetail | null>(null);
   const [page, setPage] = useState(0);
@@ -50,6 +67,34 @@ export default function InquiryCenterPage() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [type, setType] = useState<InquiryType>('OTHER');
+  const [noShowMatches, setNoShowMatches] = useState<GetMatchesItemResponse[]>([]);
+  const [noShowLoading, setNoShowLoading] = useState(false);
+  const [selectedNoShowMatchId, setSelectedNoShowMatchId] = useState('');
+  const [disputeType, setDisputeType] = useState<DisputeType>('GPS_ERROR');
+  const [disputeReason, setDisputeReason] = useState('');
+  const isNoShowView = view === 'noShow';
+
+  const openInquiryForm = () => {
+    setError('');
+    setSuccess('');
+    setType('OTHER');
+    setTitle('');
+    setContent('');
+    setSelected(null);
+    setView('inquiry');
+  };
+
+  const openNoShowObjectionForm = () => {
+    setError('');
+    setSuccess('');
+    setType('MATCH');
+    setTitle('');
+    setContent('');
+    setDisputeType('GPS_ERROR');
+    setDisputeReason('');
+    setSelected(null);
+    setView('noShow');
+  };
 
   const loadInquiries = async (nextPage = page) => {
     setLoading(true);
@@ -69,6 +114,30 @@ export default function InquiryCenterPage() {
   useEffect(() => {
     loadInquiries(page);
   }, [page]);
+
+  useEffect(() => {
+    if (view !== 'noShow') {
+      return;
+    }
+
+    const loadNoShowMatches = async () => {
+      setNoShowLoading(true);
+      setError('');
+      try {
+        const responses = await Promise.all(noShowStatuses.map((status) => getMyMatches(status, 0, 20)));
+        const nextMatches = responses.flatMap((res) => res.data.data.content);
+        setNoShowMatches(nextMatches);
+        setSelectedNoShowMatchId(nextMatches[0] ? String(nextMatches[0].matchId) : '');
+      } catch (err) {
+        console.error('Failed to load no-show matches', err);
+        setError('노쇼 처리된 매칭을 불러오지 못했습니다.');
+      } finally {
+        setNoShowLoading(false);
+      }
+    };
+
+    loadNoShowMatches();
+  }, [view]);
 
   const handleSelect = async (inquiryId: number) => {
     setDetailLoading(true);
@@ -95,16 +164,44 @@ export default function InquiryCenterPage() {
     setError('');
     setSuccess('');
     try {
-      const res = await createInquiry({ title: title.trim(), content: content.trim(), type });
+      const res = await createInquiry({ title: title.trim(), content: content.trim(), type: isNoShowView ? 'MATCH' : type });
       setTitle('');
       setContent('');
-      setType('OTHER');
-      setSuccess('문의가 접수되었습니다.');
+      setType(isNoShowView ? 'MATCH' : 'OTHER');
+      setSuccess(isNoShowView ? '노쇼 이의제기가 접수되었습니다.' : '문의가 접수되었습니다.');
       await loadInquiries(0);
       setPage(0);
       await handleSelect(res.data.data.inquiryId);
     } catch (err: any) {
       setError(err.response?.data?.message || '문의 접수에 실패했습니다.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleNoShowDisputeSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedNoShowMatchId) {
+      setError('이의제기할 매칭을 선택해주세요.');
+      return;
+    }
+    if (!disputeReason.trim()) {
+      setError('이의제기 사유를 입력해주세요.');
+      return;
+    }
+
+    setSubmitting(true);
+    setError('');
+    setSuccess('');
+    try {
+      await createDispute(Number(selectedNoShowMatchId), {
+        disputeType,
+        reason: disputeReason.trim(),
+      });
+      setDisputeReason('');
+      setSuccess('노쇼 이의제기가 접수되었습니다.');
+    } catch (err: any) {
+      setError(err.response?.data?.message || '노쇼 이의제기 접수에 실패했습니다.');
     } finally {
       setSubmitting(false);
     }
@@ -131,23 +228,128 @@ export default function InquiryCenterPage() {
     <>
       <div className="mx-auto max-w-5xl">
         <div className="mb-6">
-          <Link
-            to="/me"
-            className="mb-3 inline-flex items-center gap-1 text-sm font-semibold text-[#616161] transition-colors hover:text-[#d84315]"
-          >
-            <ArrowLeft size={16} />
-            내 정보
-          </Link>
           <h1 className="text-3xl font-bold text-[#212121]">고객센터</h1>
-          <p className="mt-2 text-sm text-[#757575]">1:1 문의를 접수하고 답변 상태를 확인할 수 있습니다.</p>
+          <p className="mt-2 text-sm text-[#757575]">필요한 고객센터 업무를 선택해 진행할 수 있습니다.</p>
         </div>
 
         {error && <Notice tone="error" message={error} />}
         {success && <Notice tone="success" message={success} />}
 
+        {view === 'menu' ? (
+          <div className="grid gap-5 md:grid-cols-2">
+            <button
+              type="button"
+              onClick={openNoShowObjectionForm}
+              className="group rounded-2xl border border-[#e0e0e0] bg-white p-7 text-left shadow-sm transition-all hover:border-[#d84315] hover:shadow-md"
+            >
+              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[#ffebee] text-[#d84315]">
+                <Siren size={24} />
+              </div>
+              <h2 className="text-xl font-bold text-[#212121]">노쇼 이의제기</h2>
+              <p className="mt-3 text-sm leading-6 text-[#757575]">
+                노쇼 처리에 대한 이의 사유를 작성하고 고객센터에 접수합니다.
+              </p>
+              <span className="mt-6 inline-flex items-center gap-1 text-sm font-bold text-[#d84315]">
+                이의제기 작성하기
+                <ArrowLeft size={15} className="rotate-180 transition-transform group-hover:translate-x-1" />
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={openInquiryForm}
+              className="group rounded-2xl border border-[#e0e0e0] bg-white p-7 text-left shadow-sm transition-all hover:border-[#d84315] hover:shadow-md"
+            >
+              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[#fff3e0] text-[#d84315]">
+                <FileText size={24} />
+              </div>
+              <h2 className="text-xl font-bold text-[#212121]">문의 접수</h2>
+              <p className="mt-3 text-sm leading-6 text-[#757575]">
+                계정, 결제, 매칭, 신고 등 일반 문의를 접수하고 답변 상태를 확인합니다.
+              </p>
+              <span className="mt-6 inline-flex items-center gap-1 text-sm font-bold text-[#d84315]">
+                문의 작성하기
+                <ArrowLeft size={15} className="rotate-180 transition-transform group-hover:translate-x-1" />
+              </span>
+            </button>
+          </div>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => setView('menu')}
+              className="mb-5 inline-flex items-center gap-1 text-sm font-semibold text-[#616161] transition-colors hover:text-[#d84315]"
+            >
+              <ArrowLeft size={16} />
+              고객센터
+            </button>
+
         <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
           <section className="rounded-2xl border border-[#e0e0e0] bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-lg font-bold text-[#212121]">문의 접수</h2>
+            <h2 className="mb-4 text-lg font-bold text-[#212121]">
+              {isNoShowView ? '노쇼 이의제기' : '문의 접수'}
+            </h2>
+            {isNoShowView ? (
+              <form onSubmit={handleNoShowDisputeSubmit} className="space-y-4">
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-[#757575]">이의제기 매칭</label>
+                  {noShowLoading ? (
+                    <div className="rounded-lg border border-[#e0e0e0] bg-[#fafafa] px-3 py-2 text-sm text-[#757575]">
+                      노쇼 매칭을 불러오는 중...
+                    </div>
+                  ) : noShowMatches.length > 0 ? (
+                    <select
+                      value={selectedNoShowMatchId}
+                      onChange={(event) => setSelectedNoShowMatchId(event.target.value)}
+                      className="w-full rounded-lg border border-[#e0e0e0] bg-white px-3 py-2 text-sm focus:border-[#d84315] focus:outline-none focus:ring-2 focus:ring-[#fff3e0]"
+                    >
+                      {noShowMatches.map((match) => (
+                        <option key={match.matchId} value={match.matchId}>
+                          {formatDateTime(match.meetAt)} · {match.placeName} · {match.opponentNickname}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-[#e0e0e0] bg-[#fafafa] px-3 py-3 text-sm text-[#9e9e9e]">
+                      이의제기 가능한 노쇼 매칭이 없습니다.
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-[#757575]">이의제기 사유</label>
+                  <select
+                    value={disputeType}
+                    onChange={(event) => setDisputeType(event.target.value as DisputeType)}
+                    className="w-full rounded-lg border border-[#e0e0e0] bg-white px-3 py-2 text-sm focus:border-[#d84315] focus:outline-none focus:ring-2 focus:ring-[#fff3e0]"
+                  >
+                    {disputeTypes.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-[#757575]">상세 사유</label>
+                  <textarea
+                    value={disputeReason}
+                    onChange={(event) => setDisputeReason(event.target.value)}
+                    rows={8}
+                    maxLength={1000}
+                    className="w-full resize-none rounded-lg border border-[#e0e0e0] px-3 py-2 text-sm focus:border-[#d84315] focus:outline-none focus:ring-2 focus:ring-[#fff3e0]"
+                    placeholder="노쇼 처리에 이의가 있는 이유와 당시 상황을 자세히 입력해주세요"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={submitting || noShowLoading || noShowMatches.length === 0}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#d84315] px-4 py-3 text-sm font-bold text-white shadow-md transition-colors hover:bg-[#bf360c] disabled:opacity-60"
+                >
+                  {submitting ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                  이의제기 접수
+                </button>
+              </form>
+            ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="mb-1 block text-xs font-bold text-[#757575]">문의 유형</label>
@@ -192,6 +394,7 @@ export default function InquiryCenterPage() {
                 문의 접수
               </button>
             </form>
+            )}
           </section>
 
         <section className="space-y-4">
@@ -279,6 +482,8 @@ export default function InquiryCenterPage() {
           </div>
         </section>
         </div>
+          </>
+        )}
       </div>
       <AdminFloatingChatbot
         title="한끼팟 고객 도우미"

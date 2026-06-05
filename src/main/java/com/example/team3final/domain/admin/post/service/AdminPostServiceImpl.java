@@ -52,8 +52,9 @@ public class AdminPostServiceImpl implements AdminPostService {
             throw new AdminException(ErrorCode.ADMIN_SUPER_REQUIRED);
         }
 
-        // 게시글 조회
-        Post post = postService.getPostById(postId);
+        // 관리자 강제 삭제는 신고 접수와 동시에 들어올 수 있으므로 락 조회 사용.
+        // 같은 게시글에 대해 신고 접수도 락을 잡으면 둘 중 하나가 먼저 끝날 때까지 대기.
+        Post post = postService.getPostByIdWithLock(postId);
 
         // OPEN 상태인지 확인
         if (!post.isOpen()) {
@@ -90,7 +91,6 @@ public class AdminPostServiceImpl implements AdminPostService {
 
             // 직권 삭제
             // 단, 미처리 신고가 남아있으면 막고, 채택 후 삭제로 유도
-            // TODO: 동시성 제어용 비관적 락은 이후 단계에서 추가
             if (reportService.existsPendingReport(postId)) {
                 throw new AdminException(ErrorCode.ADMIN_PENDING_REPORT_EXISTS);
             }

@@ -10,12 +10,20 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.UUID;
+
+// 알림 발송 구현체 (NotificationPublisher 인터페이스)
+// 각 sendXxx() 메서드는 DB에 직접 저장하지 않고 Kafka 알림 이벤트를 발행한다.
+// 실제 DB 저장 + SSE 전송은 NotificationEventConsumer가 처리한다.
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class NotificationPublisherImpl implements NotificationPublisher {
 
+    // Kafka에 String 메시지를 발행하는 도구
     private final KafkaTemplate<String, String> kafkaTemplate;
+
+    // DTO -> JSON 문자열 변환 도구
     private final ObjectMapper objectMapper;
 
     // ==================== 공통 메서드 ====================
@@ -25,8 +33,19 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     private void publish(Long receiverId, NotificationType type, String title,
                          String content, RelatedDomain relatedDomain, Long relatedId) {
         try {
+
+            // 멱등성을 위한 이벤트 고유 ID 생성
+            // Consumer가 이 ID를 Redis에 기록해 중복 처리 방지
+            String eventId = UUID.randomUUID().toString();
+
             NotificationEvent event = new NotificationEvent(
-                    receiverId, type, title, content, relatedDomain, relatedId
+                    eventId,
+                    receiverId,
+                    type,
+                    title,
+                    content,
+                    relatedDomain,
+                    relatedId
             );
 
             // Kafka key는 receiverId로 설정
@@ -40,6 +59,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
             kafkaTemplate.send(KafkaTopics.NOTIFICATIONS, key, message)
                     .whenComplete((result, ex) -> {
                         if (ex == null) {
+                            // 전송 성공
                             log.info("[Kafka Notification Producer] 알림 이벤트 발행 성공" +
                                             " - receiverId: {}, type: {}, relatedId: {}",
                                     receiverId, type, relatedId);
@@ -48,6 +68,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                             log.error("[Kafka Notification Producer] 알림 이벤트 발행 실패 → DLQ 발행" +
                                             " - receiverId: {}, type: {}, error: {}",
                                     receiverId, type, ex.getMessage());
+                            // DLQ에 원본 메시지 그대로 발행
                             kafkaTemplate.send(KafkaTopics.NOTIFICATIONS_DLQ, key, message);
                         }
                     });
@@ -60,9 +81,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
 
     // ==================== NotificationPublisher 구현 ====================
 
-    // ── 매칭 ──────────────────────────────────────────────────────────────
-
-    // 1. 게시글 신청 알림 - HOST에게
+    // 1. 게시글 신청 알림
     @Override
     public void sendMatchApplied(Long userId, Long matchId) {
         publish(userId, NotificationType.MATCH_APPLIED,
@@ -71,16 +90,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.MATCH, matchId);
     }
 
-    // 2. 매칭 확정 알림 - 등록자에게
-    @Override
-    public void sendMatchConfirmed(Long userId, Long matchId) {
-        publish(userId, NotificationType.MATCH_CONFIRMED,
-                "매칭이 확정되었습니다.",
-                "매칭이 확정되었습니다. 채팅방을 확인해 주세요.",
-                RelatedDomain.MATCH, matchId);
-    }
-
-    // 3. GUEST가 신청을 취소했을 때 - HOST에게
+    // 2-1. GUEST가 신청을 취소했을 때 - HOST에게
     @Override
     public void sendGuestCancelled(Long userId, Long matchId) {
         publish(userId, NotificationType.MATCH_CANCELLED,
@@ -89,95 +99,16 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.MATCH, matchId);
     }
 
-    // 4. HOST가 매칭을 취소했을 때 - GUEST에게
+    // 2-2. HOST가 매칭을 취소했을 때 - GUEST에게
     @Override
     public void sendHostCancelled(Long userId, Long matchId) {
         publish(userId, NotificationType.MATCH_CANCELLED,
                 "매칭이 취소되었습니다.",
-                "게시글 등록자가 매칭을 취소했습니다. 예치 포인트가 환불됩니다.",
+                "게시글 등록자가 매칭을 취소했습니다.",
                 RelatedDomain.MATCH, matchId);
     }
 
-    // ── 만남 시간 ─────────────────────────────────────────────────────────
-
-    // 5. 만남 30분 전 알림 - 만남 참여자에게
-    @Override
-    public void sendMeetReminder30(Long userId, Long matchId) {
-        publish(userId, NotificationType.MEET_REMINDER,
-                "만남 시간이 30분 남았습니다.",
-                "만남 시간이 30분 남았습니다.",
-                RelatedDomain.MEET, matchId);
-    }
-
-    // 6. 만남 15분 전 알림 - 만남 참여자에게
-    @Override
-    public void sendMeetReminder15(Long userId, Long matchId) {
-        publish(userId, NotificationType.MEET_REMINDER,
-                "만남 시간이 15분 남았습니다.",
-                "만남 시간이 15분 남았습니다.",
-                RelatedDomain.MEET, matchId);
-    }
-
-    // 7. 만남 5분 전 임박 알림 - 만남 참여자에게
-    @Override
-    public void sendMeetImminent(Long userId, Long matchId) {
-        publish(userId, NotificationType.MEET_IMMINENT,
-                "만남 시간이 곧 다가옵니다.",
-                "만남 시간이 곧 다가옵니다. 준비해 주세요.",
-                RelatedDomain.MEET, matchId);
-    }
-
-    // 8. 만남 시간 10분 경과 알림 - 만남 참여자에게
-    @Override
-    public void sendMeetOverdue(Long userId, Long matchId) {
-        publish(userId, NotificationType.MEET_OVERDUE,
-                "만남 시간이 10분 지났습니다.",
-                "만남 시간이 10분 지났습니다.",
-                RelatedDomain.MEET, matchId);
-    }
-
-    // ── 만남 완료 / 후기 ──────────────────────────────────────────────────
-
-    // 9. 만남 완료 / 후기 작성 유도 알림 - 신청자에게
-    @Override
-    public void sendMeetCompleted(Long userId, Long matchId) {
-        publish(userId, NotificationType.MEET_COMPLETED,
-                "만남이 완료되었습니다.",
-                "만남이 완료되었습니다. 후기를 작성해 주세요.",
-                RelatedDomain.MEET, matchId);
-    }
-
-    // 10. 후기 작성 마지막 날 알림 - 미작성 신청자에게
-    @Override
-    public void sendReviewDeadlineReminder(Long userId, Long matchId) {
-        publish(userId, NotificationType.REVIEW_DEADLINE_REMINDER,
-                "후기 작성 마지막 날입니다.",
-                "오늘이 후기를 작성할 수 있는 마지막 날입니다. 서둘러 작성해 주세요.",
-                RelatedDomain.MEET, matchId);
-    }
-
-    // 11. 후기 작성 포인트 지급 알림 - 후기 작성자에게
-    @Override
-    public void sendReviewPoint(Long userId, Long reviewId) {
-        publish(userId, NotificationType.REVIEW_REWARD,
-                "후기 작성 포인트가 지급되었습니다.",
-                "후기 작성이 완료되었습니다. 50포인트가 지급되었습니다.",
-                RelatedDomain.POINT, reviewId);
-    }
-
-    // 12. 매너 온도 상승 알림 - 후기 대상자에게
-    // relatedId = null → 클릭 시 마이페이지로 이동 (프론트에서 처리)
-    @Override
-    public void sendMannerTemperatureChanged(Long userId) {
-        publish(userId, NotificationType.MANNER_TEMPERATURE_CHANGED,
-                "매너 온도가 올랐습니다.",
-                "새로운 후기가 작성되어 매너 온도가 변경되었습니다. 마이페이지에서 확인해 보세요.",
-                RelatedDomain.SYSTEM, null);
-    }
-
-    // ── 채팅 / 장소 인증 ──────────────────────────────────────────────────
-
-    // 13. 채팅 메시지 수신 알림 - 메시지 수신자에게
+    // 3. 채팅 메시지 수신 알림
     @Override
     public void sendChatReceived(Long userId, Long chatRoomId) {
         publish(userId, NotificationType.CHAT_RECEIVED,
@@ -186,8 +117,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.CHAT, chatRoomId);
     }
 
-    // 14. 장소 인증 완료 알림
-    // 1:1: 상대방에게 / 그룹: 모임 참여자 전원에게 (호출하는 쪽에서 수신자 분기 처리)
+    // 4. 장소 인증 완료 알림
     @Override
     public void sendPlaceVerified(Long userId, Long matchId) {
         publish(userId, NotificationType.PLACE_VERIFIED,
@@ -196,27 +126,34 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.MEET, matchId);
     }
 
-    // 15. 그룹 채팅방 신청자 퇴장 알림 - 등록자에게만
+    // 5. 만남 시간 임박 알림
     @Override
-    public void sendChatMemberLeft(Long userId, Long chatRoomId) {
-        publish(userId, NotificationType.CHAT_MEMBER_LEFT,
-                "신청자가 채팅방에서 퇴장했습니다.",
-                "신청자가 채팅방에서 퇴장했습니다.",
-                RelatedDomain.CHAT, chatRoomId);
-    }
-
-    // ── 노쇼 ──────────────────────────────────────────────────────────────
-
-    // 16. 노쇼 예정 알림 - 노쇼 예정 유저에게
-    @Override
-    public void sendNoShowWarning(Long userId, Long matchId) {
-        publish(userId, NotificationType.NO_SHOW_WARNING,
-                "노쇼 예정 상태입니다.",
-                "노쇼 예정 상태입니다. 24시간 내 이의제기가 없을 경우 예치 포인트가 차감됩니다.",
+    public void sendMeetImminent(Long userId, Long matchId) {
+        publish(userId, NotificationType.MEET_IMMINENT,
+                "만남 시간이 곧 다가옵니다.",
+                "만남 시간이 곧 다가옵니다. 준비해 주세요.",
                 RelatedDomain.MEET, matchId);
     }
 
-    // 17. 노쇼 확정 알림 - 관련 사용자 양측에게
+    // 6. 만남 30분 전 알림
+    @Override
+    public void sendMeetReminder30(Long userId, Long matchId) {
+        publish(userId, NotificationType.MEET_REMINDER,
+                "만남 시간이 30분 남았습니다.",
+                "만남 시간이 30분 남았습니다.",
+                RelatedDomain.MEET, matchId);
+    }
+
+    // 7. 만남 15분 전 알림
+    @Override
+    public void sendMeetReminder15(Long userId, Long matchId) {
+        publish(userId, NotificationType.MEET_REMINDER,
+                "만남 시간이 15분 남았습니다.",
+                "만남 시간이 15분 남았습니다.",
+                RelatedDomain.MEET, matchId);
+    }
+
+    // 8. 노쇼 확정 알림
     @Override
     public void sendNoShowConfirmed(Long userId, Long matchId) {
         publish(userId, NotificationType.NO_SHOW_CONFIRMED,
@@ -225,47 +162,16 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.MEET, matchId);
     }
 
-    // ── 만남 시간 연장 ────────────────────────────────────────────────────
-
-    // 18. 만남 시간 연장 요청 알림 - 만남 상대방에게
+    // 9. 노쇼 예정 알림
     @Override
-    public void sendMeetExtendRequested(Long userId, Long matchId) {
-        publish(userId, NotificationType.MEET_EXTEND_REQUESTED,
-                "만남 시간 연장 요청이 왔습니다.",
-                "상대방이 만남 시간 연장을 요청했습니다. 5분 안에 응답해 주세요.",
+    public void sendNoShowWarning(Long userId, Long matchId) {
+        publish(userId, NotificationType.NO_SHOW_WARNING,
+                "노쇼 예정 상태입니다.",
+                "장소를 이탈했습니다. 30분 뒤에 장소에 없거나 만남인증이 완료되지 않을 시 노쇼 확정입니다.",
                 RelatedDomain.MEET, matchId);
     }
 
-    // 19. 만남 시간 연장 수락 알림 - 연장 요청자에게
-    @Override
-    public void sendMeetExtendAccepted(Long userId, Long matchId) {
-        publish(userId, NotificationType.MEET_EXTEND_ACCEPTED,
-                "만남 시간 연장이 수락되었습니다.",
-                "만남 시간 연장이 수락되었습니다.",
-                RelatedDomain.MEET, matchId);
-    }
-
-    // 20. 만남 시간 연장 거절 알림 - 연장 요청자에게
-    @Override
-    public void sendMeetExtendRejected(Long userId, Long matchId) {
-        publish(userId, NotificationType.MEET_EXTEND_REJECTED,
-                "만남 시간 연장이 거절되었습니다.",
-                "만남 시간 연장이 거절되었습니다.",
-                RelatedDomain.MEET, matchId);
-    }
-
-    // 21. 만남 시간 연장 만료 알림 - 연장 요청자에게
-    @Override
-    public void sendMeetExtendExpired(Long userId, Long matchId) {
-        publish(userId, NotificationType.MEET_EXTEND_EXPIRED,
-                "만남 시간 연장 요청이 만료되었습니다.",
-                "만남 시간 연장 요청이 만료되었습니다.",
-                RelatedDomain.MEET, matchId);
-    }
-
-    // ── 이의제기 ──────────────────────────────────────────────────────────
-
-    // 22. 이의제기 접수 알림 - 관리자에게
+    // 11. 이의제기 접수 알림 - 관리자에게
     @Override
     public void sendDisputeSubmitted(Long adminId, Long disputeId) {
         publish(adminId, NotificationType.DISPUTE_SUBMITTED,
@@ -274,47 +180,16 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.DISPUTE, disputeId);
     }
 
-    // 23. 이의제기 판정 결과 알림 - 이의제기 신청자에게
-    // ACCEPTED / PARTIALLY_ACCEPTED / REJECTED / 자동거절 모두 이 메서드 사용
+    // 12. 시스템 공지 알림
+    // 용도: 공지 / 게시글 삭제 안내 / 게시글 만료 안내 / 제재 안내
     @Override
-    public void sendDisputeResult(Long userId, Long disputeId) {
-        publish(userId, NotificationType.DISPUTE_RESULT,
-                "이의제기 판정 결과가 등록되었습니다.",
-                "이의제기 판정 결과가 등록되었습니다. 확인해 주세요.",
-                RelatedDomain.DISPUTE, disputeId);
+    public void sendSystem(Long userId, String title, String content) {
+        publish(userId, NotificationType.SYSTEM,
+                title, content,
+                RelatedDomain.SYSTEM, null);
     }
 
-    // 24. 이의제기 보류 알림 - 이의제기 신청자에게
-    @Override
-    public void sendDisputePending(Long userId, Long disputeId) {
-        publish(userId, NotificationType.DISPUTE_PENDING,
-                "이의제기가 보류 처리되었습니다.",
-                "이의제기가 보류 처리되었습니다. 24시간 이내에 추가 증거를 제출해 주세요.",
-                RelatedDomain.DISPUTE, disputeId);
-    }
-
-    // 25. 이의제기 추가 증빙 마감 임박 알림 - 이의제기 신청자에게
-    // HOLD 판정 후 23시간 경과 시 발송
-    @Override
-    public void sendDisputeDeadlineReminder(Long userId, Long disputeId) {
-        publish(userId, NotificationType.DISPUTE_DEADLINE_REMINDER,
-                "이의제기 추가 증빙자료 제출 마감이 임박했습니다.",
-                "이의제기 추가 증빙자료 제출 마감이 1시간 남았습니다.",
-                RelatedDomain.DISPUTE, disputeId);
-    }
-
-    // ── 신고 ──────────────────────────────────────────────────────────────
-
-    // 26. 신고 접수 알림 - 관리자에게
-    @Override
-    public void sendReportSubmitted(Long adminId, Long reportId) {
-        publish(adminId, NotificationType.REPORT_SUBMITTED,
-                "새로운 신고가 접수되었습니다.",
-                "새로운 신고가 접수되었습니다. 검토해 주세요.",
-                RelatedDomain.REPORT, reportId);
-    }
-
-    // 27. 신고 채택 포인트 지급 알림 - 신고자에게
+    // 13. 신고 채택 포상금 지급 알림
     @Override
     public void sendReportAcceptedPoint(Long userId, Long reportId) {
         publish(userId, NotificationType.REPORT_REWARD,
@@ -323,65 +198,17 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.REPORT, reportId);
     }
 
-    // 28. 신고 기각 알림 - 신고자에게
+
+    // 14. 후기 작성 포상금 지급 알림
     @Override
-    public void sendReportRejected(Long userId, Long reportId) {
-        publish(userId, NotificationType.REPORT_REJECTED,
-                "신고가 기각되었습니다.",
-                "접수하신 신고가 검토 결과 기각되었습니다.",
-                RelatedDomain.REPORT, reportId);
+    public void sendReviewPoint(Long userId, Long reviewId) {
+        publish(userId, NotificationType.REVIEW_REWARD,
+                "후기 작성 포상금이 지급되었습니다.",
+                "후기 작성이 완료되었습니다. 50포인트가 지급되었습니다.",
+                RelatedDomain.POINT, reviewId);
     }
 
-    // ── 결제 ──────────────────────────────────────────────────────────────
-
-    // 29. 결제 성공 알림 - 결제 사용자에게
-    @Override
-    public void sendPaymentSuccess(Long userId, Long paymentId) {
-        publish(userId, NotificationType.PAYMENT_SUCCESS,
-                "결제가 완료되었습니다.",
-                "결제가 완료되었습니다. 포인트가 지급되었습니다.",
-                RelatedDomain.POINT, paymentId);
-    }
-
-    // 30. 결제 실패 알림 - 결제 사용자에게
-    @Override
-    public void sendPaymentFailed(Long userId, Long paymentId) {
-        publish(userId, NotificationType.PAYMENT_FAILED,
-                "결제에 실패했습니다.",
-                "결제에 실패했습니다. 다시 시도해 주세요.",
-                RelatedDomain.POINT, paymentId);
-    }
-
-    // 31. 결제 취소 및 환불 완료 알림 - 결제 사용자에게
-    @Override
-    public void sendPaymentCancelSuccess(Long userId, Long paymentId) {
-        publish(userId, NotificationType.PAYMENT_CANCEL_SUCCESS,
-                "결제 취소 및 환불이 완료되었습니다.",
-                "결제 취소 및 환불이 완료되었습니다.",
-                RelatedDomain.POINT, paymentId);
-    }
-
-    // 32. 결제 취소 및 환불 실패 알림 - 결제 사용자에게
-    @Override
-    public void sendPaymentCancelFailed(Long userId, Long paymentId) {
-        publish(userId, NotificationType.PAYMENT_CANCEL_FAILED,
-                "결제 취소 및 환불에 실패했습니다.",
-                "결제 취소 및 환불에 실패했습니다. 고객센터로 문의해 주세요.",
-                RelatedDomain.POINT, paymentId);
-    }
-
-    // ── 문의 ──────────────────────────────────────────────────────────────
-
-    // 33. 문의 접수 알림 - 관리자에게
-    @Override
-    public void sendInquirySubmitted(Long adminId, Long inquiryId) {
-        publish(adminId, NotificationType.INQUIRY_SUBMITTED,
-                "새로운 문의가 접수되었습니다.",
-                "새로운 문의가 접수되었습니다. 검토해 주세요.",
-                RelatedDomain.INQUIRY, inquiryId);
-    }
-
-    // 34. 문의 답변 완료 알림 - 문의 작성자에게
+    // 15. 문의 답변 완료 알림
     @Override
     public void sendInquiryAnswered(Long userId, Long inquiryId) {
         publish(userId, NotificationType.INQUIRY_ANSWERED,
@@ -390,73 +217,144 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.INQUIRY, inquiryId);
     }
 
-    // ── 계정 ──────────────────────────────────────────────────────────────
-
-    // 35. 계정 정지 알림 - 해당 사용자에게
-    // 제재 단계별 메시지는 호출하는 쪽(Service)에서 title/content를 분기하여 전달
+    // 16. 매칭 확정 알림
     @Override
-    public void sendAccountSuspended(Long userId, String title, String content) {
-        publish(userId, NotificationType.ACCOUNT_SUSPENDED,
-                title, content,
-                RelatedDomain.ACCOUNT, null);
+    public void sendMatchConfirmed(Long userId, Long matchId) {
+        publish(userId, NotificationType.MATCH_CONFIRMED,
+                "매칭이 확정되었습니다.",
+                "매칭이 확정되었습니다. 채팅방을 확인해 주세요.",
+                RelatedDomain.MATCH, matchId);
     }
 
-    // 36. 계정 정지 해제 알림 - 해당 사용자에게
+    // 17. 이의제기 판정 결과 알림
+    // 용도: 관리자 승인/거절 시 + 보류 24시간 초과 자동 거절 시 발송
     @Override
-    public void sendAccountUnsuspended(Long userId) {
-        publish(userId, NotificationType.ACCOUNT_UNSUSPENDED,
-                "계정 정지가 해제되었습니다.",
-                "계정 정지가 해제되었습니다. 다시 서비스를 이용하실 수 있습니다.",
-                RelatedDomain.ACCOUNT, null);
+    public void sendDisputeResult(Long userId, Long disputeId) {
+        publish(userId, NotificationType.DISPUTE_RESULT,
+                "이의제기 판정 결과가 등록되었습니다.",
+                "이의제기 판정 결과가 등록되었습니다. 확인해 주세요.",
+                RelatedDomain.DISPUTE, disputeId);
     }
 
-    // ── 게시글 / 신고로 인한 경고 ────────────────────────────────────────
-
-    // 37. 게시글 신고 경고 1회 알림 - 게시글 작성자에게
+    // 18. 만남 시간 연장 요청 알림
     @Override
-    public void sendPostWarned1(Long userId) {
-        publish(userId, NotificationType.POST_WARNED_1,
-                "신고가 채택되었습니다.",
-                "신고가 채택되었습니다. 서비스 이용 규정을 준수해 주세요.",
-                RelatedDomain.ACCOUNT, null);
+    public void sendMeetExtendRequested(Long userId, Long matchId) {
+        publish(userId, NotificationType.MEET_EXTEND_REQUESTED,
+                "만남 시간 연장 요청이 왔습니다.",
+                "상대방이 만남 시간 연장을 요청했습니다. 5분 안에 응답해 주세요.",
+                RelatedDomain.MEET, matchId);
     }
 
-    // 38. 게시글 신고 경고 2회 알림 - 게시글 작성자에게
+    // 19. 만남 시간 연장 수락 알림
     @Override
-    public void sendPostWarned2(Long userId) {
-        publish(userId, NotificationType.POST_WARNED_2,
-                "두 번째 경고입니다.",
-                "두 번째 경고입니다. 재발 시 계정이 정지될 수 있습니다.",
-                RelatedDomain.ACCOUNT, null);
+    public void sendMeetExtendAccepted(Long userId, Long matchId) {
+        publish(userId, NotificationType.MEET_EXTEND_ACCEPTED,
+                "만남 시간 연장이 수락되었습니다.",
+                "만남 시간 연장이 수락되었습니다.",
+                RelatedDomain.MEET, matchId);
     }
 
-    // 39. 게시글 만료 임박 알림 - 게시글 작성자에게
-    // 만남 30분 전까지 매칭 미성사 시 발송
+    // 20. 만남 시간 연장 거절 알림
     @Override
-    public void sendPostExpiringSoon(Long userId, Long postId) {
-        publish(userId, NotificationType.POST_EXPIRING_SOON,
-                "만남 시간이 30분 남았습니다.",
-                "만남 시간이 30분 남았지만 아직 매칭되지 않았습니다.",
-                RelatedDomain.POST, postId);
+    public void sendMeetExtendRejected(Long userId, Long matchId) {
+        publish(userId, NotificationType.MEET_EXTEND_REJECTED,
+                "만남 시간 연장이 거절되었습니다.",
+                "만남 시간 연장이 거절되었습니다.",
+                RelatedDomain.MEET, matchId);
     }
 
-    // 40. 게시글 만료 알림 - 게시글 작성자에게
+    // 21. 만남 시간 연장 만료 알림
     @Override
-    public void sendPostExpired(Long userId, Long postId) {
-        publish(userId, NotificationType.POST_EXPIRED,
-                "게시글이 만료되었습니다.",
-                "약속시간이 지나감에 따라 게시글이 만료되었습니다.",
-                RelatedDomain.POST, postId);
+    public void sendMeetExtendExpired(Long userId, Long matchId) {
+        publish(userId, NotificationType.MEET_EXTEND_EXPIRED,
+                "만남 시간 연장 요청이 만료되었습니다.",
+                "만남 시간 연장 요청이 만료되었습니다.",
+                RelatedDomain.MEET, matchId);
     }
 
-    // 41. 게시글 삭제 알림 - 게시글 작성자에게
-    // content는 호출하는 쪽(Service)에서 상황에 맞게 전달
-    // ex) 관리자 강제 삭제: "해당 게시물이 신고 접수 및 관리자 판단에 의해 삭제되었습니다."
+    // 24. 이의제기 보류 알림 - 이의제기 신청자에게
+    // 관리자가 보류 처리 시 발송
     @Override
-    public void sendPostDeleted(Long userId, Long postId, String content) {
-        publish(userId, NotificationType.POST_DELETED,
-                "게시글이 삭제되었습니다.",
-                content,
-                RelatedDomain.POST, postId);
+    public void sendDisputePending(Long userId, Long disputeId) {
+        publish(userId, NotificationType.DISPUTE_PENDING,
+                "이의제기가 보류 처리되었습니다.",
+                "이의제기가 보류 처리되었습니다. 24시간 이내에 추가 증거를 제출해 주세요.",
+                RelatedDomain.DISPUTE, disputeId);
+    }
+
+    // 25. 신고 접수 알림 - 관리자에게
+    // 신규 신고 접수 시 발송 → 전체 관리자에게 순회 발송
+    @Override
+    public void sendReportSubmitted(Long adminId, Long reportId) {
+        publish(adminId, NotificationType.REPORT_SUBMITTED,
+                "새로운 신고가 접수되었습니다.",
+                "새로운 신고가 접수되었습니다. 검토해 주세요.",
+                RelatedDomain.REPORT, reportId);
+    }
+
+    // 26. 문의 접수 알림 - 관리자에게
+    // 신규 문의 접수 시 발송 → 전체 관리자에게 순회 발송
+    @Override
+    public void sendInquirySubmitted(Long adminId, Long inquiryId) {
+        publish(adminId, NotificationType.INQUIRY_SUBMITTED,
+                "새로운 문의가 접수되었습니다.",
+                "새로운 문의가 접수되었습니다. 검토해 주세요.",
+                RelatedDomain.INQUIRY, inquiryId);
+    }
+
+    // 27. 매너 온도 변경 알림 - 후기 대상자에게
+    // 후기 작성으로 매너 온도가 변경되었을 때 발송
+    // relatedId = null → 클릭 시 마이페이지로 이동 (프론트에서 처리)
+    @Override
+    public void sendMannerTemperatureChanged(Long userId) {
+        publish(userId, NotificationType.MANNER_TEMPERATURE_CHANGED,
+                "매너 온도가 변경되었습니다.",
+                "새로운 후기가 작성되어 매너 온도가 변경되었습니다. 마이페이지에서 확인해 보세요.",
+                RelatedDomain.SYSTEM, null);
+    }
+
+    // 28. 만남 완료 / 후기 작성 유도 알림
+    @Override
+    public void sendMeetCompleted(Long userId, Long matchId) {
+        publish(userId, NotificationType.MEET_COMPLETED,
+                "만남이 완료되었습니다.",
+                "만남이 완료되었습니다. 후기를 작성해 주세요.",
+                RelatedDomain.MEET, matchId);
+    }
+
+    // 29. 후기 작성 마지막 날 알림
+    @Override
+    public void sendReviewDeadlineReminder(Long userId, Long matchId) {
+        publish(userId, NotificationType.REVIEW_DEADLINE_REMINDER,
+                "후기 작성 마지막 날입니다.",
+                "오늘이 후기를 작성할 수 있는 마지막 날입니다. 서둘러 작성해 주세요.",
+                RelatedDomain.MEET, matchId);
+    }
+
+    // 30. 결제 성공 알림
+    @Override
+    public void sendPaymentSuccess(Long userId, Long paymentId) {
+        publish(userId, NotificationType.PAYMENT_SUCCESS,
+                "결제가 완료되었습니다.",
+                "결제가 완료되었습니다. 포인트가 지급되었습니다.",
+                RelatedDomain.POINT, paymentId);
+    }
+
+    // 31. 결제 실패 알림
+    @Override
+    public void sendPaymentFailed(Long userId, Long paymentId) {
+        publish(userId, NotificationType.PAYMENT_FAILED,
+                "결제에 실패했습니다.",
+                "결제에 실패했습니다. 다시 시도해 주세요.",
+                RelatedDomain.POINT, paymentId);
+    }
+
+    // 32. 신고 기각 알림 - 신고자에게
+    @Override
+    public void sendReportRejected(Long userId, Long reportId) {
+        publish(userId, NotificationType.REPORT_REJECTED,
+                "신고가 기각되었습니다.",
+                "접수하신 신고가 검토 결과 기각되었습니다.",
+                RelatedDomain.REPORT, reportId);
     }
 }

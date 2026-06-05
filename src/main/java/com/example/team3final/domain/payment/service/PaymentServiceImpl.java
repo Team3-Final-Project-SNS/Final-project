@@ -19,6 +19,7 @@ import io.portone.sdk.server.payment.PaidPayment;
 import io.portone.sdk.server.payment.PaymentClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -258,6 +259,13 @@ public class PaymentServiceImpl implements PaymentService{
         notificationPublisher.sendPaymentFailed(userId, paymentId);
 
         log.info("[Payment] 결제 실패 처리 - userId: {}, paymentId: {}", userId, paymentId);
+    }
+
+    // 관리자 결제 내역 조회
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Payment> getPaymentsForAdmin(Long userId, PaymentStatus status, Pageable pageable) {
+        return paymentRepository.findAllForAdmin(userId, status, pageable);
     }
 
     // ===== 스케줄러 — 오래된 READY 건 자동 만료 =====

@@ -41,6 +41,7 @@ out/
 application.yml
 application-local.yml
 application-prod.yml
+application-test.yml
 
 # 프론트엔드 의존성
 frontend/node_modules/

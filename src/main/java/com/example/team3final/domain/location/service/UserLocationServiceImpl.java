@@ -11,6 +11,7 @@ import com.example.team3final.domain.location.entity.UserLocation;
 import com.example.team3final.domain.location.enums.LocationRole;
 import com.example.team3final.domain.location.repository.UserLocationRepository;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
+import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.service.MatchService;
 import com.example.team3final.domain.post.dto.response.PostInfoDto;
 import com.example.team3final.domain.post.service.PostService;
@@ -42,6 +43,9 @@ public class UserLocationServiceImpl implements UserLocationService {
 
         // 매칭 정보 조회
         MatchInfoDto matchInfo = matchQueryService.getMatchInfo(matchId);
+
+        // 위치 공유가 가능한 매칭 상태인지 검증
+        validateTrackableMatch(matchInfo);
 
         // 게시글 정보 조회
         PostInfoDto postInfo = postQueryService.getPostInfo(matchInfo.postId());
@@ -80,6 +84,9 @@ public class UserLocationServiceImpl implements UserLocationService {
 
         // 매칭 정보 조회
         MatchInfoDto matchInfo = matchQueryService.getMatchInfo(matchId);
+
+        // 위치 공유가 가능한 매칭 상태인지 검증
+        validateTrackableMatch(matchInfo);
 
         // 게시글 정보 조회
         PostInfoDto postInfo = postQueryService.getPostInfo(matchInfo.postId());
@@ -157,6 +164,17 @@ public class UserLocationServiceImpl implements UserLocationService {
                     return distance <= radiusMeters;
                 })
                 .isPresent(); // 두 필터를 모두 통과한 위치가 있으면 true
+    }
+
+    // 위치 공유/조회가 가능한 매칭 상태인지 검증하는 공통 메서드
+    private void validateTrackableMatch(MatchInfoDto matchInfoDto) {
+
+        // matchInfo.status()는 현재 매칭 상태
+        // 위치 공유는 실제 약속 진행 중인 MATCHED 상태에서만 의미 있음
+        if (matchInfoDto.status() != MatchStatus.MATCHED) {
+            // MATCHED가 아니면 위치 업데이트/조회 차단
+            throw new LocationException(ErrorCode.LOCATION_NOT_TRACKABLE);
+        }
     }
 }
 

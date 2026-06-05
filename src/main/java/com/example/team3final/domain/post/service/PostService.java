@@ -131,6 +131,10 @@ public interface PostService {
     // 삭제 포함 단건 조회
     Post getPostByIdIncludingDeleted(Long postId);
 
+    // 비관적 락을 걸어서 게시글을 조회하는 메서드.
+    // 관리자 삭제, 신고 접수처럼 동시성 제어가 필요한 흐름에서 사용.
+    Post getPostByIdWithLock(Long postId);
+
     // 관리자 게시글 목록 조회
     Page<Post> getPostsForAdmin(List<Long> authorIds, PostStatus status, String keyword, Pageable pageable);
 
@@ -139,4 +143,50 @@ public interface PostService {
             List<Long> authorIds,
             Sort sort
     );
+
+    // ── 동시성 테스트용 추가 메서드 ──────────────────────────────────────
+
+    /**
+     * 게시글 단건 조회 + 비관적 락 (NOWAIT) — 동시성 테스트 전략 A 전용
+     *
+     * SELECT ... FOR UPDATE NOWAIT
+     * → 다른 트랜잭션이 이 행을 이미 잠갔으면 기다리지 않고 즉시 LockTimeoutException 발생
+     * → MatchConcurrencyService 전략 A에서 호출
+     *
+     * 기존 getPostById()와의 차이:
+     *   getPostById()    → 일반 SELECT, 락 없음
+     *   이 메서드         → SELECT FOR UPDATE NOWAIT, 즉시 실패
+     *
+     * @throws PostException POST_001 — 게시글이 존재하지 않음
+     */
+    Post getPostWithPessimisticLockNowait(Long postId);
+
+    /**
+     * 게시글 단건 조회 + 비관적 락 (대기 O) — 동시성 테스트 전략 B 전용
+     *
+     * SELECT ... FOR UPDATE (NOWAIT 없음)
+     * → 다른 트랜잭션이 잠갔으면 innodb_lock_wait_timeout 설정값만큼 대기
+     * → 대기 중 락이 해제되면 획득 성공, 시간 초과 시 예외
+     * → MatchConcurrencyService 전략 B에서 호출
+     *
+     * 테스트 시 주의: innodb_lock_wait_timeout 기본 50초 → 테스트 DB는 3초로 낮출 것
+     *   SET innodb_lock_wait_timeout = 3;
+     *
+     * @throws PostException POST_001 — 게시글이 존재하지 않음
+     */
+    Post getPostWithPessimisticLock(Long postId);
+
+    /**
+     * 게시글 상태 변경 — 동시성 테스트에서 MatchConcurrencyService가 호출하는 전용 메서드
+     *
+     * 내부 동작:
+     *   post.changeStatus(status) 도메인 메서드 호출
+     *   → JPA 변경감지(Dirty Checking)로 트랜잭션 종료 시 UPDATE 자동 발생
+     *   → 명시적 save() 불필요
+     *
+     * @param postId  변경할 게시글 ID
+     * @param status  변경할 상태값
+     * @throws PostException POST_001 — 게시글이 존재하지 않음
+     */
+    void changePostStatus(Long postId, PostStatus status);
 }
