@@ -122,6 +122,7 @@ public class ChatMessageHandler {
         chatMemberRepository.findByChatRoomId(chatRoomId).stream()
                 .filter(member -> !member.getUserId().equals(senderId)) // 발신자 제외
                 .forEach(member ->
+                        // 13. 채팅 메시지 수신 알림 - 메시지 수신자에게
                         notificationPublisher.sendChatReceived(member.getUserId(), chatRoomId));
 
     }
