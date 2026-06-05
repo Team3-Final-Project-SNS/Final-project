@@ -83,7 +83,7 @@ public class InquiryServiceImpl implements InquiryService {
         // Redis 업데이트
         updateRedisAfterCreate(userId);
 
-        // 관리자에게 문의 접수 알림 발송 (adminId가 null이면 스킵)
+        // 33. 문의 접수 알림 - 관리자에게
         Long adminId = adminService.getAdminId();
         if (adminId != null) {
             notificationPublisher.sendInquirySubmitted(adminId, savedInquiry.getId());
