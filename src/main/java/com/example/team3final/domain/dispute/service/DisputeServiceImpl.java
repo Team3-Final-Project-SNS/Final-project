@@ -113,7 +113,7 @@ public class DisputeServiceImpl implements DisputeService {
         meetVerification.markDispute();
         matchService.markDisputed(matchId);
 
-        // 11번 알림 - 관리자에게 이의제기 접수 알림 발송
+        // 22. 이의제기 접수 알림 - 관리자에게
         Long adminId = adminService.getAdminId();
         if (adminId != null) {
             notificationPublisher.sendDisputeSubmitted(adminId, saved.getId());
@@ -234,7 +234,7 @@ public class DisputeServiceImpl implements DisputeService {
                 .build();
         Dispute savedReDispute = disputeRepository.save(reDispute);
 
-        // 11번 알림 - 관리자에게 재이의제기 접수 알림 발송
+        // 22. 이의제기 접수 알림 - 관리자에게
         Long adminId = adminService.getAdminId();
         if (adminId != null) {
             notificationPublisher.sendDisputeSubmitted(adminId, savedReDispute.getId());
