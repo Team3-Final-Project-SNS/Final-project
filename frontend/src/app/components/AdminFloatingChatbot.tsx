@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react';
-import { Loader2, Send, Settings, X } from 'lucide-react';
+import { Loader2, Send, X } from 'lucide-react';
 import { AiReportChatResponse, chatAiReport } from '../../api/aiReportApi';
 import { AiSupportChatResponse, chatAiSupport } from '../../api/aiSupportApi';
 
@@ -194,14 +194,6 @@ export default function AdminFloatingChatbot({
               </form>
             </div>
 
-            <div className="mt-6 grid grid-cols-3 text-center text-sm font-bold text-[#9e9e9e]">
-              <span className="text-[#ff7043]">홈</span>
-              <span>대화</span>
-              <span className="inline-flex items-center justify-center gap-1">
-                <Settings size={17} />
-                설정
-              </span>
-            </div>
           </div>
         </section>
       )}

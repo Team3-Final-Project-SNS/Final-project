@@ -16,11 +16,41 @@ import {
 
 const chargeOptions = [3000, 5000, 10000, 20000];
 
-const payMethods: Array<{ value: PayMethod; label: string }> = [
-  { value: 'CARD', label: '카드' },
-  { value: 'KAKAOPAY', label: '카카오페이' },
-  { value: 'TOSSPAY', label: '토스페이' },
-  { value: 'NAVERPAY', label: '네이버페이' },
+const payMethods: Array<{
+  value: PayMethod;
+  label: string;
+  description: string;
+  logo: string;
+  logoClassName: string;
+}> = [
+  {
+    value: 'CARD',
+    label: '신용/체크카드',
+    description: '카드사 선택',
+    logo: 'CARD',
+    logoClassName: 'bg-[#1f2937] text-white',
+  },
+  {
+    value: 'KAKAOPAY',
+    label: '카카오페이',
+    description: '간편결제',
+    logo: 'pay',
+    logoClassName: 'bg-[#fee500] text-[#191919]',
+  },
+  {
+    value: 'TOSSPAY',
+    label: '토스페이',
+    description: '간편결제',
+    logo: 'toss',
+    logoClassName: 'bg-[#0064ff] text-white',
+  },
+  {
+    value: 'NAVERPAY',
+    label: '네이버페이',
+    description: '간편결제',
+    logo: 'N pay',
+    logoClassName: 'bg-[#03c75a] text-white',
+  },
 ];
 
 const statusLabels: Record<PaymentStatus, string> = {
@@ -236,20 +266,42 @@ export default function PaymentPage() {
               ))}
             </div>
 
-            <label className="mt-5 block text-sm font-bold text-[#424242]">
-              결제 수단
-              <select
-                value={payMethod}
-                onChange={(event) => setPayMethod(event.target.value as PayMethod)}
-                className="mt-2 h-12 w-full rounded-lg border border-[#e0e0e0] bg-white px-3 text-sm font-semibold text-[#424242] outline-none transition focus:border-[#d84315]"
-              >
-                {payMethods.map((method) => (
-                  <option key={method.value} value={method.value}>
-                    {method.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="mt-5">
+              <p className="text-sm font-bold text-[#424242]">결제 수단</p>
+              <div className="mt-2 grid grid-cols-2 gap-3">
+                {payMethods.map((method) => {
+                  const isSelected = payMethod === method.value;
+
+                  return (
+                    <button
+                      key={method.value}
+                      type="button"
+                      onClick={() => setPayMethod(method.value)}
+                      className={`flex min-h-24 items-center gap-3 rounded-xl border bg-white p-4 text-left transition ${
+                        isSelected
+                          ? 'border-[#d84315] bg-[#fff7ed] shadow-sm ring-2 ring-[#ffccbc]'
+                          : 'border-[#e0e0e0] hover:border-[#d84315] hover:bg-[#fffaf5]'
+                      }`}
+                    >
+                      <span
+                        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-xs font-black tracking-tight ${method.logoClassName}`}
+                        aria-hidden="true"
+                      >
+                        {method.logo}
+                      </span>
+                      <span className="min-w-0">
+                        <span className={`block text-sm font-extrabold ${isSelected ? 'text-[#d84315]' : 'text-[#212121]'}`}>
+                          {method.label}
+                        </span>
+                        <span className="mt-1 block text-xs font-semibold text-[#757575]">
+                          {method.description}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             <button
               type="button"

@@ -51,6 +51,33 @@ public class AiReportServiceImpl implements AiReportService {
     private static final int MAX_HIGH_RISK_USER_LIMIT = 20;
     private static final Pattern NUMBER_PATTERN = Pattern.compile("\\d+");
 
+    private static final String REPORT_POLICY_GUIDE = """
+            한끼팟 신고 및 제재 정책:
+            - 게시글에 문제가 있으면 신고를 접수할 수 있다.
+            - 본인 게시글은 신고할 수 없다.
+            - 같은 대상에 대한 중복 신고는 제한될 수 있다.
+            - 신고 사유는 스팸, 음란, 사기, 욕설/비방, 기타 등으로 구분한다.
+            - 게시글이 신고 상태이면 매칭 신청이 제한될 수 있다.
+            - 기각된 신고 대상 게시물은 3일 이내 재신고할 수 없다.
+            - 단, 게시글이 수정된 경우에는 재신고가 가능할 수 있다.
+            - 신고가 ACCEPTED 상태로 채택되면 신고자에게 50P 포상을 지급한다.
+            - 신고가 REJECTED 상태로 기각되면 포상 포인트는 지급하지 않는다.
+            - 동일 유저의 월별 신고 포상은 최대 300P까지 지급한다.
+            - 신고 반려 처리가 3회를 초과하면 신고 기능이 10일간 제한될 수 있다.
+            - 채택 누적 1회: 경고.
+            - 채택 누적 2회: 경고, 재발 시 계정 정지 가능 안내.
+            - 채택 누적 3회: 3일 정지.
+            - 채택 누적 4회: 10일 정지.
+            - 채택 누적 5회: 30일 정지.
+            - 채택 누적 6회 이상: 영구 정지.
+            - 관리자는 정책 위반 게시글을 강제 삭제할 수 있다.
+            - 신고된 게시글이 관리자 판단으로 삭제되면 신고 채택과 게시글 삭제가 함께 처리될 수 있다.
+            - 게시글 강제 삭제 시 등록자의 예치 포인트는 전액 환불할 수 있다.
+            - AI는 신고 채택, 기각, 포상 지급, 계정 정지, 게시글 삭제를 직접 실행하지 않는다.
+            - 최종 판단은 관리자 검토와 신고 처리 API를 통해 이루어진다.
+            출처: rag-docs/report/admin-report-policy.md, rag-docs/support/report-policy.md
+            """;
+
 
     /**
      * REPORT_SUMMARY 프롬프트 로딩 실패 시 사용하는 fallback 프롬프트입니다.
@@ -153,6 +180,10 @@ public class AiReportServiceImpl implements AiReportService {
                     highRiskUsers,
                     highRiskUsers.fallbackUsed()
             );
+        }
+
+        if (action == AiReportChatAction.GENERAL_GUIDE) {
+            return buildGeneralGuide(adminId, request.message());
         }
 
         return clarify(requiredText(
@@ -413,6 +444,15 @@ public class AiReportServiceImpl implements AiReportService {
      * 정규식 기반으로 최소한의 의도 분류를 수행합니다.
      */
     private AiReportChatIntentResult classifyChatIntent(String message) {
+        if (!looksLikeReportAiCommand(message)) {
+            return new AiReportChatIntentResult(
+                    AiReportChatAction.GENERAL_GUIDE,
+                    null,
+                    null,
+                    null
+            );
+        }
+
         try {
             AiReportChatIntentResult intent = chatClient
                     .prompt()
@@ -423,13 +463,16 @@ public class AiReportServiceImpl implements AiReportService {
                             action enum:
                             - ANALYZE_REPORT: 특정 신고 ID 1건을 분석해 달라는 요청
                             - HIGH_RISK_USERS: 신고 누적 기반 고위험 유저 후보를 보여 달라는 요청
-                            - CLARIFY: 신고 ID가 없거나 요청이 불명확해서 추가 질문이 필요한 경우
+                            - GENERAL_GUIDE: 인사, 자기소개, 기능 설명, 신고 관리 방법 등 일반적인 관리자 도움말 요청
+                            - CLARIFY: 신고 분석을 요청했지만 신고 ID가 없는 경우처럼 실행에 필요한 정보가 부족한 경우
 
                             규칙:
                             - "12번 신고", "신고 12 분석"처럼 숫자와 신고 분석 의도가 있으면 ANALYZE_REPORT로 판단하고 reportId에 숫자를 넣는다.
                             - "고위험", "위험 유저", "신고 많은 유저", "블랙리스트 후보"처럼 유저 목록 요청이면 HIGH_RISK_USERS로 판단한다.
                             - HIGH_RISK_USERS에서 인원 숫자가 있으면 limit에 넣고, 없으면 5를 넣는다.
                             - ANALYZE_REPORT인데 신고 ID 숫자가 없으면 CLARIFY로 판단한다.
+                            - "너 누구야", "뭐 할 수 있어", "신고 처리는 어떻게 해"처럼 특정 신고 ID 분석이 아닌 질문은 GENERAL_GUIDE로 판단한다.
+                            - 신고 관리와 무관한 잡담도 GENERAL_GUIDE로 판단하되, 답변은 한끼팟 관리자 도우미 역할 안에서 하도록 한다.
                             - 응답은 요청받은 Java record 스키마에 맞춘다.
                             """)
                     .user(message)
@@ -441,11 +484,28 @@ public class AiReportServiceImpl implements AiReportService {
                     .call()
                     .entity(AiReportChatIntentResult.class);
 
-            return intent == null ? fallbackClassifyChatIntent(message) : intent;
+            return normalizeChatIntent(message, intent);
         } catch (Exception e) {
             log.warn("[AiReportService] 신고 AI 챗봇 의도 분류 실패. fallback 분류를 사용합니다.", e);
             return fallbackClassifyChatIntent(message);
         }
+    }
+
+    private AiReportChatIntentResult normalizeChatIntent(String message, AiReportChatIntentResult intent) {
+        if (intent == null) {
+            return fallbackClassifyChatIntent(message);
+        }
+
+        if (intent.action() == AiReportChatAction.CLARIFY && !looksLikeReportAnalysisRequest(message)) {
+            return new AiReportChatIntentResult(
+                    AiReportChatAction.GENERAL_GUIDE,
+                    null,
+                    null,
+                    null
+            );
+        }
+
+        return intent;
     }
 
     /**
@@ -479,11 +539,20 @@ public class AiReportServiceImpl implements AiReportService {
             );
         }
 
+        if (containsAny(normalized, "신고 분석", "리포트 분석", "report 분석", "신고 봐", "신고 확인")) {
+            return new AiReportChatIntentResult(
+                    AiReportChatAction.CLARIFY,
+                    null,
+                    null,
+                    "분석할 신고 ID를 알려주세요. 예: 12번 신고 분석해줘"
+            );
+        }
+
         return new AiReportChatIntentResult(
-                AiReportChatAction.CLARIFY,
+                AiReportChatAction.GENERAL_GUIDE,
                 null,
                 null,
-                "신고 ID를 지정해 분석을 요청하거나, 고위험 유저 조회를 요청해주세요."
+                null
         );
     }
 
@@ -503,6 +572,120 @@ public class AiReportServiceImpl implements AiReportService {
      * 신고 ID가 없거나 의도 분류 결과가 CLARIFY인 경우 사용합니다.
      * 분석 결과나 고위험 유저 목록은 포함하지 않고, 사용자에게 다음 입력 방향만 안내합니다.
      */
+    private AiReportChatResponseDto buildGeneralGuide(Long adminId, String message) {
+        String requestId = UUID.randomUUID().toString();
+        long startedAt = System.currentTimeMillis();
+        Integer promptTokens = null;
+        Integer completionTokens = null;
+        Integer totalTokens = null;
+        boolean reportCommand = looksLikeReportAiCommand(message);
+
+        if (!reportCommand && isTinyCasualMessage(message)) {
+            return new AiReportChatResponseDto(
+                    "네, 관리자님. 신고 관리나 고위험 유저 조회가 필요하시면 편하게 말씀해주세요.",
+                    AiReportChatAction.GENERAL_GUIDE,
+                    null,
+                    null,
+                    false
+            );
+        }
+
+        try {
+            ChatResponse response = chatClient
+                    .prompt()
+                    .system("""
+                            너는 한끼팟 관리자 콘솔의 AI 도우미다.
+                            관리자가 신고 관리, 고위험 유저 조회, 신고 처리 정책, 화면 사용법을 이해하도록 실무적으로 답한다.
+                            아래 한끼팟 정책 컨텍스트를 최우선 근거로 사용한다.
+                            정책 질문에는 일반론을 만들지 말고, 정책 컨텍스트의 수치와 조건을 그대로 포함한다.
+                            특정 신고 분석 요청이 명확할 때만 신고 ID가 필요하다고 안내한다.
+                            일반 인사, 잡담, 의미가 짧은 메시지에는 신고 ID를 요구하지 않는다.
+                            최종 처분은 관리자가 결정해야 하며, AI는 참고 의견만 제공한다고 말한다.
+                            신고 관리와 무관한 잡담에는 친절하게 답하되 관리자 도우미 역할을 벗어나지 않는다.
+
+                            [한끼팟 정책 컨텍스트]
+                            %s
+                            """.formatted(REPORT_POLICY_GUIDE))
+                    .user("""
+                            현재 메시지 분류: %s
+                            관리자 메시지: %s
+
+                            응답 규칙:
+                            - 현재 메시지 분류가 "일반 대화"이면 절대 신고 ID를 요청하지 말고 자연스럽게 응답한다.
+                            - 관리자 메시지가 신고 정책, 제재, 포상, 재신고 제한, 신고 기능 제한을 묻는 경우 정책 컨텍스트 기반으로 구체적으로 답한다.
+                            - 신고 ID 요청은 "신고 분석" 의도가 명확한데 ID가 없는 경우에만 한다.
+                            - 정책 설명은 한 문단으로 뭉치지 말고 제목, 짧은 목록, 출처 순서로 답한다.
+                            - 정책 설명 형식:
+                              [제목]
+                              - 핵심 정책 1
+                              - 핵심 정책 2
+                              - 핵심 정책 3
+                              출처:
+                              - rag-docs/report/admin-report-policy.md
+                              - rag-docs/support/report-policy.md
+                            - 잡담이나 인사는 한국어 1~3문장으로 답한다.
+                            """.formatted(reportCommand ? "관리자 도움말" : "일반 대화", message))
+                    .options(OpenAiChatOptions.builder()
+                            .model(aiProperties.getReport().getModel())
+                            .maxTokens(aiProperties.getReport().getMaxTokens())
+                            .temperature(aiProperties.getReport().getTemperature())
+                            .build())
+                    .call()
+                    .chatResponse();
+
+            TokenUsage tokenUsage = extractTokenUsage(response);
+            promptTokens = tokenUsage.promptTokens();
+            completionTokens = tokenUsage.completionTokens();
+            totalTokens = tokenUsage.totalTokens();
+
+            saveMetric(
+                    requestId,
+                    adminId,
+                    startedAt,
+                    AiCallStatus.SUCCESS,
+                    null,
+                    null,
+                    null,
+                    null,
+                    promptTokens,
+                    completionTokens,
+                    totalTokens
+            );
+
+            return new AiReportChatResponseDto(
+                    formatGeneralGuideAnswer(message, extractContent(response)),
+                    AiReportChatAction.GENERAL_GUIDE,
+                    null,
+                    null,
+                    false
+            );
+        } catch (Exception e) {
+            log.warn("[AiReportService] 신고 AI 일반 안내 생성 실패. fallback 안내를 사용합니다.", e);
+
+            saveMetric(
+                    requestId,
+                    adminId,
+                    startedAt,
+                    AiCallStatus.FALLBACK,
+                    resolveErrorType(e),
+                    e.getMessage(),
+                    null,
+                    null,
+                    promptTokens,
+                    completionTokens,
+                    totalTokens
+            );
+
+            return new AiReportChatResponseDto(
+                    formatGeneralGuideAnswer(message, null),
+                    AiReportChatAction.GENERAL_GUIDE,
+                    null,
+                    null,
+                    true
+            );
+        }
+    }
+
     private AiReportChatResponseDto clarify(String message) {
         return new AiReportChatResponseDto(
                 message,
@@ -511,6 +694,49 @@ public class AiReportServiceImpl implements AiReportService {
                 null,
                 false
         );
+    }
+
+    private String formatGeneralGuideAnswer(String message, String aiAnswer) {
+        String answer = requiredText(aiAnswer, fallbackGeneralGuideAnswer(message));
+        String normalized = normalizeMessage(answer);
+
+        if (!looksLikeReportAiCommand(message)) {
+            return answer;
+        }
+
+        if (!normalized.contains("출처:")) {
+            answer = answer.stripTrailing() + """
+
+
+                    출처:
+                    - rag-docs/report/admin-report-policy.md
+                    - rag-docs/support/report-policy.md
+                    """;
+        }
+
+        return answer;
+    }
+
+    private String fallbackGeneralGuideAnswer(String message) {
+        if (!looksLikeReportAiCommand(message)) {
+            return "네, 관리자님. 신고 관리나 고위험 유저 조회가 필요하시면 편하게 말씀해주세요.";
+        }
+
+        return """
+                한끼팟 신고 정책 요약
+
+                - 사용자는 문제가 있는 게시글을 신고할 수 있지만, 본인 게시글은 신고할 수 없습니다.
+                - 신고 사유는 스팸, 음란, 사기, 욕설/비방, 기타로 구분됩니다.
+                - 기각된 신고 대상 게시물은 3일 이내 재신고할 수 없지만, 게시글이 수정되면 재신고가 가능할 수 있습니다.
+                - 신고가 채택되면 신고자에게 50P 포상이 지급되며, 월 최대 300P까지 받을 수 있습니다.
+                - 신고 반려가 3회를 초과하면 신고 기능이 10일간 제한될 수 있습니다.
+                - 신고 채택 누적 1~2회는 경고, 3회는 3일 정지, 4회는 10일 정지, 5회는 30일 정지, 6회 이상은 영구 정지입니다.
+                - AI는 채택, 기각, 포상, 정지, 삭제를 직접 실행하지 않고 관리자 판단을 보조합니다.
+
+                출처:
+                - rag-docs/report/admin-report-policy.md
+                - rag-docs/support/report-policy.md
+                """;
     }
 
     /**
@@ -582,6 +808,55 @@ public class AiReportServiceImpl implements AiReportService {
         }
 
         return false;
+    }
+
+    private boolean looksLikeReportAiCommand(String message) {
+        String normalized = normalizeMessage(message);
+
+        return containsAny(
+                normalized,
+                "신고",
+                "리포트",
+                "report",
+                "분석",
+                "고위험",
+                "위험 유저",
+                "신고 많은",
+                "신고많은",
+                "블랙리스트",
+                "후보",
+                "채택",
+                "기각",
+                "제재",
+                "정지",
+                "처리"
+        );
+    }
+
+    private boolean looksLikeReportAnalysisRequest(String message) {
+        String normalized = normalizeMessage(message);
+
+        return containsAny(
+                normalized,
+                "신고 분석",
+                "리포트 분석",
+                "report 분석",
+                "신고 봐",
+                "신고 확인",
+                "신고 처리",
+                "신고를 분석",
+                "신고건",
+                "신고 건"
+        );
+    }
+
+    private String normalizeMessage(String message) {
+        return message == null ? "" : message.toLowerCase();
+    }
+
+    private boolean isTinyCasualMessage(String message) {
+        String normalized = normalizeMessage(message).trim();
+        return normalized.length() <= 3 && !looksLikeReportAiCommand(normalized);
     }
 
     /**
@@ -837,6 +1112,14 @@ public class AiReportServiceImpl implements AiReportService {
                 usage.getCompletionTokens(),
                 usage.getTotalTokens()
         );
+    }
+
+    private String extractContent(ChatResponse chatResponse) {
+        if (chatResponse == null || chatResponse.getResult() == null || chatResponse.getResult().getOutput() == null) {
+            return null;
+        }
+
+        return chatResponse.getResult().getOutput().getText();
     }
 
     /**

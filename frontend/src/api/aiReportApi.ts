@@ -2,7 +2,7 @@ import axiosInstance from './axiosInstance';
 import { ApiResponse } from './authApi';
 import { ReportReason } from './reportApi';
 
-export type AiReportChatAction = 'ANALYZE_REPORT' | 'HIGH_RISK_USERS' | 'ASK_FOR_MORE_INFO' | 'GENERAL_GUIDE';
+export type AiReportChatAction = 'ANALYZE_REPORT' | 'HIGH_RISK_USERS' | 'CLARIFY' | 'GENERAL_GUIDE';
 export type AiReportRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type AiReportDecisionSuggestion = 'ACCEPT' | 'REJECT' | 'NEEDS_REVIEW';
 
