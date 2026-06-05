@@ -2,9 +2,11 @@ package com.example.team3final.domain.post.repository;
 
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -33,6 +35,13 @@ public interface PostRepository extends JpaRepository<Post, Long> {
      */
     @Query("SELECT p FROM Post p WHERE p.id IN :postIds")
     List<Post> findAllByIdIncludingDeleted(@Param("postIds")List<Long> postIds);
+
+    // 게시글을 PESSIMISTIC_WRITE 락으로 조회
+    // 이 메서드가 트랜잭션 안에서 실행되면 해당 Post row에 write lock이 걸림.
+    // 같은 게시글을 다른 트랜잭션에서 동시에 PESSIMISTIC_WRITE로 잡으려 하면 대기하게 됨.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Post p WHERE p.id = :postId")
+    Optional<Post> findByIdWithLock(@Param("postId") Long postId);
 
     // soft delete된 게시글 포함 단건 조회 -> 삭제 사유 조회 전용
     @Query("""
