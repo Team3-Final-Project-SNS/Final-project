@@ -233,8 +233,9 @@ public class MeetVerification {
     // 연장 요청이 5분 타임아웃됐는지 실시간 확인
     // 스케줄러가 EXPIRED로 바꾸기 전에 수락/거절 요청이 들어오면
     // 이 메서드로 먼저 만료 여부를 체크해서 즉시 EXPIRED 처리함
-    public boolean isExtensionExpired() {
-        return this.extensionRequestedAt != null && LocalDateTime.now().isAfter(this.extensionRequestedAt.plusMinutes(5));
+    public boolean isExtensionExpired(long timeoutMinutes) {
+        return this.extensionRequestedAt != null
+                && LocalDateTime.now().isAfter(this.extensionRequestedAt.plusMinutes(timeoutMinutes));
     }
 
     // 30분 전 알림 발송 완료 처리

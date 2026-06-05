@@ -40,7 +40,7 @@ public class ReportServiceImpl implements ReportService {
 
     // 포상 지급 포인트
     private static final int REPORT_REWARD_POINT = 50;
-    // 기각 3번 초과에 확인용
+    // 기각 횟수가 이 값의 배수가 될 때마다 신고 기능 박탈 (3, 6, 9...)
     private static final int REPORT_BAN_THRESHOLD = 3;
     // 10일 박탈에 활용
     private static final int REPORT_BAN_DAYS = 10;
@@ -65,27 +65,33 @@ public class ReportServiceImpl implements ReportService {
         }
 
         // 중복 신고 방지
-        if (reportRepository.existsByReporterIdAndTargetId(
-                reporterId, request.getTargetId())) {
-            throw new ReportException(ErrorCode.REPORT_ALREADY_REPORTED);
+        if (reportRepository.existsByReporterIdAndTargetIdAndStatusIn(
+                reporterId,
+                request.getTargetId(),
+                java.util.List.of(ReportStatus.PENDING, ReportStatus.ACCEPTED))) {
+            throw new ReportException(ErrorCode.REPORT_ALREADY_REPORTED);   // REPORT_006
         }
 
         // 기각된 신고에 대해 3일 이내 재신고 제한
         // 단, 게시글이 기각 이후에 수정됐으면 재신고 허용
-        reportRepository.findByReporterIdAndTargetIdAndStatus(reporterId, request.getTargetId(), ReportStatus.REJECTED)
+        reportRepository.findTopByReporterIdAndTargetIdAndStatusOrderByProcessedAtDesc(
+                        reporterId, request.getTargetId(), ReportStatus.REJECTED)
                 .ifPresent(rejectReport -> {
 
-                    // 기각 시각이 3일 이내인지 확인
+                    // 4-1) 기각 처리 시각이 지금 기준 3일 이내인지 (쿨다운 중인지)
                     boolean isWithin3Days = rejectReport.getProcessedAt()
                             .isAfter(LocalDateTime.now().minusDays(3));
 
-                    // 게시글이 기각 이후에 수정됐는지 확인
-                    boolean isPostUpdatedAfterRejection = post.getUpdatedAt() != null && post.getUpdatedAt()
-                            .isAfter(rejectReport.getProcessedAt());
+                    // 4-2) 게시글이 '기각 이후'에 수정됐는지 (updatedAt > 기각 시각)
+                    //      └ updatedAt이 null일 수도 있으니 null 체크 먼저
+                    boolean isPostUpdatedAfterRejection =
+                            post.getUpdatedAt() != null
+                                    && post.getUpdatedAt().isAfter(rejectReport.getProcessedAt());
 
-                    // 3일 이내이고 게시글 수정도 없으면 재신고 차단
+                    // 4-3) 3일 이내(쿨다운) AND 수정 안 됨 → 재신고 차단
+                    //      반대로, 수정됐으면(isPostUpdatedAfterRejection=true) 통과 → 재신고 허용
                     if (isWithin3Days && !isPostUpdatedAfterRejection) {
-                        throw new ReportException(ErrorCode.REPORT_TOO_SOON);
+                        throw new ReportException(ErrorCode.REPORT_TOO_SOON);   // REPORT_004
                     }
                 });
 
@@ -232,12 +238,12 @@ public class ReportServiceImpl implements ReportService {
         // 기각 처리
         report.reject(adminId);
 
-        // 신고자의 기각 누적 횟수 조회
+        // 신고자(신고를 한 사람)의 기각 누적 횟수 조회
         int rejectedCount = reportRepository.countByReporterIdAndStatus(
                 report.getReporterId(), ReportStatus.REJECTED);
 
-        // 기각 3회 초과 시 신고 기능 10일 박탈
-        if (rejectedCount > REPORT_BAN_THRESHOLD) {
+        // 기각 횟수가 3의 배수(3, 6, 9...)가 될 때마다 신고 기능 10일 박탈
+        if (rejectedCount > 0 && rejectedCount % REPORT_BAN_THRESHOLD == 0) {  // count가 3의 배수일 때 기능 박탈
             userService.banReportFeature(report.getReporterId(), REPORT_BAN_DAYS);
         }
 
