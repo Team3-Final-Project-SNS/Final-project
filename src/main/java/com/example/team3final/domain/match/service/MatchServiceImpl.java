@@ -141,10 +141,10 @@ public class MatchServiceImpl implements MatchService{
         String authorNickname = userService.getUserInfo(post.getAuthorId()).nickname();
         String applicantNickname = userService.getUserInfo(applicantId).nickname();
 
-        // 1번 알림 - 게시글 작성자에게 신청 알림 발송
+        // 1. 게시글 신청 알림 - HOST에게
         notificationPublisher.sendMatchApplied(post.getAuthorId(), savedMatch.getId());
 
-        // 16번 알림 - 신청자에게 매칭 확정 알림 발송
+        // 2. 매칭 확정 알림 - 등록자에게
         notificationPublisher.sendMatchConfirmed(applicantId, savedMatch.getId());
 
         // 만남 알림 ZSet 예약 (30분/15분/5분 전)
@@ -503,7 +503,7 @@ public class MatchServiceImpl implements MatchService{
             // 채팅방 비활성화
             chatService.deactivateChatRoom(match.getPostId());
 
-            // 모든 GUEST에게 HOST 취소 알림 발송
+            // 4. HOST가 매칭을 취소했을 때 - GUEST에게
             for (Match guestMatch : allGuestMatches) {
                 // 각 GUEST에게 "HOST가 매칭을 취소했습니다" 알림
                 notificationPublisher.sendHostCancelled(
@@ -513,7 +513,7 @@ public class MatchServiceImpl implements MatchService{
             }
         }
 
-        // 2번 알림 - 상대방에게 매칭 취소 알림 발송
+        // 3. GUEST가 신청을 취소했을 때 - HOST에게
         // GUEST가 취소한 경우에만 상대방(HOST)에게 알림 발송
         // HOST가 취소한 경우는 위 for문에서 이미 모든 GUEST에게 발송 완료
         if (cancelerIsApplicant) {
