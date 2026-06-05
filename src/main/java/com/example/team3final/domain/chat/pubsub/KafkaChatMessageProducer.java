@@ -30,13 +30,27 @@ public class KafkaChatMessageProducer {
             // 같은 채팅방 메시지는 같은 파티션에 들어가 순서가 유지될 가능성이 높아짐
             String key = String.valueOf(chatRoomId);
 
-            // Kafka 토픽에 발행
-            kafkaTemplate.send(KafkaTopics.CHAT_MESSAGES, key, message);
+            // Kafka 전송 결과를 비동기로 확인
+            // 전송 성공 시 → 정상 처리
+            // 전송 실패 시 → DLQ 토픽으로 발행
+            kafkaTemplate.send(KafkaTopics.CHAT_MESSAGES, key, message)
+                    .whenComplete((result, ex) -> {
+                        if (ex == null) {
+                            log.info("[Kafka Chat Producer] 메시지 발행 성공" +
+                                            " - topic: {}, chatRoomId: {}, messageId: {}",
+                                    KafkaTopics.CHAT_MESSAGES, chatRoomId, response.messageId());
+                        } else {
+                            // 전송 실패 → DLQ로 발행
+                            log.error("[Kafka Chat Producer] 메시지 발행 실패 → DLQ 발행" +
+                                            " - chatRoomId: {}, error: {}",
+                                    chatRoomId, ex.getMessage());
+                            // DLQ에 원본 메시지 그대로 발행
+                            kafkaTemplate.send(KafkaTopics.CHAT_MESSAGES_DLQ, key, message);
+                        }
+                    });
 
-            log.info("[Kafka Chat Producer] 메시지 발행 - topic: {}, chatRoomId: {}, messageId: {}",
-                    KafkaTopics.CHAT_MESSAGES, chatRoomId, response.messageId());
         } catch (Exception e) {
-            log.error("[Kafka Chat Producer] 메시지 발행 실패 - chatRoomId: {}, error: {}",
+            log.error("[Kafka Chat Producer] 메시지 직렬화 실패 - chatRoomId: {}, error: {}",
                     chatRoomId, e.getMessage());
         }
     }

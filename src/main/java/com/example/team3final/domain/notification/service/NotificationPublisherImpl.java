@@ -45,12 +45,28 @@ public class NotificationPublisherImpl implements NotificationPublisher {
             String key = String.valueOf(receiverId);
             String message = objectMapper.writeValueAsString(event);
 
-            kafkaTemplate.send(KafkaTopics.NOTIFICATIONS, key, message);
+            // Kafka 전송 결과를 비동기로 확인
+            // 전송 성공 시 → 정상 처리
+            // 전송 실패 시 → DLQ 토픽으로 발행
+            kafkaTemplate.send(KafkaTopics.NOTIFICATIONS, key, message)
+                    .whenComplete((result, ex) -> {
+                        if (ex == null) {
+                            // 전송 성공
+                            log.info("[Kafka Notification Producer] 알림 이벤트 발행 성공" +
+                                            " - receiverId: {}, type: {}, relatedId: {}",
+                                    receiverId, type, relatedId);
+                        } else {
+                            // 전송 실패 → DLQ로 발행
+                            log.error("[Kafka Notification Producer] 알림 이벤트 발행 실패 → DLQ 발행" +
+                                            " - receiverId: {}, type: {}, error: {}",
+                                    receiverId, type, ex.getMessage());
+                            // DLQ에 원본 메시지 그대로 발행
+                            kafkaTemplate.send(KafkaTopics.NOTIFICATIONS_DLQ, key, message);
+                        }
+                    });
 
-            log.info("[Kafka Notification Producer] 알림 이벤트 발행 - receiverId: {}, type: {}, relatedId: {}",
-                    receiverId, type, relatedId);
         } catch (Exception e) {
-            log.error("[Kafka Notification Producer] 알림 이벤트 발행 실패 - receiverId: {}, type: {}, error: {}",
+            log.error("[Kafka Notification Producer] 알림 이벤트 직렬화 실패 - receiverId: {}, type: {}, error: {}",
                     receiverId, type, e.getMessage());
         }
     }
