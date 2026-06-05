@@ -107,9 +107,6 @@ public interface NotificationPublisher {
     // 31. 결제 실패 알림 - 결제 사용자에게
     void sendPaymentFailed(Long userId, Long paymentId);
 
-    // 32. GPS 반경 이탈 경고 알림 - 만남 참여자에게
-    void sendGpsOutOfRange(Long userId, Long matchId);
-
-    // 33. 신고 기각 알림 - 신고자에게
+    // 32. 신고 기각 알림 - 신고자에게
     void sendReportRejected(Long userId, Long reportId);
 }
