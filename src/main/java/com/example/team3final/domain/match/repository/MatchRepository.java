@@ -95,13 +95,13 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
     // 특정 게시글에 특정 상태(주로 MATCHED)인 매칭이 현재 몇 건인지 카운트
     long countByPostIdAndStatus(Long postId, MatchStatus status);
 
-
-
-
-
-    // 일단 ai db 활용을 위해서 임시로. 나중에 리팩토링할때 서비스 to 서비스로 변경 예정.
-    // 특정 게시글에 사용자가 이미 신청했는지 확인
-    boolean existsByPostIdAndApplicantId(Long postId, Long applicantId);
+    // BUG-06 수정 — MATCHED 상태인 매칭만 중복으로 판단
+    // CANCELLED 상태는 이미 취소된 것이므로 재신청 허용
+    // SQL: SELECT EXISTS (
+    //        SELECT 1 FROM matches
+    //        WHERE post_id = ? AND applicant_id = ? AND status = 'MATCHED'
+    //      )
+    boolean existsByPostIdAndApplicantIdAndStatus(Long postId, Long applicantId, MatchStatus status);
 
     // Review 도메인에서 단체 만남의 전체 신청자 리뷰 평균을 계산할 때 사용합니다.
     List<Match> findAllByPostId(Long postId);
@@ -112,4 +112,5 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
     // matchId로 authorId 조회 - MeetReminderScheduler용
     @Query("SELECT p.authorId FROM Match m JOIN Post p ON m.postId = p.id WHERE m.id = :matchId")
     Long findAuthorIdByMatchId(@Param("matchId") Long matchId);
+
 }

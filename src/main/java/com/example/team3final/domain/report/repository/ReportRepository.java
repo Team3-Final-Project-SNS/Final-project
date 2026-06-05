@@ -60,4 +60,13 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
             @Param("reporterId") Long reporterId,
             @Param("startOfMonth") LocalDateTime startOfMonth
     );
+
+    // 특정 postId에 PENDING 상태 신고가 있는지 확인
+    // SQL: SELECT EXISTS (
+    //        SELECT 1 FROM reports
+    //        WHERE target_id = ? AND status = 'PENDING'
+    //      )
+    // targetId: 신고 대상 엔티티 ID (여기서는 postId)
+    // ReportStatus.PENDING: 아직 관리자가 처리하지 않은 신고
+    boolean existsByTargetIdAndStatus(Long targetId, ReportStatus status);
 }

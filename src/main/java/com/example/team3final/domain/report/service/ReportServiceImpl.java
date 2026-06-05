@@ -253,4 +253,12 @@ public class ReportServiceImpl implements ReportService {
     public Page<Report> getReportsForAdmin(ReportStatus status, Pageable pageable) {
         return reportRepository.findAllByStatusFilter(status, pageable);
     }
+
+    // 특정 postId에 PENDING 상태 신고가 있는지 확인
+    @Override
+    public boolean existsPendingReport(Long postId) {
+        // reportRepository에 postId + PENDING 상태 조합으로 존재 여부 조회
+        // EXISTS 쿼리 → 있으면 true, 없으면 false 반환
+        return reportRepository.existsByTargetIdAndStatus(postId, ReportStatus.PENDING);
+    }
 }

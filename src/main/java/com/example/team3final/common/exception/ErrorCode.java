@@ -47,6 +47,7 @@ public enum ErrorCode {
     POST_NOT_OPEN(HttpStatus.UNPROCESSABLE_ENTITY, "POST_006", "OPEN 상태의 게시글만 수정/삭제할 수 있습니다."),
     POST_INVALID_PAGE_SIZE(HttpStatus.BAD_REQUEST, "POST_007", "페이지 크기는 최대 50까지 요청할 수 있습니다."),
     POST_NOT_MATCHED(HttpStatus.UNPROCESSABLE_ENTITY, "POST_008", "매칭된 게시글만 완료 처리할 수 있습니다."),
+    POST_INVALID_DEPOSIT_UNIT(HttpStatus.BAD_REQUEST, "POST_009", "책임비는 100P 단위로만 설정할 수 있습니다."),
 
     // Match
     MATCH_NOT_FOUND(HttpStatus.NOT_FOUND, "MATCH_001", "존재하지 않는 매칭입니다."),
@@ -58,6 +59,7 @@ public enum ErrorCode {
     MATCH_AFTER_MEET_TIME(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_007", "약속 시간 이후에는 취소할 수 없습니다."),
     MATCH_DUPLICATE_APPLY(HttpStatus.BAD_REQUEST, "MATCH_008", "이미 신청한 게시글입니다. 재신청은 불가합니다."),
     MATCH_AVOIDED_USER(HttpStatus.FORBIDDEN, "MATCH_009", "다시 만나고 싶지 않아요 관계의 게시글에는 신청할 수 없습니다."),
+    MATCH_POST_UNDER_REPORT(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_010", "신고 접수 중인 게시글에는 신청할 수 없습니다."),
 
     // Review
     REVIEW_NOT_COMPLETED_MATCH(HttpStatus.UNPROCESSABLE_ENTITY, "REVIEW_001", "만남 완료 상태의 매칭만 후기를 작성할 수 있습니다."),

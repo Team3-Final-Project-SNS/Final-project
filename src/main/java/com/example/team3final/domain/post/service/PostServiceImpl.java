@@ -24,7 +24,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -45,15 +44,21 @@ public class PostServiceImpl implements PostService{
     @Transactional
     public CreatePostResponseDto createPost(Long authorId, CreatePostRequestDto request) {
 
-        // 1. 비즈니스 규칙 검증
+        // 만남 시간 검증
         if (request.getMeetAt().isBefore(LocalDateTime.now())) {
             throw new PostException(ErrorCode.POST_INVALID_MEET_AT);
         }
 
-        // 책임비 검증 - (1) 최소 200P 단위, (2) 100P 단위
-        if (request.getAuthorDeposit() < Post.MIN_AUTHOR_DEPOSIT
-                || request.getAuthorDeposit() % Post.DEPOSIT_UNIT != 0) {
+        // 책임비 검증 (1) 최소 200P 이상인지
+        if (request.getAuthorDeposit() < Post.MIN_AUTHOR_DEPOSIT) {
             throw new PostException(ErrorCode.POST_INVALID_DEPOSIT);
+        }
+
+        // 책임비 검증 (2) 100P 단위인지 — BUG-07 수정
+        // % 는 나머지 연산자 → 100으로 나눴을 때 나머지가 0이 아니면 단위 위반
+        // ex) 150 % 100 = 50 → 예외 / 300 % 100 = 0 → 통과
+        if (request.getAuthorDeposit() % 100 != 0) {
+            throw new PostException(ErrorCode.POST_INVALID_DEPOSIT_UNIT);
         }
 
         // 2. 포인트 차감
@@ -102,9 +107,9 @@ public class PostServiceImpl implements PostService{
         Integer newDeposit = request.getAuthorDeposit();
 
         if (newDeposit != null) {
-            // 100P 단위 검증
-            if (newDeposit % Post.DEPOSIT_UNIT != 0) {
-                throw new PostException(ErrorCode.POST_INVALID_DEPOSIT);
+            // 수정 시에도 동일한 100P 단위 검증 — BUG-07 수정
+            if (newDeposit % 100 != 0) {
+                throw new PostException(ErrorCode.POST_INVALID_DEPOSIT_UNIT);
             }
 
             // 차액 계산 — 양수면 추가 차감, 음수면 환불
