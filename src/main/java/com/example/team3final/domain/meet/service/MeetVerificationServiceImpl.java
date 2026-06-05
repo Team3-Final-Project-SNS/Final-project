@@ -561,7 +561,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         // 진행 중인 요청(REQUESTED) 체크 전에 만료 여부를 먼저 확인
         // 스케줄러가 EXPIRED로 전환하지 않은 타이밍에도 재요청을 허용하기 위함
         if (meetVerification.getExtensionStatus() == ExtensionStatus.REQUESTED) {
-            if (meetVerification.isExtensionExpired()) {
+            if (meetVerification.isExtensionExpired(EXTENSION_TIMEOUT_MINUTES)) {
                 // 5분 타임아웃이 지났으면 → 즉시 EXPIRED 처리 후 요청 허용
                 meetVerification.expireExtension();
             } else {
@@ -804,7 +804,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     private void validateExtensionNotExpired(MeetVerification meetVerification) {
         // REQUESTED 상태에서 5분 타임아웃이 지났으면 즉시 EXPIRED 처리 후 예외
         if (meetVerification.getExtensionStatus() == ExtensionStatus.REQUESTED
-                && meetVerification.isExtensionExpired()) {
+                && meetVerification.isExtensionExpired(EXTENSION_TIMEOUT_MINUTES)) {
             meetVerification.expireExtension();
             throw new MeetException(ErrorCode.MEET_EXTEND_EXPIRED);
         }
