@@ -7,6 +7,7 @@ type ChatMessage = {
   id: number;
   sender: 'bot' | 'user';
   content: string;
+  isThinking?: boolean;
 };
 
 type FloatingChatbotProps = {
@@ -44,6 +45,40 @@ export default function AdminFloatingChatbot({
     },
   ]);
 
+  const showThinkingForMoment = () => new Promise((resolve) => setTimeout(resolve, 800));
+  const revealBotMessage = (messageId: number, text: string) =>
+    new Promise<void>((resolve) => {
+      const chars = Array.from(text);
+
+      if (chars.length === 0) {
+        resolve();
+        return;
+      }
+
+      let index = 0;
+      const revealNext = () => {
+        const nextText = chars[index];
+        index += 1;
+
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.id === messageId
+              ? { ...message, content: message.content + nextText, isThinking: false }
+              : message
+          )
+        );
+
+        if (index < chars.length) {
+          window.setTimeout(revealNext, 45);
+          return;
+        }
+
+        resolve();
+      };
+
+      revealNext();
+    });
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -72,25 +107,23 @@ export default function AdminFloatingChatbot({
           id: botMessageId,
           sender: 'bot',
           content: '',
+          isThinking: true,
         },
       ]);
 
       try {
+        await showThinkingForMoment();
+        let typingQueue = Promise.resolve();
         const answer = await streamAiSupport(trimmedInput, nextConversationId, (chunk) => {
-          setMessages((prev) =>
-            prev.map((message) =>
-              message.id === botMessageId
-                ? { ...message, content: message.content + chunk }
-                : message
-            )
-          );
+          typingQueue = typingQueue.then(() => revealBotMessage(botMessageId, chunk));
         });
+        await typingQueue;
 
         if (!answer.trim()) {
           setMessages((prev) =>
             prev.map((message) =>
               message.id === botMessageId
-                ? { ...message, content: 'AI 고객센터 답변을 생성하지 못했습니다. 잠시 후 다시 시도해주세요.' }
+                ? { ...message, content: 'AI 고객센터 답변을 생성하지 못했습니다. 잠시 후 다시 시도해주세요.', isThinking: false }
                 : message
             )
           );
@@ -104,6 +137,7 @@ export default function AdminFloatingChatbot({
                 content: err.message
                   ? `AI 고객센터 요청에 실패했습니다.\n사유: ${err.message}`
                   : 'AI 고객센터 요청에 실패했습니다. 잠시 후 다시 시도해주세요.',
+                isThinking: false,
               }
               : message
           )
@@ -132,25 +166,23 @@ export default function AdminFloatingChatbot({
         id: botMessageId,
         sender: 'bot',
         content: '',
+        isThinking: true,
       },
     ]);
 
     try {
+      await showThinkingForMoment();
+      let typingQueue = Promise.resolve();
       const answer = await streamAiReport(trimmedInput, (chunk) => {
-        setMessages((prev) =>
-          prev.map((message) =>
-            message.id === botMessageId
-              ? { ...message, content: message.content + chunk }
-              : message
-          )
-        );
+        typingQueue = typingQueue.then(() => revealBotMessage(botMessageId, chunk));
       });
+      await typingQueue;
 
       if (!answer.trim()) {
         setMessages((prev) =>
           prev.map((message) =>
             message.id === botMessageId
-              ? { ...message, content: '관리자 AI 답변을 생성하지 못했습니다. 잠시 후 다시 시도해주세요.' }
+              ? { ...message, content: '관리자 AI 답변을 생성하지 못했습니다. 잠시 후 다시 시도해주세요.', isThinking: false }
               : message
           )
         );
@@ -164,6 +196,7 @@ export default function AdminFloatingChatbot({
               content: err.message
                 ? `관리자 AI 요청에 실패했습니다.\n사유: ${err.message}`
                 : '관리자 AI 요청에 실패했습니다. 잠시 후 다시 시도해주세요.',
+              isThinking: false,
             }
             : message
         )
@@ -220,7 +253,13 @@ export default function AdminFloatingChatbot({
                           : 'bg-[#fff3e0] text-[#3d2b22]'
                       }`}
                     >
-                      {message.content}
+                      {message.sender === 'bot' && (
+                        <div className="mb-2 flex items-center gap-2 text-sm font-extrabold text-[#d84315]">
+                          <RiceMascot size="tiny" showAdminHat={showAdminHat} />
+                          {botName}
+                        </div>
+                      )}
+                      {message.isThinking && !message.content ? <ThinkingIndicator /> : formatChatContent(message.content)}
                     </div>
                   </div>
                 ))}
@@ -261,10 +300,46 @@ export default function AdminFloatingChatbot({
   );
 }
 
-function RiceMascot({ size = 'default', showAdminHat = false }: { size?: 'default' | 'small' | 'large'; showAdminHat?: boolean }) {
+function ThinkingIndicator() {
+  return (
+    <div className="inline-flex items-center gap-3 text-sm font-semibold text-[#8d6e63]">
+      <span>답변을 준비하고 있어요</span>
+      <span className="flex items-center gap-1" aria-hidden="true">
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#d84315] [animation-delay:-0.2s]" />
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#d84315] [animation-delay:-0.1s]" />
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#d84315]" />
+      </span>
+    </div>
+  );
+}
+
+function formatChatContent(content: string) {
+  return content
+    .replace(/^#{1,6}\s*/gm, '')
+    .replace(/([^\n])#{1,6}\s*/g, '$1\n\n')
+    .replace(/출처\s*:\s*출처\s*없음/g, '')
+    .replace(/출처\s*:\s*없음/g, '')
+    .replace(/\n-\s*문서명\s*/g, '')
+    .replace(/\n-\s*\[?REPORT RAG 출처[^\n]*/g, '')
+    .replace(/\n-\s*제공된 정책명\s*/g, '')
+    .replace(/\n\s*출처:\s*$/g, '')
+    .replace(/\n\s*출처:\s*\n\s*$/g, '')
+    .replace(/([^\n])(\d+\.\s*)/g, '$1\n$2')
+    .replace(/([^\n])(출처:)/g, '$1\n\n$2')
+    .replace(/출처:\s*-\s*/g, '출처:\n- ')
+    .replace(/([^\n])-\s*(?=[가-힣A-Za-z])/g, '$1\n- ')
+    .replace(/([.!?])\s*-\s*/g, '$1\n- ')
+    .replace(/([^\n])(- rag-docs\/)/g, '$1\n- rag-docs/')
+    .replace(/([^\n])(- (?:report|support|matching)\/)/g, '$1\n$2')
+    .replace(/\n{3,}/g, '\n\n')
+    .trimStart();
+}
+
+function RiceMascot({ size = 'default', showAdminHat = false }: { size?: 'default' | 'small' | 'large' | 'tiny'; showAdminHat?: boolean }) {
   const isSmall = size === 'small';
   const isLarge = size === 'large';
-  const containerSize = isLarge ? 'h-16 w-16' : isSmall ? 'h-12 w-12' : 'h-14 w-14';
+  const isTiny = size === 'tiny';
+  const containerSize = isLarge ? 'h-16 w-16' : isSmall ? 'h-12 w-12' : isTiny ? 'h-7 w-7' : 'h-14 w-14';
 
   return (
     <div className={`${containerSize} relative shrink-0 rounded-3xl bg-[#fff7ed]`}>

@@ -295,8 +295,8 @@ public class AiSupportServiceImpl implements AiSupportService {
      *
      * 일반 chat()과 동일하게 USER 메시지를 먼저 저장하고 최근 대화/RAG 컨텍스트를 구성합니다.
      * 차이는 구조화 DTO를 기다리지 않고 ChatClient.stream().content()를 반환한다는 점입니다.
-     * 따라서 사용자는 첫 토큰이 도착하는 즉시 화면에서 답변을 볼 수 있습니다.
-     */
+    * 따라서 사용자는 첫 토큰이 도착하는 즉시 화면에서 답변을 볼 수 있습니다.
+    */
     @Override
     @Transactional
     public Flux<String> streamChat(Long userId, String email, AiSupportChatRequestDto request) {
@@ -358,21 +358,17 @@ public class AiSupportServiceImpl implements AiSupportService {
                                 streamedAnswer.toString(),
                                 "질문을 정확히 이해하지 못했어요. 조금 더 구체적으로 알려주세요."
                         );
-                        saveMessage(
+                        safelySaveStreamingResult(
                                 userId,
                                 conversationId,
                                 requestId,
-                                AiSupportMessageRole.ASSISTANT,
                                 answer,
-                                AiSupportCategory.GENERAL,
+                                false,
                                 "AI 고객센터 스트리밍 응답",
-                                false,
-                                false,
-                                aiProperties.getSupport().getModel(),
                                 prompt.promptTemplateId(),
                                 prompt.version()
                         );
-                        saveMetric(
+                        safelySaveMetric(
                                 requestId,
                                 userId,
                                 startedAt,
@@ -380,30 +376,23 @@ public class AiSupportServiceImpl implements AiSupportService {
                                 null,
                                 null,
                                 prompt.promptTemplateId(),
-                                prompt.version(),
-                                null,
-                                null,
-                                null
+                                prompt.version()
                         );
                     })
                     .onErrorResume(e -> {
                         log.error("[AiSupportService] 고객센터 AI 스트리밍 응답 생성 실패", e);
                         String fallbackAnswer = "지금은 AI 고객센터 답변 생성이 원활하지 않습니다. 급한 문제라면 1:1 문의로 접수해주세요.";
-                        saveMessage(
+                        safelySaveStreamingResult(
                                 userId,
                                 conversationId,
                                 requestId,
-                                AiSupportMessageRole.ASSISTANT,
                                 fallbackAnswer,
-                                AiSupportCategory.GENERAL,
+                                true,
                                 "AI 고객센터 스트리밍 fallback 응답",
-                                true,
-                                true,
-                                aiProperties.getSupport().getModel(),
                                 prompt.promptTemplateId(),
                                 prompt.version()
                         );
-                        saveMetric(
+                        safelySaveMetric(
                                 requestId,
                                 userId,
                                 startedAt,
@@ -411,25 +400,19 @@ public class AiSupportServiceImpl implements AiSupportService {
                                 e instanceof Exception exception ? resolveErrorType(exception) : AiErrorType.SERVER_ERROR,
                                 e.getMessage(),
                                 prompt.promptTemplateId(),
-                                prompt.version(),
-                                null,
-                                null,
-                                null
+                                prompt.version()
                         );
                         return Flux.just(fallbackAnswer);
                     });
         } catch (Exception e) {
             log.error("[AiSupportService] 고객센터 AI 스트리밍 준비 실패", e);
-            saveMetric(
+            safelySaveMetric(
                     requestId,
                     userId,
                     startedAt,
                     AiCallStatus.FALLBACK,
                     resolveErrorType(e),
                     e.getMessage(),
-                    null,
-                    null,
-                    null,
                     null,
                     null
             );
@@ -643,6 +626,36 @@ public class AiSupportServiceImpl implements AiSupportService {
         );
     }
 
+    private void safelySaveStreamingResult(
+            Long userId,
+            String conversationId,
+            String requestId,
+            String answer,
+            boolean fallbackUsed,
+            String summary,
+            Long promptTemplateId,
+            String promptVersion
+    ) {
+        try {
+            saveMessage(
+                    userId,
+                    conversationId,
+                    requestId,
+                    AiSupportMessageRole.ASSISTANT,
+                    answer,
+                    AiSupportCategory.GENERAL,
+                    summary,
+                    false,
+                    fallbackUsed,
+                    aiProperties.getSupport().getModel(),
+                    promptTemplateId,
+                    promptVersion
+            );
+        } catch (Exception e) {
+            log.warn("[AiSupportService] 고객센터 스트리밍 응답 저장 실패. SSE 응답은 계속 진행합니다.", e);
+        }
+    }
+
     /**
      * LLM이 카테고리를 반환하지 못했을 때 사용할 기본 카테고리를 결정합니다.
      *
@@ -702,6 +715,35 @@ public class AiSupportServiceImpl implements AiSupportService {
                 errorType,
                 errorMessage
         );
+    }
+
+    private void safelySaveMetric(
+            String requestId,
+            Long userId,
+            long startedAt,
+            AiCallStatus status,
+            AiErrorType errorType,
+            String errorMessage,
+            Long promptTemplateId,
+            String promptVersion
+    ) {
+        try {
+            saveMetric(
+                    requestId,
+                    userId,
+                    startedAt,
+                    status,
+                    errorType,
+                    errorMessage,
+                    promptTemplateId,
+                    promptVersion,
+                    null,
+                    null,
+                    null
+            );
+        } catch (Exception e) {
+            log.warn("[AiSupportService] 고객센터 스트리밍 메트릭 저장 실패. SSE 응답은 계속 진행합니다.", e);
+        }
     }
 
     /**

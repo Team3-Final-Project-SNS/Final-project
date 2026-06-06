@@ -16,6 +16,7 @@ type ChatMessage = {
   id: number;
   role: 'user' | 'assistant';
   content: string;
+  isThinking?: boolean;
   fallbackUsed?: boolean;
   recommendedPosts?: RecommendedPost[];
 };
@@ -33,6 +34,8 @@ export default function MatchingAiChatPage() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const showThinkingForMoment = () => new Promise((resolve) => setTimeout(resolve, 800));
 
   const submitMessage = async (message: string) => {
     const trimmed = message.trim();
@@ -59,11 +62,13 @@ export default function MatchingAiChatPage() {
         id: assistantMessageId,
         role: 'assistant',
         content: '',
+        isThinking: true,
         recommendedPosts: [],
       },
     ]);
 
     try {
+      await showThinkingForMoment();
       const answer = await streamMatchingChat({
         conversationId: nextConversationId,
         message: trimmed,
@@ -71,7 +76,7 @@ export default function MatchingAiChatPage() {
         setMessages((prev) =>
           prev.map((item) =>
             item.id === assistantMessageId
-              ? { ...item, content: item.content + chunk }
+              ? { ...item, content: item.content + chunk, isThinking: false }
               : item
           )
         );
@@ -81,7 +86,7 @@ export default function MatchingAiChatPage() {
         setMessages((prev) =>
           prev.map((item) =>
             item.id === assistantMessageId
-              ? { ...item, content: '조건에 맞는 답변을 생성하지 못했어요. 잠시 후 다시 시도해주세요.' }
+              ? { ...item, content: '조건에 맞는 답변을 생성하지 못했어요. 잠시 후 다시 시도해주세요.', isThinking: false }
               : item
           )
         );
@@ -95,6 +100,7 @@ export default function MatchingAiChatPage() {
             ? {
               ...item,
               content: '지금은 추천 결과를 가져오지 못했어요. 조건을 조금 바꾸거나 잠시 후 다시 요청해주세요.',
+              isThinking: false,
               recommendedPosts: [],
             }
             : item
@@ -179,14 +185,6 @@ export default function MatchingAiChatPage() {
                 {messages.map((message) => (
                   <ChatBubble key={message.id} message={message} />
                 ))}
-                {loading && (
-                  <div className="flex justify-start">
-                    <div className="inline-flex items-center gap-2 rounded-[22px] bg-[#fff3e0] px-5 py-3.5 text-base font-semibold text-[#3d2b22]">
-                      <Loader2 size={18} className="animate-spin text-[#d84315]" />
-                      추천을 찾는 중...
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -235,7 +233,11 @@ function ChatBubble({ message }: { message: ChatMessage }) {
                   한끼팟
                 </div>
             )}
-            <p className="whitespace-pre-wrap">{message.content}</p>
+            {message.isThinking && !message.content ? (
+                <ThinkingIndicator />
+            ) : (
+                <p className="whitespace-pre-wrap">{message.content}</p>
+            )}
             {message.fallbackUsed && (
                 <div className="mt-3 rounded-lg border border-[#ffcc80] bg-[#fff8e1] px-3 py-2 text-xs font-semibold text-[#ef6c00]">
                   AI 추천이 일부 제한된 상태입니다.
@@ -295,6 +297,19 @@ function RiceMascot({ size = 'default' }: { size?: 'default' | 'small' | 'tiny' 
       <span className="absolute left-[38%] top-[38%] h-[10%] w-[10%] rounded-full bg-[#3d2b22]" />
       <span className="absolute right-[38%] top-[38%] h-[10%] w-[10%] rounded-full bg-[#3d2b22]" />
     </div>
+  );
+}
+
+function ThinkingIndicator() {
+  return (
+      <div className="inline-flex items-center gap-3 text-sm font-semibold text-[#8d6e63]">
+        <span>추천 조건을 살펴보고 있어요</span>
+        <span className="flex items-center gap-1" aria-hidden="true">
+          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#d84315] [animation-delay:-0.2s]" />
+          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#d84315] [animation-delay:-0.1s]" />
+          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#d84315]" />
+        </span>
+      </div>
   );
 }
 

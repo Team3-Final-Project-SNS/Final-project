@@ -56,11 +56,9 @@ Rewrite Query Transformer 결과:
 {conversationContext}
 
 응답 출력 형식:
-반드시 다음 JSON 구조로만 응답해라.
-{
-  "answer": "사용자에게 보여줄 자연어 답변",
-  "recommendedPostIds": [추천한 게시글 ID 목록]
-}
+반드시 구조화 응답 객체로만 응답해라.
+- answer: 사용자에게 보여줄 자연어 답변
+- recommendedPostIds: 추천한 게시글 ID 목록
 
 응답 작성 방식:
 - 조건에 맞는 모집글이 있으면 먼저 몇 개를 찾았는지 말해라.

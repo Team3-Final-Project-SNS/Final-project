@@ -7,6 +7,7 @@ import com.example.team3final.common.jwt.SuspendedAccountFilter; // ← 추가
 import com.example.team3final.domain.admin.security.AdminDetailsService;
 import com.example.team3final.domain.user.service.CustomUserDetailsService;
 import com.fasterxml.jackson.databind.ObjectMapper; // ← 추가
+import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -17,6 +18,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -36,6 +38,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable) // CSRF 비활성화
+                .cors(Customizer.withDefaults())
                 .headers(headers -> headers
                         .frameOptions(frameOptions -> frameOptions.disable()) // H2 콘솔 iframe 허용
                 )
@@ -43,6 +46,9 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // 인증 없이 접근 가능한 엔드포인트
+                        // SSE 챗봇(고객센터, 관리자, 매칭)은 응답 중 ASYNC/ERROR 디스패치가 다시 발생할 수 있습니다.
+                        // 최초 요청 인증은 그대로 유지하고, 내부 디스패치가 Security에 재차 차단되는 것만 방지합니다.
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(
                                 "/api/v1/auth/email/otp",
