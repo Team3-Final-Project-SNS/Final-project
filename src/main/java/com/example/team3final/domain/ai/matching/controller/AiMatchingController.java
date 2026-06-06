@@ -11,7 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import reactor.core.publisher.Flux;
 
 @RestController
 @RequiredArgsConstructor
@@ -22,20 +22,27 @@ public class AiMatchingController {
     private final AiMatchingService aiMatchingService;
 
     /**
-     * 매칭 AI 스트리밍 응답
+     * 매칭 AI 답변을 SSE로 스트리밍합니다.
      *
-     * SSE 기반으로 AI 응답을 토큰 단위 또는 문장 단위로 전송합니다.
-     * 추후에 확장 예정. 먼저 chat기반으로 만든 후에 확장한다.
+     * 컨트롤 흐름:
+     * 1. SecurityContext에서 로그인 사용자 email을 확인합니다.
+     * 2. 서비스가 사용자 조건을 Rewrite Query로 정리합니다.
+     * 3. LLM이 매칭 Tool을 직접 호출해 후보를 조회합니다.
+     * 4. 생성되는 답변 텍스트를 text/event-stream으로 실시간 전송합니다.
+     *
+     *
+     *  produces = MediaType.TEXT_EVENT_STREAM_VALUE.
+     * "이 컨트롤러는 실시간 채팅처럼 조금씩 응답을 보낼 거다” 라는 표시
      */
-//    @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-//    public SseEmitter streamChat(
-//            Authentication authentication,
-//            @RequestBody AiMatchingChatRequestDto request
-//    ) {
-//        String email = authentication.getName();
-//
-//        return aiMatchingService.streamChat(email, request);
-//    }
+    @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<String> streamChat(
+            Authentication authentication,
+            @Valid @RequestBody AiMatchingChatRequestDto request
+    ) {
+        String email = authentication.getName();
+
+        return aiMatchingService.streamChat(email, request);
+    }
 
     /**
      * 매칭 AI 채팅 요청을 처리합니다.
@@ -51,16 +58,17 @@ public class AiMatchingController {
      * @return AI 추천 답변, 추천 후보 게시글 목록, fallback 사용 여부
      */
 
-    @PostMapping("/chat")
-    public ResponseEntity<ApiResponseDto<AiMatchingChatResponseDto>> createAiMatchingChat(
-            Authentication authentication,
-            @Valid @RequestBody AiMatchingChatRequestDto request
-    ) {
-        String email = authentication.getName();
-
-        AiMatchingChatResponseDto response = aiMatchingService.createAiMatchingChat(email, request);
-
-        return ResponseEntity.ok(ApiResponseDto.success(response));
-    }
+//    // SSE 전환 전 JSON 응답용 엔드포인트입니다.
+//    // @PostMapping("/chat")
+//    public ResponseEntity<ApiResponseDto<AiMatchingChatResponseDto>> createAiMatchingChat(
+//            Authentication authentication,
+//            @Valid @RequestBody AiMatchingChatRequestDto request
+//    ) {
+//        String email = authentication.getName();
+//
+//        AiMatchingChatResponseDto response = aiMatchingService.createAiMatchingChat(email, request);
+//
+//        return ResponseEntity.ok(ApiResponseDto.success(response));
+//    }
 
 }

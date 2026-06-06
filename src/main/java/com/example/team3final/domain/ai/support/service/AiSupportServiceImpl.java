@@ -29,6 +29,7 @@ import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Flux;
 
 import java.util.LinkedHashSet;
 import java.util.Collections;
@@ -286,6 +287,153 @@ public class AiSupportServiceImpl implements AiSupportService {
                     true,
                     true
             );
+        }
+    }
+
+    /**
+     * 고객센터 AI 답변을 SSE 스트리밍으로 생성합니다.
+     *
+     * 일반 chat()과 동일하게 USER 메시지를 먼저 저장하고 최근 대화/RAG 컨텍스트를 구성합니다.
+     * 차이는 구조화 DTO를 기다리지 않고 ChatClient.stream().content()를 반환한다는 점입니다.
+     * 따라서 사용자는 첫 토큰이 도착하는 즉시 화면에서 답변을 볼 수 있습니다.
+     */
+    @Override
+    @Transactional
+    public Flux<String> streamChat(Long userId, String email, AiSupportChatRequestDto request) {
+        String conversationId = request.conversationId() == null || request.conversationId().isBlank()
+                ? UUID.randomUUID().toString()
+                : request.conversationId();
+        String requestId = UUID.randomUUID().toString();
+        long startedAt = System.currentTimeMillis();
+
+        saveMessage(
+                userId,
+                conversationId,
+                requestId,
+                AiSupportMessageRole.USER,
+                request.message(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+
+        try {
+            String conversationContext = buildConversationContext(userId, conversationId, requestId);
+            AiSupportRagContext ragContext = buildSupportRagContext(request.message(), conversationContext);
+            AiPromptFileService.RenderedPrompt prompt = renderPrompt(
+                    userId,
+                    email,
+                    conversationId,
+                    conversationContext,
+                    ragContext.context(),
+                    ragContext.sources()
+            );
+            StringBuilder streamedAnswer = new StringBuilder();
+
+            return chatClient
+                    .prompt()
+                    .system(prompt.content() + """
+
+                            [SSE 스트리밍 응답 규칙]
+                            - 이 요청에서는 JSON이나 Java record 형식으로 답하지 않는다.
+                            - 고객에게 보여줄 answer 본문만 자연어로 작성한다.
+                            - RAG 출처가 있으면 답변 마지막에 "출처:" 목록을 짧게 포함한다.
+                            """)
+                    .user(request.message())
+                    .options(OpenAiChatOptions.builder()
+                            .model(aiProperties.getSupport().getModel())
+                            .maxTokens(aiProperties.getSupport().getMaxTokens())
+                            .temperature(aiProperties.getSupport().getTemperature())
+                            .build())
+                    .tools(new AiSupportSessionTool(aiSupportTool, email))
+                    .stream()
+                    .content()
+                    .doOnNext(streamedAnswer::append)
+                    .doOnComplete(() -> {
+                        String answer = requiredText(
+                                streamedAnswer.toString(),
+                                "질문을 정확히 이해하지 못했어요. 조금 더 구체적으로 알려주세요."
+                        );
+                        saveMessage(
+                                userId,
+                                conversationId,
+                                requestId,
+                                AiSupportMessageRole.ASSISTANT,
+                                answer,
+                                AiSupportCategory.GENERAL,
+                                "AI 고객센터 스트리밍 응답",
+                                false,
+                                false,
+                                aiProperties.getSupport().getModel(),
+                                prompt.promptTemplateId(),
+                                prompt.version()
+                        );
+                        saveMetric(
+                                requestId,
+                                userId,
+                                startedAt,
+                                AiCallStatus.SUCCESS,
+                                null,
+                                null,
+                                prompt.promptTemplateId(),
+                                prompt.version(),
+                                null,
+                                null,
+                                null
+                        );
+                    })
+                    .onErrorResume(e -> {
+                        log.error("[AiSupportService] 고객센터 AI 스트리밍 응답 생성 실패", e);
+                        String fallbackAnswer = "지금은 AI 고객센터 답변 생성이 원활하지 않습니다. 급한 문제라면 1:1 문의로 접수해주세요.";
+                        saveMessage(
+                                userId,
+                                conversationId,
+                                requestId,
+                                AiSupportMessageRole.ASSISTANT,
+                                fallbackAnswer,
+                                AiSupportCategory.GENERAL,
+                                "AI 고객센터 스트리밍 fallback 응답",
+                                true,
+                                true,
+                                aiProperties.getSupport().getModel(),
+                                prompt.promptTemplateId(),
+                                prompt.version()
+                        );
+                        saveMetric(
+                                requestId,
+                                userId,
+                                startedAt,
+                                AiCallStatus.FALLBACK,
+                                e instanceof Exception exception ? resolveErrorType(exception) : AiErrorType.SERVER_ERROR,
+                                e.getMessage(),
+                                prompt.promptTemplateId(),
+                                prompt.version(),
+                                null,
+                                null,
+                                null
+                        );
+                        return Flux.just(fallbackAnswer);
+                    });
+        } catch (Exception e) {
+            log.error("[AiSupportService] 고객센터 AI 스트리밍 준비 실패", e);
+            saveMetric(
+                    requestId,
+                    userId,
+                    startedAt,
+                    AiCallStatus.FALLBACK,
+                    resolveErrorType(e),
+                    e.getMessage(),
+                    null,
+                    null,
+                    null,
+                    null,
+                    null
+            );
+            return Flux.just("지금은 AI 고객센터 답변 생성이 원활하지 않습니다. 급한 문제라면 1:1 문의로 접수해주세요.");
         }
     }
 

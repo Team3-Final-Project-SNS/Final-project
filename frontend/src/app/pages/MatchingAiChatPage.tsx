@@ -1,7 +1,7 @@
 import { FormEvent, useState } from 'react';
 import { Link } from 'react-router';
 import { AlertCircle, ArrowRight, Bot, CalendarClock, CheckCircle2, Coins, Loader2, Send, Sparkles, XCircle } from 'lucide-react';
-import { RecommendedPost, requestMatchingChat } from '../../api/aiApi';
+import { RecommendedPost, streamMatchingChat } from '../../api/aiApi';
 
 const EXAMPLE_QUESTIONS = [
   '오늘 3시쯤 밥 먹을 사람 추천해줘',
@@ -49,36 +49,57 @@ export default function MatchingAiChatPage() {
     setError('');
     setLoading(true);
 
-    try {
-      const res = await requestMatchingChat({
-        conversationId,
-        message: trimmed,
-      });
-      const data = res.data.data;
+    const nextConversationId = conversationId ?? crypto.randomUUID();
+    const assistantMessageId = Date.now() + 1;
+    setConversationId(nextConversationId);
 
-      setConversationId(data.conversationId ?? conversationId);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          role: 'assistant',
-          content: data.answer,
-          fallbackUsed: data.fallbackUsed,
-          recommendedPosts: data.recommendedPosts ?? [],
-        },
-      ]);
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: assistantMessageId,
+        role: 'assistant',
+        content: '',
+        recommendedPosts: [],
+      },
+    ]);
+
+    try {
+      const answer = await streamMatchingChat({
+        conversationId: nextConversationId,
+        message: trimmed,
+      }, (chunk) => {
+        setMessages((prev) =>
+          prev.map((item) =>
+            item.id === assistantMessageId
+              ? { ...item, content: item.content + chunk }
+              : item
+          )
+        );
+      });
+
+      if (!answer.trim()) {
+        setMessages((prev) =>
+          prev.map((item) =>
+            item.id === assistantMessageId
+              ? { ...item, content: '조건에 맞는 답변을 생성하지 못했어요. 잠시 후 다시 시도해주세요.' }
+              : item
+          )
+        );
+      }
     } catch (err: any) {
       console.error('AI matching chat failed', err);
-      setError(err.response?.data?.message || '추천을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          role: 'assistant',
-          content: '지금은 추천 결과를 가져오지 못했어요. 조건을 조금 바꾸거나 잠시 후 다시 요청해주세요.',
-          recommendedPosts: [],
-        },
-      ]);
+      setError(err.message || '추천을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+      setMessages((prev) =>
+        prev.map((item) =>
+          item.id === assistantMessageId
+            ? {
+              ...item,
+              content: '지금은 추천 결과를 가져오지 못했어요. 조건을 조금 바꾸거나 잠시 후 다시 요청해주세요.',
+              recommendedPosts: [],
+            }
+            : item
+        )
+      );
     } finally {
       setLoading(false);
     }

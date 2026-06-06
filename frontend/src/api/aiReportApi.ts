@@ -1,6 +1,7 @@
 import axiosInstance from './axiosInstance';
 import { ApiResponse } from './authApi';
 import { ReportReason } from './reportApi';
+import { streamPost } from './sseStream';
 
 export type AiReportChatAction = 'ANALYZE_REPORT' | 'HIGH_RISK_USERS' | 'CLARIFY' | 'GENERAL_GUIDE';
 export type AiReportRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
@@ -51,4 +52,14 @@ export interface AiReportChatResponse {
 export const chatAiReport = (message: string) =>
   axiosInstance.post<ApiResponse<AiReportChatResponse>>('/api/v1/admin/ai/reports/chat', {
     message,
+  });
+
+export const streamAiReport = (message: string, onChunk: (chunk: string) => void) =>
+  streamPost({
+    path: '/api/v1/admin/ai/reports/chat/stream',
+    body: {
+      message,
+    },
+    admin: true,
+    onChunk,
   });

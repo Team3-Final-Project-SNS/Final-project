@@ -27,6 +27,7 @@ import org.springframework.ai.rag.Query;
 import org.springframework.ai.rag.preretrieval.query.transformation.RewriteQueryTransformer;
 import org.springframework.ai.chat.client.ResponseEntity;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -257,6 +258,128 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                     List.of(),
                     true
             );
+        }
+    }
+
+    /**
+     * 매칭 AI 답변을 SSE 스트리밍으로 생성합니다.
+     *
+     * 일반 chat()과 같은 Rewrite Query, 프롬프트 템플릿, Tool Calling 구성을 사용하지만
+     * 구조화 DTO를 기다리지 않고 답변 본문을 Flux<String>으로 바로 반환합니다.
+     */
+    @Override
+    public Flux<String> streamChat(String email, AiMatchingChatRequestDto request) {
+        String requestId = UUID.randomUUID().toString();
+        long startedAt = System.currentTimeMillis();
+        Long userId = null;
+        Long promptTemplateId = null;
+        String promptVersion = null;
+
+        try {
+            User user = userService.findByEmail(email);
+            userId = user.getId();
+            String rewrittenUserMessage = rewriteQuery(request.message());
+
+            AiPromptFileService.RenderedPrompt prompt = aiPromptFileService.renderWithMetadata(
+                    AiPromptType.MATCHING_CHAT,
+                    Map.of(
+                            "userMessage", request.message(),
+                            "rewrittenUserMessage", rewrittenUserMessage,
+                            "userId", user.getId(),
+                            "universityId", user.getUniversityId(),
+                            "userPoint", user.getTotalPoint(),
+                            "conversationContext", "이전 대화 없음"
+                    )
+            );
+            promptTemplateId = prompt.promptTemplateId();
+            promptVersion = prompt.version();
+            Long metricUserId = userId;
+            Long metricPromptTemplateId = promptTemplateId;
+            String metricPromptVersion = promptVersion;
+
+            return chatClient.prompt()
+                    .system(prompt.content() + """
+
+                            [SSE 스트리밍 응답 규칙]
+                            - 이 요청에서는 JSON이나 Java record 형식으로 답하지 않는다.
+                            - 사용자에게 보여줄 추천 답변 본문만 자연어로 작성한다.
+                            - 추천한 게시글이 있다면 글 ID, 장소, 시간, 책임비를 짧게 포함한다.
+                            """)
+                    .user("""
+                            원 질문:
+                            %s
+
+                            Rewrite Query Transformer가 정리한 검색 조건:
+                            %s
+                            """.formatted(request.message(), rewrittenUserMessage))
+                    .options(OpenAiChatOptions.builder()
+                            .model(aiProperties.getMatching().getModel())
+                            .maxTokens(aiProperties.getMatching().getMaxTokens())
+                            .temperature(aiProperties.getMatching().getTemperature())
+                            .build())
+                    .tools(new AiMatchingSessionTool(aiMatchingTool, email))
+                    .stream()
+                    .content()
+                    .doOnComplete(() -> saveMetric(
+                            requestId,
+                            metricUserId,
+                            startedAt,
+                            AiCallStatus.SUCCESS,
+                            null,
+                            null,
+                            metricPromptTemplateId,
+                            metricPromptVersion,
+                            null,
+                            null,
+                            null
+                    ))
+                    .onErrorResume(e -> {
+                        log.error("[AiMatchingService] 매칭 AI 스트리밍 응답 생성 실패", e);
+                        saveMetric(
+                                requestId,
+                                metricUserId,
+                                startedAt,
+                                AiCallStatus.FALLBACK,
+                                e instanceof Exception exception ? resolveErrorType(exception) : AiErrorType.SERVER_ERROR,
+                                e.getMessage(),
+                                metricPromptTemplateId,
+                                metricPromptVersion,
+                                null,
+                                null,
+                                null
+                        );
+                        return Flux.just("현재 AI 매칭 응답 생성이 원활하지 않습니다. 잠시 후 다시 시도해주세요.");
+                    });
+        } catch (AiException e) {
+            saveMetric(
+                    requestId,
+                    userId,
+                    startedAt,
+                    AiCallStatus.FALLBACK,
+                    AiErrorType.PROMPT_LOAD_ERROR,
+                    e.getMessage(),
+                    promptTemplateId,
+                    promptVersion,
+                    null,
+                    null,
+                    null
+            );
+            return Flux.just("AI 추천 기능을 잠시 사용할 수 없습니다. 대신 모집글 목록에서 직접 조건에 맞는 식사팟을 확인해주세요.");
+        } catch (Exception e) {
+            saveMetric(
+                    requestId,
+                    userId,
+                    startedAt,
+                    AiCallStatus.FALLBACK,
+                    resolveErrorType(e),
+                    e.getMessage(),
+                    promptTemplateId,
+                    promptVersion,
+                    null,
+                    null,
+                    null
+            );
+            return Flux.just("현재 AI 매칭 응답 생성이 원활하지 않습니다. 잠시 후 다시 시도해주세요.");
         }
     }
 

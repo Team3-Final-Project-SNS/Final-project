@@ -1,5 +1,6 @@
 import axiosInstance from "./axiosInstance";
 import { ApiResponse } from "./authApi";
+import { streamPost } from './sseStream';
 
 export interface RecommendedPost {
     postId: number;
@@ -33,3 +34,13 @@ export const requestMatchingChat = (data: MatchingChatRequest) =>
             timeout: AI_MATCHING_CHAT_TIMEOUT_MS,
         }
     );
+
+export const streamMatchingChat = (
+    data: MatchingChatRequest,
+    onChunk: (chunk: string) => void
+) =>
+    streamPost({
+        path: '/api/v1/ai/matching/chat/stream',
+        body: data,
+        onChunk,
+    });

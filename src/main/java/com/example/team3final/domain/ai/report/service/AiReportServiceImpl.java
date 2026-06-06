@@ -29,6 +29,7 @@ import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Flux;
 
 import java.util.List;
 import java.util.Map;
@@ -186,6 +187,97 @@ public class AiReportServiceImpl implements AiReportService {
                 intent == null ? null : intent.clarificationMessage(),
                 "신고 ID를 지정해 분석을 요청하거나, 고위험 유저 조회를 요청해주세요."
         ));
+    }
+
+    /**
+     * 관리자 신고 AI 챗봇 답변을 SSE 스트리밍으로 생성합니다.
+     *
+     * 기존 /chat은 의도 분류 후 구조화 DTO를 반환하고,
+     * 이 메서드는 관리자 화면에서 답변이 실시간으로 표시되도록 자연어 본문만 스트리밍합니다.
+     * 신고 데이터 조회가 필요하면 LLM이 AiReportTool을 직접 호출합니다.
+     */
+    @Override
+    public Flux<String> streamChat(Long adminId, AiReportChatRequestDto request) {
+        validateAdmin(adminId);
+
+        String requestId = UUID.randomUUID().toString();
+        long startedAt = System.currentTimeMillis();
+        Long promptTemplateId = null;
+        String promptVersion = null;
+
+        try {
+            AiPromptFileService.RenderedPrompt prompt = renderPrompt(null, adminId);
+            promptTemplateId = prompt.promptTemplateId();
+            promptVersion = prompt.version();
+            Long metricPromptTemplateId = promptTemplateId;
+            String metricPromptVersion = promptVersion;
+
+            return chatClient
+                    .prompt()
+                    .system(prompt.content() + """
+
+                            [관리자 콘솔 SSE 스트리밍 응답 규칙]
+                            - 이 요청에서는 JSON이나 Java record 형식으로 답하지 않는다.
+                            - 관리자 화면에 바로 보여줄 자연어 답변 본문만 작성한다.
+                            - 특정 신고 분석, 고위험 유저 조회, 신고 정책 안내가 필요하면 Tool 결과와 정책을 근거로 한다.
+                            - AI는 채택, 기각, 포상, 정지, 삭제를 직접 실행하지 않고 관리자 판단을 보조한다고 안내한다.
+                            """)
+                    .user(request.message())
+                    .options(OpenAiChatOptions.builder()
+                            .model(aiProperties.getReport().getModel())
+                            .maxTokens(aiProperties.getReport().getMaxTokens())
+                            .temperature(aiProperties.getReport().getTemperature())
+                            .build())
+                    .tools(aiReportTool)
+                    .stream()
+                    .content()
+                    .doOnComplete(() -> saveMetric(
+                            requestId,
+                            adminId,
+                            startedAt,
+                            AiCallStatus.SUCCESS,
+                            null,
+                            null,
+                            metricPromptTemplateId,
+                            metricPromptVersion,
+                            null,
+                            null,
+                            null
+                    ))
+                    .onErrorResume(e -> {
+                        log.error("[AiReportService] 신고 AI 스트리밍 응답 생성 실패", e);
+                        saveMetric(
+                                requestId,
+                                adminId,
+                                startedAt,
+                                AiCallStatus.FALLBACK,
+                                e instanceof Exception exception ? resolveErrorType(exception) : AiErrorType.SERVER_ERROR,
+                                e.getMessage(),
+                                metricPromptTemplateId,
+                                metricPromptVersion,
+                                null,
+                                null,
+                                null
+                        );
+                        return Flux.just("현재 신고 AI 응답 생성이 원활하지 않습니다. 신고 원문과 누적 이력을 관리자 콘솔에서 직접 확인해주세요.");
+                    });
+        } catch (Exception e) {
+            log.error("[AiReportService] 신고 AI 스트리밍 준비 실패", e);
+            saveMetric(
+                    requestId,
+                    adminId,
+                    startedAt,
+                    AiCallStatus.FALLBACK,
+                    resolveErrorType(e),
+                    e.getMessage(),
+                    promptTemplateId,
+                    promptVersion,
+                    null,
+                    null,
+                    null
+            );
+            return Flux.just("현재 신고 AI 응답 생성이 원활하지 않습니다. 신고 원문과 누적 이력을 관리자 콘솔에서 직접 확인해주세요.");
+        }
     }
 
 
