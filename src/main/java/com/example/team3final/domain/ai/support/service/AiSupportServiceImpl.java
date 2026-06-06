@@ -160,7 +160,7 @@ public class AiSupportServiceImpl implements AiSupportService {
             // RAG 실패는 전체 AI 실패로 보지 않습니다. RAG 컨텍스트만 fallback 문구로 대체하고 LLM/Tool 흐름은 계속 진행합니다.
             AiSupportRagContext ragContext = buildSupportRagContext(request.message(), conversationContext);
 
-            // 활성 프롬프트 템플릿은 DB에서 찾고, 실제 파일은 외부 basePath 또는 classpath prompts에서 읽습니다.
+            // 최신 프롬프트 템플릿은 DB에서 찾고, 실제 파일은 외부 basePath 또는 classpath prompts에서 읽습니다.
             AiPromptFileService.RenderedPrompt prompt = renderPrompt(
                     userId,
                     email,
@@ -292,12 +292,12 @@ public class AiSupportServiceImpl implements AiSupportService {
     /**
      * 고객센터 AI에 사용할 SUPPORT_CHAT 프롬프트를 렌더링합니다.
      *
-     * AiPromptTemplate DB 메타데이터에서 활성 프롬프트 파일을 찾고,
+     * AiPromptTemplate DB 메타데이터에서 최신 프롬프트 파일을 찾고,
      * userId, email, conversationId, conversationContext 값을 치환합니다.
      * 렌더링 결과에는 promptTemplateId와 version도 포함되어 대화 메시지와
      * AiCallMetric에 어떤 프롬프트 버전을 사용했는지 기록할 수 있습니다.
      *
-     * 활성 템플릿이 없거나 파일 로딩에 실패하면 DEFAULT_SUPPORT_PROMPT를 반환해
+     * 최신 템플릿이 없거나 파일 로딩에 실패하면 DEFAULT_SUPPORT_PROMPT를 반환해
      * 고객센터 AI가 완전히 중단되지 않도록 합니다.
      */
     private AiPromptFileService.RenderedPrompt renderPrompt(

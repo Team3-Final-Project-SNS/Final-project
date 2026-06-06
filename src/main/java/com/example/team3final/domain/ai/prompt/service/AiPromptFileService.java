@@ -22,7 +22,7 @@ import java.util.Map;
 /**
  * AI 프롬프트 파일을 조회하고 렌더링하는 서비스입니다.
  *
- * DB의 AiPromptTemplate에서 활성 프롬프트 파일명을 조회한 뒤,
+ * DB의 AiPromptTemplate에서 프롬프트 타입별 최신 파일명을 조회한 뒤,
  * 외부 디렉토리 또는 classpath 리소스에서 프롬프트 파일을 읽어
  * Spring AI PromptTemplate으로 변수 값을 치환합니다.
  *
@@ -44,13 +44,13 @@ public class AiPromptFileService {
     }
 
     /**
-     * 프롬프트 타입에 해당하는 활성 템플릿을 조회하고,
+     * 프롬프트 타입에 해당하는 최신 템플릿을 조회하고,
      * 전달받은 변수 값을 치환하여 최종 프롬프트 문자열을 생성합니다.
      *
      * @param type 프롬프트 용도
      * @param variables 프롬프트 변수 맵
      * @return 변수 치환이 완료된 프롬프트 문자열
-     * @throws AiException 활성 템플릿이 없거나 프롬프트 파일을 읽지 못한 경우
+     * @throws AiException 최신 템플릿이 없거나 프롬프트 파일을 읽지 못한 경우
      */
     public String render(AiPromptType type, Map<String, Object> variables) {
         return renderWithMetadata(type, variables).content();
@@ -63,7 +63,7 @@ public class AiPromptFileService {
      * 기능에서 사용합니다.
      */
     public RenderedPrompt renderWithMetadata(AiPromptType type, Map<String, Object> variables) {
-        AiPromptTemplate promptTemplate = aiPromptTemplateRepository.findByPromptTypeAndActiveTrue(type)
+        AiPromptTemplate promptTemplate = aiPromptTemplateRepository.findFirstByPromptTypeOrderByCreatedAtDescIdDesc(type)
                 .orElseThrow(() -> new AiException(ErrorCode.AI_PROMPT_TEMPLATE_NOT_FOUND));
 
         try {

@@ -409,7 +409,7 @@ public class AiReportServiceImpl implements AiReportService {
     /**
      * 신고 AI 분석에 사용할 REPORT_SUMMARY 프롬프트를 렌더링합니다.
      *
-     * 정상 흐름에서는 DB에 등록된 활성 프롬프트 템플릿과 프롬프트 파일을 읽어
+     * 정상 흐름에서는 DB에 등록된 최신 프롬프트 템플릿과 프롬프트 파일을 읽어
      * reportId, adminId 변수를 주입한 최종 system prompt를 생성합니다.
      *
      * 프롬프트 템플릿이 없거나 파일을 읽지 못하면 DEFAULT_REPORT_PROMPT를 반환하여
