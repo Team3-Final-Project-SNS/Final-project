@@ -1,21 +1,20 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Utensils, QrCode, Shield, User, Users } from 'lucide-react';
-import { logout } from '../../api/authApi';
+import { logout } from '@/api/authApi';
+import { getAccessToken, clearAccessToken } from '@/api/axiosInstance';
 
 export default function HomePage() {
-  const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(sessionStorage.getItem('accessToken')));
+  const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(getAccessToken()));
 
   useEffect(() => {
     const syncLoginState = () => {
-      setIsLoggedIn(Boolean(sessionStorage.getItem('accessToken')));
+      setIsLoggedIn(Boolean(getAccessToken()));
     };
 
-    window.addEventListener('storage', syncLoginState);
     window.addEventListener('focus', syncLoginState);
 
     return () => {
-      window.removeEventListener('storage', syncLoginState);
       window.removeEventListener('focus', syncLoginState);
     };
   }, []);
@@ -26,7 +25,7 @@ export default function HomePage() {
     } catch (err) {
       console.error('Logout request failed', err);
     } finally {
-      sessionStorage.removeItem('accessToken');
+      clearAccessToken();
       setIsLoggedIn(false);
     }
   };
