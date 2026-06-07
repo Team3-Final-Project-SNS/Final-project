@@ -15,7 +15,6 @@ import com.example.team3final.domain.ai.rag.service.AiRagRetrieverService;
 import com.example.team3final.domain.ai.support.dto.request.AiSupportChatRequestDto;
 import com.example.team3final.domain.ai.support.dto.response.AiSupportChatResponseDto;
 import com.example.team3final.domain.ai.support.dto.response.AiSupportLlmResult;
-import com.example.team3final.domain.ai.support.dto.response.AiSupportSessionTokenStatsDto;
 import com.example.team3final.domain.ai.support.entity.AiSupportChatMemory;
 import com.example.team3final.domain.ai.support.entity.AiSupportChatMessage;
 import com.example.team3final.domain.ai.support.enums.AiSupportCategory;
@@ -680,25 +679,6 @@ public class AiSupportServiceImpl implements AiSupportService {
         }
     }
 
-    @Override
-    @Transactional
-    public List<AiSupportSessionTokenStatsDto> getSessionTokenStats(Long userId) {
-        cleanupExpiredSupportSessions();
-
-        return aiSupportChatMemoryRepository.findSessionTokenStatsByUserId(userId)
-                .stream()
-                .map(stats -> new AiSupportSessionTokenStatsDto(
-                        stats.getConversationId(),
-                        defaultLong(stats.getMessageCount()),
-                        defaultLong(stats.getEstimatedTokenTotal()),
-                        SUPPORT_MEMORY_TOKEN_BUDGET,
-                        SUPPORT_SESSION_EXPIRE_MINUTES,
-                        "최근 대화부터 3000 추정 토큰 이하만 LLM에 전달합니다. 고객센터 1턴 평균 300토큰 기준 약 10턴 맥락을 유지하기 위한 설정입니다.",
-                        stats.getLastMessageAt()
-                ))
-                .toList();
-    }
-
     private String resolveConversationId(String conversationId) {
         return conversationId == null || conversationId.isBlank()
                 ? UUID.randomUUID().toString()
@@ -726,10 +706,6 @@ public class AiSupportServiceImpl implements AiSupportService {
         int completionTokens = estimateTokenCount(answer);
 
         return new TokenUsage(promptTokens, completionTokens, promptTokens + completionTokens);
-    }
-
-    private long defaultLong(Long value) {
-        return value == null ? 0L : value;
     }
 
     /**

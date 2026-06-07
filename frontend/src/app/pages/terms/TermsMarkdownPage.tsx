@@ -1,4 +1,5 @@
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Link } from 'react-router';
 
 type TermsMarkdownPageProps = {
@@ -23,18 +24,20 @@ export default function TermsMarkdownPage({ title, content }: TermsMarkdownPageP
           </Link>
         </div>
 
-        <ReactMarkdown
-          className="space-y-4 text-[15px] leading-8 text-[#424242] [&_h1]:mb-6 [&_h1]:text-3xl [&_h1]:font-extrabold [&_h1]:text-[#212121] [&_h2]:mb-3 [&_h2]:mt-8 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-[#212121] [&_h3]:mb-2 [&_h3]:mt-6 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-[#212121] [&_li]:ml-5 [&_li]:list-disc [&_ol>li]:list-decimal [&_p]:my-3 [&_strong]:font-bold [&_strong]:text-[#212121] [&_ul]:space-y-2"
-          components={{
-            a: ({ children, href }) => (
-              <a className="font-semibold text-[#d84315] underline" href={href}>
-                {children}
-              </a>
-            ),
-          }}
-        >
-          {content}
-        </ReactMarkdown>
+        <div className="space-y-4 text-[15px] leading-8 text-[#424242] [&_h1]:mb-6 [&_h1]:text-3xl [&_h1]:font-extrabold [&_h1]:text-[#212121] [&_h2]:mb-3 [&_h2]:mt-8 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-[#212121] [&_h3]:mb-2 [&_h3]:mt-6 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-[#212121] [&_li]:ml-5 [&_li]:list-disc [&_ol>li]:list-decimal [&_p]:my-3 [&_strong]:font-bold [&_strong]:text-[#212121] [&_ul]:space-y-2">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: ({ children, href }) => (
+                <a className="font-semibold text-[#d84315] underline" href={href}>
+                  {children}
+                </a>
+              ),
+            }}
+          >
+            {content}
+          </ReactMarkdown>
+        </div>
       </section>
     </main>
   );

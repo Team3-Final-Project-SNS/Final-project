@@ -1,20 +1,15 @@
 package com.example.team3final.domain.ai.report.controller;
 
 
-import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.domain.admin.security.AdminDetailsImpl;
 import com.example.team3final.domain.ai.report.dto.request.AiReportChatRequestDto;
-import com.example.team3final.domain.ai.report.dto.response.AiReportSessionTokenStatsDto;
 import com.example.team3final.domain.ai.report.service.AiReportService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
-
-import java.util.List;
 
 /**
  * 관리자용 신고 AI 분석 API 컨트롤러입니다.
@@ -54,18 +49,5 @@ public class AiReportController {
             @Valid @RequestBody AiReportChatRequestDto request
     ) {
         return aiReportService.streamChat(adminDetails.getAdminId(), request);
-    }
-
-    /**
-     * 로그인 관리자의 관리자 AI 대화 세션별 토큰 누적량을 조회합니다.
-     */
-    @GetMapping("/sessions/token-dashboard")
-    public ResponseEntity<ApiResponseDto<List<AiReportSessionTokenStatsDto>>> getSessionTokenDashboard(
-            @AuthenticationPrincipal AdminDetailsImpl adminDetails
-    ) {
-        List<AiReportSessionTokenStatsDto> response =
-                aiReportService.getSessionTokenStats(adminDetails.getAdminId());
-
-        return ResponseEntity.ok(ApiResponseDto.success(response));
     }
 }

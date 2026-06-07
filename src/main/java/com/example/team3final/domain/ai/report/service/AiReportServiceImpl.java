@@ -1255,25 +1255,6 @@ public class AiReportServiceImpl implements AiReportService {
         }
     }
 
-    @Override
-    @Transactional
-    public List<AiReportSessionTokenStatsDto> getSessionTokenStats(Long adminId) {
-        cleanupExpiredReportSessions();
-
-        return aiReportChatMemoryRepository.findSessionTokenStatsByAdminId(adminId)
-                .stream()
-                .map(stats -> new AiReportSessionTokenStatsDto(
-                        stats.getConversationId(),
-                        defaultLong(stats.getMessageCount()),
-                        defaultLong(stats.getEstimatedTokenTotal()),
-                        REPORT_MEMORY_TOKEN_BUDGET,
-                        REPORT_SESSION_EXPIRE_MINUTES,
-                        "최근 대화부터 3000 추정 토큰 이하만 LLM에 전달합니다. 관리자 AI 1턴 평균 300토큰 기준 약 10턴 맥락을 유지하기 위한 설정입니다.",
-                        stats.getLastMessageAt()
-                ))
-                .toList();
-    }
-
     private String resolveConversationId(String conversationId) {
         return conversationId == null || conversationId.isBlank()
                 ? UUID.randomUUID().toString()
@@ -1301,10 +1282,6 @@ public class AiReportServiceImpl implements AiReportService {
         int completionTokens = estimateTokenCount(answer);
 
         return new TokenUsage(promptTokens, completionTokens, promptTokens + completionTokens);
-    }
-
-    private long defaultLong(Long value) {
-        return value == null ? 0L : value;
     }
 
     /**

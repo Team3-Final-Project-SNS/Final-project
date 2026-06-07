@@ -28,31 +28,9 @@ public interface AiSupportChatMemoryRepository extends JpaRepository<AiSupportCh
             """)
     List<ExpiredConversationKey> findExpiredConversationKeys(@Param("cutoff") LocalDateTime cutoff);
 
-    @Query("""
-            select m.conversationId as conversationId,
-                   count(m.id) as messageCount,
-                   coalesce(sum(m.tokenCount), 0) as estimatedTokenTotal,
-                   max(m.createdAt) as lastMessageAt
-            from AiSupportChatMemory m
-            where m.userId = :userId
-            group by m.conversationId
-            order by max(m.createdAt) desc
-            """)
-    List<SessionTokenStats> findSessionTokenStatsByUserId(@Param("userId") Long userId);
-
     interface ExpiredConversationKey {
         Long getUserId();
 
         String getConversationId();
-    }
-
-    interface SessionTokenStats {
-        String getConversationId();
-
-        Long getMessageCount();
-
-        Long getEstimatedTokenTotal();
-
-        LocalDateTime getLastMessageAt();
     }
 }

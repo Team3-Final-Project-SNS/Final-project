@@ -28,31 +28,9 @@ public interface AiReportChatMemoryRepository extends JpaRepository<AiReportChat
             """)
     List<ExpiredConversationKey> findExpiredConversationKeys(@Param("cutoff") LocalDateTime cutoff);
 
-    @Query("""
-            select m.conversationId as conversationId,
-                   count(m.id) as messageCount,
-                   coalesce(sum(m.tokenCount), 0) as estimatedTokenTotal,
-                   max(m.createdAt) as lastMessageAt
-            from AiReportChatMemory m
-            where m.adminId = :adminId
-            group by m.conversationId
-            order by max(m.createdAt) desc
-            """)
-    List<SessionTokenStats> findSessionTokenStatsByAdminId(@Param("adminId") Long adminId);
-
     interface ExpiredConversationKey {
         Long getAdminId();
 
         String getConversationId();
-    }
-
-    interface SessionTokenStats {
-        String getConversationId();
-
-        Long getMessageCount();
-
-        Long getEstimatedTokenTotal();
-
-        LocalDateTime getLastMessageAt();
     }
 }
