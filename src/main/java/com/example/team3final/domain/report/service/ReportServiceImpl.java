@@ -185,17 +185,9 @@ public class ReportServiceImpl implements ReportService {
         // case 3: 3일 정지 / case 4: 10일 정지 / case 5: 30일 정지
         // default(6회 이상): 영구 정지
         switch (acceptedCount) {
-            case 1 -> notificationPublisher.sendAccountSuspended(
-                    report.getTargetId(),  // userId (Long)
-                    "서비스 이용 경고",      // title (String)
-                    "신고가 채택되었습니다. 서비스 이용 규정을 준수해 주세요." // content (String)
-            );
+            case 1 -> notificationPublisher.sendPostWarned1(report.getTargetId());
 
-            case 2 -> notificationPublisher.sendAccountSuspended(
-                    report.getTargetId(),  // userId (Long)
-                    "서비스 이용 경고",      // title (String)
-                    "두 번째 경고입니다. 재발 시 계정이 정지될 수 있습니다." // content (String)
-            );
+            case 2 -> notificationPublisher.sendPostWarned2(report.getTargetId());
 
             case 3 -> {
                 userService.suspendUser(report.getTargetId(), 3);
