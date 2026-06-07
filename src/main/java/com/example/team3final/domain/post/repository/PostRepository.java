@@ -95,6 +95,13 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             Pageable pageable
     );
 
+    // 만료 처리 전 대상 게시글 조회 (알림 발송용)
+    // 벌크 UPDATE는 어떤 게시글이 바뀌었는지 알 수 없으므로 UPDATE 전에 따로 조회
+    List<Post> findByStatusAndMeetAtBeforeAndDeletedAtIsNull(
+            PostStatus status,
+            LocalDateTime now
+    );
+
     /**
      * 만료 벌크 업데이트
      *
