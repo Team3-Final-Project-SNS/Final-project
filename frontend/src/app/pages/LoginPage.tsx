@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { School, HandHeart, Lock } from 'lucide-react';
-import { login } from '../../api/authApi';
+import { login } from '@/api/authApi';
+import { setAccessToken, clearAccessToken } from '@/api/axiosInstance';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -22,7 +23,11 @@ export default function LoginPage() {
       sessionStorage.removeItem("adminId");
       sessionStorage.removeItem("adminName");
       sessionStorage.removeItem("adminRole");
-      sessionStorage.setItem("accessToken", accessToken);
+      // sessionStorage -> 메모리 저장
+      // clearAccessToken: 이전 유저 토큰이 혹시 남아있으면 먼저 비우기
+      // setAccessToken: axiosInstance 모듈 변수에 저장 → 탭이 살아있는 동안 유지
+      clearAccessToken();
+      setAccessToken(accessToken);
 
       navigate('/');
     } catch (err: any) {

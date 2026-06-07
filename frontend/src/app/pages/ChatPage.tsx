@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useLocation } from 'react-router';
 import { ArrowLeft, Send, MapPin, Loader2, AlertCircle, Clock } from 'lucide-react';
-import { getChatMessages, ChatMessageResponse, getChatRooms } from '../../api/chatApi';
-import { getMatchDetail, GetMatchResponse } from '../../api/matchApi';
-import { createMeetExtension } from '../../api/meetApi';
-import { getUserMe } from '../../api/userApi';
+import { getChatMessages, ChatMessageResponse, getChatRooms } from '@/api/chatApi';
+import { getMatchDetail, GetMatchResponse } from '@/api/matchApi';
+import { createMeetExtension } from '@/api/meetApi';
+import { getUserMe } from '@/api/userApi';
 import SockJS from 'sockjs-client';
 import { Client } from '@stomp/stompjs';
+import { getAccessToken } from '@/api/axiosInstance';
 
 const formatMessageDate = (value: string) =>
     new Date(value).toLocaleDateString('ko-KR', {
@@ -108,7 +109,8 @@ export default function ChatPage() {
   useEffect(() => {
     if (!chatRoomId) return;
 
-    const accessToken = sessionStorage.getItem("accessToken");
+    // sessionStorage → 메모리에서 토큰 꺼내기
+    const accessToken = getAccessToken();
     if (!accessToken) {
       setConnected(false);
       setError('로그인이 필요합니다. 다시 로그인해주세요.');
