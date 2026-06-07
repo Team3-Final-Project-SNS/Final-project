@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router';
-import { ArrowLeft, CheckCircle2, Eye, Loader2, X, XCircle } from 'lucide-react';
+import { useSearchParams } from 'react-router';
+import { CheckCircle2, Eye, Loader2, X, XCircle } from 'lucide-react';
 import { AdminReportItem, getAdminReport, getAdminReports, processAdminReport } from '../../api/adminReportApi';
 import { ReportStatus } from '../../api/reportApi';
-import AdminFloatingChatbot from '../components/AdminFloatingChatbot';
 
 const filters: ('ALL' | ReportStatus)[] = ['ALL', 'PENDING', 'ACCEPTED', 'REJECTED', 'WITHDRAWN'];
 
 export default function AdminReportsPage() {
+  const [searchParams] = useSearchParams();
+  const requestedReportId = Number(searchParams.get('reportId'));
   const [reports, setReports] = useState<AdminReportItem[]>([]);
   const [filter, setFilter] = useState<'ALL' | ReportStatus>('PENDING');
   const [loading, setLoading] = useState(true);
@@ -32,6 +33,12 @@ export default function AdminReportsPage() {
   useEffect(() => {
     loadReports();
   }, [filter]);
+
+  useEffect(() => {
+    if (Number.isInteger(requestedReportId) && requestedReportId > 0) {
+      handleOpenDetail(requestedReportId);
+    }
+  }, [requestedReportId]);
 
   const handleProcess = async (reportId: number, status: 'ACCEPTED' | 'REJECTED') => {
     const comment = prompt(status === 'ACCEPTED' ? '채택 사유를 입력하세요.' : '기각 사유를 입력하세요.') || '';
@@ -206,15 +213,10 @@ function AdminShell({ title, description, children }: { title: string; descripti
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#fff7ed] via-[#f7fbff] to-[#eaf7f1]">
       <main className="mx-auto max-w-screen-lg px-4 py-10">
-        <Link to="/admin" className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-[#616161] hover:text-[#d84315]">
-          <ArrowLeft size={16} />
-          관리자 콘솔
-        </Link>
         <h1 className="text-3xl font-bold text-[#212121]">{title}</h1>
         <p className="mb-6 mt-2 text-sm text-[#757575]">{description}</p>
         {children}
       </main>
-      <AdminFloatingChatbot />
     </div>
   );
 }

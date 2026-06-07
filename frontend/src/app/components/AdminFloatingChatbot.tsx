@@ -20,6 +20,7 @@ type FloatingChatbotProps = {
   showAdminHat?: boolean;
   useAiReportApi?: boolean;
   useAiSupportApi?: boolean;
+  embedded?: boolean;
 };
 
 export default function AdminFloatingChatbot({
@@ -32,8 +33,9 @@ export default function AdminFloatingChatbot({
   showAdminHat = true,
   useAiReportApi = true,
   useAiSupportApi = false,
+  embedded = false,
 }: FloatingChatbotProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(embedded);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -209,9 +211,13 @@ export default function AdminFloatingChatbot({
   };
 
   return (
-    <div className="fixed bottom-24 right-6 z-[80]">
+    <div className={embedded ? 'w-full' : 'fixed bottom-24 right-6 z-[80]'}>
       {isOpen && (
-        <section className="mb-6 w-[min(520px,calc(100vw-32px))] overflow-hidden rounded-[34px] border border-[#f0e1d2] bg-[#fffaf4] shadow-2xl">
+        <section className={
+          embedded
+            ? 'w-full overflow-hidden rounded-3xl border border-[#f0e1d2] bg-[#fffaf4] shadow-sm'
+            : 'mb-6 w-[min(520px,calc(100vw-32px))] overflow-hidden rounded-[34px] border border-[#f0e1d2] bg-[#fffaf4] shadow-2xl'
+        }>
           <div className="flex items-center justify-between border-b border-[#f2e4d6] px-7 py-6">
             <div className="flex items-center gap-4">
               <RiceMascot showAdminHat={showAdminHat} />
@@ -220,14 +226,16 @@ export default function AdminFloatingChatbot({
                 <p className="text-sm font-semibold text-[#9a7a62]">{subtitle}</p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#8d6e63] shadow-sm transition-colors hover:bg-[#fff3e0] hover:text-[#d84315]"
-              aria-label="챗봇 닫기"
-            >
-              <X size={26} />
-            </button>
+            {!embedded && (
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#8d6e63] shadow-sm transition-colors hover:bg-[#fff3e0] hover:text-[#d84315]"
+                aria-label="챗봇 닫기"
+              >
+                <X size={26} />
+              </button>
+            )}
           </div>
 
           <div className="bg-[#fffaf4] p-6">
@@ -242,7 +250,7 @@ export default function AdminFloatingChatbot({
                 </div>
               </div>
 
-              <div className="max-h-[420px] min-h-72 space-y-4 overflow-y-auto pr-1">
+              <div className={`${embedded ? 'max-h-[50vh] min-h-[420px]' : 'max-h-[420px] min-h-72'} space-y-4 overflow-y-auto pr-1`}>
                 {messages.map((message) => (
                   <div
                     key={message.id}
@@ -290,14 +298,16 @@ export default function AdminFloatingChatbot({
         </section>
       )}
 
-      <button
-        type="button"
-        onClick={() => setIsOpen((prev) => !prev)}
-        className="flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-2xl ring-1 ring-[#f0e1d2] transition-transform hover:scale-105"
-        aria-label={isOpen ? '챗봇 닫기' : '챗봇 열기'}
-      >
-        {isOpen ? <X size={38} className="text-[#6d5a50]" /> : <RiceMascot size="large" showAdminHat={showAdminHat} />}
-      </button>
+      {!embedded && (
+        <button
+          type="button"
+          onClick={() => setIsOpen((prev) => !prev)}
+          className="flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-2xl ring-1 ring-[#f0e1d2] transition-transform hover:scale-105"
+          aria-label={isOpen ? '챗봇 닫기' : '챗봇 열기'}
+        >
+          {isOpen ? <X size={38} className="text-[#6d5a50]" /> : <RiceMascot size="large" showAdminHat={showAdminHat} />}
+        </button>
+      )}
     </div>
   );
 }
@@ -337,7 +347,7 @@ function formatChatContent(content: string) {
     .trimStart();
 }
 
-function RiceMascot({ size = 'default', showAdminHat = false }: { size?: 'default' | 'small' | 'large' | 'tiny'; showAdminHat?: boolean }) {
+export function RiceMascot({ size = 'default', showAdminHat = false }: { size?: 'default' | 'small' | 'large' | 'tiny'; showAdminHat?: boolean }) {
   const isSmall = size === 'small';
   const isLarge = size === 'large';
   const isTiny = size === 'tiny';

@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router';
-import { ArrowLeft, Loader2, Search, Users } from 'lucide-react';
+import { Loader2, Search, Users } from 'lucide-react';
 import { AdminUserItem, AdminUserStatus, getAdminUsers } from '../../api/adminUserApi';
 import { getUniversities, UniversityResponse } from '../../api/univApi';
-import AdminFloatingChatbot from '../components/AdminFloatingChatbot';
 
 const statusLabels: Record<AdminUserStatus, string> = {
   ACTIVE: '활성',
@@ -190,10 +188,6 @@ function AdminPageShell({ title, description, children }: { title: string; descr
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#fff7ed] via-[#f7fbff] to-[#eaf7f1]">
       <main className="mx-auto max-w-screen-lg px-4 py-10">
-        <Link to="/admin" className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-[#616161] hover:text-[#d84315]">
-          <ArrowLeft size={16} />
-          관리자 콘솔
-        </Link>
         <div className="mb-6 flex items-center gap-3">
           <Users className="text-[#d84315]" size={28} />
           <div>
@@ -203,7 +197,6 @@ function AdminPageShell({ title, description, children }: { title: string; descr
         </div>
         {children}
       </main>
-      <AdminFloatingChatbot />
     </div>
   );
 }

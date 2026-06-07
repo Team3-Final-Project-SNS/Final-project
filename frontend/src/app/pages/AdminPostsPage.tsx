@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router';
-import { AlertCircle, ArrowLeft, Eye, FileText, Loader2, Search, Trash2, X } from 'lucide-react';
+import { AlertCircle, Eye, FileText, Loader2, Search, Trash2, X } from 'lucide-react';
 import { deleteAdminPost, getAdminPost, getAdminPosts, AdminPostDetail, AdminPostItem } from '../../api/adminPostApi';
 import { PostStatus } from '../../api/postApi';
 import { getUniversities, UniversityResponse } from '../../api/univApi';
-import AdminFloatingChatbot from '../components/AdminFloatingChatbot';
 
 const statusLabels: Record<PostStatus, string> = {
   OPEN: '모집중',
@@ -143,11 +141,6 @@ export default function AdminPostsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#fff7ed] via-[#f7fbff] to-[#eaf7f1]">
       <main className="mx-auto max-w-screen-lg px-4 py-10">
-        <Link to="/admin" className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-[#616161] hover:text-[#d84315]">
-          <ArrowLeft size={16} />
-          관리자 콘솔
-        </Link>
-
         <div className="mb-6 flex items-center gap-3">
           <FileText className="text-[#d84315]" size={28} />
           <div>
@@ -335,7 +328,6 @@ export default function AdminPostsPage() {
           onDelete={handleDelete}
         />
       )}
-      <AdminFloatingChatbot />
     </div>
   );
 }

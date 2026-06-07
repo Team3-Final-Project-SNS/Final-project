@@ -1,0 +1,59 @@
+import { NotificationResponse } from '../api/notificationApi';
+
+export const getNotificationTargetPath = (notification: NotificationResponse) => {
+  const { type, domain, relatedId } = notification;
+
+  if (type === 'CHAT_MEMBER_LEFT') {
+    return null;
+  }
+
+  if (relatedId) {
+    switch (type) {
+      case 'DISPUTE_SUBMITTED':
+        return `/admin/disputes?disputeId=${relatedId}`;
+      case 'REPORT_SUBMITTED':
+        return `/admin/reports?reportId=${relatedId}`;
+      case 'INQUIRY_SUBMITTED':
+        return `/admin/inquiries?inquiryId=${relatedId}`;
+      case 'PLACE_VERIFIED':
+        return `/matches/${relatedId}/place-verification`;
+      case 'MEET_COMPLETED':
+      case 'REVIEW_DEADLINE_REMINDER':
+        return `/matches?filter=COMPLETED&reviewMatchId=${relatedId}`;
+      case 'PAYMENT_SUCCESS':
+      case 'PAYMENT_FAILED':
+      case 'PAYMENT_CANCEL_SUCCESS':
+      case 'PAYMENT_CANCEL_FAILED':
+        return `/payments?paymentId=${relatedId}`;
+      case 'INQUIRY_ANSWERED':
+        return `/me/inquiries?inquiryId=${relatedId}`;
+      case 'REPORT_REWARD':
+      case 'REPORT_REJECTED':
+        return `/me/reports?reportId=${relatedId}`;
+      case 'POST_DELETED':
+        return `/posts/${relatedId}/delete-reason`;
+    }
+  }
+
+  switch (domain) {
+    case 'POST':
+      return relatedId ? `/posts/${relatedId}` : '/posts';
+    case 'MATCH':
+    case 'MEET':
+      return relatedId ? `/matches/${relatedId}` : '/matches';
+    case 'CHAT':
+      return relatedId ? `/chat/${relatedId}` : '/matches';
+    case 'POINT':
+      return '/me/points';
+    case 'REPORT':
+      return '/me/reports';
+    case 'DISPUTE':
+      return '/me/matches';
+    case 'INQUIRY':
+      return '/me/inquiries';
+    case 'ACCOUNT':
+    case 'SYSTEM':
+    default:
+      return '/me';
+  }
+};

@@ -1,9 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Link } from 'react-router';
-import { ArrowLeft, FileQuestion } from 'lucide-react';
-import AdminFloatingChatbot from '../components/AdminFloatingChatbot';
+import { FileQuestion } from 'lucide-react';
 import faqContent from '../../assets/terms/FAQ.md?raw';
 
 type FaqSection = {
@@ -29,11 +27,6 @@ export default function AdminFaqPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#fff7ed] via-[#f7fbff] to-[#eaf7f1]">
       <main className="mx-auto max-w-screen-lg px-4 py-10">
-        <Link to="/admin" className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-[#616161] hover:text-[#d84315]">
-          <ArrowLeft size={16} />
-          관리자 콘솔
-        </Link>
-
         <section className="overflow-hidden rounded-2xl border border-[#e0e0e0] bg-white shadow-sm">
           <div className="border-b border-[#eeeeee] px-7 py-6">
             <div className="flex items-center gap-4">
@@ -41,8 +34,7 @@ export default function AdminFaqPage() {
                 <FileQuestion className="text-[#d84315]" size={30} />
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#d84315]">관리자 콘솔</p>
-                <h1 className="mt-1 text-3xl font-bold text-[#212121]">FAQ</h1>
+                <h1 className="text-3xl font-bold text-[#212121]">FAQ</h1>
                 <p className="mt-2 text-sm leading-6 text-[#757575]">
                   사용자 응대와 운영 안내에 활용할 자주 묻는 질문입니다.
                 </p>
@@ -120,7 +112,6 @@ export default function AdminFaqPage() {
           </div>
         </section>
       </main>
-      <AdminFloatingChatbot />
     </div>
   );
 }

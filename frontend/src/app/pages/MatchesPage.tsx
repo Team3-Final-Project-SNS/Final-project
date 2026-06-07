@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { MapPin, Clock, MessageCircle, AlertCircle, Loader2, XCircle, Star, Check } from 'lucide-react';
 import { getMyMatches, GetMatchesItemResponse, MatchStatus, updateMatchCancel } from '../../api/matchApi';
@@ -58,11 +58,17 @@ type DisplayMatch = GetMatchesItemResponse & {
 
 export default function MatchesPage() {
   const [searchParams] = useSearchParams();
+  const requestedReviewMatchId = Number(searchParams.get('reviewMatchId'));
+  const reviewRequestHandledRef = useRef(false);
   const [matches, setMatches] = useState<GetMatchesItemResponse[]>([]);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [writtenReviews, setWrittenReviews] = useState<Record<number, WrittenReview>>({});
   const [activeFilter, setActiveFilter] = useState<FilterStatus>(
-      searchParams.get('filter') === 'NO_SHOW' ? 'NO_SHOW' : '전체'
+      searchParams.get('filter') === 'NO_SHOW'
+          ? 'NO_SHOW'
+          : searchParams.get('filter') === 'COMPLETED'
+              ? 'COMPLETED'
+              : '전체'
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -112,11 +118,31 @@ export default function MatchesPage() {
           const reviewEntries = reviewRes.data.data.content
             .filter((review) => completedMatchIds.has(review.matchId) && review.writerId === userId)
             .map((review) => [review.matchId, review] as const);
+          const nextWrittenReviews = Object.fromEntries(reviewEntries);
 
           setWrittenReviews((prev) => ({
             ...prev,
-            ...Object.fromEntries(reviewEntries),
+            ...nextWrittenReviews,
           }));
+
+          if (
+              !reviewRequestHandledRef.current &&
+              Number.isInteger(requestedReviewMatchId) &&
+              requestedReviewMatchId > 0
+          ) {
+            const requestedMatch = completedMatches.find(
+                (match) => match.matchId === requestedReviewMatchId,
+            );
+            const writtenReview = nextWrittenReviews[requestedReviewMatchId];
+
+            if (writtenReview) {
+              setReviewViewer(writtenReview);
+              reviewRequestHandledRef.current = true;
+            } else if (requestedMatch) {
+              setReviewTarget(requestedMatch);
+              reviewRequestHandledRef.current = true;
+            }
+          }
         }
       } catch (err: any) {
         setError('매칭 내역을 불러오는데 실패했습니다.');
@@ -126,7 +152,7 @@ export default function MatchesPage() {
       }
     };
     fetchMatches();
-  }, [activeFilter, page, currentUserId]);
+  }, [activeFilter, page, currentUserId, requestedReviewMatchId]);
 
   const toggleGoodTag = (tag: ReviewGoodTag) => {
     setSelectedBadTags([]);
@@ -301,6 +327,12 @@ export default function MatchesPage() {
                           </div>
 
                           <div className="flex gap-2">
+                            <Link
+                                to={`/matches/${match.matchId}`}
+                                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white border border-[#e0e0e0] rounded-lg text-sm font-semibold text-[#616161] hover:border-[#d84315] hover:text-[#d84315] transition-colors"
+                            >
+                              상세 보기
+                            </Link>
                             {(match.status === 'MATCHED' || match.status === 'DISPUTED') && (
                                 <>
                                   <Link
