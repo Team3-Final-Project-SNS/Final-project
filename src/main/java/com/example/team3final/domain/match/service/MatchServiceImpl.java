@@ -469,6 +469,11 @@ public class MatchServiceImpl implements MatchService{
             // 채팅방 상태 ACTIVE 유지 — 취소한 신청자만 ChatMember에서 제거
             // 나머지 참여자(HOST + 다른 GUEST)는 계속 채팅 이용 가능
             chatService.removeChatMember(match.getPostId(), userId);
+
+            Long chatRoomId = chatService.getChatRoomIdByPostId(match.getPostId());
+            // 15. 그룹 채팅방 신청자 퇴장 알림 - 등록자에게만
+            notificationPublisher.sendChatMemberLeft(post.getAuthorId(), chatRoomId);
+
         } else {
 
             // HOST(등록자) 취소 — 게시글 CANCELLED + 채팅방 완전 비활성화
