@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router';
 import { User, Bell, Sparkles } from 'lucide-react';
-import { getUserMe } from '../../api/userApi';
+import { getUserMe } from '@/api/userApi';
+import { getAccessToken } from '@/api/axiosInstance';
 import {
   getNotifications,
   getUnreadNotificationCount,
   markAllNotificationsRead,
   NotificationResponse,
-} from '../../api/notificationApi';
+} from '@/api/notificationApi';
 
 export default function Layout() {
   const location = useLocation();
@@ -23,7 +24,8 @@ export default function Layout() {
 
   useEffect(() => {
     const fetchMyPoint = async () => {
-      if (!sessionStorage.getItem('accessToken')) {
+      // sessionStorage → 메모리에서 토큰 확인
+      if (!getAccessToken()) {
         setPoint(null);
         setUnreadCount(0);
         return;
@@ -54,7 +56,7 @@ export default function Layout() {
     const nextOpen = !notificationOpen;
     setNotificationOpen(nextOpen);
 
-    if (!nextOpen || !sessionStorage.getItem('accessToken')) {
+    if (!nextOpen || !getAccessToken()) {
       return;
     }
 
