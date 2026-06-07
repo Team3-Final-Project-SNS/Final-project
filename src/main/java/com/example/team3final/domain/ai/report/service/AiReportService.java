@@ -4,6 +4,7 @@ import com.example.team3final.domain.ai.report.dto.request.AiReportChatRequestDt
 import com.example.team3final.domain.ai.report.dto.response.AiReportAnalysisResponseDto;
 import com.example.team3final.domain.ai.report.dto.response.AiReportChatResponseDto;
 import com.example.team3final.domain.ai.report.dto.response.AiReportHighRiskUsersResponseDto;
+import reactor.core.publisher.Flux;
 
 /**
  * 신고 AI 기능의 서비스 계약입니다.
@@ -14,6 +15,11 @@ import com.example.team3final.domain.ai.report.dto.response.AiReportHighRiskUser
 public interface AiReportService {
 
     AiReportChatResponseDto chat(Long adminId, AiReportChatRequestDto request);
+
+    /**
+     * 관리자 신고 AI 챗봇 답변을 SSE 스트리밍으로 생성합니다.
+     */
+    Flux<String> streamChat(Long adminId, AiReportChatRequestDto request);
 
     AiReportAnalysisResponseDto analyzeReport(Long adminId, Long reportId);
 

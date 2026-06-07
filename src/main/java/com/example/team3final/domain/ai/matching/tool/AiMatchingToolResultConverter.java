@@ -12,8 +12,8 @@ import java.util.List;
  * AiMatchingTool이 반환한 AiMatchingPostToolResult 또는 후보 목록을
  * 장소, 시간, 책임비, 신청 가능 여부, 포인트 충족 여부가 포함된 문자열로 변환합니다.
  *
- * 변환된 문자열은 프롬프트의 candidatePosts 영역에 주입되어,
- * LLM이 제공된 후보 안에서만 추천하고 신청 가능 여부를 잘못 판단하지 않도록 돕습니다.
+ * 변환된 문자열은 LLM Tool Calling 결과로 전달되어,
+ * LLM이 Tool 후보 안에서만 추천하고 신청 가능 여부를 잘못 판단하지 않도록 돕습니다.
  */
 public class AiMatchingToolResultConverter implements ToolCallResultConverter {
 

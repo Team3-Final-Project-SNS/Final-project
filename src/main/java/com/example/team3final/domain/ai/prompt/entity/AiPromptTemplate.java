@@ -59,7 +59,7 @@ public class AiPromptTemplate extends BaseTimeEntity {
     /**
      * 외부 프롬프트 파일명입니다.
      * base-path와 조합해서 실제 파일을 읽습니다.
-     * 예: matching-chat-v2.st
+     * 예: matching-chat-v1.st
      */
     @Column(name = "file_name", nullable = false, length = 255)
     private String fileName;

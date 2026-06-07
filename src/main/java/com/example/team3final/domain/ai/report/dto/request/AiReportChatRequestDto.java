@@ -9,6 +9,8 @@ import jakarta.validation.constraints.NotBlank;
  * 신고 분석 또는 고위험 유저 조회 중 어떤 기능을 실행할지 판단하는 데 사용합니다.
  */
 public record AiReportChatRequestDto(
+        String conversationId,
+
         @NotBlank(message = "메시지는 필수입니다.")
         String message
 ) {

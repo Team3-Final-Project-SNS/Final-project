@@ -1,5 +1,6 @@
 import axiosInstance from './axiosInstance';
 import { ApiResponse } from './authApi';
+import { streamPost } from './sseStream';
 
 export type AiSupportCategory =
   | 'MATCH'
@@ -34,3 +35,17 @@ export const chatAiSupport = (message: string, conversationId?: string | null) =
       timeout: AI_SUPPORT_CHAT_TIMEOUT_MS,
     },
   );
+
+export const streamAiSupport = (
+  message: string,
+  conversationId: string | null | undefined,
+  onChunk: (chunk: string) => void,
+) =>
+  streamPost({
+    path: '/api/v1/ai/support/chat/stream',
+    body: {
+      conversationId,
+      message,
+    },
+    onChunk,
+  });

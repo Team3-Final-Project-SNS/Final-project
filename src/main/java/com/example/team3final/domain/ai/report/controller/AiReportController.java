@@ -1,30 +1,26 @@
 package com.example.team3final.domain.ai.report.controller;
 
 
-import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.domain.admin.security.AdminDetailsImpl;
 import com.example.team3final.domain.ai.report.dto.request.AiReportChatRequestDto;
-import com.example.team3final.domain.ai.report.dto.response.AiReportAnalysisResponseDto;
-import com.example.team3final.domain.ai.report.dto.response.AiReportChatResponseDto;
-import com.example.team3final.domain.ai.report.dto.response.AiReportHighRiskUsersResponseDto;
 import com.example.team3final.domain.ai.report.service.AiReportService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
 
 /**
  * 관리자용 신고 AI 분석 API 컨트롤러입니다.
  *
- * 특정 신고에 대한 AI 분석 요청과 누적 신고 기반 고위험 유저 조회 요청을 받아
- * 서비스 계층으로 전달하고 공통 응답 형식으로 반환합니다.
+ * 관리자 자연어 메시지를 받아 신고 AI 서비스로 전달하고,
+ * SSE 스트리밍으로 답변을 반환합니다.
  *
  * 컨트롤 흐름:
- * 1. /chat은 관리자의 자연어 메시지를 받아 LLM 의도 분류를 수행합니다.
- * 2. 의도가 단일 신고 분석이면 기존 /{reportId}/analysis 흐름과 같은 서비스 로직을 재사용합니다.
- * 3. 의도가 고위험 유저 조회이면 기존 /high-risk-users 흐름과 같은 서비스 로직을 재사용합니다.
- * 4. 신고 ID나 조회 조건이 부족하면 실행하지 않고 관리자에게 필요한 정보를 다시 요청합니다.
+ * 1. /chat/stream은 관리자의 자연어 메시지를 받습니다.
+ * 2. LLM이 신고 Tool을 직접 호출해 신고 맥락, 고위험 유저 후보, 대시보드 정보를 조회합니다.
+ * 3. 관리자 화면에는 자연어 답변 본문만 실시간으로 전송합니다.
  */
 
 @RestController
@@ -35,44 +31,23 @@ public class AiReportController {
     private final AiReportService aiReportService;
 
     /**
-     * 하나의 신고 AI 챗봇 입구입니다.
+     * 관리자 신고 AI 답변을 SSE로 스트리밍합니다.
      *
-     * 프론트는 별도 버튼 없이 이 API로 관리자 메시지만 보내면 되고,
-     * 서비스 계층이 메시지 의도를 판단해 신고 분석 또는 고위험 유저 조회를 자동 실행합니다.
+     * 컨트롤 흐름:
+     * 1. 관리자 인증 정보를 확인합니다.
+     * 2. 자연어 메시지를 서비스 계층으로 전달합니다.
+     * 3. 서비스가 신고 Tool과 관리자 정책 프롬프트를 연결합니다.
+     * 4. LLM 답변 본문을 text/event-stream으로 실시간 전송합니다.
+     *
+     *
+     * produces = MediaType.TEXT_EVENT_STREAM_VALUE.
+     * “이 컨트롤러는 실시간 채팅처럼 조금씩 응답을 보낼 거다” 라는 표시
      */
-    @PostMapping("/chat")
-    public ResponseEntity<ApiResponseDto<AiReportChatResponseDto>> chat(
+    @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<String> streamChat(
             @AuthenticationPrincipal AdminDetailsImpl adminDetails,
             @Valid @RequestBody AiReportChatRequestDto request
     ) {
-        Long adminId = adminDetails.getAdminId();
-
-        return ResponseEntity.ok(ApiResponseDto.success(
-                aiReportService.chat(adminId, request)
-        ));
-    }
-
-    @PostMapping("/{reportId}/analysis")
-    public ResponseEntity<ApiResponseDto<AiReportAnalysisResponseDto>> analyzeReport(
-            @AuthenticationPrincipal AdminDetailsImpl adminDetails,
-            @PathVariable Long reportId
-    ) {
-        Long adminId = adminDetails.getAdminId();
-
-        return ResponseEntity.ok(ApiResponseDto.success(
-                aiReportService.analyzeReport(adminId, reportId)
-        ));
-    }
-
-    @GetMapping("/high-risk-users")
-    public ResponseEntity<ApiResponseDto<AiReportHighRiskUsersResponseDto>> getHighRiskUsers(
-            @AuthenticationPrincipal AdminDetailsImpl adminDetails,
-            @RequestParam(defaultValue = "5") int limit
-    ) {
-        Long adminId = adminDetails.getAdminId();
-
-        return ResponseEntity.ok(ApiResponseDto.success(
-                aiReportService.getHighRiskUsers(adminId, limit)
-        ));
+        return aiReportService.streamChat(adminDetails.getAdminId(), request);
     }
 }

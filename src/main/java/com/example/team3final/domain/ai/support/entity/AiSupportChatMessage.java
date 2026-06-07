@@ -46,8 +46,7 @@ public class AiSupportChatMessage extends BaseTimeEntity {
     /**
      * 대화 세션 ID입니다.
      *
-     * AiConversationSession.conversationId와 같은 값으로 저장하여
-     * 같은 고객센터 대화 흐름을 묶습니다.
+     * 같은 고객센터 대화 흐름의 사용자 메시지와 AI 응답을 묶습니다.
      */
     @Column(name = "conversation_id", nullable = false, length = 100)
     private String conversationId;

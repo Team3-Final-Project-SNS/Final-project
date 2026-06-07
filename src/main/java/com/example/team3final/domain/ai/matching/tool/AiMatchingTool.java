@@ -118,8 +118,8 @@ public class AiMatchingTool {
      * LLM Tool Calling에서 사용할 모집글 후보 조회 메서드입니다.
      *
      * 사용자의 이메일과 자연어 조건을 기반으로 신청 가능한 식사팟 후보를 조회합니다.
-     * 현재 매칭 서비스에서는 서비스 내부에서 Tool을 먼저 호출해 후보를 프롬프트에 주입하므로,
-     * 이 메서드는 추후 LLM 주도 Tool Calling 흐름을 확장할 때 사용할 수 있습니다.
+     * 현재 매칭 서비스에서는 AiMatchingSessionTool을 통해 로그인 사용자의 email을 고정한 뒤,
+     * LLM이 이 조회 로직을 Tool Calling으로 호출합니다.
      */
     @Tool(
             description = "사용자의 자연어 조건에 맞는 모집 중인 식사팟을 조회합니다.",

@@ -1,12 +1,13 @@
 import { FormEvent, useState } from 'react';
 import { Loader2, Send, X } from 'lucide-react';
-import { AiReportChatResponse, chatAiReport } from '../../api/aiReportApi';
-import { AiSupportChatResponse, chatAiSupport } from '../../api/aiSupportApi';
+import { streamAiReport } from '../../api/aiReportApi';
+import { streamAiSupport } from '../../api/aiSupportApi';
 
 type ChatMessage = {
   id: number;
   sender: 'bot' | 'user';
   content: string;
+  isThinking?: boolean;
 };
 
 type FloatingChatbotProps = {
@@ -44,6 +45,40 @@ export default function AdminFloatingChatbot({
     },
   ]);
 
+  const showThinkingForMoment = () => new Promise((resolve) => setTimeout(resolve, 800));
+  const revealBotMessage = (messageId: number, text: string) =>
+    new Promise<void>((resolve) => {
+      const chars = Array.from(text);
+
+      if (chars.length === 0) {
+        resolve();
+        return;
+      }
+
+      let index = 0;
+      const revealNext = () => {
+        const nextText = chars[index];
+        index += 1;
+
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.id === messageId
+              ? { ...message, content: message.content + nextText, isThinking: false }
+              : message
+          )
+        );
+
+        if (index < chars.length) {
+          window.setTimeout(revealNext, 45);
+          return;
+        }
+
+        resolve();
+      };
+
+      revealNext();
+    });
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -63,25 +98,50 @@ export default function AdminFloatingChatbot({
 
     if (useAiSupportApi) {
       setIsSending(true);
+      const nextConversationId = conversationId ?? crypto.randomUUID();
+      const botMessageId = Date.now() + 1;
+      setConversationId(nextConversationId);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: botMessageId,
+          sender: 'bot',
+          content: '',
+          isThinking: true,
+        },
+      ]);
+
       try {
-        const response = await chatAiSupport(trimmedInput, conversationId);
-        setConversationId(response.data.data.conversationId);
-        const botMessage: ChatMessage = {
-          id: Date.now() + 1,
-          sender: 'bot',
-          content: formatAiSupportAnswer(response.data.data),
-        };
-        setMessages((prev) => [...prev, botMessage]);
+        await showThinkingForMoment();
+        let typingQueue = Promise.resolve();
+        const answer = await streamAiSupport(trimmedInput, nextConversationId, (chunk) => {
+          typingQueue = typingQueue.then(() => revealBotMessage(botMessageId, chunk));
+        });
+        await typingQueue;
+
+        if (!answer.trim()) {
+          setMessages((prev) =>
+            prev.map((message) =>
+              message.id === botMessageId
+                ? { ...message, content: 'AI 고객센터 답변을 생성하지 못했습니다. 잠시 후 다시 시도해주세요.', isThinking: false }
+                : message
+            )
+          );
+        }
       } catch (err: any) {
-        const serverMessage = err.response?.data?.message;
-        const botMessage: ChatMessage = {
-          id: Date.now() + 1,
-          sender: 'bot',
-          content: serverMessage
-            ? `AI 고객센터 요청에 실패했습니다.\n사유: ${serverMessage}`
-            : 'AI 고객센터 요청에 실패했습니다. 잠시 후 다시 시도해주세요.',
-        };
-        setMessages((prev) => [...prev, botMessage]);
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.id === botMessageId
+              ? {
+                ...message,
+                content: err.message
+                  ? `AI 고객센터 요청에 실패했습니다.\n사유: ${err.message}`
+                  : 'AI 고객센터 요청에 실패했습니다. 잠시 후 다시 시도해주세요.',
+                isThinking: false,
+              }
+              : message
+          )
+        );
       } finally {
         setIsSending(false);
       }
@@ -99,24 +159,50 @@ export default function AdminFloatingChatbot({
     }
 
     setIsSending(true);
+    const nextConversationId = conversationId ?? crypto.randomUUID();
+    const botMessageId = Date.now() + 1;
+    setConversationId(nextConversationId);
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: botMessageId,
+        sender: 'bot',
+        content: '',
+        isThinking: true,
+      },
+    ]);
+
     try {
-      const response = await chatAiReport(trimmedInput);
-      const botMessage: ChatMessage = {
-        id: Date.now() + 1,
-        sender: 'bot',
-        content: formatAiReportAnswer(response.data.data),
-      };
-      setMessages((prev) => [...prev, botMessage]);
+      await showThinkingForMoment();
+      let typingQueue = Promise.resolve();
+      const answer = await streamAiReport(trimmedInput, nextConversationId, (chunk) => {
+        typingQueue = typingQueue.then(() => revealBotMessage(botMessageId, chunk));
+      });
+      await typingQueue;
+
+      if (!answer.trim()) {
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.id === botMessageId
+              ? { ...message, content: '관리자 AI 답변을 생성하지 못했습니다. 잠시 후 다시 시도해주세요.', isThinking: false }
+              : message
+          )
+        );
+      }
     } catch (err: any) {
-      const serverMessage = err.response?.data?.message;
-      const botMessage: ChatMessage = {
-        id: Date.now() + 1,
-        sender: 'bot',
-        content: serverMessage
-          ? `관리자 AI 요청에 실패했습니다.\n사유: ${serverMessage}`
-          : '관리자 AI 요청에 실패했습니다. 잠시 후 다시 시도해주세요.',
-      };
-      setMessages((prev) => [...prev, botMessage]);
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === botMessageId
+            ? {
+              ...message,
+              content: err.message
+                ? `관리자 AI 요청에 실패했습니다.\n사유: ${err.message}`
+                : '관리자 AI 요청에 실패했습니다. 잠시 후 다시 시도해주세요.',
+              isThinking: false,
+            }
+            : message
+        )
+      );
     } finally {
       setIsSending(false);
     }
@@ -169,7 +255,13 @@ export default function AdminFloatingChatbot({
                           : 'bg-[#fff3e0] text-[#3d2b22]'
                       }`}
                     >
-                      {message.content}
+                      {message.sender === 'bot' && (
+                        <div className="mb-2 flex items-center gap-2 text-sm font-extrabold text-[#d84315]">
+                          <RiceMascot size="tiny" showAdminHat={showAdminHat} />
+                          {botName}
+                        </div>
+                      )}
+                      {message.isThinking && !message.content ? <ThinkingIndicator /> : formatChatContent(message.content)}
                     </div>
                   </div>
                 ))}
@@ -210,10 +302,46 @@ export default function AdminFloatingChatbot({
   );
 }
 
-function RiceMascot({ size = 'default', showAdminHat = false }: { size?: 'default' | 'small' | 'large'; showAdminHat?: boolean }) {
+function ThinkingIndicator() {
+  return (
+    <div className="inline-flex items-center gap-3 text-sm font-semibold text-[#8d6e63]">
+      <span>답변을 준비하고 있어요</span>
+      <span className="flex items-center gap-1" aria-hidden="true">
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#d84315] [animation-delay:-0.2s]" />
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#d84315] [animation-delay:-0.1s]" />
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#d84315]" />
+      </span>
+    </div>
+  );
+}
+
+function formatChatContent(content: string) {
+  return content
+    .replace(/^#{1,6}\s*/gm, '')
+    .replace(/([^\n])#{1,6}\s*/g, '$1\n\n')
+    .replace(/출처\s*:\s*출처\s*없음/g, '')
+    .replace(/출처\s*:\s*없음/g, '')
+    .replace(/\n-\s*문서명\s*/g, '')
+    .replace(/\n-\s*\[?REPORT RAG 출처[^\n]*/g, '')
+    .replace(/\n-\s*제공된 정책명\s*/g, '')
+    .replace(/\n\s*출처:\s*$/g, '')
+    .replace(/\n\s*출처:\s*\n\s*$/g, '')
+    .replace(/([^\n])(\d+\.\s*)/g, '$1\n$2')
+    .replace(/([^\n])(출처:)/g, '$1\n\n$2')
+    .replace(/출처:\s*-\s*/g, '출처:\n- ')
+    .replace(/([^\n])-\s*(?=[가-힣A-Za-z])/g, '$1\n- ')
+    .replace(/([.!?])\s*-\s*/g, '$1\n- ')
+    .replace(/([^\n])(- rag-docs\/)/g, '$1\n- rag-docs/')
+    .replace(/([^\n])(- (?:report|support|matching)\/)/g, '$1\n$2')
+    .replace(/\n{3,}/g, '\n\n')
+    .trimStart();
+}
+
+function RiceMascot({ size = 'default', showAdminHat = false }: { size?: 'default' | 'small' | 'large' | 'tiny'; showAdminHat?: boolean }) {
   const isSmall = size === 'small';
   const isLarge = size === 'large';
-  const containerSize = isLarge ? 'h-16 w-16' : isSmall ? 'h-12 w-12' : 'h-14 w-14';
+  const isTiny = size === 'tiny';
+  const containerSize = isLarge ? 'h-16 w-16' : isSmall ? 'h-12 w-12' : isTiny ? 'h-7 w-7' : 'h-14 w-14';
 
   return (
     <div className={`${containerSize} relative shrink-0 rounded-3xl bg-[#fff7ed]`}>
@@ -232,63 +360,4 @@ function RiceMascot({ size = 'default', showAdminHat = false }: { size?: 'defaul
       <span className="absolute right-[38%] top-[38%] h-[10%] w-[10%] rounded-full bg-[#3d2b22]" />
     </div>
   );
-}
-
-function formatAiReportAnswer(response: AiReportChatResponse) {
-  const sections = [response.answer];
-
-  if (response.reportAnalysis) {
-    const analysis = response.reportAnalysis;
-    sections.push(
-      [
-        `신고 ID: #${analysis.reportId}`,
-        `위험도: ${analysis.riskLevel}`,
-        `처리 제안: ${analysis.decisionSuggestion}`,
-        `신뢰도: ${analysis.confidenceScore}%`,
-        `요약: ${analysis.summary}`,
-        `근거: ${analysis.evidence}`,
-        `권장 사유: ${analysis.recommendationReason}`,
-        `관리자 가이드: ${analysis.actionGuide}`,
-      ].join('\n'),
-    );
-  }
-
-  if (response.highRiskUsers?.highRiskUsers?.length) {
-    const highRiskUsers = response.highRiskUsers.highRiskUsers
-      .map((user, index) =>
-        [
-          `${index + 1}. ${user.nickname} (#${user.userId})`,
-          `위험도: ${user.riskLevel}`,
-          `누적 신고: ${user.totalReportCount}건 / 대기: ${user.pendingReportCount}건 / 채택: ${user.acceptedReportCount}건`,
-          `요약: ${user.reasonSummary}`,
-          `권장 조치: ${user.recommendedAction}`,
-          `관련 신고: ${user.relatedReportIds.join(', ') || '없음'}`,
-        ].join('\n'),
-      )
-      .join('\n\n');
-
-    sections.push(highRiskUsers);
-  }
-
-  if (response.fallbackUsed) {
-    sections.push('현재 AI 응답은 fallback 결과입니다.');
-  }
-
-  return sections.filter(Boolean).join('\n\n');
-}
-
-function formatAiSupportAnswer(response: AiSupportChatResponse) {
-  const sections = [response.answer];
-
-  sections.push(`문의 분류: ${response.category}`);
-
-  if (response.actionRequired) {
-    sections.push('추가 조치가 필요할 수 있습니다. 문제가 계속되면 1:1 문의를 접수해주세요.');
-  }
-
-  if (response.fallbackUsed) {
-    sections.push('현재 AI 응답은 fallback 결과입니다.');
-  }
-
-  return sections.filter(Boolean).join('\n\n');
 }
