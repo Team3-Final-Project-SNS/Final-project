@@ -145,13 +145,7 @@ public interface NotificationPublisher {
 
     // ── 게시글 / 신고로 인한 경고 ────────────────────────────────────────
     // 37. 게시글 신고 경고 1회 알림 - 게시글 작성자에게
-    void sendPostWarned1(Long userId);
-
-    // 38. 게시글 신고 경고 2회 알림 - 게시글 작성자에게
-    void sendPostWarned2(Long userId);
-
-    // 39. 게시글 만료 임박 알림 - 게시글 작성자에게
-    void sendPostExpiringSoon(Long userId, Long postId);
+    void sendPostWarned(Long userId, String title, String content);
 
     // 40. 게시글 만료 알림 - 게시글 작성자에게
     void sendPostExpired(Long userId, Long postId);

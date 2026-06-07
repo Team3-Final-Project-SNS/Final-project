@@ -433,34 +433,15 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     // ── 게시글 / 신고로 인한 경고 ────────────────────────────────────────
 
     // 37. 게시글 신고 경고 1회 알림 - 게시글 작성자에게
+    // 제재 단계별 메시지는 호출하는 쪽(Service)에서 title/content를 분기하여 전달
     @Override
-    public void sendPostWarned1(Long userId) {
+    public void sendPostWarned(Long userId, String title, String content) {
         publish(userId, NotificationType.POST_WARNED_1,
-                "신고가 채택되었습니다.",
-                "신고가 채택되었습니다. 서비스 이용 규정을 준수해 주세요.",
+                title, content,
                 RelatedDomain.ACCOUNT, null);
     }
 
-    // 38. 게시글 신고 경고 2회 알림 - 게시글 작성자에게
-    @Override
-    public void sendPostWarned2(Long userId) {
-        publish(userId, NotificationType.POST_WARNED_2,
-                "두 번째 경고입니다.",
-                "두 번째 경고입니다. 재발 시 계정이 정지될 수 있습니다.",
-                RelatedDomain.ACCOUNT, null);
-    }
-
-    // 39. 게시글 만료 임박 알림 - 게시글 작성자에게
-    // 만남 30분 전까지 매칭 미성사 시 발송
-    @Override
-    public void sendPostExpiringSoon(Long userId, Long postId) {
-        publish(userId, NotificationType.POST_EXPIRING_SOON,
-                "만남 시간이 30분 남았습니다.",
-                "만남 시간이 30분 남았지만 아직 매칭되지 않았습니다.",
-                RelatedDomain.POST, postId);
-    }
-
-    // 40. 게시글 만료 알림 - 게시글 작성자에게
+    // 38. 게시글 만료 알림 - 게시글 작성자에게
     @Override
     public void sendPostExpired(Long userId, Long postId) {
         publish(userId, NotificationType.POST_EXPIRED,
@@ -469,7 +450,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.POST, postId);
     }
 
-    // 41. 게시글 삭제 알림 - 게시글 작성자에게
+    // 39. 게시글 삭제 알림 - 게시글 작성자에게
     // content는 호출하는 쪽(Service)에서 상황에 맞게 전달
     // ex) 관리자 강제 삭제: "해당 게시물이 신고 접수 및 관리자 판단에 의해 삭제되었습니다."
     @Override
@@ -480,7 +461,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.POST, postId);
     }
 
-    // 42. 게시글 복구 알림 - 게시글 작성자에게
+    // 40. 게시글 복구 알림 - 게시글 작성자에게
     @Override
     public void sendPostRestored(Long userId, Long postId) {
         publish(userId, NotificationType.POST_RESTORED,
