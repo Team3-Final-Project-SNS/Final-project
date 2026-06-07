@@ -4,6 +4,7 @@ import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.service.MatchService;
 import com.example.team3final.domain.meet.util.MeetRedisZSetKeys;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
+import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.service.PostService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,10 +47,17 @@ public class MeetReminderScheduler {
         for (String matchIdStr : matchIds) {
             Long matchId = Long.parseLong(matchIdStr);
             MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
-            Long authorId = postService.getPostById(matchInfo.postId()).getAuthorId();
+            // getAuthorId() 바로 호출하던 것을 변수로 분리 — meetAt 체크에 post 필요
+            Post post = postService.getPostById(matchInfo.postId());
+
+            // 이미 15분 전 타이밍이 지났으면 30분 전 알림 스킵
+            if (LocalDateTime.now().isAfter(post.getMeetAt().minusMinutes(15))) {
+                log.info("[MeetReminderScheduler] 30분 전 알림 스킵 - matchId: {}", matchId);
+                continue;
+            }
 
             // 5. 만남 30분 전 알림 - 만남 참여자 모두에게
-            notificationPublisher.sendMeetReminder30(authorId, matchId);
+            notificationPublisher.sendMeetReminder30(post.getAuthorId(), matchId);
             notificationPublisher.sendMeetReminder30(matchInfo.applicantId(), matchId);
         }
     }
@@ -66,10 +74,17 @@ public class MeetReminderScheduler {
         for (String matchIdStr : matchIds) {
             Long matchId = Long.parseLong(matchIdStr);
             MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
-            Long authorId = postService.getPostById(matchInfo.postId()).getAuthorId();
+            // getAuthorId() 바로 호출하던 것을 변수로 분리 — meetAt 체크에 post 필요
+            Post post = postService.getPostById(matchInfo.postId());
+
+            // 이미 5분 전 타이밍이 지났으면 15분 전 알림 스킵
+            if (LocalDateTime.now().isAfter(post.getMeetAt().minusMinutes(5))) {
+                log.info("[MeetReminderScheduler] 15분 전 알림 스킵 - matchId: {}", matchId);
+                continue;
+            }
 
             // 6. 만남 15분 전 알림 - 만남 참여자 모두에게
-            notificationPublisher.sendMeetReminder15(authorId, matchId);
+            notificationPublisher.sendMeetReminder15(post.getAuthorId(), matchId);
             notificationPublisher.sendMeetReminder15(matchInfo.applicantId(), matchId);
         }
     }
@@ -86,10 +101,17 @@ public class MeetReminderScheduler {
         for (String matchIdStr : matchIds) {
             Long matchId = Long.parseLong(matchIdStr);
             MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
-            Long authorId = postService.getPostById(matchInfo.postId()).getAuthorId();
+            // getAuthorId() 바로 호출하던 것을 변수로 분리 — meetAt 체크에 post 필요
+            Post post = postService.getPostById(matchInfo.postId());
+
+            // 약속 시간이 이미 5분이 안남았으면 5분 전 알림 스킵
+            if (LocalDateTime.now().isAfter(post.getMeetAt())) {
+                log.info("[MeetReminderScheduler] 임박 알림 스킵 - matchId: {}", matchId);
+                continue;
+            }
 
             // 7. 만남 5분 전 임박 알림 - 만남 참여자 모두에게
-            notificationPublisher.sendMeetImminent(authorId, matchId);
+            notificationPublisher.sendMeetImminent(post.getAuthorId(), matchId);
             notificationPublisher.sendMeetImminent(matchInfo.applicantId(), matchId);
         }
     }
