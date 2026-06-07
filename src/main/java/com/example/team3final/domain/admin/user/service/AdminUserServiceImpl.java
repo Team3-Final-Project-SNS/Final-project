@@ -11,6 +11,7 @@ import com.example.team3final.domain.admin.user.dto.request.AdminSuspendUserRequ
 import com.example.team3final.domain.admin.user.dto.response.AdminGetUsersResponseDto;
 import com.example.team3final.domain.admin.user.dto.response.AdminReinstateUserResponseDto;
 import com.example.team3final.domain.admin.user.dto.response.AdminSuspendUserResponseDto;
+import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.university.service.UniversityService;
 import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.enums.UserStatus;
@@ -32,6 +33,7 @@ public class AdminUserServiceImpl implements AdminUserService {
     private final AdminRepository adminRepository;
     private final UserService userService;
     private final UniversityService universityService;
+    private final NotificationPublisher notificationPublisher;
 
     // 유저 목록 조회
     @Override
@@ -113,6 +115,9 @@ public class AdminUserServiceImpl implements AdminUserService {
         // 이유: reinstate()는 단순 상태 변경으로, UserService 인터페이스를 오염시킬 필요 없음
         // @Transactional + 더티 체킹 → save() 없이 자동 UPDATE
         user.reinstate();
+
+        // 36. 계정 정지 해제 알림 - 해당 사용자에게
+        notificationPublisher.sendAccountUnsuspended(userId);
 
         return AdminReinstateUserResponseDto.of(user, requestDto.getReason());
     }
