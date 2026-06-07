@@ -6,6 +6,7 @@ import com.example.team3final.common.exception.NotificationException;
 import com.example.team3final.domain.notification.dto.response.GetNotificationsResponseDto;
 import com.example.team3final.domain.notification.dto.response.GetUnreadCountResponseDto;
 import com.example.team3final.domain.notification.dto.response.UpdateAllNotificationsReadResponseDto;
+import com.example.team3final.domain.notification.dto.response.UpdateNotificationReadResponseDto;
 import com.example.team3final.domain.notification.entity.Notification;
 import com.example.team3final.domain.notification.repository.NotificationRepository;
 import com.example.team3final.domain.notification.sse.SseEmitterRepository;
@@ -67,6 +68,39 @@ public class NotificationServiceImpl implements NotificationService {
         int updatedCount = notificationRepository.markAllAsRead(receiverId, LocalDateTime.now());
 
         return UpdateAllNotificationsReadResponseDto.from(updatedCount);
+    }
+
+    // 단건 읽음 처리
+    @Override
+    @Transactional
+    public UpdateNotificationReadResponseDto updateNotificationRead(Long userId, Long notificationId) {
+
+        // 알림 존재 여부 확인 → 없으면 404
+        Notification notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new NotificationException(ErrorCode.NOTIFICATION_NOT_FOUND));
+
+        // 본인 알림인지 확인 → 타인 알림이면 403
+        if (!notification.getReceiverId().equals(userId)) {
+            throw new NotificationException(ErrorCode.NOTIFICATION_FORBIDDEN);
+        }
+
+        // 이미 읽은 알림이면 멱등하게 현재 상태 그대로 반환 (중복 처리 방지)
+        if (notification.isRead()) {
+            return new UpdateNotificationReadResponseDto(
+                    notification.getId(),
+                    true,
+                    notification.getReadAt()
+            );
+        }
+
+        // 읽음 처리
+        notification.markAsRead();
+
+        return new UpdateNotificationReadResponseDto(
+                notification.getId(),
+                true,
+                notification.getReadAt()
+        );
     }
 
     // 미확인 알림 카운트

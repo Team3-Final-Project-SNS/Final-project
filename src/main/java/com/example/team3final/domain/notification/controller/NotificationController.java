@@ -5,6 +5,7 @@ import com.example.team3final.common.dto.response.CursorResponseDto;
 import com.example.team3final.domain.notification.dto.response.GetNotificationsResponseDto;
 import com.example.team3final.domain.notification.dto.response.GetUnreadCountResponseDto;
 import com.example.team3final.domain.notification.dto.response.UpdateAllNotificationsReadResponseDto;
+import com.example.team3final.domain.notification.dto.response.UpdateNotificationReadResponseDto;
 import com.example.team3final.domain.notification.service.NotificationService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +43,18 @@ public class NotificationController {
         Long receiverId = userDetails.getUserId();
         UpdateAllNotificationsReadResponseDto response =
                 notificationService.updateAllNotificationsRead(receiverId);
+        return ResponseEntity.ok(ApiResponseDto.success(response));
+    }
+
+    // 단건 읽음 처리
+    @PatchMapping("/{notificationId}/read")
+    public ResponseEntity<ApiResponseDto<UpdateNotificationReadResponseDto>> updateNotificationRead(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @PathVariable Long notificationId
+    ) {
+        Long userId = userDetails.getUserId();
+        UpdateNotificationReadResponseDto response =
+                notificationService.updateNotificationRead(userId, notificationId);
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
 

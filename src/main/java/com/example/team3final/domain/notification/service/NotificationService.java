@@ -4,6 +4,7 @@ import com.example.team3final.common.dto.response.CursorResponseDto;
 import com.example.team3final.domain.notification.dto.response.GetNotificationsResponseDto;
 import com.example.team3final.domain.notification.dto.response.GetUnreadCountResponseDto;
 import com.example.team3final.domain.notification.dto.response.UpdateAllNotificationsReadResponseDto;
+import com.example.team3final.domain.notification.dto.response.UpdateNotificationReadResponseDto;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 public interface NotificationService {
@@ -15,6 +16,11 @@ public interface NotificationService {
 
    // 전체 읽음 처리
     UpdateAllNotificationsReadResponseDto updateAllNotificationsRead(Long receiverId);
+
+    // 단건 읽음 처리
+    // userId: 요청자 ID (본인 알림만 처리 가능)
+    // notificationId: 읽음 처리할 알림 ID
+    UpdateNotificationReadResponseDto updateNotificationRead(Long userId, Long notificationId);
 
     // 미확인 알림 카운트
     GetUnreadCountResponseDto getUnreadCount(Long receiverId);
