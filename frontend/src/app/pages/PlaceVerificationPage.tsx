@@ -1,9 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { MapPin, Loader2, Navigation } from 'lucide-react';
-import { createPlaceVerification, updateMyLocation, getLocations, getMeetVerification } from '../../api/meetApi';
-import { getMatchDetail } from '../../api/matchApi';
-import type { LocationRole } from '../../api/meetApi';
+import { createPlaceVerification, updateMyLocation, getLocations, getMeetVerification } from '@/api/meetApi';
+import { getMatchDetail } from '@/api/matchApi';
+import type { LocationRole } from '@/api/meetApi';
+
+declare global {
+    namespace kakao.maps {
+        interface CustomOverlay {
+            setContent(content: string | HTMLElement): void;
+        }
+    }
+}
 
 interface Position {
     latitude: number;
