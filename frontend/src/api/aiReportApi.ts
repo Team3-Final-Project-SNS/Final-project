@@ -54,10 +54,15 @@ export const chatAiReport = (message: string) =>
     message,
   });
 
-export const streamAiReport = (message: string, onChunk: (chunk: string) => void) =>
+export const streamAiReport = (
+  message: string,
+  conversationId: string | null | undefined,
+  onChunk: (chunk: string) => void,
+) =>
   streamPost({
     path: '/api/v1/admin/ai/reports/chat/stream',
     body: {
+      conversationId,
       message,
     },
     admin: true,

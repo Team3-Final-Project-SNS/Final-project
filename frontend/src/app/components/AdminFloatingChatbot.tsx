@@ -159,7 +159,9 @@ export default function AdminFloatingChatbot({
     }
 
     setIsSending(true);
+    const nextConversationId = conversationId ?? crypto.randomUUID();
     const botMessageId = Date.now() + 1;
+    setConversationId(nextConversationId);
     setMessages((prev) => [
       ...prev,
       {
@@ -173,7 +175,7 @@ export default function AdminFloatingChatbot({
     try {
       await showThinkingForMoment();
       let typingQueue = Promise.resolve();
-      const answer = await streamAiReport(trimmedInput, (chunk) => {
+      const answer = await streamAiReport(trimmedInput, nextConversationId, (chunk) => {
         typingQueue = typingQueue.then(() => revealBotMessage(botMessageId, chunk));
       });
       await typingQueue;

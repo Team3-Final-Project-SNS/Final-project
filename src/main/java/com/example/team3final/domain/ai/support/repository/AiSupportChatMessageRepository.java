@@ -16,4 +16,6 @@ public interface AiSupportChatMessageRepository extends JpaRepository<AiSupportC
             Long userId,
             String conversationId
     );
+
+    void deleteByUserIdAndConversationId(Long userId, String conversationId);
 }

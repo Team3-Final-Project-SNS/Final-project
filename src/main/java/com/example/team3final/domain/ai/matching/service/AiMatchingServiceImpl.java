@@ -11,10 +11,15 @@ import com.example.team3final.domain.ai.common.service.AiCallMetricService;
 import com.example.team3final.domain.ai.matching.dto.request.AiMatchingChatRequestDto;
 import com.example.team3final.domain.ai.matching.dto.response.AiMatchingChatResponseDto;
 import com.example.team3final.domain.ai.matching.dto.response.RecommendedPostDto;
+import com.example.team3final.domain.ai.matching.entity.AiMatchingChatMemory;
+import com.example.team3final.domain.ai.matching.entity.AiMatchingChatMessage;
+import com.example.team3final.domain.ai.matching.repository.AiMatchingChatMemoryRepository;
+import com.example.team3final.domain.ai.matching.repository.AiMatchingChatMessageRepository;
 import com.example.team3final.domain.ai.matching.tool.AiMatchingPostToolResult;
 import com.example.team3final.domain.ai.matching.tool.AiMatchingSessionTool;
 import com.example.team3final.domain.ai.matching.tool.AiMatchingTool;
 import com.example.team3final.domain.ai.prompt.service.AiPromptFileService;
+import com.example.team3final.domain.ai.common.enums.AiChatMemoryRole;
 import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.extern.slf4j.Slf4j;
@@ -26,9 +31,14 @@ import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.rag.Query;
 import org.springframework.ai.rag.preretrieval.query.transformation.RewriteQueryTransformer;
 import org.springframework.ai.chat.client.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -64,6 +74,12 @@ public class AiMatchingServiceImpl implements AiMatchingService {
     private final AiProperties aiProperties;
     private final UserService userService;
     private final RewriteQueryTransformer rewriteQueryTransformer;
+    private final AiMatchingChatMemoryRepository aiMatchingChatMemoryRepository;
+    private final AiMatchingChatMessageRepository aiMatchingChatMessageRepository;
+
+    // 대화 토큰 양 3000, 세션 만료는 15분
+    private static final int MATCHING_MEMORY_TOKEN_BUDGET = 3000;
+    private static final int MATCHING_SESSION_EXPIRE_MINUTES = 15;
 
     private static final PromptTemplate MATCHING_REWRITE_PROMPT_TEMPLATE = new PromptTemplate("""
             너는 한끼팟 매칭 검색용 질문을 만드는 AI다.
@@ -92,7 +108,9 @@ public class AiMatchingServiceImpl implements AiMatchingService {
             AiMatchingTool aiMatchingTool,
             AiCallMetricService aiCallMetricService,
             AiProperties aiProperties,
-            UserService userService
+            UserService userService,
+            AiMatchingChatMemoryRepository aiMatchingChatMemoryRepository,
+            AiMatchingChatMessageRepository aiMatchingChatMessageRepository
     ) {
         this.chatClient = chatClientBuilder.build();
         this.aiPromptFileService = aiPromptFileService;
@@ -100,6 +118,8 @@ public class AiMatchingServiceImpl implements AiMatchingService {
         this.aiCallMetricService = aiCallMetricService;
         this.aiProperties = aiProperties;
         this.userService = userService;
+        this.aiMatchingChatMemoryRepository = aiMatchingChatMemoryRepository;
+        this.aiMatchingChatMessageRepository = aiMatchingChatMessageRepository;
         this.rewriteQueryTransformer = RewriteQueryTransformer.builder()
                 .chatClientBuilder(chatClientBuilder)
                 .promptTemplate(MATCHING_REWRITE_PROMPT_TEMPLATE)
@@ -123,6 +143,7 @@ public class AiMatchingServiceImpl implements AiMatchingService {
      * @return AI 추천 답변, 추천 후보 목록, fallback 사용 여부
      */
     @Override
+    @Transactional
     public AiMatchingChatResponseDto createAiMatchingChat(String email, AiMatchingChatRequestDto request) {
 
         // AI 호출 1건을 추적하기 위한 고유 요청 ID입니다.
@@ -140,12 +161,30 @@ public class AiMatchingServiceImpl implements AiMatchingService {
         Integer totalTokens = null;
         Long promptTemplateId = null;
         String promptVersion = null;
+        String conversationId = resolveConversationId(request.conversationId());
 
         try {
             User user = userService.findByEmail(email);
             userId = user.getId();
+            cleanupExpiredMatchingMemory();
 
-            String rewrittenUserMessage = rewriteQuery(request.message());
+            saveMemory(userId, conversationId, requestId, AiChatMemoryRole.USER, request.message());
+            String conversationContext = buildTokenWindowConversationContext(userId, conversationId, requestId);
+
+            String rewrittenUserMessage = rewriteQuery(request.message(), conversationContext);
+            saveChatMessage(
+                    userId,
+                    conversationId,
+                    requestId,
+                    AiChatMemoryRole.USER,
+                    request.message(),
+                    rewrittenUserMessage,
+                    List.of(),
+                    null,
+                    null,
+                    null,
+                    null
+            );
 
             AiPromptFileService.RenderedPrompt prompt = aiPromptFileService.renderWithMetadata(
                     AiPromptType.MATCHING_CHAT,
@@ -155,7 +194,7 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                             "userId", user.getId(),
                             "universityId", user.getUniversityId(),
                             "userPoint", user.getTotalPoint(),
-                            "conversationContext", "이전 대화 없음"
+                            "conversationContext", conversationContext
                     )
             );
             String systemPrompt = prompt.content();
@@ -192,6 +231,21 @@ public class AiMatchingServiceImpl implements AiMatchingService {
 
             List<RecommendedPostDto> recommendedPosts = buildRecommendedPosts(email, result);
 
+            saveMemory(user.getId(), conversationId, requestId, AiChatMemoryRole.ASSISTANT, answer);
+            saveChatMessage(
+                    user.getId(),
+                    conversationId,
+                    requestId,
+                    AiChatMemoryRole.ASSISTANT,
+                    answer,
+                    rewrittenUserMessage,
+                    result == null ? List.of() : result.recommendedPostIds(),
+                    false,
+                    aiProperties.getMatching().getModel(),
+                    promptTemplateId,
+                    promptVersion
+            );
+
             saveMetric(
                     requestId,
                     user.getId(),
@@ -207,7 +261,7 @@ public class AiMatchingServiceImpl implements AiMatchingService {
             );
 
             return new AiMatchingChatResponseDto(
-                    request.conversationId(),
+                    conversationId,
                     answer,
                     recommendedPosts,
                     false
@@ -230,7 +284,7 @@ public class AiMatchingServiceImpl implements AiMatchingService {
             );
 
             return new AiMatchingChatResponseDto(
-                    request.conversationId(),
+                    conversationId,
                     "AI 추천 기능을 잠시 사용할 수 없습니다. 대신 모집글 목록에서 직접 조건에 맞는 식사팟을 확인해주세요.",
                     List.of(),
                     true
@@ -253,7 +307,7 @@ public class AiMatchingServiceImpl implements AiMatchingService {
             );
 
             return new AiMatchingChatResponseDto(
-                    request.conversationId(),
+                    conversationId,
                     "현재 AI 매칭 응답 생성이 원활하지 않습니다. 잠시 후 다시 시도해주세요.",
                     List.of(),
                     true
@@ -268,17 +322,36 @@ public class AiMatchingServiceImpl implements AiMatchingService {
      * 구조화 DTO를 기다리지 않고 답변 본문을 Flux<String>으로 바로 반환합니다.
      */
     @Override
+    @Transactional
     public Flux<String> streamChat(String email, AiMatchingChatRequestDto request) {
         String requestId = UUID.randomUUID().toString();
         long startedAt = System.currentTimeMillis();
         Long userId = null;
         Long promptTemplateId = null;
         String promptVersion = null;
+        String conversationId = resolveConversationId(request.conversationId());
 
         try {
             User user = userService.findByEmail(email);
             userId = user.getId();
-            String rewrittenUserMessage = rewriteQuery(request.message());
+            cleanupExpiredMatchingMemory();
+
+            saveMemory(userId, conversationId, requestId, AiChatMemoryRole.USER, request.message());
+            String conversationContext = buildTokenWindowConversationContext(userId, conversationId, requestId);
+            String rewrittenUserMessage = rewriteQuery(request.message(), conversationContext);
+            saveChatMessage(
+                    userId,
+                    conversationId,
+                    requestId,
+                    AiChatMemoryRole.USER,
+                    request.message(),
+                    rewrittenUserMessage,
+                    List.of(),
+                    null,
+                    null,
+                    null,
+                    null
+            );
 
             AiPromptFileService.RenderedPrompt prompt = aiPromptFileService.renderWithMetadata(
                     AiPromptType.MATCHING_CHAT,
@@ -288,7 +361,7 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                             "userId", user.getId(),
                             "universityId", user.getUniversityId(),
                             "userPoint", user.getTotalPoint(),
-                            "conversationContext", "이전 대화 없음"
+                            "conversationContext", conversationContext
                     )
             );
             promptTemplateId = prompt.promptTemplateId();
@@ -296,6 +369,9 @@ public class AiMatchingServiceImpl implements AiMatchingService {
             Long metricUserId = userId;
             Long metricPromptTemplateId = promptTemplateId;
             String metricPromptVersion = promptVersion;
+            String metricConversationId = conversationId;
+            String metricRewrittenUserMessage = rewrittenUserMessage;
+            StringBuilder streamedAnswer = new StringBuilder();
 
             return chatClient.prompt()
                     .system(prompt.content() + """
@@ -303,7 +379,9 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                             [SSE 스트리밍 응답 규칙]
                             - 이 요청에서는 JSON이나 Java record 형식으로 답하지 않는다.
                             - 사용자에게 보여줄 추천 답변 본문만 자연어로 작성한다.
-                            - 추천한 게시글이 있다면 글 ID, 장소, 시간, 책임비를 짧게 포함한다.
+                            - 추천한 게시글은 최대 3개까지만 작성한다.
+                            - 추천한 게시글이 있다면 각 항목을 새 줄의 "- 게시글 ID:"로 시작하고, 장소, 시간, 책임비, 이유를 짧게 포함한다.
+                            - 마크다운 볼드 기호(**)나 표 형식은 사용하지 않는다.
                             """)
                     .user("""
                             원 질문:
@@ -320,21 +398,53 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                     .tools(new AiMatchingSessionTool(aiMatchingTool, email))
                     .stream()
                     .content()
-                    .doOnComplete(() -> saveMetric(
-                            requestId,
-                            metricUserId,
-                            startedAt,
-                            AiCallStatus.SUCCESS,
-                            null,
-                            null,
-                            metricPromptTemplateId,
-                            metricPromptVersion,
-                            null,
-                            null,
-                            null
-                    ))
+                    .doOnNext(streamedAnswer::append)
+                    .doOnComplete(() -> {
+                        saveMemory(metricUserId, metricConversationId, requestId, AiChatMemoryRole.ASSISTANT, streamedAnswer.toString());
+                        saveChatMessage(
+                                metricUserId,
+                                metricConversationId,
+                                requestId,
+                                AiChatMemoryRole.ASSISTANT,
+                                streamedAnswer.toString(),
+                                metricRewrittenUserMessage,
+                                List.of(),
+                                false,
+                                aiProperties.getMatching().getModel(),
+                                metricPromptTemplateId,
+                                metricPromptVersion
+                        );
+                        saveMetric(
+                                requestId,
+                                metricUserId,
+                                startedAt,
+                                AiCallStatus.SUCCESS,
+                                null,
+                                null,
+                                metricPromptTemplateId,
+                                metricPromptVersion,
+                                null,
+                                null,
+                                null
+                        );
+                    })
                     .onErrorResume(e -> {
                         log.error("[AiMatchingService] 매칭 AI 스트리밍 응답 생성 실패", e);
+                        String fallbackAnswer = "현재 AI 매칭 응답 생성이 원활하지 않습니다. 잠시 후 다시 시도해주세요.";
+                        saveMemory(metricUserId, metricConversationId, requestId, AiChatMemoryRole.ASSISTANT, fallbackAnswer);
+                        saveChatMessage(
+                                metricUserId,
+                                metricConversationId,
+                                requestId,
+                                AiChatMemoryRole.ASSISTANT,
+                                fallbackAnswer,
+                                metricRewrittenUserMessage,
+                                List.of(),
+                                true,
+                                aiProperties.getMatching().getModel(),
+                                metricPromptTemplateId,
+                                metricPromptVersion
+                        );
                         saveMetric(
                                 requestId,
                                 metricUserId,
@@ -348,7 +458,7 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                                 null,
                                 null
                         );
-                        return Flux.just("현재 AI 매칭 응답 생성이 원활하지 않습니다. 잠시 후 다시 시도해주세요.");
+                        return Flux.just(fallbackAnswer);
                     });
         } catch (AiException e) {
             saveMetric(
@@ -381,6 +491,171 @@ public class AiMatchingServiceImpl implements AiMatchingService {
             );
             return Flux.just("현재 AI 매칭 응답 생성이 원활하지 않습니다. 잠시 후 다시 시도해주세요.");
         }
+    }
+
+    /**
+     * 매칭 AI의 멀티턴 메모리는 최근 N개 메시지가 아니라 토큰 예산 기준으로 구성합니다.
+     *
+     * 최신 메시지부터 tokenCount를 누적해 3000토큰 안에 들어오는 메시지만 선택하고,
+     * 프롬프트에는 다시 오래된 순서로 넣어 자연스러운 대화 흐름을 유지합니다.
+     * 현재 요청 메시지는 user prompt에도 별도로 들어가므로 requestId로 제외합니다.
+     */
+    private String buildTokenWindowConversationContext(Long userId, String conversationId, String currentRequestId) {
+        List<AiMatchingChatMemory> recentMessages =
+                aiMatchingChatMemoryRepository.findByUserIdAndConversationIdOrderByCreatedAtDesc(userId, conversationId);
+
+        if (recentMessages.isEmpty()) {
+            return "이전 대화 없음";
+        }
+
+        int usedTokens = 0;
+        List<AiMatchingChatMemory> selectedMessages = new ArrayList<>();
+
+        for (AiMatchingChatMemory message : recentMessages) {
+            if (currentRequestId.equals(message.getRequestId())) {
+                continue;
+            }
+
+            int tokenCount = resolveTokenCount(message.getTokenCount(), message.getContent());
+            if (usedTokens + tokenCount > MATCHING_MEMORY_TOKEN_BUDGET) {
+                break;
+            }
+
+            selectedMessages.add(message);
+            usedTokens += tokenCount;
+        }
+
+        if (selectedMessages.isEmpty()) {
+            return "이전 대화 없음";
+        }
+
+        Collections.reverse(selectedMessages);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("[매칭 AI 대화 메모리]\n")
+                .append("- 적용 전략: 최근 대화부터 최대 ")
+                .append(MATCHING_MEMORY_TOKEN_BUDGET)
+                .append("토큰 이하만 포함\n")
+                .append("- 현재 포함된 대화 토큰: ")
+                .append(usedTokens)
+                .append("\n\n");
+
+        for (AiMatchingChatMemory message : selectedMessages) {
+            sb.append(message.getRole())
+                    .append(": ")
+                    .append(truncate(message.getContent(), 1200))
+                    .append("\n");
+        }
+
+        return sb.toString();
+    }
+
+    private void saveMemory(Long userId, String conversationId, String requestId, AiChatMemoryRole role, String content) {
+        if (userId == null || !hasText(conversationId) || !hasText(requestId) || role == null || !hasText(content)) {
+            return;
+        }
+
+        String normalizedContent = truncate(content, 4000);
+        aiMatchingChatMemoryRepository.save(
+                AiMatchingChatMemory.builder()
+                        .userId(userId)
+                        .conversationId(conversationId)
+                        .requestId(requestId)
+                        .role(role)
+                        .content(normalizedContent)
+                        .tokenCount(estimateTokenCount(normalizedContent))
+                        .build()
+        );
+    }
+
+    private void saveChatMessage(
+            Long userId,
+            String conversationId,
+            String requestId,
+            AiChatMemoryRole role,
+            String content,
+            String rewrittenMessage,
+            List<Long> recommendedPostIds,
+            Boolean fallbackUsed,
+            String model,
+            Long promptTemplateId,
+            String promptVersion
+    ) {
+        if (userId == null || !hasText(conversationId) || !hasText(requestId) || role == null || !hasText(content)) {
+            return;
+        }
+
+        aiMatchingChatMessageRepository.save(
+                AiMatchingChatMessage.builder()
+                        .userId(userId)
+                        .conversationId(conversationId)
+                        .requestId(requestId)
+                        .role(role)
+                        .content(truncate(content, 4000))
+                        .rewrittenMessage(truncate(rewrittenMessage, 1000))
+                        .recommendedPostIds(toJsonArray(recommendedPostIds))
+                        .fallbackUsed(fallbackUsed)
+                        .model(model)
+                        .promptTemplateId(promptTemplateId)
+                        .promptVersion(promptVersion)
+                        .build()
+        );
+    }
+
+    /**
+     * 마지막 대화가 15분 이상 지난 매칭 AI conversation 전체를 삭제합니다.
+     */
+    @Scheduled(fixedDelay = 60000)
+    public void cleanupExpiredMatchingMemory() {
+        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(MATCHING_SESSION_EXPIRE_MINUTES);
+        List<AiMatchingChatMemoryRepository.ExpiredConversationKey> expiredConversations =
+                aiMatchingChatMemoryRepository.findExpiredConversationKeys(cutoff);
+
+        for (AiMatchingChatMemoryRepository.ExpiredConversationKey expiredConversation : expiredConversations) {
+            aiMatchingChatMemoryRepository.deleteByUserIdAndConversationId(
+                    expiredConversation.getUserId(),
+                    expiredConversation.getConversationId()
+            );
+        }
+    }
+
+    private String resolveConversationId(String conversationId) {
+        return hasText(conversationId) ? conversationId : UUID.randomUUID().toString();
+    }
+
+    private int resolveTokenCount(Integer tokenCount, String content) {
+        return tokenCount == null || tokenCount <= 0 ? estimateTokenCount(content) : tokenCount;
+    }
+
+    /**
+     * 외부 tokenizer 의존 없이 보수적으로 토큰 수를 추정합니다.
+     * 한글/영문 혼합 입력에서 대략 2글자당 1토큰으로 잡아 윈도우 초과를 늦게 감지하지 않게 합니다.
+     */
+    private int estimateTokenCount(String content) {
+        if (!hasText(content)) {
+            return 0;
+        }
+
+        return Math.max(1, (int) Math.ceil(content.length() / 2.0));
+    }
+
+    private String truncate(String value, int maxLength) {
+        if (value == null || value.length() <= maxLength) {
+            return value;
+        }
+
+        return value.substring(0, maxLength);
+    }
+
+    private String toJsonArray(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return "[]";
+        }
+
+        return ids.stream()
+                .distinct()
+                .map(String::valueOf)
+                .collect(java.util.stream.Collectors.joining(",", "[", "]"));
     }
 
     /**
@@ -430,9 +705,17 @@ public class AiMatchingServiceImpl implements AiMatchingService {
         return chatResponse.getResult().getOutput().getText();
     }
 
-    private String rewriteQuery(String message) {
+    private String rewriteQuery(String message, String conversationContext) {
         try {
-            Query rewrittenQuery = rewriteQueryTransformer.transform(new Query(message));
+            String queryText = """
+                    이전 대화:
+                    %s
+
+                    현재 질문:
+                    %s
+                    """.formatted(truncate(conversationContext, 1500), message);
+
+            Query rewrittenQuery = rewriteQueryTransformer.transform(new Query(queryText));
 
             if (rewrittenQuery != null && hasText(rewrittenQuery.text())) {
                 return rewrittenQuery.text();

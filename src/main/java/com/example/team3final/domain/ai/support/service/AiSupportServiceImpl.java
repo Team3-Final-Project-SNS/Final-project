@@ -3,6 +3,7 @@ package com.example.team3final.domain.ai.support.service;
 import com.example.team3final.common.config.AiProperties;
 import com.example.team3final.common.exception.AiException;
 import com.example.team3final.domain.ai.common.enums.AiCallStatus;
+import com.example.team3final.domain.ai.common.enums.AiChatMemoryRole;
 import com.example.team3final.domain.ai.common.enums.AiErrorType;
 import com.example.team3final.domain.ai.common.enums.AiFeature;
 import com.example.team3final.domain.ai.common.enums.AiPromptType;
@@ -14,9 +15,12 @@ import com.example.team3final.domain.ai.rag.service.AiRagRetrieverService;
 import com.example.team3final.domain.ai.support.dto.request.AiSupportChatRequestDto;
 import com.example.team3final.domain.ai.support.dto.response.AiSupportChatResponseDto;
 import com.example.team3final.domain.ai.support.dto.response.AiSupportLlmResult;
+import com.example.team3final.domain.ai.support.dto.response.AiSupportSessionTokenStatsDto;
+import com.example.team3final.domain.ai.support.entity.AiSupportChatMemory;
 import com.example.team3final.domain.ai.support.entity.AiSupportChatMessage;
 import com.example.team3final.domain.ai.support.enums.AiSupportCategory;
 import com.example.team3final.domain.ai.support.enums.AiSupportMessageRole;
+import com.example.team3final.domain.ai.support.repository.AiSupportChatMemoryRepository;
 import com.example.team3final.domain.ai.support.repository.AiSupportChatMessageRepository;
 import com.example.team3final.domain.ai.support.tool.AiSupportTool;
 import com.example.team3final.domain.ai.support.tool.AiSupportSessionTool;
@@ -27,10 +31,13 @@ import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.Collections;
 import java.util.List;
@@ -86,15 +93,21 @@ public class AiSupportServiceImpl implements AiSupportService {
     private final AiPromptFileService aiPromptFileService;
     private final AiSupportTool aiSupportTool;
     private final AiSupportChatMessageRepository aiSupportChatMessageRepository;
+    private final AiSupportChatMemoryRepository aiSupportChatMemoryRepository;
     private final AiCallMetricService aiCallMetricService;
     private final AiProperties aiProperties;
     private final AiRagRetrieverService aiRagRetrieverService;
+
+    // 고객센터 AI 멀티턴 컨텍스트는 비용 제어를 위해 최근 대화부터 3000 추정 토큰까지만 전달합니다.
+    private static final int SUPPORT_MEMORY_TOKEN_BUDGET = 3000;
+    private static final int SUPPORT_SESSION_EXPIRE_MINUTES = 15;
 
     public AiSupportServiceImpl(
             ChatClient.Builder chatClientBuilder,
             AiPromptFileService aiPromptFileService,
             AiSupportTool aiSupportTool,
             AiSupportChatMessageRepository aiSupportChatMessageRepository,
+            AiSupportChatMemoryRepository aiSupportChatMemoryRepository,
             AiCallMetricService aiCallMetricService,
             AiProperties aiProperties,
             ObjectProvider<AiRagRetrieverService> aiRagRetrieverServiceProvider
@@ -103,6 +116,7 @@ public class AiSupportServiceImpl implements AiSupportService {
         this.aiPromptFileService = aiPromptFileService;
         this.aiSupportTool = aiSupportTool;
         this.aiSupportChatMessageRepository = aiSupportChatMessageRepository;
+        this.aiSupportChatMemoryRepository = aiSupportChatMemoryRepository;
         this.aiCallMetricService = aiCallMetricService;
         this.aiProperties = aiProperties;
         // RAG VectorStore가 꺼져 있거나 pgvector 설정이 없는 환경에서도 고객센터 AI가 동작하게 Optional 주입을 사용합니다.
@@ -123,10 +137,10 @@ public class AiSupportServiceImpl implements AiSupportService {
     @Override
     @Transactional
     public AiSupportChatResponseDto chat(Long userId, String email, AiSupportChatRequestDto request) {
+        cleanupExpiredSupportSessions();
+
         // conversationId는 프론트가 이어서 보내면 기존 대화에 붙고, 없으면 새 고객센터 대화를 시작합니다.
-        String conversationId = request.conversationId() == null || request.conversationId().isBlank()
-                ? UUID.randomUUID().toString()
-                : request.conversationId();
+        String conversationId = resolveConversationId(request.conversationId());
 
         // requestId는 USER 메시지, ASSISTANT 메시지, AiCallMetric을 한 요청 단위로 묶는 추적 ID입니다.
         String requestId = UUID.randomUUID().toString();
@@ -153,10 +167,11 @@ public class AiSupportServiceImpl implements AiSupportService {
                 null,
                 null
         );
+        saveMemory(userId, conversationId, requestId, AiChatMemoryRole.USER, request.message());
 
         try {
             // 멀티턴 맥락은 최근 대화만 넣어 토큰 비용을 제한하고, 프롬프트에서는 비신뢰 데이터로 취급합니다.
-            String conversationContext = buildConversationContext(userId, conversationId, requestId);
+            String conversationContext = buildTokenWindowConversationContext(userId, conversationId, requestId);
 
             // RAG 실패는 전체 AI 실패로 보지 않습니다. RAG 컨텍스트만 fallback 문구로 대체하고 LLM/Tool 흐름은 계속 진행합니다.
             AiSupportRagContext ragContext = buildSupportRagContext(request.message(), conversationContext);
@@ -219,6 +234,7 @@ public class AiSupportServiceImpl implements AiSupportService {
                     promptTemplateId,
                     promptVersion
             );
+            saveMemory(userId, conversationId, requestId, AiChatMemoryRole.ASSISTANT, answer);
 
             // 토큰 수와 지연 시간은 AI 비용/장애 분석용 공통 메트릭 테이블에 저장합니다.
             saveMetric(
@@ -278,6 +294,7 @@ public class AiSupportServiceImpl implements AiSupportService {
                     promptTemplateId,
                     promptVersion
             );
+            saveMemory(userId, conversationId, requestId, AiChatMemoryRole.ASSISTANT, fallbackAnswer);
 
             return new AiSupportChatResponseDto(
                     conversationId,
@@ -300,9 +317,9 @@ public class AiSupportServiceImpl implements AiSupportService {
     @Override
     @Transactional
     public Flux<String> streamChat(Long userId, String email, AiSupportChatRequestDto request) {
-        String conversationId = request.conversationId() == null || request.conversationId().isBlank()
-                ? UUID.randomUUID().toString()
-                : request.conversationId();
+        cleanupExpiredSupportSessions();
+
+        String conversationId = resolveConversationId(request.conversationId());
         String requestId = UUID.randomUUID().toString();
         long startedAt = System.currentTimeMillis();
 
@@ -320,9 +337,10 @@ public class AiSupportServiceImpl implements AiSupportService {
                 null,
                 null
         );
+        saveMemory(userId, conversationId, requestId, AiChatMemoryRole.USER, request.message());
 
         try {
-            String conversationContext = buildConversationContext(userId, conversationId, requestId);
+            String conversationContext = buildTokenWindowConversationContext(userId, conversationId, requestId);
             AiSupportRagContext ragContext = buildSupportRagContext(request.message(), conversationContext);
             AiPromptFileService.RenderedPrompt prompt = renderPrompt(
                     userId,
@@ -551,39 +569,148 @@ public class AiSupportServiceImpl implements AiSupportService {
     }
 
     /**
-     * 같은 conversationId의 최근 고객센터 대화 이력을 system prompt에 넣을 문자열로 구성합니다.
+     * 고객센터 AI의 멀티턴 메모리는 최근 N개 메시지가 아니라 토큰 예산 기준으로 구성합니다.
      *
-     * USER 메시지를 먼저 저장한 뒤 호출되므로 현재 요청의 requestId는 제외합니다.
-     * 이렇게 해야 현재 질문이 conversationContext와 user prompt에 중복 주입되지 않습니다.
-     *
-     * 최근 메시지는 오래된 순서로 재정렬해 LLM이 대화 흐름을 이해할 수 있게 합니다.
-     * 다만 이전 대화에는 사용자가 작성한 문장이 포함되므로 support-chat-v1.st에서
-     * 비신뢰 데이터로 명시하고, 여기서는 길이를 제한해 프롬프트가 과도하게 커지지 않게 합니다.
+     * 최신 메시지부터 tokenCount를 누적해 3000토큰 안에 들어오는 메시지만 선택하고,
+     * 프롬프트에는 다시 오래된 순서로 넣어 자연스러운 대화 흐름을 유지합니다.
+     * 3000토큰은 고객센터 1턴 평균 300토큰 가정 시 약 10턴 맥락을 유지하는 값입니다.
+     * 현재 요청 메시지는 user prompt에도 별도로 들어가므로 requestId로 제외합니다.
      */
-    private String buildConversationContext(Long userId, String conversationId, String currentRequestId) {
-        List<AiSupportChatMessage> messages =
-                aiSupportChatMessageRepository.findTop10ByUserIdAndConversationIdOrderByCreatedAtDesc(userId, conversationId);
+    private String buildTokenWindowConversationContext(Long userId, String conversationId, String currentRequestId) {
+        List<AiSupportChatMemory> recentMessages =
+                aiSupportChatMemoryRepository.findByUserIdAndConversationIdOrderByCreatedAtDesc(userId, conversationId);
 
-        if (messages.isEmpty()) {
+        if (recentMessages.isEmpty()) {
             return "이전 대화 없음";
         }
 
-        // Repository는 최신순으로 10개를 가져오므로, 프롬프트에는 오래된 순서로 뒤집어 대화 흐름을 유지합니다.
-        Collections.reverse(messages);
+        int usedTokens = 0;
+        List<AiSupportChatMemory> selectedMessages = new ArrayList<>();
 
-        StringBuilder sb = new StringBuilder();
-        for (AiSupportChatMessage message : messages) {
+        for (AiSupportChatMemory message : recentMessages) {
             if (currentRequestId.equals(message.getRequestId())) {
                 continue;
             }
 
+            int tokenCount = resolveTokenCount(message.getTokenCount(), message.getContent());
+            if (usedTokens + tokenCount > SUPPORT_MEMORY_TOKEN_BUDGET) {
+                break;
+            }
+
+            selectedMessages.add(message);
+            usedTokens += tokenCount;
+        }
+
+        if (selectedMessages.isEmpty()) {
+            return "이전 대화 없음";
+        }
+
+        Collections.reverse(selectedMessages);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("[고객센터 AI 대화 메모리]\n")
+                .append("- 적용 전략: 최근 대화부터 최대 ")
+                .append(SUPPORT_MEMORY_TOKEN_BUDGET)
+                .append("토큰 이하만 포함\n")
+                .append("- 설정 근거: 고객센터 1턴 평균 300토큰 기준 약 10턴 맥락 유지\n")
+                .append("- 현재 포함된 대화 토큰: ")
+                .append(usedTokens)
+                .append("\n\n");
+
+        for (AiSupportChatMemory message : selectedMessages) {
             sb.append(message.getRole())
                     .append(": ")
-                    .append(truncate(message.getContent(), 500))
+                    .append(truncate(message.getContent(), 1200))
                     .append("\n");
         }
 
-        return sb.isEmpty() ? "이전 대화 없음" : sb.toString();
+        return sb.toString();
+    }
+
+    private void saveMemory(Long userId, String conversationId, String requestId, AiChatMemoryRole role, String content) {
+        if (userId == null || conversationId == null || conversationId.isBlank()
+                || requestId == null || requestId.isBlank() || role == null || content == null || content.isBlank()) {
+            return;
+        }
+
+        String normalizedContent = truncate(content, 4000);
+        aiSupportChatMemoryRepository.save(
+                AiSupportChatMemory.builder()
+                        .userId(userId)
+                        .conversationId(conversationId)
+                        .requestId(requestId)
+                        .role(role)
+                        .content(normalizedContent)
+                        .tokenCount(estimateTokenCount(normalizedContent))
+                        .build()
+        );
+    }
+
+    /**
+     * 마지막 대화가 15분 이상 지난 고객센터 AI conversation 전체를 삭제합니다.
+     */
+    @Scheduled(fixedDelay = 60000)
+    @Transactional
+    public void cleanupExpiredSupportSessions() {
+        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(SUPPORT_SESSION_EXPIRE_MINUTES);
+        List<AiSupportChatMemoryRepository.ExpiredConversationKey> expiredConversations =
+                aiSupportChatMemoryRepository.findExpiredConversationKeys(cutoff);
+
+        for (AiSupportChatMemoryRepository.ExpiredConversationKey expiredConversation : expiredConversations) {
+            aiSupportChatMemoryRepository.deleteByUserIdAndConversationId(
+                    expiredConversation.getUserId(),
+                    expiredConversation.getConversationId()
+            );
+            aiSupportChatMessageRepository.deleteByUserIdAndConversationId(
+                    expiredConversation.getUserId(),
+                    expiredConversation.getConversationId()
+            );
+        }
+    }
+
+    @Override
+    @Transactional
+    public List<AiSupportSessionTokenStatsDto> getSessionTokenStats(Long userId) {
+        cleanupExpiredSupportSessions();
+
+        return aiSupportChatMemoryRepository.findSessionTokenStatsByUserId(userId)
+                .stream()
+                .map(stats -> new AiSupportSessionTokenStatsDto(
+                        stats.getConversationId(),
+                        defaultLong(stats.getMessageCount()),
+                        defaultLong(stats.getEstimatedTokenTotal()),
+                        SUPPORT_MEMORY_TOKEN_BUDGET,
+                        SUPPORT_SESSION_EXPIRE_MINUTES,
+                        "최근 대화부터 3000 추정 토큰 이하만 LLM에 전달합니다. 고객센터 1턴 평균 300토큰 기준 약 10턴 맥락을 유지하기 위한 설정입니다.",
+                        stats.getLastMessageAt()
+                ))
+                .toList();
+    }
+
+    private String resolveConversationId(String conversationId) {
+        return conversationId == null || conversationId.isBlank()
+                ? UUID.randomUUID().toString()
+                : conversationId;
+    }
+
+    private int resolveTokenCount(Integer tokenCount, String content) {
+        return tokenCount == null || tokenCount <= 0 ? estimateTokenCount(content) : tokenCount;
+    }
+
+    /**
+     * 외부 tokenizer 의존 없이 보수적으로 토큰 수를 추정합니다.
+     * 한글/영문 혼합 입력에서 대략 2글자당 1토큰으로 잡아 윈도우 초과를 늦게 감지하지 않게 합니다.
+     */
+    private int estimateTokenCount(String content) {
+        if (content == null || content.isBlank()) {
+            return 0;
+        }
+
+        return Math.max(1, (int) Math.ceil(content.length() / 2.0));
+    }
+
+    private long defaultLong(Long value) {
+        return value == null ? 0L : value;
     }
 
     /**
@@ -651,6 +778,7 @@ public class AiSupportServiceImpl implements AiSupportService {
                     promptTemplateId,
                     promptVersion
             );
+            saveMemory(userId, conversationId, requestId, AiChatMemoryRole.ASSISTANT, answer);
         } catch (Exception e) {
             log.warn("[AiSupportService] 고객센터 스트리밍 응답 저장 실패. SSE 응답은 계속 진행합니다.", e);
         }

@@ -21,6 +21,14 @@ type ChatMessage = {
   recommendedPosts?: RecommendedPost[];
 };
 
+type ParsedRecommendation = {
+  postId: number;
+  placeName?: string;
+  meetAt?: string;
+  deposit?: string;
+  reason?: string;
+};
+
 export default function MatchingAiChatPage() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -216,6 +224,19 @@ export default function MatchingAiChatPage() {
 function ChatBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === 'user';
   const displayRecommendedPosts = getDisplayRecommendedPosts(message);
+  const parsedRecommendations = !isUser ? parseRecommendationCards(message.content) : [];
+  const linkedPostIds = !isUser && displayRecommendedPosts.length === 0 && parsedRecommendations.length === 0
+      ? getMentionedPostIds(message.content)
+      : [];
+  const hasRecommendationCards = !isUser && (
+      displayRecommendedPosts.length > 0 ||
+      parsedRecommendations.length > 0 ||
+      linkedPostIds.length > 0
+  );
+  const displayText = parsedRecommendations.length > 0
+      ? getRecommendationIntro(message.content)
+      : formatMatchingContent(message.content);
+  const recommendationReasons = getRecommendationReasons(displayRecommendedPosts, parsedRecommendations);
 
   return (
       <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -235,9 +256,9 @@ function ChatBubble({ message }: { message: ChatMessage }) {
             )}
             {message.isThinking && !message.content ? (
                 <ThinkingIndicator />
-            ) : (
-                <p className="whitespace-pre-wrap">{message.content}</p>
-            )}
+            ) : !hasRecommendationCards ? (
+                <p className="whitespace-pre-wrap">{displayText}</p>
+            ) : null}
             {message.fallbackUsed && (
                 <div className="mt-3 rounded-lg border border-[#ffcc80] bg-[#fff8e1] px-3 py-2 text-xs font-semibold text-[#ef6c00]">
                   AI 추천이 일부 제한된 상태입니다.
@@ -246,17 +267,40 @@ function ChatBubble({ message }: { message: ChatMessage }) {
 
             {!isUser && displayRecommendedPosts.length > 0 && (
                 <div className="mt-4 border-t border-[#eeeeee] pt-3">
-                  <p className="mb-2 text-xs font-bold text-[#616161]">추천 게시글 바로가기</p>
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <RecommendationIntro message={displayText} reasons={recommendationReasons} />
+                  <p className="mb-2 text-xs font-bold text-[#616161]">추천 게시글</p>
+                  <div className="grid gap-2">
                     {displayRecommendedPosts.map((post) => (
+                        <RecommendedPostMiniCard key={post.postId} post={post} />
+                    ))}
+                  </div>
+                </div>
+            )}
+
+            {!isUser && parsedRecommendations.length > 0 && (
+                <div className="mt-4 border-t border-[#eeeeee] pt-3">
+                  <RecommendationIntro message={displayText} reasons={recommendationReasons} />
+                  <p className="mb-2 text-xs font-bold text-[#616161]">추천 게시글</p>
+                  <div className="grid gap-2">
+                    {parsedRecommendations.map((post) => (
+                        <ParsedRecommendationCard key={post.postId} post={post} />
+                    ))}
+                  </div>
+                </div>
+            )}
+
+            {!isUser && linkedPostIds.length > 0 && (
+                <div className="mt-4 border-t border-[#eeeeee] pt-3">
+                  <RecommendationIntro message={displayText} reasons={recommendationReasons} />
+                  <p className="mb-2 text-xs font-bold text-[#616161]">추천 게시글</p>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {linkedPostIds.map((postId) => (
                         <Link
-                            key={post.postId}
-                            to={`/posts/${post.postId}`}
-                            className="group flex min-w-0 items-center justify-between gap-2 rounded-xl border border-[#e0e0e0] bg-white px-3 py-2 text-xs font-bold text-[#424242] transition-all hover:border-[#d84315] hover:bg-[#fff8f3] hover:text-[#d84315]"
+                            key={postId}
+                            to={`/posts/${postId}`}
+                            className="group inline-flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-[#e0e0e0] bg-white px-3 py-2 text-xs font-bold text-[#424242] transition-all hover:border-[#d84315] hover:bg-[#fff8f3] hover:text-[#d84315]"
                         >
-                          <span className="min-w-0 truncate">
-                            {post.placeName} · {post.deposit.toLocaleString()}P
-                          </span>
+                          <span>#{postId} 상세</span>
                           <ArrowRight size={13} className="shrink-0 transition-transform group-hover:translate-x-0.5" />
                         </Link>
                     ))}
@@ -265,7 +309,7 @@ function ChatBubble({ message }: { message: ChatMessage }) {
             )}
           </div>
 
-          {!isUser && displayRecommendedPosts.length === 0 && hasRecommendedAnswer(message) && (
+          {!isUser && displayRecommendedPosts.length === 0 && parsedRecommendations.length === 0 && linkedPostIds.length === 0 && hasRecommendedAnswer(message) && (
               <div className="mt-3 rounded-2xl border border-[#eeeeee] bg-white p-3">
                 <p className="text-sm font-bold text-[#212121]">게시글에서 직접 확인하기</p>
                 <p className="mt-0.5 text-xs text-[#9e9e9e]">
@@ -313,6 +357,107 @@ function ThinkingIndicator() {
   );
 }
 
+function RecommendationIntro({
+  message,
+  reasons,
+}: {
+  message: string;
+  reasons: string[];
+}) {
+  return (
+      <div className="mb-3 rounded-2xl bg-[#fffaf4] px-3 py-2.5">
+        <div className="min-w-0">
+          <p className="whitespace-pre-wrap text-sm leading-6 text-[#3d2b22]">
+            {message}
+          </p>
+          {reasons.length > 0 && (
+              <div className="mt-2 rounded-xl bg-white/75 px-3 py-2">
+                <p className="text-xs font-extrabold text-[#6d5a50]">추천 이유</p>
+                <ul className="mt-1 space-y-1 text-xs leading-5 text-[#6d5a50]">
+                  {reasons.map((reason) => (
+                      <li key={reason} className="flex gap-1.5">
+                        <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-[#d84315]" />
+                        <span>{reason}</span>
+                      </li>
+                  ))}
+                </ul>
+              </div>
+          )}
+        </div>
+      </div>
+  );
+}
+
+function RecommendedPostMiniCard({ post }: { post: RecommendedPost }) {
+  return (
+      <Link
+          to={`/posts/${post.postId}`}
+          className="group block rounded-xl border border-[#f0d8c8] bg-white px-4 py-3 text-[#3d2b22] transition-all hover:border-[#d84315] hover:bg-[#fff8f3] hover:shadow-sm"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-extrabold text-[#212121]">{post.placeName}</p>
+          </div>
+          <span className="shrink-0 rounded-full bg-[#e8f5e9] px-2.5 py-1 text-[11px] font-bold text-[#2e7d32]">
+            모집중
+          </span>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs font-semibold text-[#6d5a50]">
+          <span className="flex items-center gap-1">
+            <CalendarClock size={13} className="text-[#d84315]" />
+            {formatMeetAt(post.meetAt)}
+          </span>
+          <span className="flex items-center gap-1">
+            <Coins size={13} className="text-[#d84315]" />
+            {post.deposit.toLocaleString()}P
+          </span>
+          <span className="ml-auto inline-flex items-center gap-1 text-[#d84315]">
+            상세 보기
+            <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+          </span>
+        </div>
+      </Link>
+  );
+}
+
+function ParsedRecommendationCard({ post }: { post: ParsedRecommendation }) {
+  return (
+      <Link
+          to={`/posts/${post.postId}`}
+          className="group block rounded-xl border border-[#f0d8c8] bg-white px-4 py-3 text-[#3d2b22] transition-all hover:border-[#d84315] hover:bg-[#fff8f3] hover:shadow-sm"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-extrabold text-[#212121]">
+              {post.placeName || `게시글 #${post.postId}`}
+            </p>
+          </div>
+          <span className="shrink-0 rounded-full bg-[#e8f5e9] px-2.5 py-1 text-[11px] font-bold text-[#2e7d32]">
+            모집중
+          </span>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs font-semibold text-[#6d5a50]">
+          {post.meetAt && (
+              <span className="flex items-center gap-1">
+                <CalendarClock size={13} className="text-[#d84315]" />
+                {post.meetAt}
+              </span>
+          )}
+          {post.deposit && (
+              <span className="flex items-center gap-1">
+                <Coins size={13} className="text-[#d84315]" />
+                {post.deposit}
+              </span>
+          )}
+          <span className="ml-auto inline-flex items-center gap-1 text-[#d84315]">
+            상세 보기
+            <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+          </span>
+        </div>
+      </Link>
+  );
+}
+
 function getDisplayRecommendedPosts(message: ChatMessage) {
   const posts = message.recommendedPosts ?? [];
 
@@ -328,6 +473,111 @@ function getDisplayRecommendedPosts(message: ChatMessage) {
   });
 
   return mentionedPosts.length > 0 ? mentionedPosts : posts;
+}
+
+function getRecommendationReasons(
+  recommendedPosts: RecommendedPost[],
+  parsedRecommendations: ParsedRecommendation[]
+) {
+  const reasons = [
+    ...recommendedPosts.map((post) => post.reason),
+    ...parsedRecommendations.map((post) => post.reason),
+  ]
+      .map((reason) => cleanupRecommendationReason(reason))
+      .filter((reason): reason is string => Boolean(reason));
+
+  return Array.from(new Set(reasons)).slice(0, 3);
+}
+
+function cleanupRecommendationReason(reason?: string) {
+  if (!reason) return '';
+
+  return reason
+      .replace(/^이유\s*:\s*/i, '')
+      .replace(/신청\s*가능합니다\.?$/g, '')
+      .trim();
+}
+
+function parseRecommendationCards(content: string): ParsedRecommendation[] {
+  const formatted = formatMatchingContent(content);
+  const parts = formatted.split(/\n-\s*게시글\s*ID\s*:\s*/);
+
+  if (parts.length <= 1) {
+    return [];
+  }
+
+  return parts
+      .slice(1)
+      .map((part) => {
+        const nextBlock = part.split(/\n-\s*게시글\s*ID\s*:\s*/)[0];
+        const idMatch = nextBlock.match(/^(\d+)/);
+
+        if (!idMatch) {
+          return null;
+        }
+
+        return {
+          postId: Number(idMatch[1]),
+          placeName: extractField(nextBlock, '장소'),
+          meetAt: extractField(nextBlock, '시간'),
+          deposit: extractField(nextBlock, '책임비'),
+          reason: extractField(nextBlock, '이유'),
+        };
+      })
+      .filter((post): post is ParsedRecommendation => Boolean(post))
+      .slice(0, 3);
+}
+
+function extractField(block: string, label: string) {
+  const pattern = new RegExp(`${label}\\s*:\\s*([^\\n]+)`);
+  const match = block.match(pattern);
+  return match?.[1]?.trim();
+}
+
+function getRecommendationIntro(content: string) {
+  const formatted = formatMatchingContent(content);
+  const intro = formatted.split(/\n-\s*게시글\s*ID\s*:/)[0]
+      .replace(/추천한?계시는? 참고하여 신청하세요\.?/g, '')
+      .trim();
+
+  return intro || '조건에 맞는 식사팟을 찾았어요.';
+}
+
+function getMentionedPostIds(content: string) {
+  const ids = new Set<number>();
+  const labeledIdPattern = /(?:게시글\s*(?:ID|아이디)?|글\s*ID)\s*[:#]?\s*(\d+)/gi;
+  const idListPattern = /추천(?:한)?\s*게시글\s*(?:ID|아이디)[^\d[]*\[?([0-9,\s]+)\]?/gi;
+
+  for (const match of content.matchAll(labeledIdPattern)) {
+    ids.add(Number(match[1]));
+  }
+
+  for (const match of content.matchAll(idListPattern)) {
+    match[1]
+        .split(',')
+        .map((value) => Number(value.trim()))
+        .filter((value) => Number.isFinite(value) && value > 0)
+        .forEach((value) => ids.add(value));
+  }
+
+  return Array.from(ids).slice(0, 3);
+}
+
+function formatMatchingContent(content: string) {
+  return content
+      .replace(/\*\*/g, '')
+      .replace(/^#{1,6}\s*/gm, '')
+      .replace(/recommendedPostIds\s*[:=]?\s*\[[\d,\s]*\]/gi, '')
+      .replace(/추천(?:한)?\s*게시글\s*(?:ID|아이디)\s*[:=]?\s*\[[\d,\s]*\]/gi, '')
+      .replace(/([^\n])-\s*게시글\s*ID/g, '$1\n- 게시글 ID')
+      .replace(/([^\n])(\d+\.\s*)/g, '$1\n$2')
+      .replace(/([^\n])(추천한?\s*게시글\s*(?:ID|아이디))/g, '$1\n\n$2')
+      .replace(/([^\n])(조건에 맞는|추천 후보|신청 가능 여부)/g, '$1\n$2')
+      .replace(/([^\n])(추천한?계시는?\s*참고)/g, '$1\n$2')
+      .replace(/\s*\/\s*(장소|시간|책임비|이유|신청 가능 여부)\s*:/g, '\n  $1: ')
+      .replace(/(신청\s*가능합니다\.?)/g, '$1\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trimStart();
 }
 
 function isLimitedRecommendation(message: ChatMessage) {

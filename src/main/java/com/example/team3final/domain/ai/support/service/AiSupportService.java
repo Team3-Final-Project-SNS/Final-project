@@ -2,7 +2,10 @@ package com.example.team3final.domain.ai.support.service;
 
 import com.example.team3final.domain.ai.support.dto.request.AiSupportChatRequestDto;
 import com.example.team3final.domain.ai.support.dto.response.AiSupportChatResponseDto;
+import com.example.team3final.domain.ai.support.dto.response.AiSupportSessionTokenStatsDto;
 import reactor.core.publisher.Flux;
+
+import java.util.List;
 
 /**
  * 고객센터 AI 채팅 기능의 서비스 계약입니다.
@@ -29,4 +32,9 @@ public interface AiSupportService {
      * 프론트가 답변 텍스트를 실시간으로 그릴 수 있도록 Flux<String>으로 반환합니다.
      */
     Flux<String> streamChat(Long userId, String email, AiSupportChatRequestDto request);
+
+    /**
+     * 로그인 사용자의 고객센터 AI 세션별 토큰 누적량을 조회합니다.
+     */
+    List<AiSupportSessionTokenStatsDto> getSessionTokenStats(Long userId);
 }

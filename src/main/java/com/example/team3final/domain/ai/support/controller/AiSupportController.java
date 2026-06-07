@@ -3,6 +3,7 @@ package com.example.team3final.domain.ai.support.controller;
 import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.domain.ai.support.dto.request.AiSupportChatRequestDto;
 import com.example.team3final.domain.ai.support.dto.response.AiSupportChatResponseDto;
+import com.example.team3final.domain.ai.support.dto.response.AiSupportSessionTokenStatsDto;
 import com.example.team3final.domain.ai.support.service.AiSupportService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
 import jakarta.validation.Valid;
@@ -10,11 +11,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
+
+import java.util.List;
 
 /**
  * 고객센터 AI 챗봇 API 컨트롤러입니다.
@@ -75,5 +79,20 @@ public class AiSupportController {
                 userDetails.getEmail(),
                 request
         );
+    }
+
+    /**
+     * 로그인 사용자의 고객센터 AI 대화 세션별 토큰 누적량을 조회합니다.
+     *
+     * conversationId만으로 조회하지 않고 JWT의 userId를 함께 사용하므로
+     * 사용자 간 대화 세션이 격리됩니다.
+     */
+    @GetMapping("/sessions/token-dashboard")
+    public ResponseEntity<ApiResponseDto<List<AiSupportSessionTokenStatsDto>>> getSessionTokenDashboard(
+            @AuthenticationPrincipal UserDetailsImpl userDetails
+    ) {
+        List<AiSupportSessionTokenStatsDto> response = aiSupportService.getSessionTokenStats(userDetails.getUserId());
+
+        return ResponseEntity.ok(ApiResponseDto.success(response));
     }
 }
