@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
@@ -15,14 +17,12 @@ public class AdminServiceImpl implements AdminService {
 
     private final AdminRepository adminRepository;
 
-    // 활성 관리자 ID 단건 조회
-    // isActive = true인 관리자 1명만 조회
-    // 관리자가 없거나 비활성화된 경우 null 반환 → 호출 측에서 null 체크 후 알림 스킵
+    // 접수 알림은 특정 관리자 한 명이 아니라 모든 활성 관리자에게 전달한다.
     @Override
-    public Long getAdminId() {
-        return adminRepository.findFirstByIsActiveTrue()
+    public List<Long> getActiveAdminIds() {
+        return adminRepository.findAllByIsActiveTrue().stream()
                 .map(Admin::getId)
-                .orElse(null);
+                .toList();
     }
 
 

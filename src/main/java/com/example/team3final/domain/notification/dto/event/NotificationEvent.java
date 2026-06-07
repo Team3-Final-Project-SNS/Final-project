@@ -1,6 +1,7 @@
 package com.example.team3final.domain.notification.dto.event;
 
 import com.example.team3final.domain.notification.enums.NotificationType;
+import com.example.team3final.domain.notification.enums.NotificationReceiverType;
 import com.example.team3final.domain.notification.enums.RelatedDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -17,6 +18,7 @@ public record NotificationEvent(
         @JsonProperty("eventId") String eventId,
 
         @JsonProperty("receiverId") Long receiverId,
+        @JsonProperty("receiverType") NotificationReceiverType receiverType,
         @JsonProperty("type") NotificationType type,
         @JsonProperty("title") String title,
         @JsonProperty("content") String content,
@@ -28,6 +30,7 @@ public record NotificationEvent(
     public NotificationEvent(
             @JsonProperty("eventId") String eventId,
             @JsonProperty("receiverId") Long receiverId,
+            @JsonProperty("receiverType") NotificationReceiverType receiverType,
             @JsonProperty("type") NotificationType type,
             @JsonProperty("title") String title,
             @JsonProperty("content") String content,
@@ -36,6 +39,7 @@ public record NotificationEvent(
     ) {
         this.eventId = eventId;
         this.receiverId = receiverId;
+        this.receiverType = receiverType != null ? receiverType : NotificationReceiverType.USER;
         this.type = type;
         this.title = title;
         this.content = content;
