@@ -7,6 +7,7 @@ import com.example.team3final.domain.notification.dto.response.GetUnreadCountRes
 import com.example.team3final.domain.notification.dto.response.UpdateAllNotificationsReadResponseDto;
 import com.example.team3final.domain.notification.dto.response.UpdateNotificationReadResponseDto;
 import com.example.team3final.domain.notification.service.NotificationService;
+import com.example.team3final.domain.notification.enums.NotificationReceiverType;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -31,7 +32,8 @@ public class NotificationController {
     ) {
         Long receiverId = userDetails.getUserId();
         CursorResponseDto<GetNotificationsResponseDto> response =
-                notificationService.getNotifications(receiverId, cursorId, size);
+                notificationService.getNotifications(
+                        NotificationReceiverType.USER, receiverId, cursorId, size);
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
 
@@ -42,7 +44,8 @@ public class NotificationController {
     ) {
         Long receiverId = userDetails.getUserId();
         UpdateAllNotificationsReadResponseDto response =
-                notificationService.updateAllNotificationsRead(receiverId);
+                notificationService.updateAllNotificationsRead(
+                        NotificationReceiverType.USER, receiverId);
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
 
@@ -54,7 +57,8 @@ public class NotificationController {
     ) {
         Long userId = userDetails.getUserId();
         UpdateNotificationReadResponseDto response =
-                notificationService.updateNotificationRead(userId, notificationId);
+                notificationService.updateNotificationRead(
+                        NotificationReceiverType.USER, userId, notificationId);
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
 
@@ -64,7 +68,7 @@ public class NotificationController {
             @AuthenticationPrincipal UserDetailsImpl userDetails // JWT 토큰에서 인증된 유저 정보
     ) {
         Long userId = userDetails.getUserId();
-        return notificationService.subscribe(userId);
+        return notificationService.subscribe(NotificationReceiverType.USER, userId);
     }
 
     // 미확인 알림 카운트 조회
@@ -73,7 +77,8 @@ public class NotificationController {
             @AuthenticationPrincipal UserDetailsImpl userDetails // JWT 토큰에서 인증된 유저 정보
     ) {
         Long receiverId = userDetails.getUserId(); // JWT에서 수신자 ID 추출
-        GetUnreadCountResponseDto response = notificationService.getUnreadCount(receiverId);
+        GetUnreadCountResponseDto response = notificationService.getUnreadCount(
+                NotificationReceiverType.USER, receiverId);
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
 }

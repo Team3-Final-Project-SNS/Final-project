@@ -6,6 +6,7 @@ import com.example.team3final.domain.notification.dto.event.NotificationEvent;
 import com.example.team3final.domain.notification.dto.response.GetNotificationsResponseDto;
 import com.example.team3final.domain.notification.entity.Notification;
 import com.example.team3final.domain.notification.repository.NotificationRepository;
+import com.example.team3final.domain.notification.service.NotificationCacheService;
 import com.example.team3final.domain.notification.sse.SseEmitterRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ public class NotificationEventConsumer {
     private final NotificationRepository notificationRepository;
     private final SseEmitterRepository sseEmitterRepository;
     private final ObjectMapper objectMapper;
+    private final NotificationCacheService notificationCacheService;
     // 멱등성 체크 서비스 주입
     private final KafkaIdempotencyService kafkaIdempotencyService;
 
@@ -51,6 +53,7 @@ public class NotificationEventConsumer {
             // DB에 알림 저장
             Notification notification = Notification.builder()
                     .receiverId(event.receiverId())
+                    .receiverType(event.receiverType())
                     .type(event.type())
                     .title(event.title())
                     .content(event.content())
@@ -59,16 +62,19 @@ public class NotificationEventConsumer {
                     .build();
             notificationRepository.save(notification);
 
+            // 캐시 무효화 — 별도 서비스 호출로 @CacheEvict 정상 동작
+            notificationCacheService.evictAll();
+
             // SSE로 실시간 전송
             // 연결된 유저가 없으면 DB 저장만 하고 전송은 건너뜀
-            sseEmitterRepository.findByUserId(event.receiverId()).ifPresent(emitter -> {
+            sseEmitterRepository.find(event.receiverType(), event.receiverId()).ifPresent(emitter -> {
                 try {
                     emitter.send(SseEmitter.event()
                             .name("notification")
                             .data(GetNotificationsResponseDto.from(notification)));
                 } catch (IOException e) {
                     // 전송 실패 시 Emitter 삭제 (끊어진 연결 정리)
-                    sseEmitterRepository.deleteByUserId(event.receiverId());
+                    sseEmitterRepository.delete(event.receiverType(), event.receiverId());
                     log.warn("[SSE] 알림 전송 실패 - userId: {}", event.receiverId());
                 }
             });
