@@ -152,7 +152,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     public void sendMeetOverdue(Long userId, Long matchId) {
         publish(userId, NotificationType.MEET_OVERDUE,
                 "만남 시간이 10분 지났습니다.",
-                "만남 시간이 10분 지났습니다.",
+                "만남 시간이 10분 지났습니다. 서둘러 장소인증을 완료해주세요.",
                 RelatedDomain.MEET, matchId);
     }
 
@@ -241,7 +241,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     public void sendNoShowConfirmed(Long userId, Long matchId) {
         publish(userId, NotificationType.NO_SHOW_CONFIRMED,
                 "노쇼가 확정되었습니다.",
-                "노쇼가 확정되었습니다. 관련 내용을 확인해 주세요.",
+                "노쇼가 확정되었습니다. 자세한 내용은 문의해주세요.",
                 RelatedDomain.MEET, matchId);
     }
 
@@ -309,7 +309,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     public void sendDisputePending(Long userId, Long disputeId) {
         publish(userId, NotificationType.DISPUTE_PENDING,
                 "이의제기가 보류 처리되었습니다.",
-                "이의제기가 보류 처리되었습니다. 24시간 이내에 추가 증거를 제출해 주세요.",
+                "이의제기가 보류 처리되었습니다. 24시간 이내에 추가 증빙자료를 제출해 주세요.",
                 RelatedDomain.DISPUTE, disputeId);
     }
 
@@ -457,7 +457,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     public void sendPostDeleted(Long userId, Long postId) {
         publish(userId, NotificationType.POST_DELETED,
                 "게시글이 삭제되었습니다.",
-                "해당 게시물이 신고 접수 및 관리자 판단에 의해 삭제되었습니다. 자세한 사항은 고객센터를 확인해 주세요.",
+                "해당 게시물이 신고 접수 및 관리자 판단에 의해 삭제되었습니다.",
                 RelatedDomain.POST, postId);
     }
 
@@ -466,7 +466,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     public void sendPostRestored(Long userId, Long postId) {
         publish(userId, NotificationType.POST_RESTORED,
                 "게시글이 복구되었습니다.",
-                "관리자에 의해 삭제되었던 게시물이 복구되어, 예치 포인트가 다시 차감되었습니다.",
+                "삭제되었던 게시물이 복구됨으로 예치 포인트가 차감되었습니다.",
                 RelatedDomain.POST, postId);
     }
 }

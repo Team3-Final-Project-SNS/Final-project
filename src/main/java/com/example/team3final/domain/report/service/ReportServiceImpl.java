@@ -188,13 +188,13 @@ public class ReportServiceImpl implements ReportService {
             case 1 -> notificationPublisher.sendPostWarned(
                     report.getTargetId(),  // userId (Long)
                     "서비스 이용 경고",      // title (String)
-                    "신고가 채택되었습니다. 서비스 이용 규정을 준수해 주세요." // content (String)
+                    "신고가 접수되었습니다. 서비스 이용 규정을 준수해 주세요." // content (String)
             );
 
             case 2 -> notificationPublisher.sendPostWarned(
                     report.getTargetId(),  // userId (Long)
                     "서비스 이용 경고",      // title (String)
-                    "두 번째 경고입니다. 재발 시 계정이 정지될 수 있습니다." // content (String)
+                    "두 번째 규정 위반 경고입니다. 서비스 이용 규정을 준수해 주세요. 이후 신고 접수 시 계정이 정지됩니다. " // content (String)
             );
 
             case 3 -> {
