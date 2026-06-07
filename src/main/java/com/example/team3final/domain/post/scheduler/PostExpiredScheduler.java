@@ -59,7 +59,7 @@ public class PostExpiredScheduler {
                 now                 // AND meet_at < now
         );
 
-        // 40. 게시글 복구 알림 - 게시글 작성자에게
+        // 40. 게시글 만료 알림 - 게시글 작성자에게
         for (Post post : expiredTargets) {
             notificationPublisher.sendPostExpired(post.getAuthorId(), post.getId());
         }
