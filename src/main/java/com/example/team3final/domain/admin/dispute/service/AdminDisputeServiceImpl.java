@@ -15,6 +15,7 @@ import com.example.team3final.domain.dispute.entity.Dispute;
 import com.example.team3final.domain.dispute.enums.DisputeStatus;
 import com.example.team3final.domain.dispute.enums.DisputeType;
 import com.example.team3final.domain.dispute.service.DisputeService;
+import com.example.team3final.domain.dispute.util.DisputeRedisZSetKeys;
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.service.MatchService;
 import com.example.team3final.domain.meet.entity.MeetVerification;
@@ -28,9 +29,11 @@ import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 
@@ -48,6 +51,7 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
     private final PostService postService;
     private final UserPointService userPointService;
     private final NotificationPublisher notificationPublisher;
+    private final StringRedisTemplate redisTemplate;
 
     // 이의제기 상세 조회 API
     @Override
@@ -212,6 +216,13 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
         if (requestDto.getStatus() == DisputeStatus.HOLD) {
             // 24. 이의제기 보류 알림 - 이의제기 신청자에게
             notificationPublisher.sendDisputePending(dispute.getSubmitterId(), disputeId);
+
+            // 스케줄러가 23시간 후에 꺼내서 마감 임박 알림 발송
+            redisTemplate.opsForZSet().add(
+                    DisputeRedisZSetKeys.DEADLINE_REMINDER,
+                    String.valueOf(disputeId),
+                    dispute.getHoldAt().plusHours(23).toEpochSecond(ZoneOffset.ofHours(9))
+            );
         } else {
             // 23. 이의제기 판정 결과 알림 - 이의제기 신청자에게
             // 나머지 판정은 일반 판정 결과 알림 발송 (HOLD 포함)
