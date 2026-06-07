@@ -219,6 +219,10 @@ public class PaymentServiceImpl implements PaymentService{
             } catch (Exception e) {
                 log.error("[Payment] PortOne 취소 실패 - paymentId: {}, error: {}",
                         paymentId, e.getMessage());
+
+                // 32. 결제 취소 및 환불 실패 알림 - 결제 사용자에게
+                notificationPublisher.sendPaymentCancelFailed(userId, paymentId);
+
                 throw new PaymentException(ErrorCode.PAY_VERIFICATION_FAILED);
             }
         }
