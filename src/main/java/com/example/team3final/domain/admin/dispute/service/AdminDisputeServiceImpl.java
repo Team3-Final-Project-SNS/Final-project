@@ -13,7 +13,6 @@ import com.example.team3final.domain.chat.dto.response.ChatMessageResponseDto;
 import com.example.team3final.domain.chat.service.ChatService;
 import com.example.team3final.domain.dispute.entity.Dispute;
 import com.example.team3final.domain.dispute.enums.DisputeStatus;
-import com.example.team3final.domain.dispute.enums.DisputeType;
 import com.example.team3final.domain.dispute.service.DisputeService;
 import com.example.team3final.domain.dispute.util.DisputeRedisZSetKeys;
 import com.example.team3final.domain.match.entity.Match;

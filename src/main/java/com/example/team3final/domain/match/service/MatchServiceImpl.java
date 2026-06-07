@@ -3,7 +3,6 @@ package com.example.team3final.domain.match.service;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.MatchException;
-import com.example.team3final.domain.admin.dispute.service.AdminDisputeService;
 import com.example.team3final.domain.chat.service.ChatService;
 import com.example.team3final.domain.location.service.UserLocationCleanupService;
 import com.example.team3final.domain.match.dto.request.CancelMatchRequestDto;

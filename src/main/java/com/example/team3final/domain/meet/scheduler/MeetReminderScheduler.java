@@ -112,7 +112,7 @@ public class MeetReminderScheduler {
             // postId로 게시글 작성자(HOST) ID 조회
             Long authorId = postService.getPostById(matchInfo.postId()).getAuthorId();
 
-            // 등록자 + 신청자 양측에게 알림 발송
+            // 8. 만남 시간 10분 경과 알림 - 만남 참여자 모두에게
             notificationPublisher.sendMeetOverdue(authorId, matchId);
             notificationPublisher.sendMeetOverdue(matchInfo.applicantId(), matchId);
         }

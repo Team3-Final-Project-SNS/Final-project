@@ -6,7 +6,6 @@ package com.example.team3final.domain.notification.service;
  *   - Enum 방식(send(userId, type, relatedId))은 타입 실수 가능성이 있고
  *     인터페이스 공유 시 Enum도 함께 공유해야 하는 번거로움이 있음
  *   - 새 알림 추가 시 메서드 하나만 추가하면 되므로 확장도 용이함
- *
  * 사용 도메인:
  *   - 매칭: 매칭 신청, 매칭 확정, 매칭 취소(HOST/GUEST)
  *   - 만남 시간: 30분/15분/5분 전, 10분 경과
@@ -46,7 +45,7 @@ public interface NotificationPublisher {
     // 7. 만남 5분 전 임박 알림 - 만남 참여자 모두에게
     void sendMeetImminent(Long userId, Long matchId);
 
-    // 8. 만남 시간 10분 경과 알림 - 만남 참여자에게
+    // 8. 만남 시간 10분 경과 알림 - 만남 참여자 모두에게
     void sendMeetOverdue(Long userId, Long matchId);
 
     // ── 만남 완료 / 후기 ──────────────────────────────────────────────────
@@ -147,12 +146,12 @@ public interface NotificationPublisher {
     // 37. 게시글 신고 경고 1회 알림 - 게시글 작성자에게
     void sendPostWarned(Long userId, String title, String content);
 
-    // 40. 게시글 만료 알림 - 게시글 작성자에게
+    // 38. 게시글 만료 알림 - 게시글 작성자에게
     void sendPostExpired(Long userId, Long postId);
 
-    // 41. 게시글 삭제 알림 - 게시글 작성자에게
+    // 39. 게시글 삭제 알림 - 게시글 작성자에게
     void sendPostDeleted(Long userId, Long postId);
 
-    // 42. 게시글 복구 알림 - 게시글 작성자에게
+    // 40. 게시글 복구 알림 - 게시글 작성자에게
     void sendPostRestored(Long userId, Long postId);
 }

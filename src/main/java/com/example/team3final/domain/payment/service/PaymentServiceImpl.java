@@ -279,7 +279,6 @@ public class PaymentServiceImpl implements PaymentService{
     /**
      * 30분 이상 READY로 남아있는 결제 건을 FAILED로 일괄 처리
      * 주기: 매 5분마다 실행
-     *
      * 보험 역할: 프론트가 failPayment 호출을 누락했을 때 자동으로 정리
      * ex) 네트워크 오류로 실패 API 못 보낸 경우, 브라우저 강제 종료 등
      */
@@ -307,12 +306,10 @@ public class PaymentServiceImpl implements PaymentService{
 
     /**
      * merchant_uid 채번
-     *
      * 형태: hankki_20260601_000003
      *   - hankki_  : 서비스 식별자
      *   - 20260601 : 오늘 날짜 (yyyyMMdd)
      *   - 000003   : 오늘 전체 누적 결제 건수 + 1, 6자리 제로패딩
-     *
      * 왜 전체 카운트를 쓰나:
      *   유저별 카운트는 같은 날 여러 유저가 동시에 1번째 결제를 하면
      *   동일한 merchant_uid가 나올 수 있음 → 전체 카운트로 전역 순번 보장
