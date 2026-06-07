@@ -94,6 +94,30 @@ public class MeetReminderScheduler {
         }
     }
 
+    // 만남 시간 10분 경과 알림 - 1분마다 실행
+// sendImminent()와 동일한 패턴: Redis ZSet에서 처리 대상 꺼내서 양측에게 발송
+    @Scheduled(fixedDelay = 60000)
+    public void sendOverdue() {
+        // REMINDER_OVERDUE ZSet에서 현재 시각 이전 matchId 꺼내기
+        List<String> matchIds = popReadyItems(MeetRedisZSetKeys.REMINDER_OVERDUE);
+
+        if (matchIds.isEmpty()) return;
+
+        log.info("[MeetReminderScheduler] 10분 경과 알림 대상: {}건", matchIds.size());
+
+        for (String matchIdStr : matchIds) {
+            Long matchId = Long.parseLong(matchIdStr);
+            MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
+
+            // postId로 게시글 작성자(HOST) ID 조회
+            Long authorId = postService.getPostById(matchInfo.postId()).getAuthorId();
+
+            // 등록자 + 신청자 양측에게 알림 발송
+            notificationPublisher.sendMeetOverdue(authorId, matchId);
+            notificationPublisher.sendMeetOverdue(matchInfo.applicantId(), matchId);
+        }
+    }
+
     // ZSet에서 현재 시각 이전 항목 원자적으로 꺼내기
     // Lua Script로 조회 + 삭제 동시에 처리 → 중복 발송 방지
     private List<String> popReadyItems(String zSetKey) {
