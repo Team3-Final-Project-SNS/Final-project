@@ -226,6 +226,9 @@ public class PaymentServiceImpl implements PaymentService{
         // 7. DB 상태 CANCELLED 전환 + 취소 사유 기록
         payment.markCancelled("사용자 취소 요청 - 환불액: " + refundAmount + "원");
 
+        // 31. 결제 취소 및 환불 완료 알림 - 결제 사용자에게
+        notificationPublisher.sendPaymentCancelSuccess(userId, paymentId);
+
         log.info("[Payment] 결제 취소 완료 - userId: {}, paymentId: {}, refundAmount: {}",
                 userId, paymentId, refundAmount);
 
