@@ -351,6 +351,7 @@ public class AiSupportServiceImpl implements AiSupportService {
                     ragContext.sources()
             );
             StringBuilder streamedAnswer = new StringBuilder();
+            String estimatedPromptSource = prompt.content() + "\n" + request.message();
 
             return chatClient
                     .prompt()
@@ -376,6 +377,7 @@ public class AiSupportServiceImpl implements AiSupportService {
                                 streamedAnswer.toString(),
                                 "질문을 정확히 이해하지 못했어요. 조금 더 구체적으로 알려주세요."
                         );
+                        TokenUsage estimatedTokenUsage = estimateStreamingTokenUsage(estimatedPromptSource, answer);
                         safelySaveStreamingResult(
                                 userId,
                                 conversationId,
@@ -394,12 +396,16 @@ public class AiSupportServiceImpl implements AiSupportService {
                                 null,
                                 null,
                                 prompt.promptTemplateId(),
-                                prompt.version()
+                                prompt.version(),
+                                estimatedTokenUsage.promptTokens(),
+                                estimatedTokenUsage.completionTokens(),
+                                estimatedTokenUsage.totalTokens()
                         );
                     })
                     .onErrorResume(e -> {
                         log.error("[AiSupportService] 고객센터 AI 스트리밍 응답 생성 실패", e);
                         String fallbackAnswer = "지금은 AI 고객센터 답변 생성이 원활하지 않습니다. 급한 문제라면 1:1 문의로 접수해주세요.";
+                        TokenUsage estimatedTokenUsage = estimateStreamingTokenUsage(estimatedPromptSource, fallbackAnswer);
                         safelySaveStreamingResult(
                                 userId,
                                 conversationId,
@@ -418,7 +424,10 @@ public class AiSupportServiceImpl implements AiSupportService {
                                 e instanceof Exception exception ? resolveErrorType(exception) : AiErrorType.SERVER_ERROR,
                                 e.getMessage(),
                                 prompt.promptTemplateId(),
-                                prompt.version()
+                                prompt.version(),
+                                estimatedTokenUsage.promptTokens(),
+                                estimatedTokenUsage.completionTokens(),
+                                estimatedTokenUsage.totalTokens()
                         );
                         return Flux.just(fallbackAnswer);
                     });
@@ -432,7 +441,10 @@ public class AiSupportServiceImpl implements AiSupportService {
                     resolveErrorType(e),
                     e.getMessage(),
                     null,
-                    null
+                    null,
+                    estimateTokenCount(request.message()),
+                    estimateTokenCount("지금은 AI 고객센터 답변 생성이 원활하지 않습니다. 급한 문제라면 1:1 문의로 접수해주세요."),
+                    estimateTokenCount(request.message()) + estimateTokenCount("지금은 AI 고객센터 답변 생성이 원활하지 않습니다. 급한 문제라면 1:1 문의로 접수해주세요.")
             );
             return Flux.just("지금은 AI 고객센터 답변 생성이 원활하지 않습니다. 급한 문제라면 1:1 문의로 접수해주세요.");
         }
@@ -709,6 +721,13 @@ public class AiSupportServiceImpl implements AiSupportService {
         return Math.max(1, (int) Math.ceil(content.length() / 2.0));
     }
 
+    private TokenUsage estimateStreamingTokenUsage(String promptSource, String answer) {
+        int promptTokens = estimateTokenCount(promptSource);
+        int completionTokens = estimateTokenCount(answer);
+
+        return new TokenUsage(promptTokens, completionTokens, promptTokens + completionTokens);
+    }
+
     private long defaultLong(Long value) {
         return value == null ? 0L : value;
     }
@@ -853,7 +872,10 @@ public class AiSupportServiceImpl implements AiSupportService {
             AiErrorType errorType,
             String errorMessage,
             Long promptTemplateId,
-            String promptVersion
+            String promptVersion,
+            Integer promptTokens,
+            Integer completionTokens,
+            Integer totalTokens
     ) {
         try {
             saveMetric(
@@ -865,9 +887,9 @@ public class AiSupportServiceImpl implements AiSupportService {
                     errorMessage,
                     promptTemplateId,
                     promptVersion,
-                    null,
-                    null,
-                    null
+                    promptTokens,
+                    completionTokens,
+                    totalTokens
             );
         } catch (Exception e) {
             log.warn("[AiSupportService] 고객센터 스트리밍 메트릭 저장 실패. SSE 응답은 계속 진행합니다.", e);

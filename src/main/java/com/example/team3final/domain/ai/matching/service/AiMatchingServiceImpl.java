@@ -372,6 +372,7 @@ public class AiMatchingServiceImpl implements AiMatchingService {
             String metricConversationId = conversationId;
             String metricRewrittenUserMessage = rewrittenUserMessage;
             StringBuilder streamedAnswer = new StringBuilder();
+            String estimatedPromptSource = prompt.content() + "\n" + request.message() + "\n" + rewrittenUserMessage;
 
             return chatClient.prompt()
                     .system(prompt.content() + """
@@ -400,6 +401,10 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                     .content()
                     .doOnNext(streamedAnswer::append)
                     .doOnComplete(() -> {
+                        TokenUsage estimatedTokenUsage = estimateStreamingTokenUsage(
+                                estimatedPromptSource,
+                                streamedAnswer.toString()
+                        );
                         saveMemory(metricUserId, metricConversationId, requestId, AiChatMemoryRole.ASSISTANT, streamedAnswer.toString());
                         saveChatMessage(
                                 metricUserId,
@@ -423,14 +428,15 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                                 null,
                                 metricPromptTemplateId,
                                 metricPromptVersion,
-                                null,
-                                null,
-                                null
+                                estimatedTokenUsage.promptTokens(),
+                                estimatedTokenUsage.completionTokens(),
+                                estimatedTokenUsage.totalTokens()
                         );
                     })
                     .onErrorResume(e -> {
                         log.error("[AiMatchingService] 매칭 AI 스트리밍 응답 생성 실패", e);
                         String fallbackAnswer = "현재 AI 매칭 응답 생성이 원활하지 않습니다. 잠시 후 다시 시도해주세요.";
+                        TokenUsage estimatedTokenUsage = estimateStreamingTokenUsage(estimatedPromptSource, fallbackAnswer);
                         saveMemory(metricUserId, metricConversationId, requestId, AiChatMemoryRole.ASSISTANT, fallbackAnswer);
                         saveChatMessage(
                                 metricUserId,
@@ -454,9 +460,9 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                                 e.getMessage(),
                                 metricPromptTemplateId,
                                 metricPromptVersion,
-                                null,
-                                null,
-                                null
+                                estimatedTokenUsage.promptTokens(),
+                                estimatedTokenUsage.completionTokens(),
+                                estimatedTokenUsage.totalTokens()
                         );
                         return Flux.just(fallbackAnswer);
                     });
@@ -467,14 +473,14 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                     startedAt,
                     AiCallStatus.FALLBACK,
                     AiErrorType.PROMPT_LOAD_ERROR,
-                    e.getMessage(),
-                    promptTemplateId,
-                    promptVersion,
-                    null,
-                    null,
-                    null
-            );
-            return Flux.just("AI 추천 기능을 잠시 사용할 수 없습니다. 대신 모집글 목록에서 직접 조건에 맞는 식사팟을 확인해주세요.");
+                e.getMessage(),
+                promptTemplateId,
+                promptVersion,
+                estimateTokenCount(request.message()),
+                estimateTokenCount("AI 추천 기능을 잠시 사용할 수 없습니다. 대신 모집글 목록에서 직접 조건에 맞는 식사팟을 확인해주세요."),
+                estimateTokenCount(request.message()) + estimateTokenCount("AI 추천 기능을 잠시 사용할 수 없습니다. 대신 모집글 목록에서 직접 조건에 맞는 식사팟을 확인해주세요.")
+        );
+        return Flux.just("AI 추천 기능을 잠시 사용할 수 없습니다. 대신 모집글 목록에서 직접 조건에 맞는 식사팟을 확인해주세요.");
         } catch (Exception e) {
             saveMetric(
                     requestId,
@@ -482,13 +488,13 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                     startedAt,
                     AiCallStatus.FALLBACK,
                     resolveErrorType(e),
-                    e.getMessage(),
-                    promptTemplateId,
-                    promptVersion,
-                    null,
-                    null,
-                    null
-            );
+                e.getMessage(),
+                promptTemplateId,
+                promptVersion,
+                estimateTokenCount(request.message()),
+                estimateTokenCount("현재 AI 매칭 응답 생성이 원활하지 않습니다. 잠시 후 다시 시도해주세요."),
+                estimateTokenCount(request.message()) + estimateTokenCount("현재 AI 매칭 응답 생성이 원활하지 않습니다. 잠시 후 다시 시도해주세요.")
+        );
             return Flux.just("현재 AI 매칭 응답 생성이 원활하지 않습니다. 잠시 후 다시 시도해주세요.");
         }
     }
@@ -637,6 +643,13 @@ public class AiMatchingServiceImpl implements AiMatchingService {
         }
 
         return Math.max(1, (int) Math.ceil(content.length() / 2.0));
+    }
+
+    private TokenUsage estimateStreamingTokenUsage(String promptSource, String answer) {
+        int promptTokens = estimateTokenCount(promptSource);
+        int completionTokens = estimateTokenCount(answer);
+
+        return new TokenUsage(promptTokens, completionTokens, promptTokens + completionTokens);
     }
 
     private String truncate(String value, int maxLength) {

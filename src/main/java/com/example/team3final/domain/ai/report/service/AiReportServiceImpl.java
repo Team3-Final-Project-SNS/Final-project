@@ -228,6 +228,7 @@ public class AiReportServiceImpl implements AiReportService {
             Long metricAdminId = adminId;
             String metricConversationId = conversationId;
             StringBuilder streamedAnswer = new StringBuilder();
+            String estimatedPromptSource = prompt.content() + "\n" + conversationContext + "\n" + request.message();
 
             return chatClient
                     .prompt()
@@ -276,6 +277,7 @@ public class AiReportServiceImpl implements AiReportService {
                                 streamedAnswer.toString(),
                                 "신고 AI 답변을 생성하지 못했습니다. 관리자 콘솔에서 신고 원문과 누적 이력을 직접 확인해주세요."
                         );
+                        TokenUsage estimatedTokenUsage = estimateStreamingTokenUsage(estimatedPromptSource, answer);
                         saveMemory(metricAdminId, metricConversationId, requestId, AiChatMemoryRole.ASSISTANT, answer);
                         saveMetric(
                                 requestId,
@@ -286,14 +288,15 @@ public class AiReportServiceImpl implements AiReportService {
                                 null,
                                 metricPromptTemplateId,
                                 metricPromptVersion,
-                                null,
-                                null,
-                                null
+                                estimatedTokenUsage.promptTokens(),
+                                estimatedTokenUsage.completionTokens(),
+                                estimatedTokenUsage.totalTokens()
                         );
                     })
                     .onErrorResume(e -> {
                         log.error("[AiReportService] 신고 AI 스트리밍 응답 생성 실패", e);
                         String fallbackAnswer = "현재 신고 AI 응답 생성이 원활하지 않습니다. 신고 원문과 누적 이력을 관리자 콘솔에서 직접 확인해주세요.";
+                        TokenUsage estimatedTokenUsage = estimateStreamingTokenUsage(estimatedPromptSource, fallbackAnswer);
                         saveMemory(metricAdminId, metricConversationId, requestId, AiChatMemoryRole.ASSISTANT, fallbackAnswer);
                         saveMetric(
                                 requestId,
@@ -304,9 +307,9 @@ public class AiReportServiceImpl implements AiReportService {
                                 e.getMessage(),
                                 metricPromptTemplateId,
                                 metricPromptVersion,
-                                null,
-                                null,
-                                null
+                                estimatedTokenUsage.promptTokens(),
+                                estimatedTokenUsage.completionTokens(),
+                                estimatedTokenUsage.totalTokens()
                         );
                         return Flux.just(fallbackAnswer);
                     });
@@ -323,9 +326,9 @@ public class AiReportServiceImpl implements AiReportService {
                     e.getMessage(),
                     promptTemplateId,
                     promptVersion,
-                    null,
-                    null,
-                    null
+                    estimateTokenCount(request.message()),
+                    estimateTokenCount(fallbackAnswer),
+                    estimateTokenCount(request.message()) + estimateTokenCount(fallbackAnswer)
             );
             return Flux.just(fallbackAnswer);
         }
@@ -1291,6 +1294,13 @@ public class AiReportServiceImpl implements AiReportService {
         }
 
         return Math.max(1, (int) Math.ceil(content.length() / 2.0));
+    }
+
+    private TokenUsage estimateStreamingTokenUsage(String promptSource, String answer) {
+        int promptTokens = estimateTokenCount(promptSource);
+        int completionTokens = estimateTokenCount(answer);
+
+        return new TokenUsage(promptTokens, completionTokens, promptTokens + completionTokens);
     }
 
     private long defaultLong(Long value) {
