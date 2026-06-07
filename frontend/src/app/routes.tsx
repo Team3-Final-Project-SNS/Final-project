@@ -27,6 +27,10 @@ import InquiryCenterPage from "./pages/InquiryCenterPage";
 import ReportCenterPage from "./pages/ReportCenterPage";
 import PaymentPage from "./pages/PaymentPage";
 import NotFoundPage from "./pages/NotFoundPage";
+import TermsOfServicePage from "./pages/terms/TermsOfServicePage";
+import PrivacyPolicyPage from "./pages/terms/PrivacyPolicyPage";
+import LocationTermsPage from "./pages/terms/LocationTermsPage";
+import MarketingConsentPage from "./pages/terms/MarketingConsentPage";
 
 export const router = createBrowserRouter([
   {
@@ -145,6 +149,22 @@ export const router = createBrowserRouter([
   {
     path: "/signup",
     Component: SignupPage,
+  },
+  {
+    path: "/terms/service",
+    Component: TermsOfServicePage,
+  },
+  {
+    path: "/terms/privacy",
+    Component: PrivacyPolicyPage,
+  },
+  {
+    path: "/terms/location",
+    Component: LocationTermsPage,
+  },
+  {
+    path: "/terms/marketing",
+    Component: MarketingConsentPage,
   },
   {
     path: "*",
