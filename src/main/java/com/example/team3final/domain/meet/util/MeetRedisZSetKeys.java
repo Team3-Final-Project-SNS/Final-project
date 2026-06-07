@@ -13,6 +13,9 @@ public class MeetRedisZSetKeys {
     // 만남 임박 알림 예약 (5분 전)
     public static final String REMINDER_IMMINENT = "meet:reminder:imminent";
 
+    // 만남 시간 10분 경과 알림 예약
+    public static final String REMINDER_OVERDUE = "meet:reminder:overdue";
+
     // 만남 연장 타임아웃 예약
     // score: 타임아웃 시각 Unix Timestamp / member: meetVerificationId
     public static final String EXTENSION_TIMEOUT = "meet:extension:timeout";

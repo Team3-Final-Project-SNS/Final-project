@@ -175,7 +175,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             issueQrTokenIfNeeded(meetVerification);
         }
 
-        // 상대방에게 장소 인증 완료 알림 발송
+        // 14. 장소 인증 완료 알림 - 1:1: 상대방에게 / 그룹: 모임 참여자 전원에게
         // isAuthor면 상대방은 신청자(applicantId), 아니면 등록자(authorId)
         Long opponentId = isAuthor ? matchInfo.applicantId() : postInfo.authorId();
         notificationPublisher.sendPlaceVerified(opponentId, matchId);
@@ -353,6 +353,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
             // 노쇼 판정 분기
             if (!authorVerified && !applicantVerified) {
+                // 16. 노쇼 예정 알림 - 노쇼 예정 유저에게
                 // 양측 모두 GPS 미인증 → BOTH_NO_SHOW
                 meetVerification.markBothNoShow();
                 userLocationCleanupService.deleteLocationsByMatchId(meetVerification.getMatchId());
@@ -360,12 +361,14 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                 notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), meetVerification.getMatchId());
 
             } else if (authorVerified && !applicantVerified) {
+                // 16. 노쇼 예정 알림 - 노쇼 예정 유저에게
                 // 신청자만 미인증 → GUEST_NO_SHOW
                 meetVerification.markApplicantNoShow();
                 userLocationCleanupService.deleteLocationsByMatchId(meetVerification.getMatchId());
                 notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), meetVerification.getMatchId());
 
             } else if (!authorVerified) {
+                // 16. 노쇼 예정 알림 - 노쇼 예정 유저에게
                 // 등록자만 미인증 → HOST_NO_SHOW
                 meetVerification.markAuthorNoShow();
                 userLocationCleanupService.deleteLocationsByMatchId(meetVerification.getMatchId());
@@ -436,16 +439,19 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
             // 위치 기반 노쇼 판정 분기
             if (authorInRange && !applicantInRange) {
+                // 16. 노쇼 예정 알림 - 노쇼 예정 유저에게
                 // 등록자는 있고 신청자가 없는 경우 → GUEST_NO_SHOW
                 meetVerification.markApplicantNoShow();
                 notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), matchId);
 
             } else if (!authorInRange && applicantInRange) {
+                // 16. 노쇼 예정 알림 - 노쇼 예정 유저에게
                 // 신청자는 있고 등록자가 없는 경우 → HOST_NO_SHOW
                 meetVerification.markAuthorNoShow();
                 notificationPublisher.sendNoShowWarning(postInfoDto.authorId(), matchId);
 
             } else {
+                // 16. 노쇼 예정 알림 - 노쇼 예정 유저에게
                 // 둘 다 없거나 둘 다 있는데 QR 만료 → BOTH_NO_SHOW
                 meetVerification.markBothNoShow();
                 notificationPublisher.sendNoShowWarning(postInfoDto.authorId(), matchId);
@@ -509,17 +515,20 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
             // 노쇼 상태에 따라 Match 도메인에 확정 처리 위임
             if (status == VerificationStatus.BOTH_NO_SHOW) {
+                // 17. 노쇼 확정 알림 - 관련 사용자 양측에게
                 // 양측 모두 노쇼 확정 — 양측 예치금 전부 몰수
                 matchService.markBothNoShow(matchId);
                 notificationPublisher.sendNoShowConfirmed(postInfoDto.authorId(), matchId);
                 notificationPublisher.sendNoShowConfirmed(matchInfoDto.applicantId(), matchId);
 
             } else if (status == VerificationStatus.GUEST_NO_SHOW) {
+                // 17. 노쇼 확정 알림 - 관련 사용자 양측에게
                 // 신청자만 노쇼 확정 — 신청자 예치금 몰수 + 등록자 환급
                 matchService.markApplicantNoShow(matchId);
                 notificationPublisher.sendNoShowConfirmed(matchInfoDto.applicantId(), matchId);
 
             } else if (status == VerificationStatus.HOST_NO_SHOW) {
+                // 17. 노쇼 확정 알림 - 관련 사용자 양측에게
                 // 등록자만 노쇼 확정 — 등록자 예치금 몰수 + 신청자 환급
                 matchService.markAuthorNoShow(matchId);
                 notificationPublisher.sendNoShowConfirmed(postInfoDto.authorId(), matchId);
@@ -588,6 +597,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         Long opponentId = userId.equals(postInfoDto.authorId())
                 ? matchInfoDto.applicantId()
                 : postInfoDto.authorId();
+        // 18. 만남 시간 연장 요청 알림 - 만남 상대방에게
         notificationPublisher.sendMeetExtendRequested(opponentId, matchId);
 
         // 연장 타임아웃 ZSet 예약
@@ -638,7 +648,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         // QR 만료 시각도 10분 연장
         meetVerification.extendQrExpiry(EXTENSION_MINUTES);
 
-        // 연장 요청자에게 수락 알림 발송
+        // 19. 만남 시간 연장 수락 알림 - 연장 요청자에게
         notificationPublisher.sendMeetExtendAccepted(meetVerification.getExtensionRequesterId(), matchId);
 
         // 수락 시 타임아웃 예약 제거 (더 이상 만료 처리 불필요)
@@ -680,7 +690,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         // 거절 처리
         meetVerification.rejectExtension();
 
-        // 연장 요청자에게 거절 알림 발송
+        // 20. 만남 시간 연장 거절 알림 - 연장 요청자에게
         notificationPublisher.sendMeetExtendRejected(meetVerification.getExtensionRequesterId(), matchId);
 
         // 거절 시 타임아웃 예약 제거
@@ -739,7 +749,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                     String.valueOf(mv.getId())
             );
 
-            // 만료 알림 발송
+            // 21. 만남 시간 연장 만료 알림 - 연장 요청자에게
             notificationPublisher.sendMeetExtendExpired(mv.getExtensionRequesterId(), mv.getMatchId());
         });
     }

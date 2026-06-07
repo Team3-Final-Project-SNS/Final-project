@@ -62,7 +62,7 @@ public class ReviewDeadlineReminderScheduler {
                     return;
                 }
 
-                // 후기 작성 마지막 날 알림 발송
+                // 10. 후기 작성 마지막 날 알림 - 미작성 신청자에게
                 notificationPublisher.sendReviewDeadlineReminder(match.getApplicantId(), match.getId());
             });
         }

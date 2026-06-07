@@ -14,8 +14,6 @@ import com.example.team3final.domain.report.dto.response.GetMyReportsResponseDto
 import com.example.team3final.domain.report.entity.Report;
 import com.example.team3final.domain.report.enums.ReportStatus;
 import com.example.team3final.domain.report.repository.ReportRepository;
-import com.example.team3final.domain.user.dto.response.UserInfoDto;
-import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.service.UserPointService;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -105,7 +103,7 @@ public class ReportServiceImpl implements ReportService {
 
         Report savedReport = reportRepository.save(report);
 
-        // 25번 알림 - 관리자에게 신고 접수 알림 발송
+        // 26. 신고 접수 알림 - 관리자에게
         // adminId가 null이면 활성 관리자 없음 → 알림 스킵
         Long adminId = adminService.getAdminId();
         if (adminId != null) {
@@ -182,43 +180,61 @@ public class ReportServiceImpl implements ReportService {
         int acceptedCount = reportRepository.countByTargetIdAndStatus(
                 report.getTargetId(), ReportStatus.ACCEPTED);
 
-        // 채택 횟수에 따른 피신고자 제재 및 알림 처리
+        // 35. 계정 정지 알림 - 해당 사용자에게
         // case 1~2: 경고 (계정 정지 없음)
         // case 3: 3일 정지 / case 4: 10일 정지 / case 5: 30일 정지
         // default(6회 이상): 영구 정지
         switch (acceptedCount) {
-            case 1 -> notificationPublisher.sendSystem(report.getTargetId(), "서비스 이용 경고",
-                    "신고가 채택되었습니다. 서비스 이용 규정을 준수해 주세요.");
+            case 1 -> notificationPublisher.sendPostWarned(
+                    report.getTargetId(),  // userId (Long)
+                    "서비스 이용 경고",      // title (String)
+                    "신고가 접수되었습니다. 서비스 이용 규정을 준수해 주세요." // content (String)
+            );
 
-            case 2 -> notificationPublisher.sendSystem(report.getTargetId(), "서비스 이용 경고",
-                    "두 번째 경고입니다. 재발 시 계정이 정지될 수 있습니다.");
+            case 2 -> notificationPublisher.sendPostWarned(
+                    report.getTargetId(),  // userId (Long)
+                    "서비스 이용 경고",      // title (String)
+                    "두 번째 규정 위반 경고입니다. 서비스 이용 규정을 준수해 주세요. 이후 신고 접수 시 계정이 정지됩니다. " // content (String)
+            );
 
             case 3 -> {
                 userService.suspendUser(report.getTargetId(), 3);
-                notificationPublisher.sendSystem(report.getTargetId(), "서비스 이용 제재 안내",
-                        "세 번째 규정 위반으로 계정이 3일간 정지되었습니다.");
+                notificationPublisher.sendAccountSuspended(
+                        report.getTargetId(),  // userId (Long)
+                        "서비스 이용 제재 안내",    // title (String)
+                        "세 번째 규정 위반으로 계정이 3일간 정지되었습니다." // content (String)
+                );
             }
             case 4 -> {
                 userService.suspendUser(report.getTargetId(), 10);
-                notificationPublisher.sendSystem(report.getTargetId(), "서비스 이용 제재 안내",
-                        "네 번째 규정 위반으로 계정이 10일간 정지되었습니다.");
+                notificationPublisher.sendAccountSuspended(
+                        report.getTargetId(),  // userId (Long)
+                        "서비스 이용 제재 안내",    // title (String)
+                        "네 번째 규정 위반으로 계정이 10일간 정지되었습니다." // content (String)
+                );
             }
             case 5 -> {
                 userService.suspendUser(report.getTargetId(), 30);
-                notificationPublisher.sendSystem(report.getTargetId(), "서비스 이용 제재 안내",
-                        "다섯 번째 규정 위반으로 계정이 30일간 정지되었습니다.");
+                notificationPublisher.sendAccountSuspended(
+                        report.getTargetId(),  // userId (Long)
+                        "서비스 이용 제재 안내",    // title (String)
+                        "다섯 번째 규정 위반으로 계정이 30일간 정지되었습니다." // content (String)
+                );
             }
 
             default -> {
                 // 6회 이상 → 영구정지
                 if (acceptedCount >= 6) {
                     userService.suspendUser(report.getTargetId(), null);
-                    notificationPublisher.sendSystem(report.getTargetId(), "서비스 이용 제재 안내",
-                            "지속적인 규정 위반으로 계정이 영구 정지되었습니다.");
+                    notificationPublisher.sendAccountSuspended(
+                            report.getTargetId(),  // userId (Long)
+                            "서비스 이용 제재 안내",    // title (String)
+                            "지속적인 규정 위반으로 계정이 영구 정지되었습니다." // content (String)
+                    );
                 }
             }
         }
-        // 신고자에게 포상금 지급 알림
+        // 27. 신고 채택 포인트 지급 알림 - 신고자에게
         notificationPublisher.sendReportAcceptedPoint(report.getReporterId(), reportId);
     }
 
@@ -247,7 +263,7 @@ public class ReportServiceImpl implements ReportService {
             userService.banReportFeature(report.getReporterId(), REPORT_BAN_DAYS);
         }
 
-        // 신고자에게 기각 알림
+        // 28. 신고 기각 알림 - 신고자에게
         notificationPublisher.sendReportRejected(report.getReporterId(), reportId);
     }
 

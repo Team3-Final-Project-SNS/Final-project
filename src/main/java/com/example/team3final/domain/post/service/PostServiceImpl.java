@@ -399,11 +399,10 @@ public class PostServiceImpl implements PostService{
         // @Transactional 더티 체킹으로 트랜잭션 종료 시 두 컬럼 모두 UPDATE
         post.deleteAndReason(reason);
 
-        // 22번 알림 - 게시글 작성자에게 강제 삭제 안내 발송
-        notificationPublisher.sendSystem(
-                post.getAuthorId(),
-                "게시글이 삭제되었습니다.",
-                "해당 게시물이 신고 접수 및 관리자 판단에 의해 삭제되었습니다. 자세한 사항은 고객센터를 확인해 주세요."
+        // 41. 게시글 삭제 알림 - 게시글 작성자에게
+        notificationPublisher.sendPostDeleted(
+                post.getAuthorId(), // userId (Long)
+                post.getId()        // postId (Long) -> 이 부분이 누락되었었습니다!
         );
 
         return refundedPoint;
@@ -445,11 +444,10 @@ public class PostServiceImpl implements PostService{
         // 게시글 복구
         post.restore();
 
-        // 작성자에게 복구 안내 알림
-        notificationPublisher.sendSystem(
-                post.getAuthorId(),
-                "게시글이 복구되었습니다.",
-                "관리자에 의해 삭제되었던 게시물이 복구되어, 예치 포인트가 다시 차감되었습니다."
+        // 42. 게시글 복구 알림 - 게시글 작성자에게
+        notificationPublisher.sendPostRestored(
+                post.getAuthorId(), // userId (Long)
+                post.getId()        // postId (Long) -> 엔티티 식별자 메서드명에 맞게 입력 (ex: post.getPostId())
         );
 
         return redepositPoint;
@@ -490,12 +488,10 @@ public class PostServiceImpl implements PostService{
 
     /**
      * 전략 A 전용: 비관적 락 + NOWAIT
-     *
-     * @Lock(PESSIMISTIC_WRITE) + timeout=0 조합
+     * Lock(PESSIMISTIC_WRITE) + timeout=0 조합
      *   → JPA가 "SELECT ... FOR UPDATE NOWAIT" 쿼리 실행
      *   → 다른 트랜잭션이 락을 잡고 있으면 즉시 LockTimeoutException
-     *
-     * @Transactional이 필요한 이유:
+     * Transactional이 필요한 이유:
      *   비관적 락은 반드시 트랜잭션 안에서만 유효
      *   트랜잭션이 없으면 락을 잡자마자 바로 해제되어 의미 없음
      *   MatchConcurrencyService의 @Transactional이 전파(REQUIRED)되므로
@@ -512,8 +508,7 @@ public class PostServiceImpl implements PostService{
 
     /**
      * 전략 B 전용: 비관적 락 + 대기 O
-     *
-     * @Lock(PESSIMISTIC_WRITE) 만 적용 (timeout 힌트 없음)
+     * Lock(PESSIMISTIC_WRITE) 만 적용 (timeout 힌트 없음)
      *   → JPA가 "SELECT ... FOR UPDATE" 쿼리 실행
      *   → innodb_lock_wait_timeout 설정값만큼 대기 후 타임아웃
      */
@@ -528,12 +523,10 @@ public class PostServiceImpl implements PostService{
 
     /**
      * 동시성 테스트 전용: 게시글 상태 변경
-     *
      * MatchConcurrencyService에서 매칭 확정 시 OPEN → MATCHED 변경에 사용
      * 기존 completePost()는 COMPLETED 전용이라 별도로 분리
-     *
      * JPA 변경감지(Dirty Checking) 동작 원리:
-     *   @Transactional 안에서 조회한 엔티티를 수정하면
+     *   Transactional 안에서 조회한 엔티티를 수정하면
      *   트랜잭션 커밋 시점에 JPA가 변경사항을 감지하고 UPDATE 쿼리 자동 실행
      *   → postRepository.save(post) 를 명시적으로 호출하지 않아도 됨
      */

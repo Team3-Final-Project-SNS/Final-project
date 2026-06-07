@@ -73,6 +73,7 @@ public class ChatRoomScheduler {
                 List<Match> completedMatches = matchService.getCompletedMatchesByPostId(chatRoom.getPostId());
 
                 completedMatches.forEach(match ->
+                        // 9. 만남 완료 / 후기 작성 유도 알림 - 신청자에게
                         notificationPublisher.sendMeetCompleted(match.getApplicantId(), match.getId()));
             });
         }

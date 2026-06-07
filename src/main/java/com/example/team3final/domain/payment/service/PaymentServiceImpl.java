@@ -137,7 +137,7 @@ public class PaymentServiceImpl implements PaymentService{
         log.info("[Payment] 결제 검증 완료 - userId: {}, paymentId: {}, chargePoint: {}",
                 userId, paymentId, payment.getChargePoint());
 
-        // 30번 알림 - 결제 성공 알림
+        // 29. 결제 성공 알림 - 결제 사용자에게
         notificationPublisher.sendPaymentSuccess(userId, paymentId);
 
         return VerifyPaymentResponseDto.of(payment, request.getImpUid(), balanceAfter);
@@ -219,12 +219,19 @@ public class PaymentServiceImpl implements PaymentService{
             } catch (Exception e) {
                 log.error("[Payment] PortOne 취소 실패 - paymentId: {}, error: {}",
                         paymentId, e.getMessage());
+
+                // 32. 결제 취소 및 환불 실패 알림 - 결제 사용자에게
+                notificationPublisher.sendPaymentCancelFailed(userId, paymentId);
+
                 throw new PaymentException(ErrorCode.PAY_VERIFICATION_FAILED);
             }
         }
 
         // 7. DB 상태 CANCELLED 전환 + 취소 사유 기록
         payment.markCancelled("사용자 취소 요청 - 환불액: " + refundAmount + "원");
+
+        // 31. 결제 취소 및 환불 완료 알림 - 결제 사용자에게
+        notificationPublisher.sendPaymentCancelSuccess(userId, paymentId);
 
         log.info("[Payment] 결제 취소 완료 - userId: {}, paymentId: {}, refundAmount: {}",
                 userId, paymentId, refundAmount);
@@ -255,7 +262,7 @@ public class PaymentServiceImpl implements PaymentService{
         // FAILED 처리
         payment.markFailed("사용자 결제 취소");
 
-        // 31번 알림 - 결제 실패 알림
+        // 30. 결제 실패 알림 - 결제 사용자에게
         notificationPublisher.sendPaymentFailed(userId, paymentId);
 
         log.info("[Payment] 결제 실패 처리 - userId: {}, paymentId: {}", userId, paymentId);
@@ -272,7 +279,6 @@ public class PaymentServiceImpl implements PaymentService{
     /**
      * 30분 이상 READY로 남아있는 결제 건을 FAILED로 일괄 처리
      * 주기: 매 5분마다 실행
-     *
      * 보험 역할: 프론트가 failPayment 호출을 누락했을 때 자동으로 정리
      * ex) 네트워크 오류로 실패 API 못 보낸 경우, 브라우저 강제 종료 등
      */
@@ -300,12 +306,10 @@ public class PaymentServiceImpl implements PaymentService{
 
     /**
      * merchant_uid 채번
-     *
      * 형태: hankki_20260601_000003
      *   - hankki_  : 서비스 식별자
      *   - 20260601 : 오늘 날짜 (yyyyMMdd)
      *   - 000003   : 오늘 전체 누적 결제 건수 + 1, 6자리 제로패딩
-     *
      * 왜 전체 카운트를 쓰나:
      *   유저별 카운트는 같은 날 여러 유저가 동시에 1번째 결제를 하면
      *   동일한 merchant_uid가 나올 수 있음 → 전체 카운트로 전역 순번 보장

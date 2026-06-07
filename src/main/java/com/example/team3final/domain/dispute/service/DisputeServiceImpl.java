@@ -9,6 +9,7 @@ import com.example.team3final.domain.dispute.dto.response.DisputeResponseDto;
 import com.example.team3final.domain.dispute.entity.Dispute;
 import com.example.team3final.domain.dispute.enums.DisputeStatus;
 import com.example.team3final.domain.dispute.repository.DisputeRepository;
+import com.example.team3final.domain.dispute.util.DisputeRedisZSetKeys;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.service.MatchService;
 import com.example.team3final.domain.meet.dto.response.MeetVerificationResponseDto;
@@ -21,6 +22,7 @@ import com.example.team3final.domain.post.service.PostService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +43,7 @@ public class DisputeServiceImpl implements DisputeService {
     private final MeetVerificationService meetVerificationService;
     private final AdminService adminService;
     private final NotificationPublisher notificationPublisher;
+    private final StringRedisTemplate redisTemplate;
 
     /**
      * 이의제기 제출
@@ -113,7 +116,7 @@ public class DisputeServiceImpl implements DisputeService {
         meetVerification.markDispute();
         matchService.markDisputed(matchId);
 
-        // 11번 알림 - 관리자에게 이의제기 접수 알림 발송
+        // 22. 이의제기 접수 알림 - 관리자에게
         Long adminId = adminService.getAdminId();
         if (adminId != null) {
             notificationPublisher.sendDisputeSubmitted(adminId, saved.getId());
@@ -234,7 +237,13 @@ public class DisputeServiceImpl implements DisputeService {
                 .build();
         Dispute savedReDispute = disputeRepository.save(reDispute);
 
-        // 11번 알림 - 관리자에게 재이의제기 접수 알림 발송
+        // 재이의제기 완료 → 마감 임박 알림 예약 취소
+        redisTemplate.opsForZSet().remove(
+                DisputeRedisZSetKeys.DEADLINE_REMINDER,
+                String.valueOf(parentDispute.getId()) // 원본 이의제기 ID
+        );
+
+        // 22. 이의제기 접수 알림 - 관리자에게
         Long adminId = adminService.getAdminId();
         if (adminId != null) {
             notificationPublisher.sendDisputeSubmitted(adminId, savedReDispute.getId());
