@@ -24,7 +24,7 @@ public class UserPointServiceImpl implements UserPointService{
     @Override
     public void deductPoint(Long userId, int amount, Long matchId) {
         // 1. 유저 조회
-        User user = getUserOrThrow(userId);
+        User user = getUserOrThrowWithLock(userId);
 
         // user.deduct(amount) 가 무료/유료 분해 결과를 반환
         User.DeductResult result = user.deduct(amount);
@@ -165,7 +165,7 @@ public class UserPointServiceImpl implements UserPointService{
     @Override
     public void deductEditDeposit(Long userId, int amount) {
         // 유저 조회
-        User user = getUserOrThrow(userId);
+        User user = getUserOrThrowWithLock(userId);
 
         // 무료 먼저, 부족분은 유료 — 잔액 부족 시 예외
         User.DeductResult result = user.deduct(amount);
@@ -200,6 +200,11 @@ public class UserPointServiceImpl implements UserPointService{
 
     private User getUserOrThrow(Long userId) {
         return userRepository.findById(userId)
+                .orElseThrow(() -> new PointTransactionException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private User getUserOrThrowWithLock(Long userId) {
+        return userRepository.findByIdWithPessimisticLock(userId)
                 .orElseThrow(() -> new PointTransactionException(ErrorCode.USER_NOT_FOUND));
     }
 
