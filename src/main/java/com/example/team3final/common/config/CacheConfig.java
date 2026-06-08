@@ -1,6 +1,5 @@
 package com.example.team3final.common.config;
 
-import com.example.team3final.domain.post.cache.PostCachePolicy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -10,10 +9,10 @@ import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.JdkSerializationRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 
 import java.time.Duration;
-import java.util.Map;
 
 // Spring Cache 공용 설정 파일
 // Redis를 직접 StringRedisTemplate로 사용하는 기능과 별개로,
@@ -32,6 +31,30 @@ public class CacheConfig {
     @Bean
     public RedisCacheManager redisCacheManager(RedisConnectionFactory connectionFactory) {
 
+        RedisCacheConfiguration defaultConfig = createDefaultJsonCacheConfig();
+        // RedisCacheManager 생성
+        // cacheDefaults() -> 별도 정책을 지정하지 않은 캐시에 적용되는 기본 TTL
+        // 기본 TTL -> 5분으로 설정
+        return RedisCacheManager.builder(connectionFactory)
+                .cacheDefaults(defaultConfig.entryTtl(DEFAULT_TTL))
+                // withInitialCacheConfigurations() -> 캐시 이름별로 TTL 정책을 다르게 설정,
+                // 캐시를 추가할 경우 이 Map에 cacheName별 정책을 추가하여 사용
+//                .withInitialCacheConfigurations(Map.of(
+//                        PostCachePolicy.POST_LIST,
+//                        jdkSerializedCacheConfig(
+//                                defaultConfig,
+//                                PostCachePolicy.POST_LIST_TTL
+//                        )
+//                ))
+                .build();
+    }
+
+
+    // 기본 Redis Cache 설정
+    // 대부분의 캐시는 JSON 형태로 저장해도 충분 하므로,
+    // GenericJackson2JsonRedisSerializer를 기본 직렬화 방식으로 사용
+    private RedisCacheConfiguration createDefaultJsonCacheConfig() {
+
         ObjectMapper objectMapper = new ObjectMapper();
 
         // Redis 캐시에 LocalDateTime,LocalDate, LocalTime 같은 Java Time 타입이 들어갈 수 있으므로,
@@ -44,7 +67,7 @@ public class CacheConfig {
         GenericJackson2JsonRedisSerializer jsonSerializer = new GenericJackson2JsonRedisSerializer(objectMapper);
 
         // defaultCacheConfig() -> 모든 캐시에 공통으로 적용할 기본 설정
-        RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
+        return RedisCacheConfiguration.defaultCacheConfig()
                 .disableCachingNullValues()
                 .serializeValuesWith(
                         RedisSerializationContext.SerializationPair.fromSerializer(
@@ -53,18 +76,20 @@ public class CacheConfig {
                                 jsonSerializer
                         )
                 );
+    }
 
-        // RedisCacheManager 생성
-        // cacheDefaults() -> 별도 정책을 지정하지 않은 캐시에 적용되는 기본 TTL
-        // 기본 TTL -> 5분으로 설정
-        return RedisCacheManager.builder(connectionFactory)
-                .cacheDefaults(defaultConfig.entryTtl(DEFAULT_TTL))
-                // withInitialCacheConfigurations() -> 캐시 이름별로 TTL 정책을 다르게 설정,
-                // 캐시를 추가할 경우 이 Map에 cacheName별 정책을 추가하여 사용
-                .withInitialCacheConfigurations(Map.of(
-                        PostCachePolicy.SAME_UNIVERSITY_USER_IDS,
-                        defaultConfig.entryTtl(PostCachePolicy.SAME_UNIVERSITY_USER_IDS_TTL)
-                ))
-                .build();
+    // 타입 보존이 중요한 캐시에 사용하는 공용 설정
+    // ex) List<Long> 같은 제네릭 컬렉션은 JSON 역직렬화 과정에서 Integer로 복원될 수 있음,
+    // 이런 경우 JdkSerializationRedisSerializer를 사용하면,Java 객체 타입 정보를 보존할 수 있다.
+    public static RedisCacheConfiguration jdkSerializedCacheConfig(
+            RedisCacheConfiguration baseConfig, Duration ttl) {
+
+        return baseConfig
+                .entryTtl(ttl)
+                .serializeValuesWith(
+                        RedisSerializationContext.SerializationPair.fromSerializer(
+                                new JdkSerializationRedisSerializer()
+                        )
+                );
     }
 }
