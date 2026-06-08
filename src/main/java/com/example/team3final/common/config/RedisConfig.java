@@ -1,6 +1,6 @@
 package com.example.team3final.common.config;
 
-import com.example.team3final.common.util.RedisLuaScripts;
+import com.example.team3final.common.utils.RedisLuaScripts;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;

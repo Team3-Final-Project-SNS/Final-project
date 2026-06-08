@@ -1,4 +1,4 @@
-package com.example.team3final.common.util;
+package com.example.team3final.common.utils;
 
 // Redis Lua Script 상수
 // 조회 + 삭제를 원자적으로 처리 → 분산 환경에서 중복 처리 방지
