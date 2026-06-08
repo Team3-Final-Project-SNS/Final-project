@@ -62,8 +62,8 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     private static final long QR_TOKEN_VALIDITY_MINUTES = 30;
     // 장소 인증 가능 시간 : 만남 시간 10분 전 ~ 30분간
     private static final long VERIFICATION_BEFORE_MINUTES = 10;
-    // 장소 인증 활성 시간 (인증 시작 시각 기준 30분)
-    private static final long VERIFICATION_AFTER_MINUTES = 30;
+    // 장소 인증 활성 시간 (만남 약속 시각 기준 20분)
+    private static final long VERIFICATION_AFTER_MINUTES = 20;
     // 노쇼 판정 기준 : 장소 인증 종료 시각 기준 (meetAt - 10분 시작 + 30분 = meetAt + 20분)
     private static final long NO_SHOW_JUDGE_MINUTES = 20;
     // 연장 요청 타임아웃 : 요청 시각 + 5분
