@@ -10,7 +10,7 @@ public record AcceptMeetExtensionResponseDto(
         Long matchId,
         ExtensionStatus extensionStatus,
         LocalDateTime originalMeetAt,   // post.meetAt (연장 전 원래 시각)
-        LocalDateTime extendedMeetAt,   // meetVerification.extendedMeetAt (meetAt + 15분)
+        LocalDateTime extendedMeetAt,   // meetVerification.extendedMeetAt (meetAt + 10분)
         boolean isExtended,
         LocalDateTime extendedAt        // 수락 처리 시각 (LocalDateTime.now())
 ) {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router';
-import { ArrowLeft, Loader2, Send } from 'lucide-react';
+import { useSearchParams } from 'react-router';
+import { Loader2, Send } from 'lucide-react';
 import {
   AdminInquiryDetail,
   AdminInquiryItem,
@@ -9,12 +9,13 @@ import {
   getAdminInquiry,
 } from '../../api/adminInquiryApi';
 import { InquiryAnswerStatus, InquiryType } from '../../api/inquiryApi';
-import AdminFloatingChatbot from '../components/AdminFloatingChatbot';
 
 const statusFilters: ('ALL' | InquiryAnswerStatus)[] = ['ALL', 'PENDING', 'READ', 'ANSWERED', 'WITHDRAWN'];
 const typeFilters: ('ALL' | InquiryType)[] = ['ALL', 'ACCOUNT', 'PAYMENT', 'MATCH', 'REPORT', 'USAGE', 'HISTORY', 'OTHER'];
 
 export default function AdminInquiriesPage() {
+  const [searchParams] = useSearchParams();
+  const requestedInquiryId = Number(searchParams.get('inquiryId'));
   const [items, setItems] = useState<AdminInquiryItem[]>([]);
   const [selected, setSelected] = useState<AdminInquiryDetail | null>(null);
   const [answer, setAnswer] = useState('');
@@ -39,6 +40,12 @@ export default function AdminInquiriesPage() {
   useEffect(() => {
     loadInquiries();
   }, [status, type]);
+
+  useEffect(() => {
+    if (Number.isInteger(requestedInquiryId) && requestedInquiryId > 0) {
+      handleSelect(requestedInquiryId);
+    }
+  }, [requestedInquiryId]);
 
   const handleSelect = async (inquiryId: number) => {
     setMessage('');
@@ -68,12 +75,8 @@ export default function AdminInquiriesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#fff7ed] via-[#f7fbff] to-[#eaf7f1]">
-      <main className="mx-auto max-w-screen-lg px-4 py-10">
-        <Link to="/admin" className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-[#616161] hover:text-[#d84315]">
-          <ArrowLeft size={16} />
-          관리자 콘솔
-        </Link>
+    <div>
+      <main className="mx-auto max-w-screen-xl">
         <h1 className="text-3xl font-bold text-[#212121]">고객 문의 관리</h1>
         <p className="mb-6 mt-2 text-sm text-[#757575]">접수된 문의를 확인하고 답변합니다.</p>
 
@@ -195,7 +198,6 @@ export default function AdminInquiriesPage() {
           </section>
         </div>
       </main>
-      <AdminFloatingChatbot />
     </div>
   );
 }

@@ -35,6 +35,7 @@ const statusClasses: Record<ReportStatus, string> = {
 export default function ReportCenterPage() {
   const [searchParams] = useSearchParams();
   const initialTargetId = searchParams.get('targetId') || '';
+  const requestedReportId = Number(searchParams.get('reportId'));
   const [reports, setReports] = useState<MyReportItem[]>([]);
   const [targetId, setTargetId] = useState(initialTargetId);
   const [reason, setReason] = useState<ReportReason>('OTHER');
@@ -188,7 +189,14 @@ export default function ReportCenterPage() {
           ) : reports.length > 0 ? (
             <div className="space-y-3">
               {reports.map((report) => (
-                <div key={report.reportId} className="rounded-xl border border-[#eeeeee] p-4">
+                <div
+                  key={report.reportId}
+                  className={`rounded-xl border p-4 ${
+                    report.reportId === requestedReportId
+                      ? 'border-[#d84315] bg-[#fff8f5] ring-2 ring-[#ffccbc]'
+                      : 'border-[#eeeeee]'
+                  }`}
+                >
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span className={`rounded px-2.5 py-1 text-xs font-bold ${statusClasses[report.status]}`}>

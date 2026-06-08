@@ -1,5 +1,6 @@
 package com.example.team3final.common.config;
 
+import com.example.team3final.domain.notification.cache.NotificationCachePolicy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -13,6 +14,7 @@ import org.springframework.data.redis.serializer.JdkSerializationRedisSerializer
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 
 import java.time.Duration;
+import java.util.Map;
 
 // Spring Cache 공용 설정 파일
 // Redis를 직접 StringRedisTemplate로 사용하는 기능과 별개로,
@@ -37,15 +39,20 @@ public class CacheConfig {
         // 기본 TTL -> 5분으로 설정
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig.entryTtl(DEFAULT_TTL))
-                // withInitialCacheConfigurations() -> 캐시 이름별로 TTL 정책을 다르게 설정,
-                // 캐시를 추가할 경우 이 Map에 cacheName별 정책을 추가하여 사용
-//                .withInitialCacheConfigurations(Map.of(
-//                        PostCachePolicy.POST_LIST,
-//                        jdkSerializedCacheConfig(
-//                                defaultConfig,
-//                                PostCachePolicy.POST_LIST_TTL
-//                        )
-//                ))
+                .withInitialCacheConfigurations(Map.of(
+                        // 알림 목록 캐시: 30초 TTL
+                        // @CacheEvict로 즉시 무효화하므로 30초면 충분
+                        NotificationCachePolicy.NOTIFICATION_LIST,
+                        NotificationCachePolicy.notificationCacheConfig(
+                                NotificationCachePolicy.NOTIFICATION_LIST_TTL
+                        ),
+                        // 미확인 알림 카운트 캐시: 10초 TTL
+                        // 벨 아이콘 숫자는 즉각 반영이 중요 → 매우 짧게
+                        NotificationCachePolicy.NOTIFICATION_UNREAD,
+                        NotificationCachePolicy.notificationCacheConfig(
+                                NotificationCachePolicy.NOTIFICATION_UNREAD_TTL
+                        )
+                ))
                 .build();
     }
 

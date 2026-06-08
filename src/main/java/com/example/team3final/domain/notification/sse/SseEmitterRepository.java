@@ -1,5 +1,6 @@
 package com.example.team3final.domain.notification.sse;
 
+import com.example.team3final.domain.notification.enums.NotificationReceiverType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -20,22 +21,26 @@ import java.util.concurrent.ConcurrentHashMap;
 public class SseEmitterRepository {
 
     // 유저 ID → SseEmitter 저장소 (thread-safe)
-    private final Map<Long, SseEmitter> emitters = new ConcurrentHashMap<>();
+    private final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
 
     // Emitter 저장
-    public void save(Long userId, SseEmitter emitter) {
-        emitters.put(userId, emitter);
-        log.info("[SSE] Emitter 저장 - userId: {}", userId);
+    public void save(NotificationReceiverType receiverType, Long receiverId, SseEmitter emitter) {
+        emitters.put(key(receiverType, receiverId), emitter);
+        log.info("[SSE] Emitter 저장 - receiverType: {}, receiverId: {}", receiverType, receiverId);
     }
 
     // Emitter 조회
-    public Optional<SseEmitter> findByUserId(Long userId) {
-        return Optional.ofNullable(emitters.get(userId));
+    public Optional<SseEmitter> find(NotificationReceiverType receiverType, Long receiverId) {
+        return Optional.ofNullable(emitters.get(key(receiverType, receiverId)));
     }
 
     // Emitter 삭제 (연결 종료 시)
-    public void deleteByUserId(Long userId) {
-        emitters.remove(userId);
-        log.info("[SSE] Emitter 삭제 - userId: {}", userId);
+    public void delete(NotificationReceiverType receiverType, Long receiverId) {
+        emitters.remove(key(receiverType, receiverId));
+        log.info("[SSE] Emitter 삭제 - receiverType: {}, receiverId: {}", receiverType, receiverId);
+    }
+
+    private String key(NotificationReceiverType receiverType, Long receiverId) {
+        return receiverType.name() + ":" + receiverId;
     }
 }

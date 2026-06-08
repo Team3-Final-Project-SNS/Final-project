@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { requestPayment } from '@portone/browser-sdk/v2';
 import { AlertCircle, CheckCircle2, CreditCard, Loader2, RotateCcw, WalletCards } from 'lucide-react';
+import { useSearchParams } from 'react-router';
 import {
   cancelPayment,
   createPayment,
@@ -71,6 +72,8 @@ const portOneStoreId = import.meta.env.VITE_PORTONE_STORE_ID;
 const portOneChannelKey = import.meta.env.VITE_PORTONE_CHANNEL_KEY;
 
 export default function PaymentPage() {
+  const [searchParams] = useSearchParams();
+  const requestedPaymentId = Number(searchParams.get('paymentId'));
   const [selectedPoint, setSelectedPoint] = useState(5000);
   const [payMethod, setPayMethod] = useState<PayMethod>('CARD');
   const [preparedPayment, setPreparedPayment] = useState<CreatePaymentResponse | null>(null);
@@ -378,7 +381,12 @@ export default function PaymentPage() {
         ) : payments.length > 0 ? (
           <div className="divide-y divide-[#eeeeee]">
             {payments.map((payment) => (
-              <PaymentHistoryItem key={payment.paymentId} payment={payment} onCancel={handleCancelPayment} />
+              <PaymentHistoryItem
+                key={payment.paymentId}
+                payment={payment}
+                highlighted={payment.paymentId === requestedPaymentId}
+                onCancel={handleCancelPayment}
+              />
             ))}
           </div>
         ) : (
@@ -391,13 +399,19 @@ export default function PaymentPage() {
 
 function PaymentHistoryItem({
   payment,
+  highlighted,
   onCancel,
 }: {
   payment: GetPaymentResponse;
+  highlighted: boolean;
   onCancel: (paymentId: number) => void;
 }) {
   return (
-    <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+    <div
+      className={`flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between ${
+        highlighted ? 'bg-[#fff8f5] ring-2 ring-inset ring-[#ffccbc]' : ''
+      }`}
+    >
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <span className={`rounded-md px-2 py-1 text-xs font-bold ${statusClassNames[payment.status]}`}>

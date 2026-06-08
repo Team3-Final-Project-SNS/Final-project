@@ -103,12 +103,10 @@ public class ReportServiceImpl implements ReportService {
 
         Report savedReport = reportRepository.save(report);
 
-        // 26. 신고 접수 알림 - 관리자에게
-        // adminId가 null이면 활성 관리자 없음 → 알림 스킵
-        Long adminId = adminService.getAdminId();
-        if (adminId != null) {
-            notificationPublisher.sendReportSubmitted(adminId, savedReport.getId());
-        }
+        // 26. 신고 접수 알림 - 활성 관리자 모두에게
+        adminService.getActiveAdminIds().forEach(
+                adminId -> notificationPublisher.sendReportSubmitted(adminId, savedReport.getId())
+        );
 
         return CreateReportResponseDto.from(savedReport);
     }
