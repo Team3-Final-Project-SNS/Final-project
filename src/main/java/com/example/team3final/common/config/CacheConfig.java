@@ -42,11 +42,8 @@ public class CacheConfig {
                 // withInitialCacheConfigurations() -> 캐시 이름별로 TTL 정책을 다르게 설정,
                 // 캐시를 추가할 경우 이 Map에 cacheName별 정책을 추가하여 사용
                 .withInitialCacheConfigurations(Map.of(
-                        PostCachePolicy.SAME_UNIVERSITY_USER_IDS,
-                        jdkSerializedCacheConfig(
-                                defaultConfig,
-                                PostCachePolicy.SAME_UNIVERSITY_USER_IDS_TTL
-                        )
+                        PostCachePolicy.POST_LIST,
+                        defaultConfig.entryTtl(PostCachePolicy.POST_LIST_TTL)
                 ))
                 .build();
     }
