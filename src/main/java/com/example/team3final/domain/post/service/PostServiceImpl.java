@@ -4,7 +4,6 @@ import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.PostException;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
-import com.example.team3final.domain.post.cache.PostCachePolicy;
 import com.example.team3final.domain.post.dto.request.CreatePostRequestDto;
 import com.example.team3final.domain.post.dto.request.UpdatePostRequestDto;
 import com.example.team3final.domain.post.dto.response.*;
@@ -16,7 +15,6 @@ import com.example.team3final.domain.user.dto.response.UserInfoDto;
 import com.example.team3final.domain.user.service.UserPointService;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -28,6 +26,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,6 +39,7 @@ public class PostServiceImpl implements PostService{
     private final UserPointService userPointService;
     private final NotificationPublisher notificationPublisher;
     private final ReviewAvoidanceService reviewAvoidanceService;
+    private final RedisPostService redisPostService;
 
 
     @Override
@@ -181,17 +181,6 @@ public class PostServiceImpl implements PostService{
         return DeletePostResponseDto.of(postId, refundedPoint);
     }
 
-    @Cacheable(
-            // 게시글 목록 조회  API 응답 결과를 캐싱
-            cacheNames = PostCachePolicy.POST_LIST,
-            // currentUserId -> 게시글 목록은 같은 학교 유저 기준으로 조회,
-            // 또한 회피/차단 관계에 따라 사용자별로 보이는 게시글이 달라질 수 있고,
-            // universityId만 key로 쓰면 다른 사용자의 필터링 결과가 섞일 수 있음
-            // status -> OPEN, COMPLETED, CANCELLED 등 상태별 조회 결과가 다르므로 key에 포함
-            // page, size: 페이지 번호와 페이지 크기에 따라 응답 content가 달라지므로 key에 포함
-            // ex) Redis key -> post:list::user:8:status:OPEN:page:0:size:20
-            key = "'user:' + #currentUserId + ':status:' + #status + ':page:' +#pageable.pageNumber + ':size:' + #pageable.pageSize"
-    )
     @Override
     public PageResponseDto<GetPostsItemResponseDto> getPosts(
             Long currentUserId,
@@ -202,6 +191,16 @@ public class PostServiceImpl implements PostService{
         // 과도하게 큰 size 요청으로 인한 DB 부하/메모리 폭증을 막는 방어 로직.
         if (pageable.getPageSize() > Post.MAX_PAGE_SIZE) {
             throw new PostException(ErrorCode.POST_INVALID_PAGE_SIZE);
+        }
+
+        // Redis 캐시에서 게시글 목록 조회 응답을 먼저 확인
+        Optional<PageResponseDto<GetPostsItemResponseDto>> cachedPostList = redisPostService.getPostList(
+                currentUserId, status, pageable.getPageNumber(), pageable.getPageSize()
+        );
+
+        // 캐시된 응답이 없으면 DB 조회 없이 바로 반환
+        if (cachedPostList.isPresent()) {
+            return cachedPostList.get();
         }
 
         // 1. 현재 유저의 학교 ID 조회
@@ -263,7 +262,22 @@ public class PostServiceImpl implements PostService{
             );
         });
 
-        return PageResponseDto.from(dtoPage);
+//        return PageResponseDto.from(dtoPage);
+
+        // DB 조회 결과를 게시글 목록 API 응답 DTO로 변환
+        PageResponseDto<GetPostsItemResponseDto> responseDto = PageResponseDto.from(dtoPage);
+
+        // 동일 요청에서 DB 조회를 줄일 수 있도록 Redis 응답 결과를 저장
+        redisPostService.savePostList(
+                currentUserId,
+                status,
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                responseDto
+        );
+
+        // 최종 응답 반환
+        return responseDto;
     }
 
     @Override
