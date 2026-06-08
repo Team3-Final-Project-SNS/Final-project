@@ -6,7 +6,7 @@ import com.example.team3final.domain.pointTransaction.entity.PointTransaction;
 import com.example.team3final.domain.pointTransaction.enums.PointSource;
 import com.example.team3final.domain.pointTransaction.enums.PointTransactionType;
 import com.example.team3final.domain.pointTransaction.repository.PointTransactionRepository;
-import com.example.team3final.domain.post.cache.PostCacheNames;
+import com.example.team3final.domain.post.cache.PostCachePolicy;
 import com.example.team3final.domain.user.dto.request.UpdateUserRequestDto;
 import com.example.team3final.domain.user.dto.response.AdminUserInfoDto;
 import com.example.team3final.domain.user.dto.response.GetUserResponseDto;
@@ -251,7 +251,7 @@ public class UserServiceImpl implements UserService {
     // 같은 학교 활성 사용자 ID 목록 조회
     @Override
     @Cacheable(
-            cacheNames = PostCacheNames.SAME_UNIVERSITY_USER_IDS,
+            cacheNames = PostCachePolicy.SAME_UNIVERSITY_USER_IDS,
             key = "#universityId"
     )
     public List<Long> getUserIdsByUniversityId(Long universityId) {

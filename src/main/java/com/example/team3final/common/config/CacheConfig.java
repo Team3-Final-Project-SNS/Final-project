@@ -1,6 +1,6 @@
 package com.example.team3final.common.config;
 
-import com.example.team3final.domain.post.cache.PostCacheNames;
+import com.example.team3final.domain.post.cache.PostCachePolicy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -22,13 +22,9 @@ import java.util.Map;
 @Configuration
 public class CacheConfig {
 
+    // 기본 TTL값 -> 5분
     // 별도 TTL 정책을 지정하지 않은 캐시에 대해서는 TTL 5분으로 설정
     public static final Duration DEFAULT_TTL = Duration.ofMinutes(5);
-
-    // 게시글 목록 조회에 사용될 TTL,
-    // RedisCacheManager는 cacheName별 TTL을 여기서 등록해야 하므로,
-    // 도메인 캐시 정책을 함께 등록
-    private static final Duration SAME_UNIVERSITY_USER_IDS_TTL = Duration.ofMinutes(10);
 
     // Redis 기반 CacheManager 등록
     // CacheManager는 @Cacheable이 붙은 메서드가 호출될 때
@@ -66,8 +62,8 @@ public class CacheConfig {
                 // withInitialCacheConfigurations() -> 캐시 이름별로 TTL 정책을 다르게 설정,
                 // 캐시를 추가할 경우 이 Map에 cacheName별 정책을 추가하여 사용
                 .withInitialCacheConfigurations(Map.of(
-                        PostCacheNames.SAME_UNIVERSITY_USER_IDS,
-                        defaultConfig.entryTtl(SAME_UNIVERSITY_USER_IDS_TTL)
+                        PostCachePolicy.SAME_UNIVERSITY_USER_IDS,
+                        defaultConfig.entryTtl(PostCachePolicy.SAME_UNIVERSITY_USER_IDS_TTL)
                 ))
                 .build();
     }
