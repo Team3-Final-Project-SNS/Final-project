@@ -24,6 +24,8 @@ import com.example.team3final.domain.user.dto.response.UserInfoDto;
 import com.example.team3final.domain.user.service.UserPointService;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -36,6 +38,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -53,10 +56,48 @@ public class MatchServiceImpl implements MatchService{
     private final StringRedisTemplate redisTemplate; // ZSet 예약용
     private final ReportService reportService;
     private final UserLocationCleanupService userLocationCleanupService;
+    private final RedissonClient redissonClient;
+
+    private static final String MATCH_LOCK_KEY = "match:lock:post:";
+    private static final long REDIS_LOCK_LEASE_SECONDS = 5;
 
     @Override
-    @Transactional
     public CreateMatchResponseDto createMatch(Long postId, Long applicantId) {
+
+        String lockKey = MATCH_LOCK_KEY + postId;
+        RLock lock = redissonClient.getLock(lockKey);
+
+        boolean acquired = false;
+        try {
+            Post post = postService.getPostById(postId);
+
+            // 1:1 매칭(maxApplicants == 2): 즉시 실패 (waitTime=0)
+            // 단체 매칭(maxApplicants > 2): 500ms 대기
+            long waitTime = (post.getMaxApplicants() == 2) ? 0L : 500L;
+
+            acquired = lock.tryLock(waitTime, REDIS_LOCK_LEASE_SECONDS * 1000, TimeUnit.MILLISECONDS);
+
+            if (!acquired) {
+                // 락 획득 실패 -> 이미 다른 요청이 처리 중
+                throw new MatchException(ErrorCode.MATCH_ALREADY_MATCHED);
+            }
+
+            // 락 획득 성공 -> 트랜잭션 안에서 실제 로직 실행
+            return createMatchInTransaction(postId, applicantId);
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new MatchException(ErrorCode.MATCH_ALREADY_MATCHED);
+        } finally {
+            // 반드시 finally에서 락 해제
+            if (acquired && lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
+        }
+    }
+
+    @Transactional
+    public CreateMatchResponseDto createMatchInTransaction(Long postId, Long applicantId) {
 
         Post post = postService.getPostById(postId);
 
