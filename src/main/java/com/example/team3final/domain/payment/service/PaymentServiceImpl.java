@@ -297,7 +297,7 @@ public class PaymentServiceImpl implements PaymentService{
 
         // 각 건마다 FAILED 처리
         stalePayments.forEach(payment ->
-                payment.markFailed("결제 미완료 자동 만료 (30분 초과)"));
+                payment.markFailed("결제 미완료 자동 만료 (10분 초과)"));
 
         log.info("[Payment] 자동 만료 처리 완료 - {}건 FAILED 전환", stalePayments.size());
     }

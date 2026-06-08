@@ -14,7 +14,18 @@ import java.time.LocalDateTime;
 
 @Entity
 @Getter
-@Table(name = "disputes")
+@Table(
+        name = "disputes",
+        uniqueConstraints = {
+            @UniqueConstraint(
+                        name = "uk_dispute_match_submitter",
+                        columnNames = {"match_id", "submitter_id"}
+                        // match_id + submitter_id 조합이 유일해야 함
+                        // → 같은 매칭에 같은 사용자는 이의제기 1건만 가능
+                        // → 재이의제기(parentDisputeId != null)는 다른 레코드라 제약 위반 없음
+            )
+        }
+)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Dispute extends BaseTimeEntity {
 
