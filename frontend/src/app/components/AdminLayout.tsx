@@ -13,8 +13,8 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+import AdminFloatingChatbot from './AdminFloatingChatbot';
 import AdminNotificationBell from './AdminNotificationBell';
-import { RiceMascot } from './AdminFloatingChatbot';
 
 const menuItems = [
   { to: '/admin', label: '대시보드', icon: LayoutDashboard, end: true },
@@ -59,7 +59,9 @@ export default function AdminLayout() {
     <div className="min-h-screen bg-gradient-to-br from-[#fff7ed] via-[#f7fbff] to-[#eaf7f1]">
       <header className="sticky top-0 z-50 border-b border-[#e0e0e0] bg-white">
         <div className="hidden h-16 items-center justify-between px-6 md:flex">
-          <div className="text-2xl font-bold text-[#d84315]">한끼팟 Admin</div>
+          <NavLink to="/admin" end className="text-2xl font-bold text-[#d84315]">
+            한끼팟 Admin
+          </NavLink>
           <div className="flex items-center gap-5">
             <AdminNotificationBell />
             <button
@@ -83,7 +85,9 @@ export default function AdminLayout() {
           >
             {menuOpen ? <X size={23} /> : <Menu size={23} />}
           </button>
-          <div className="text-xl font-bold text-[#d84315]">한끼팟 Admin</div>
+          <NavLink to="/admin" end className="text-xl font-bold text-[#d84315]">
+            한끼팟 Admin
+          </NavLink>
           <AdminNotificationBell />
         </div>
       </header>
@@ -115,23 +119,6 @@ export default function AdminLayout() {
             ))}
           </nav>
 
-          <div className="mt-auto border-t border-[#eeeeee] pt-4">
-            <NavLink
-              to="/admin/ai"
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-bold transition-colors ${
-                  isActive
-                    ? 'bg-[#d84315] text-white shadow-sm'
-                    : 'bg-[#fff8f5] text-[#d84315] hover:bg-[#fff3e0]'
-                }`
-              }
-            >
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-sm">
-                <RiceMascot size="tiny" showAdminHat />
-              </span>
-              AI 운영 도우미
-            </NavLink>
-          </div>
         </aside>
 
         <main className="min-w-0 flex-1 overflow-x-hidden p-4 pb-24 md:p-6 md:pb-6 lg:p-8">
@@ -169,17 +156,6 @@ export default function AdminLayout() {
                   {label}
                 </NavLink>
               ))}
-              <NavLink
-                to="/admin/ai"
-                className={({ isActive }) =>
-                  `mt-3 flex items-center gap-3 rounded-xl border-t border-[#eeeeee] px-4 py-3 text-sm font-bold ${
-                    isActive ? 'bg-[#d84315] text-white' : 'text-[#d84315] hover:bg-[#fff3e0]'
-                  }`
-                }
-              >
-                <RiceMascot size="tiny" showAdminHat />
-                AI 운영 도우미
-              </NavLink>
             </nav>
 
             <button
@@ -211,6 +187,8 @@ export default function AdminLayout() {
           </NavLink>
         ))}
       </nav>
+
+      <AdminFloatingChatbot />
     </div>
   );
 }

@@ -1,6 +1,5 @@
 import { Link, useLocation } from 'react-router';
 import { ArrowLeft, Hammer } from 'lucide-react';
-import AdminFloatingChatbot from '../components/AdminFloatingChatbot';
 
 const pageTitles: Record<string, string> = {
   '/admin/payments': '주문 결제 관리',
@@ -27,7 +26,6 @@ export default function AdminComingSoonPage() {
           <p className="mt-3 text-sm font-semibold text-[#757575]">구현중입니다.</p>
         </div>
       </main>
-      <AdminFloatingChatbot />
     </div>
   );
 }

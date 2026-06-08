@@ -140,12 +140,6 @@ const availableYears = Array.from(
   new Set(mockPayments.map((payment) => String(new Date(payment.createdAt).getFullYear()))),
 ).sort((a, b) => Number(b) - Number(a));
 
-const today = new Date();
-const initialDateRange: DateRange = {
-  from: new Date(today.getFullYear(), today.getMonth(), 1),
-  to: today,
-};
-
 const statusLabels: Record<PaymentStatus, string> = {
   READY: '결제 대기',
   PAID: '결제 완료',
@@ -170,7 +164,7 @@ const methodLabels: Record<PaymentMethod, string> = {
 export default function AdminPaymentsPage() {
   const [periodType, setPeriodType] = useState<PaymentPeriodType>('ALL');
   const [periodValue, setPeriodValue] = useState('ALL');
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(initialDateRange);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [status, setStatus] = useState<PaymentStatusFilter>('ALL');
   const [method, setMethod] = useState<PaymentMethodFilter>('ALL');
   const [keyword, setKeyword] = useState('');
@@ -227,9 +221,7 @@ export default function AdminPaymentsPage() {
     }
 
     if (nextPeriodType === 'CUSTOM') {
-      if (!dateRange?.from) {
-        setDateRange(initialDateRange);
-      }
+      setDateRange(undefined);
       setPeriodValue('ALL');
       return;
     }
@@ -248,7 +240,7 @@ export default function AdminPaymentsPage() {
   const handleReset = () => {
     setPeriodType('ALL');
     setPeriodValue('ALL');
-    setDateRange(initialDateRange);
+    setDateRange(undefined);
     setStatus('ALL');
     setMethod('ALL');
     setKeyword('');
@@ -378,7 +370,7 @@ export default function AdminPaymentsPage() {
                         day_range_start: 'day-range-start bg-[#d84315] text-white hover:bg-[#d84315] hover:text-white',
                         day_range_end: 'day-range-end bg-[#d84315] text-white hover:bg-[#d84315] hover:text-white',
                         day_range_middle: 'aria-selected:bg-[#f1f3f5] aria-selected:text-[#212121]',
-                        day_today: 'border border-[#d84315] bg-white font-bold text-[#d84315]',
+                        day_today: 'bg-white font-bold !text-[#d84315]',
                         day_outside: 'invisible pointer-events-none',
                       }}
                     />

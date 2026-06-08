@@ -12,7 +12,6 @@ import AdminPostsPage from "./pages/AdminPostsPage";
 import AdminPaymentsPage from "./pages/AdminPaymentsPage";
 import AdminComingSoonPage from "./pages/AdminComingSoonPage";
 import AdminFaqPage from "./pages/AdminFaqPage";
-import AdminAiPage from "./pages/AdminAiPage";
 import AdminLayout from "./components/AdminLayout";
 import SignupPage from "./pages/SignupPage";
 import PostListPage from "./pages/PostListPage";
@@ -139,7 +138,6 @@ export const router = createBrowserRouter([
       { path: "inquiries", Component: AdminInquiriesPage },
       { path: "payments", Component: AdminPaymentsPage },
       { path: "faq", Component: AdminFaqPage },
-      { path: "ai", Component: AdminAiPage },
     ],
   },
   {
