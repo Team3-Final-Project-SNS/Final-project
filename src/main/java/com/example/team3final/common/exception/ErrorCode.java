@@ -166,6 +166,7 @@ public enum ErrorCode {
     // Notification
     NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTI_001", "존재하지 않는 알림입니다."),
     NOTIFICATION_INVALID_CURSOR(HttpStatus.BAD_REQUEST, "NOTI_002", "유효하지 않은 커서 ID입니다."),
+    NOTIFICATION_FORBIDDEN(HttpStatus.FORBIDDEN, "NOTI_003", "본인의 알림만 읽음 처리할 수 있습니다."),
 
     // Inquiry (고객문의)
     INQUIRY_NOT_FOUND(HttpStatus.NOT_FOUND, "INQUIRY_001", "존재하지 않는 문의입니다."),

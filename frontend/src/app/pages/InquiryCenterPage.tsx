@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { AlertCircle, ArrowLeft, FileText, Loader2, MessageSquare, Send, Siren, Trash2 } from 'lucide-react';
+import { useSearchParams } from 'react-router';
 import {
   cancelInquiry,
   createInquiry,
@@ -54,7 +55,16 @@ const statusClasses: Record<InquiryAnswerStatus, string> = {
 };
 
 export default function InquiryCenterPage() {
-  const [view, setView] = useState<'menu' | 'inquiry' | 'noShow'>('menu');
+  const [searchParams] = useSearchParams();
+  const requestedNoShowMatchId = searchParams.get('matchId');
+  const requestedInquiryId = searchParams.get('inquiryId');
+  const [view, setView] = useState<'menu' | 'inquiry' | 'noShow'>(
+      searchParams.get('view') === 'noShow'
+          ? 'noShow'
+          : requestedInquiryId
+              ? 'inquiry'
+              : 'menu',
+  );
   const [items, setItems] = useState<InquiryListItem[]>([]);
   const [selected, setSelected] = useState<InquiryDetail | null>(null);
   const [page, setPage] = useState(0);
@@ -127,7 +137,16 @@ export default function InquiryCenterPage() {
         const responses = await Promise.all(noShowStatuses.map((status) => getMyMatches(status, 0, 20)));
         const nextMatches = responses.flatMap((res) => res.data.data.content);
         setNoShowMatches(nextMatches);
-        setSelectedNoShowMatchId(nextMatches[0] ? String(nextMatches[0].matchId) : '');
+        const requestedMatch = nextMatches.find(
+            (match) => String(match.matchId) === requestedNoShowMatchId,
+        );
+        setSelectedNoShowMatchId(
+            requestedMatch
+                ? String(requestedMatch.matchId)
+                : nextMatches[0]
+                    ? String(nextMatches[0].matchId)
+                    : '',
+        );
       } catch (err) {
         console.error('Failed to load no-show matches', err);
         setError('노쇼 처리된 매칭을 불러오지 못했습니다.');
@@ -137,7 +156,7 @@ export default function InquiryCenterPage() {
     };
 
     loadNoShowMatches();
-  }, [view]);
+  }, [view, requestedNoShowMatchId]);
 
   const handleSelect = async (inquiryId: number) => {
     setDetailLoading(true);
@@ -152,6 +171,16 @@ export default function InquiryCenterPage() {
       setDetailLoading(false);
     }
   };
+
+  useEffect(() => {
+    const inquiryId = Number(requestedInquiryId);
+    if (!Number.isInteger(inquiryId) || inquiryId <= 0) {
+      return;
+    }
+
+    setView('inquiry');
+    handleSelect(inquiryId);
+  }, [requestedInquiryId]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

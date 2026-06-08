@@ -69,6 +69,13 @@ export interface UpdatePostRequest {
     authorDeposit?: number;
 }
 
+export interface DeletedPostReasonResponse {
+    postId: number;
+    placeName: string;
+    deleteReason: string;
+    deletedAt: string;
+}
+
 // 게시글 작성
 export const createPost = (data: CreatePostRequest) =>
     axiosInstance.post<ApiResponse<{ postId: number }>>("/api/v1/posts", data);
@@ -90,3 +97,6 @@ export const updatePost = (postId: number, data: UpdatePostRequest) =>
 // 게시글 삭제
 export const deletePost = (postId: number) =>
     axiosInstance.delete<ApiResponse<{ postId: number, refundedPoint: number }>>(`/api/v1/posts/${postId}`);
+
+export const getDeletedPostReason = (postId: number) =>
+    axiosInstance.get<ApiResponse<DeletedPostReasonResponse>>(`/api/v1/posts/${postId}/delete-reason`);

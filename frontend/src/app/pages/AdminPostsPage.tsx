@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router';
-import { AlertCircle, ArrowLeft, Eye, FileText, Loader2, Search, Trash2, X } from 'lucide-react';
+import { AlertCircle, Eye, FileText, Loader2, Search, Trash2, X } from 'lucide-react';
 import { deleteAdminPost, getAdminPost, getAdminPosts, AdminPostDetail, AdminPostItem } from '../../api/adminPostApi';
 import { PostStatus } from '../../api/postApi';
 import { getUniversities, UniversityResponse } from '../../api/univApi';
-import AdminFloatingChatbot from '../components/AdminFloatingChatbot';
 
 const statusLabels: Record<PostStatus, string> = {
   OPEN: '모집중',
@@ -128,7 +126,7 @@ export default function AdminPostsPage() {
     setDeleteError('');
     try {
       await deleteAdminPost(deleteTarget.postId, null, trimmedReason);
-      setMessage(`게시글 #${deleteTarget.postId}을 삭제했습니다.`);
+      setMessage('게시글을 삭제했습니다.');
       setDeleteTarget(null);
       setDeleteReason('');
       setDeleteError('');
@@ -141,13 +139,8 @@ export default function AdminPostsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#fff7ed] via-[#f7fbff] to-[#eaf7f1]">
-      <main className="mx-auto max-w-screen-lg px-4 py-10">
-        <Link to="/admin" className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-[#616161] hover:text-[#d84315]">
-          <ArrowLeft size={16} />
-          관리자 콘솔
-        </Link>
-
+    <div>
+      <main className="mx-auto max-w-screen-xl">
         <div className="mb-6 flex items-center gap-3">
           <FileText className="text-[#d84315]" size={28} />
           <div>
@@ -228,8 +221,8 @@ export default function AdminPostsPage() {
           </div>
         ) : (
           <div className="overflow-hidden rounded-2xl border border-[#e0e0e0] bg-white shadow-sm">
-            <div className="grid grid-cols-[0.5fr_0.8fr_1fr_2.5fr_1fr_0.7fr_0.7fr_1fr] gap-4 border-b border-[#eeeeee] bg-[#fafafa] px-5 py-3 text-xs font-bold text-[#757575]">
-              <span>ID</span>
+            <div className="grid grid-cols-[0.35fr_0.8fr_1fr_2.5fr_1fr_0.7fr_0.7fr_1fr] gap-4 border-b border-[#eeeeee] bg-[#fafafa] px-5 py-3 text-xs font-bold text-[#757575]">
+              <span className="text-center">번호</span>
               <span>작성자</span>
               <span>장소</span>
               <span>한마디</span>
@@ -240,19 +233,19 @@ export default function AdminPostsPage() {
             </div>
 
             {posts.length > 0 ? (
-              posts.map((post) => (
+              posts.map((post, index) => (
                 <div
                   key={post.postId}
-                  className="grid grid-cols-[0.5fr_0.8fr_1fr_2.5fr_1fr_0.7fr_0.7fr_1fr] items-start gap-4 border-b border-[#f5f5f5] px-5 py-5 text-sm last:border-b-0"
+                  className="grid grid-cols-[0.35fr_0.8fr_1fr_2.5fr_1fr_0.7fr_0.7fr_1fr] items-start gap-4 border-b border-[#f5f5f5] px-5 py-5 text-sm last:border-b-0"
                 >
-                  <span className="font-bold text-[#757575]">#{post.postId}</span>
+                  <span className="text-center font-semibold text-[#9e9e9e]">{page * 20 + index + 1}</span>
                   <span className="font-bold text-[#212121]">{post.authorNickname}</span>
                   <span className="text-[#616161]">{post.placeName}</span>
                   <span className={`whitespace-pre-wrap break-words leading-6 ${post.content ? 'text-[#424242]' : 'text-[#9e9e9e]'}`}>
                     {post.content || '한마디 없음'}
                   </span>
                   <span className="text-xs font-semibold text-[#616161]">{formatDateTime(post.meetAt)}</span>
-                  <span className="font-bold text-[#d84315]">{post.authorDeposit.toLocaleString()}P</span>
+                  <span className="font-bold text-[#212121]">{post.authorDeposit.toLocaleString()}P</span>
                   <span>
                     <span className={`rounded px-2.5 py-1 text-xs font-bold ${statusClasses[post.status]}`}>
                       {statusLabels[post.status]}
@@ -335,7 +328,6 @@ export default function AdminPostsPage() {
           onDelete={handleDelete}
         />
       )}
-      <AdminFloatingChatbot />
     </div>
   );
 }
@@ -362,7 +354,7 @@ function DeletePostModal({
       <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-bold text-red-500">게시글 #{post.postId} 강제 삭제</p>
+            <p className="text-xs font-bold text-red-500">게시글 강제 삭제</p>
             <h2 className="mt-1 text-2xl font-bold text-[#212121]">{post.placeName}</h2>
             <p className="mt-1 text-sm font-semibold text-[#757575]">관리자 판단으로 게시글을 강제 삭제합니다.</p>
           </div>
@@ -427,7 +419,7 @@ function PostDetailModal({ post, onClose }: { post: AdminPostDetail; onClose: ()
       <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-bold text-[#d84315]">게시글 #{post.postId}</p>
+            <p className="text-xs font-bold text-[#d84315]">게시글 상세</p>
             <h2 className="mt-1 text-2xl font-bold text-[#212121]">{post.placeName}</h2>
           </div>
           <button

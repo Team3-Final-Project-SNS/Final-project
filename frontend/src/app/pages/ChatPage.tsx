@@ -194,7 +194,7 @@ export default function ChatPage() {
     try {
       setExtensionLoading(true);
       await createMeetExtension(matchInfo.matchId);
-      alert('시간 연장 요청을 보냈습니다. 상대방이 수락하면 15분 연장됩니다.');
+      alert('시간 연장 요청을 보냈습니다. 상대방이 수락하면 10분 연장됩니다.');
     } catch (err: any) {
       alert(err.response?.data?.message || '시간 연장 요청에 실패했습니다.');
     } finally {

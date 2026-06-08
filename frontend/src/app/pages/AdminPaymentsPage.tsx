@@ -1,25 +1,24 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router';
+import { ko } from 'date-fns/locale';
+import type { DateRange } from 'react-day-picker';
 import {
-  AlertTriangle,
-  ArrowLeft,
   CalendarDays,
   CheckCircle2,
   Clock,
   CreditCard,
-  Eye,
   RefreshCcw,
   Search,
   X,
   XCircle,
 } from 'lucide-react';
-import AdminFloatingChatbot from '../components/AdminFloatingChatbot';
+import { Calendar } from '../components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 
 type PaymentStatus = 'READY' | 'PAID' | 'CANCELLED' | 'FAILED';
 type PaymentStatusFilter = 'ALL' | PaymentStatus;
 type PaymentMethod = 'CARD' | 'KAKAOPAY' | 'NAVERPAY' | 'TOSSPAY';
 type PaymentMethodFilter = 'ALL' | PaymentMethod;
-type PaymentPeriodType = 'ALL' | 'YEAR' | 'MONTH' | 'DAY';
+type PaymentPeriodType = 'ALL' | 'CUSTOM' | 'TODAY' | 'LAST_7_DAYS' | 'LAST_30_DAYS' | 'THIS_MONTH' | 'YEAR';
 
 type AdminPaymentItem = {
   paymentId: number;
@@ -137,11 +136,9 @@ const mockPayments: AdminPaymentItem[] = [
   },
 ];
 
-const availableYears = ['2026'];
-
-const availableMonths = Array.from({ length: 12 }, (_, index) => `2026-${String(index + 1).padStart(2, '0')}`);
-
-const availableDays = createDaysInYear(2026);
+const availableYears = Array.from(
+  new Set(mockPayments.map((payment) => String(new Date(payment.createdAt).getFullYear()))),
+).sort((a, b) => Number(b) - Number(a));
 
 const statusLabels: Record<PaymentStatus, string> = {
   READY: '결제 대기',
@@ -167,11 +164,13 @@ const methodLabels: Record<PaymentMethod, string> = {
 export default function AdminPaymentsPage() {
   const [periodType, setPeriodType] = useState<PaymentPeriodType>('ALL');
   const [periodValue, setPeriodValue] = useState('ALL');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [status, setStatus] = useState<PaymentStatusFilter>('ALL');
   const [method, setMethod] = useState<PaymentMethodFilter>('ALL');
   const [keyword, setKeyword] = useState('');
   const [searchPeriodType, setSearchPeriodType] = useState<PaymentPeriodType>('ALL');
   const [searchPeriodValue, setSearchPeriodValue] = useState('ALL');
+  const [searchDateRange, setSearchDateRange] = useState<DateRange | undefined>();
   const [searchStatus, setSearchStatus] = useState<PaymentStatusFilter>('ALL');
   const [searchMethod, setSearchMethod] = useState<PaymentMethodFilter>('ALL');
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -181,7 +180,7 @@ export default function AdminPaymentsPage() {
     const normalizedKeyword = searchKeyword.trim().toLowerCase();
 
     return mockPayments.filter((payment) => {
-      const matchesPeriod = isMatchedPeriod(payment, searchPeriodType, searchPeriodValue);
+      const matchesPeriod = isMatchedPeriod(payment, searchPeriodType, searchPeriodValue, searchDateRange);
       const matchesStatus = searchStatus === 'ALL' || payment.status === searchStatus;
       const matchesMethod = searchMethod === 'ALL' || payment.method === searchMethod;
       const matchesKeyword =
@@ -193,7 +192,7 @@ export default function AdminPaymentsPage() {
 
       return matchesPeriod && matchesStatus && matchesMethod && matchesKeyword;
     });
-  }, [searchKeyword, searchMethod, searchPeriodType, searchPeriodValue, searchStatus]);
+  }, [searchDateRange, searchKeyword, searchMethod, searchPeriodType, searchPeriodValue, searchStatus]);
 
   const dashboardStats = useMemo(() => {
     const paidPayments = filteredPayments.filter((payment) => payment.status === 'PAID');
@@ -209,8 +208,8 @@ export default function AdminPaymentsPage() {
   }, [filteredPayments]);
 
   const appliedPeriodLabel = useMemo(
-    () => getPeriodLabel(searchPeriodType, searchPeriodValue),
-    [searchPeriodType, searchPeriodValue],
+    () => getPeriodLabel(searchPeriodType, searchPeriodValue, searchDateRange),
+    [searchDateRange, searchPeriodType, searchPeriodValue],
   );
 
   const handlePeriodTypeChange = (nextPeriodType: PaymentPeriodType) => {
@@ -221,27 +220,33 @@ export default function AdminPaymentsPage() {
       return;
     }
 
-    if (nextPeriodType === 'MONTH') {
-      setPeriodValue(availableMonths[0] || 'ALL');
+    if (nextPeriodType === 'CUSTOM') {
+      setDateRange(undefined);
+      setPeriodValue('ALL');
       return;
     }
 
-    if (nextPeriodType === 'DAY') {
-      setPeriodValue(availableDays[0] || 'ALL');
+    const quickRange = getQuickDateRange(nextPeriodType);
+    if (quickRange) {
+      setDateRange(quickRange);
+      setPeriodValue('ALL');
       return;
     }
 
     setPeriodValue('ALL');
+    setDateRange(undefined);
   };
 
   const handleReset = () => {
     setPeriodType('ALL');
     setPeriodValue('ALL');
+    setDateRange(undefined);
     setStatus('ALL');
     setMethod('ALL');
     setKeyword('');
     setSearchPeriodType('ALL');
     setSearchPeriodValue('ALL');
+    setSearchDateRange(undefined);
     setSearchStatus('ALL');
     setSearchMethod('ALL');
     setSearchKeyword('');
@@ -251,19 +256,15 @@ export default function AdminPaymentsPage() {
     // 조회 버튼을 누른 시점의 입력값만 실제 목록 필터 조건으로 반영합니다.
     setSearchPeriodType(periodType);
     setSearchPeriodValue(periodValue);
+    setSearchDateRange(periodType === 'CUSTOM' ? dateRange : getQuickDateRange(periodType));
     setSearchStatus(status);
     setSearchMethod(method);
     setSearchKeyword(keyword);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#fff7ed] via-[#f7fbff] to-[#eaf7f1]">
-      <main className="mx-auto max-w-screen-xl px-4 py-10">
-        <Link to="/admin" className="mb-5 inline-flex items-center gap-1 text-sm font-semibold text-[#616161] hover:text-[#d84315]">
-          <ArrowLeft size={16} />
-          관리자 콘솔
-        </Link>
-
+    <div>
+      <main className="mx-auto max-w-screen-xl">
         <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#fff3e0]">
@@ -290,89 +291,112 @@ export default function AdminPaymentsPage() {
             title="총 결제액"
             value={`${dashboardStats.totalPaidAmount.toLocaleString()}원`}
             description={`${appliedPeriodLabel} · 결제 완료 기준`}
-            icon={<CreditCard size={22} />}
           />
           <DashboardStatCard
             title="결제 완료"
             value={`${dashboardStats.paidCount}건`}
             description={`${appliedPeriodLabel} · 포인트 지급 완료`}
-            icon={<CheckCircle2 size={22} />}
           />
           <DashboardStatCard
             title="결제 대기"
             value={`${dashboardStats.readyCount}건`}
             description={`${appliedPeriodLabel} · 검증 또는 결제 진행 전`}
-            icon={<Clock size={22} />}
           />
           <DashboardStatCard
             title="취소/실패"
             value={`${dashboardStats.issueCount}건`}
             description={`${appliedPeriodLabel} · 확인이 필요한 결제`}
-            icon={<AlertTriangle size={22} />}
           />
         </div>
 
-        <section className="mb-5 space-y-3 rounded-2xl border border-[#e0e0e0] bg-white p-4 shadow-sm">
-          <div className="rounded-xl bg-[#fffaf2] p-3">
-            <div className="mb-3 flex items-center gap-2 text-sm font-bold text-[#d84315]">
+        <section className="mb-5 rounded-2xl border border-[#e0e0e0] bg-white p-4 shadow-sm">
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-sm font-bold text-[#d84315]">
               <CalendarDays size={17} />
               기간 조회
             </div>
 
-            <div className="grid gap-3 lg:grid-cols-[1.4fr_1fr]">
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                <PeriodTypeButton
-                  label="전체"
-                  isActive={periodType === 'ALL'}
-                  onClick={() => handlePeriodTypeChange('ALL')}
-                />
-                <PeriodTypeButton
-                  label="연도별"
-                  isActive={periodType === 'YEAR'}
-                  onClick={() => handlePeriodTypeChange('YEAR')}
-                />
-                <PeriodTypeButton
-                  label="월별"
-                  isActive={periodType === 'MONTH'}
-                  onClick={() => handlePeriodTypeChange('MONTH')}
-                />
-                <PeriodTypeButton
-                  label="일별"
-                  isActive={periodType === 'DAY'}
-                  onClick={() => handlePeriodTypeChange('DAY')}
-                />
-              </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <PeriodTypeButton label="전체" isActive={periodType === 'ALL'} onClick={() => handlePeriodTypeChange('ALL')} />
+              <PeriodTypeButton
+                label="직접 선택"
+                isActive={periodType === 'CUSTOM'}
+                onClick={() => handlePeriodTypeChange('CUSTOM')}
+              />
+              <PeriodTypeButton label="오늘" isActive={periodType === 'TODAY'} onClick={() => handlePeriodTypeChange('TODAY')} />
+              <PeriodTypeButton
+                label="최근 7일"
+                isActive={periodType === 'LAST_7_DAYS'}
+                onClick={() => handlePeriodTypeChange('LAST_7_DAYS')}
+              />
+              <PeriodTypeButton
+                label="최근 30일"
+                isActive={periodType === 'LAST_30_DAYS'}
+                onClick={() => handlePeriodTypeChange('LAST_30_DAYS')}
+              />
+              <PeriodTypeButton
+                label="이번 달"
+                isActive={periodType === 'THIS_MONTH'}
+                onClick={() => handlePeriodTypeChange('THIS_MONTH')}
+              />
+              <PeriodTypeButton
+                label="연도별"
+                isActive={periodType === 'YEAR'}
+                onClick={() => handlePeriodTypeChange('YEAR')}
+              />
 
-            <select
-              value={periodValue}
-              onChange={(event) => setPeriodValue(event.target.value)}
-              disabled={periodType === 'ALL'}
-              className="h-11 rounded-lg border border-[#e0e0e0] bg-white px-3 text-sm font-bold text-[#424242] outline-none disabled:bg-[#f5f5f5] disabled:text-[#9e9e9e] focus:border-[#d84315]"
-            >
-              {periodType === 'ALL' && <option value="ALL">기간 전체</option>}
-              {periodType === 'YEAR' &&
-                availableYears.map((year) => (
-                  <option key={year} value={year}>
-                    {year}년
-                  </option>
-                ))}
-              {periodType === 'MONTH' &&
-                availableMonths.map((month) => (
-                  <option key={month} value={month}>
-                    {formatMonthLabel(month)}
-                  </option>
-                ))}
-              {periodType === 'DAY' &&
-                availableDays.map((day) => (
-                  <option key={day} value={day}>
-                    {formatDayLabel(day)}
-                  </option>
-                ))}
-            </select>
+              {periodType === 'CUSTOM' && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex h-11 min-w-[250px] items-center justify-center gap-2 rounded-lg border border-[#d84315] bg-white px-4 text-sm font-bold text-[#424242]"
+                    >
+                      <CalendarDays size={16} className="text-[#d84315]" />
+                      {formatDateRange(dateRange)}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-auto border-[#eeeeee] bg-white p-0">
+                    <Calendar
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={setDateRange}
+                      numberOfMonths={2}
+                      showOutsideDays
+                      fixedWeeks
+                      locale={ko}
+                      defaultMonth={dateRange?.from}
+                      classNames={{
+                        day_range_start: 'day-range-start bg-[#d84315] text-white hover:bg-[#d84315] hover:text-white',
+                        day_range_end: 'day-range-end bg-[#d84315] text-white hover:bg-[#d84315] hover:text-white',
+                        day_range_middle: 'aria-selected:bg-[#f1f3f5] aria-selected:text-[#212121]',
+                        day_today: 'bg-white font-bold !text-[#d84315]',
+                        day_outside: 'invisible pointer-events-none',
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
+              )}
+
+              {periodType === 'YEAR' && (
+                <select
+                  value={periodValue}
+                  onChange={(event) => setPeriodValue(event.target.value)}
+                  className="h-11 min-w-32 rounded-lg border border-[#d84315] bg-white px-3 text-sm font-bold text-[#424242] outline-none"
+                >
+                  {availableYears.map((year) => (
+                    <option key={year} value={year}>
+                      {year}년
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-[1fr_1fr_2fr_auto]">
+          <div className="mt-4 border-t border-[#eeeeee] pt-4">
+            <p className="mb-2 text-sm font-bold text-[#424242]">결제 조건</p>
+            <div className="grid gap-3 md:grid-cols-[1fr_1fr_2fr_auto]">
             <select
               value={status}
               onChange={(event) => setStatus(event.target.value as PaymentStatusFilter)}
@@ -420,6 +444,7 @@ export default function AdminPaymentsPage() {
               <Search size={16} />
               조회
             </button>
+            </div>
           </div>
         </section>
 
@@ -436,7 +461,8 @@ export default function AdminPaymentsPage() {
 
           <div className="overflow-x-auto">
             <div className="min-w-[1120px]">
-              <div className="grid grid-cols-[1.35fr_1.35fr_0.85fr_0.85fr_0.8fr_0.8fr_1fr_0.6fr] gap-3 border-b border-[#eeeeee] bg-[#fafafa] px-5 py-3 text-xs font-bold text-[#757575]">
+              <div className="grid grid-cols-[0.35fr_1.6fr_1.2fr_0.85fr_0.85fr_0.8fr_0.8fr_1fr] gap-3 border-b border-[#eeeeee] bg-[#fafafa] px-5 py-3 text-xs font-bold text-[#757575]">
+                <span className="text-center">번호</span>
                 <span>주문번호</span>
                 <span>유저</span>
                 <span>결제금액</span>
@@ -444,25 +470,26 @@ export default function AdminPaymentsPage() {
                 <span>결제수단</span>
                 <span>상태</span>
                 <span>요청 시각</span>
-                <span>관리</span>
               </div>
 
               {filteredPayments.length > 0 ? (
-                filteredPayments.map((payment) => (
+                filteredPayments.map((payment, index) => (
                   <div
                     key={payment.paymentId}
-                    className="grid grid-cols-[1.35fr_1.35fr_0.85fr_0.85fr_0.8fr_0.8fr_1fr_0.6fr] gap-3 border-b border-[#f5f5f5] px-5 py-4 text-sm last:border-b-0"
+                    className="grid grid-cols-[0.35fr_1.6fr_1.2fr_0.85fr_0.85fr_0.8fr_0.8fr_1fr] gap-3 border-b border-[#f5f5f5] px-5 py-4 text-sm last:border-b-0"
                   >
-                    <div>
-                      <p className="font-bold text-[#212121]">#{payment.paymentId}</p>
-                      <p className="mt-1 text-xs font-semibold text-[#757575]">{payment.merchantUid}</p>
-                    </div>
+                    <span className="text-center font-semibold text-[#9e9e9e]">{index + 1}</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPayment(payment)}
+                      className="w-fit text-left text-sm font-bold text-[#212121] underline-offset-4 hover:underline"
+                    >
+                      {payment.merchantUid}
+                    </button>
                     <div>
                       <p className="font-bold text-[#212121]">{payment.userName}</p>
-                      <p className="mt-1 text-xs text-[#757575]">{payment.userEmail}</p>
-                      <p className="mt-1 text-xs font-semibold text-[#9e9e9e]">{payment.universityName}</p>
                     </div>
-                    <span className="font-bold text-[#d84315]">{payment.amount.toLocaleString()}원</span>
+                    <span className="font-bold text-[#212121]">{payment.amount.toLocaleString()}원</span>
                     <span className="font-bold text-[#424242]">{payment.chargePoint.toLocaleString()}P</span>
                     <span className="text-[#616161]">{methodLabels[payment.method]}</span>
                     <span>
@@ -471,14 +498,6 @@ export default function AdminPaymentsPage() {
                       </span>
                     </span>
                     <span className="font-semibold text-[#616161]">{formatDateTime(payment.createdAt)}</span>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedPayment(payment)}
-                      className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-[#e0e0e0] px-3 text-xs font-bold text-[#616161] transition-colors hover:border-[#d84315] hover:text-[#d84315]"
-                    >
-                      <Eye size={14} />
-                      상세
-                    </button>
                   </div>
                 ))
               ) : (
@@ -490,7 +509,6 @@ export default function AdminPaymentsPage() {
       </main>
 
       {selectedPayment && <PaymentDetailModal payment={selectedPayment} onClose={() => setSelectedPayment(null)} />}
-      <AdminFloatingChatbot />
     </div>
   );
 }
@@ -499,16 +517,13 @@ function DashboardStatCard({
   title,
   value,
   description,
-  icon,
 }: {
   title: string;
   value: string;
   description: string;
-  icon: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-[#e0e0e0] bg-white p-5 shadow-sm">
-      <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-[#fff3e0] text-[#d84315]">{icon}</div>
+    <div className="rounded-2xl border border-[#e0e0e0] bg-white px-5 py-4 shadow-sm">
       <p className="text-xs font-bold text-[#9e9e9e]">{title}</p>
       <p className="mt-1 text-2xl font-bold text-[#212121]">{value}</p>
       <p className="mt-1 text-xs font-semibold text-[#757575]">{description}</p>
@@ -546,7 +561,7 @@ function PaymentDetailModal({ payment, onClose }: { payment: AdminPaymentItem; o
       <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-bold text-[#d84315]">결제 #{payment.paymentId}</p>
+            <p className="text-sm font-bold text-[#d84315]">주문번호</p>
             <h2 className="mt-1 text-2xl font-bold text-[#212121]">{payment.merchantUid}</h2>
           </div>
           <button
@@ -559,8 +574,7 @@ function PaymentDetailModal({ payment, onClose }: { payment: AdminPaymentItem; o
         </div>
 
         <div className="rounded-xl bg-[#fafafa] p-4">
-          <DetailRow label="유저" value={`${payment.userName} (${payment.userEmail})`} />
-          <DetailRow label="학교" value={payment.universityName} />
+          <DetailRow label="유저" value={payment.userName} />
           <DetailRow label="결제 금액" value={`${payment.amount.toLocaleString()}원`} />
           <DetailRow label="충전 포인트" value={`${payment.chargePoint.toLocaleString()}P`} />
           <DetailRow label="결제 수단" value={methodLabels[payment.method]} />
@@ -591,77 +605,106 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
   );
 }
 
-function isMatchedPeriod(payment: AdminPaymentItem, periodType: PaymentPeriodType, periodValue: string) {
+function isMatchedPeriod(
+  payment: AdminPaymentItem,
+  periodType: PaymentPeriodType,
+  periodValue: string,
+  dateRange?: DateRange,
+) {
   const paymentDate = new Date(payment.createdAt);
 
   if (periodType === 'YEAR') {
     return String(paymentDate.getFullYear()) === periodValue;
   }
 
-  if (periodType === 'MONTH') {
-    return getMonthKey(payment.createdAt) === periodValue;
-  }
-
-  if (periodType === 'DAY') {
-    return getDayKey(payment.createdAt) === periodValue;
+  if (periodType !== 'ALL' && dateRange?.from) {
+    const from = startOfDay(dateRange.from);
+    const to = endOfDay(dateRange.to || dateRange.from);
+    return paymentDate >= from && paymentDate <= to;
   }
 
   return true;
 }
 
-function getPeriodLabel(periodType: PaymentPeriodType, periodValue: string) {
+function getPeriodLabel(periodType: PaymentPeriodType, periodValue: string, dateRange?: DateRange) {
   if (periodType === 'YEAR') {
     return `${periodValue}년`;
   }
 
-  if (periodType === 'MONTH') {
-    return formatMonthLabel(periodValue);
+  if (periodType === 'TODAY') {
+    return '오늘';
   }
 
-  if (periodType === 'DAY') {
-    return formatDayLabel(periodValue);
+  if (periodType === 'LAST_7_DAYS') {
+    return '최근 7일';
+  }
+
+  if (periodType === 'LAST_30_DAYS') {
+    return '최근 30일';
+  }
+
+  if (periodType === 'THIS_MONTH') {
+    return '이번 달';
+  }
+
+  if (periodType === 'CUSTOM') {
+    return formatDateRange(dateRange);
   }
 
   return '전체 기간';
 }
 
-function getMonthKey(value: string) {
-  const date = new Date(value);
-  const month = String(date.getMonth() + 1).padStart(2, '0');
+function getQuickDateRange(periodType: PaymentPeriodType): DateRange | undefined {
+  const currentDate = startOfDay(new Date());
 
-  return `${date.getFullYear()}-${month}`;
-}
-
-function getDayKey(value: string) {
-  const date = new Date(value);
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-
-  return `${date.getFullYear()}-${month}-${day}`;
-}
-
-function formatMonthLabel(value: string) {
-  const [year, month] = value.split('-');
-
-  return `${year}년 ${Number(month)}월`;
-}
-
-function formatDayLabel(value: string) {
-  const [year, month, day] = value.split('-');
-
-  return `${year}년 ${Number(month)}월 ${Number(day)}일`;
-}
-
-function createDaysInYear(year: number) {
-  const days: string[] = [];
-  const date = new Date(year, 0, 1);
-
-  while (date.getFullYear() === year) {
-    days.push(getDayKey(date.toISOString()));
-    date.setDate(date.getDate() + 1);
+  if (periodType === 'TODAY') {
+    return { from: currentDate, to: currentDate };
   }
 
-  return days;
+  if (periodType === 'LAST_7_DAYS') {
+    return { from: addDays(currentDate, -6), to: currentDate };
+  }
+
+  if (periodType === 'LAST_30_DAYS') {
+    return { from: addDays(currentDate, -29), to: currentDate };
+  }
+
+  if (periodType === 'THIS_MONTH') {
+    return {
+      from: new Date(currentDate.getFullYear(), currentDate.getMonth(), 1),
+      to: currentDate,
+    };
+  }
+
+  return undefined;
+}
+
+function formatDateRange(dateRange?: DateRange) {
+  if (!dateRange?.from) {
+    return '시작일 - 종료일';
+  }
+
+  const from = formatShortDate(dateRange.from);
+  const to = dateRange.to ? formatShortDate(dateRange.to) : '종료일 선택';
+  return `${from} - ${to}`;
+}
+
+function formatShortDate(date: Date) {
+  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function addDays(date: Date, amount: number) {
+  const result = new Date(date);
+  result.setDate(result.getDate() + amount);
+  return result;
+}
+
+function startOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function endOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
 }
 
 function formatDateTime(value: string) {

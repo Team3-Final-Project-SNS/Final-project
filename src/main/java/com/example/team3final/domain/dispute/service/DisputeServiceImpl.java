@@ -106,11 +106,10 @@ public class DisputeServiceImpl implements DisputeService {
         meetVerification.markDispute();
         matchService.markDisputed(matchId);
 
-        // 22. 이의제기 접수 알림 - 관리자에게
-        Long adminId = adminService.getAdminId();
-        if (adminId != null) {
-            notificationPublisher.sendDisputeSubmitted(adminId, saved.getId());
-        }
+        // 22. 이의제기 접수 알림 - 활성 관리자 모두에게
+        adminService.getActiveAdminIds().forEach(
+                adminId -> notificationPublisher.sendDisputeSubmitted(adminId, saved.getId())
+        );
 
         return CreateDisputeResponseDto.from(saved);
     }
@@ -233,11 +232,10 @@ public class DisputeServiceImpl implements DisputeService {
                 String.valueOf(parentDispute.getId()) // 원본 이의제기 ID
         );
 
-        // 22. 이의제기 접수 알림 - 관리자에게
-        Long adminId = adminService.getAdminId();
-        if (adminId != null) {
-            notificationPublisher.sendDisputeSubmitted(adminId, savedReDispute.getId());
-        }
+        // 22. 이의제기 접수 알림 - 활성 관리자 모두에게
+        adminService.getActiveAdminIds().forEach(
+                adminId -> notificationPublisher.sendDisputeSubmitted(adminId, savedReDispute.getId())
+        );
 
         return CreateDisputeResponseDto.from(savedReDispute);
     }

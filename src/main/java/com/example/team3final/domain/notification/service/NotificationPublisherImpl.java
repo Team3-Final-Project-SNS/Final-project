@@ -3,6 +3,7 @@ package com.example.team3final.domain.notification.service;
 import com.example.team3final.common.kafka.KafkaTopics;
 import com.example.team3final.domain.notification.dto.event.NotificationEvent;
 import com.example.team3final.domain.notification.enums.NotificationType;
+import com.example.team3final.domain.notification.enums.NotificationReceiverType;
 import com.example.team3final.domain.notification.enums.RelatedDomain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,17 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     // private: sendXxx() 메서드에서만 사용하는 내부 헬퍼
     private void publish(Long receiverId, NotificationType type, String title,
                          String content, RelatedDomain relatedDomain, Long relatedId) {
+        publish(receiverId, NotificationReceiverType.USER, type, title, content, relatedDomain, relatedId);
+    }
+
+    private void publishAdmin(Long adminId, NotificationType type, String title,
+                              String content, RelatedDomain relatedDomain, Long relatedId) {
+        publish(adminId, NotificationReceiverType.ADMIN, type, title, content, relatedDomain, relatedId);
+    }
+
+    private void publish(Long receiverId, NotificationReceiverType receiverType,
+                         NotificationType type, String title, String content,
+                         RelatedDomain relatedDomain, Long relatedId) {
         try {
 
             // 멱등성을 위한 이벤트 고유 ID 생성
@@ -40,6 +52,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
             NotificationEvent event = new NotificationEvent(
                     eventId,
                     receiverId,
+                    receiverType,
                     type,
                     title,
                     content,
@@ -288,7 +301,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     // 22. 이의제기 접수 알림 - 관리자에게
     @Override
     public void sendDisputeSubmitted(Long adminId, Long disputeId) {
-        publish(adminId, NotificationType.DISPUTE_SUBMITTED,
+        publishAdmin(adminId, NotificationType.DISPUTE_SUBMITTED,
                 "새로운 이의제기가 접수되었습니다.",
                 "새로운 이의제기가 접수되었습니다.",
                 RelatedDomain.DISPUTE, disputeId);
@@ -328,7 +341,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     // 26. 신고 접수 알림 - 관리자에게
     @Override
     public void sendReportSubmitted(Long adminId, Long reportId) {
-        publish(adminId, NotificationType.REPORT_SUBMITTED,
+        publishAdmin(adminId, NotificationType.REPORT_SUBMITTED,
                 "새로운 신고가 접수되었습니다.",
                 "새로운 신고가 접수되었습니다. 검토해 주세요.",
                 RelatedDomain.REPORT, reportId);
@@ -395,7 +408,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     // 33. 문의 접수 알림 - 관리자에게
     @Override
     public void sendInquirySubmitted(Long adminId, Long inquiryId) {
-        publish(adminId, NotificationType.INQUIRY_SUBMITTED,
+        publishAdmin(adminId, NotificationType.INQUIRY_SUBMITTED,
                 "새로운 문의가 접수되었습니다.",
                 "새로운 문의가 접수되었습니다. 검토해 주세요.",
                 RelatedDomain.INQUIRY, inquiryId);

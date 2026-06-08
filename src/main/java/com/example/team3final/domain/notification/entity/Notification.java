@@ -3,6 +3,7 @@ package com.example.team3final.domain.notification.entity;
 import com.example.team3final.common.entity.BaseTimeEntity;
 import com.example.team3final.domain.notification.enums.RelatedDomain;
 import com.example.team3final.domain.notification.enums.NotificationType;
+import com.example.team3final.domain.notification.enums.NotificationReceiverType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -31,6 +32,16 @@ public class Notification extends BaseTimeEntity {
     // 수신 유저 ID
     @Column(name = "receiver_id", nullable = false, updatable = false)
     private Long receiverId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(
+            name = "receiver_type",
+            nullable = false,
+            updatable = false,
+            length = 10,
+            columnDefinition = "varchar(10) default 'USER'"
+    )
+    private NotificationReceiverType receiverType;
 
     // 알림 유형
     @Enumerated(EnumType.STRING)
@@ -63,9 +74,11 @@ public class Notification extends BaseTimeEntity {
     private LocalDateTime readAt;
 
     @Builder
-    private Notification(Long receiverId, NotificationType type, String title,
+    private Notification(Long receiverId, NotificationReceiverType receiverType,
+                         NotificationType type, String title,
                          String content, RelatedDomain relatedDomain, Long relatedId) {
         this.receiverId = receiverId;
+        this.receiverType = receiverType != null ? receiverType : NotificationReceiverType.USER;
         this.type = type;
         this.title = title;
         this.content = content;

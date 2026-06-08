@@ -6,16 +6,20 @@ import AdminLoginPage from "./pages/AdminLoginPage";
 import AdminHomePage from "./pages/AdminHomePage";
 import AdminReportsPage from "./pages/AdminReportsPage";
 import AdminInquiriesPage from "./pages/AdminInquiriesPage";
+import AdminDisputesPage from "./pages/AdminDisputesPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import AdminPostsPage from "./pages/AdminPostsPage";
 import AdminPaymentsPage from "./pages/AdminPaymentsPage";
 import AdminComingSoonPage from "./pages/AdminComingSoonPage";
 import AdminFaqPage from "./pages/AdminFaqPage";
+import AdminLayout from "./components/AdminLayout";
 import SignupPage from "./pages/SignupPage";
 import PostListPage from "./pages/PostListPage";
 import PostDetailPage from "./pages/PostDetailPage";
+import DeletedPostReasonPage from "./pages/DeletedPostReasonPage";
 import PostCreatePage from "./pages/PostCreatePage";
 import MatchesPage from "./pages/MatchesPage";
+import MatchDetailPage from "./pages/MatchDetailPage";
 import ChatPage from "./pages/ChatPage";
 import MyInfoPage from "./pages/MyInfoPage";
 import MyInfoEditPage from "./pages/MyInfoEditPage";
@@ -46,7 +50,9 @@ export const router = createBrowserRouter([
       { path: "posts/new", Component: PostCreatePage },
       { path: "posts/:id/edit", Component: PostCreatePage },
       { path: "posts/:id", Component: PostDetailPage },
+      { path: "posts/:id/delete-reason", Component: DeletedPostReasonPage },
       { path: "matches", Component: MatchesPage },
+      { path: "matches/:id", Component: MatchDetailPage },
       { path: "ai/matching", Component: MatchingAiChatPage },
       { path: "chat/:roomId", Component: ChatPage },
       { path: "me", Component: MyInfoPage },
@@ -66,6 +72,7 @@ export const router = createBrowserRouter([
       { path: "new", Component: PostCreatePage },
       { path: ":id/edit", Component: PostCreatePage },
       { path: ":id", Component: PostDetailPage },
+      { path: ":id/delete-reason", Component: DeletedPostReasonPage },
     ],
   },
   {
@@ -73,7 +80,7 @@ export const router = createBrowserRouter([
     Component: Layout,
     children: [
       { index: true, Component: MatchesPage },
-      { path: ":id", Component: ChatPage },
+      { path: ":id", Component: MatchDetailPage },
       { path: ":id/place-verification", Component: PlaceVerificationPage },
       { path: ":id/qr", Component: QRVerificationPage },
     ],
@@ -121,31 +128,17 @@ export const router = createBrowserRouter([
   },
   {
     path: "/admin",
-    Component: AdminHomePage,
-  },
-  {
-    path: "/admin/posts",
-    Component: AdminPostsPage,
-  },
-  {
-    path: "/admin/users",
-    Component: AdminUsersPage,
-  },
-  {
-    path: "/admin/reports",
-    Component: AdminReportsPage,
-  },
-  {
-    path: "/admin/inquiries",
-    Component: AdminInquiriesPage,
-  },
-  {
-    path: "/admin/payments",
-    Component: AdminPaymentsPage,
-  },
-  {
-    path: "/admin/faq",
-    Component: AdminFaqPage,
+    Component: AdminLayout,
+    children: [
+      { index: true, Component: AdminHomePage },
+      { path: "posts", Component: AdminPostsPage },
+      { path: "users", Component: AdminUsersPage },
+      { path: "reports", Component: AdminReportsPage },
+      { path: "disputes", Component: AdminDisputesPage },
+      { path: "inquiries", Component: AdminInquiriesPage },
+      { path: "payments", Component: AdminPaymentsPage },
+      { path: "faq", Component: AdminFaqPage },
+    ],
   },
   {
     path: "/signup",

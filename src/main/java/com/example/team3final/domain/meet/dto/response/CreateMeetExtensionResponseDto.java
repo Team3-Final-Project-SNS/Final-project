@@ -12,7 +12,7 @@ public record CreateMeetExtensionResponseDto(
         Long requesterId,
         String requesterNickname,
         LocalDateTime originalMeetAt,       // post.meetAt
-        LocalDateTime expectedMeetAt,       // originalMeetAt + 15분
+        LocalDateTime expectedMeetAt,       // originalMeetAt + 10분
         LocalDateTime requestedAt,          // 요청 시각
         LocalDateTime expiresAt             // requestedAt + 5분
 ) {
@@ -26,7 +26,7 @@ public record CreateMeetExtensionResponseDto(
                 meetVerification.getExtensionRequesterId(),
                 requesterNickname,
                 originalMeetAt,
-                originalMeetAt.plusMinutes(15),                           // 예상 연장 시각
+                originalMeetAt.plusMinutes(10),                           // 예상 연장 시각
                 meetVerification.getExtensionRequestedAt(),
                 meetVerification.getExtensionRequestedAt().plusMinutes(5) // 만료 시각
         );
