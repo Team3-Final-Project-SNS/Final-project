@@ -92,6 +92,20 @@ public class ChatMessageHandler {
             return;
         }
 
+        // 노쇼 판정(예정)된 멤버는 메시지 전송 차단
+        // GUEST_NO_SHOW 처리 시 ChatMember.status = NO_SHOW로 변경됨
+        chatMemberRepository.findByChatRoomIdAndUserId(chatRoomId, senderId)
+                .ifPresent(member -> {
+                    if (member.isNoShow()) {
+                        messagingTemplate.convertAndSendToUser(
+                                email,
+                                "/queue/errors",
+                                ErrorCode.CHAT_ROOM_READ_ONLY.getMessage()
+                        );
+                        throw new ChatException(ErrorCode.CHAT_ROOM_READ_ONLY);
+                    }
+                });
+
         // 욕설 필터링 후 메시지 DB 저장
         String filteredContent = badWordFilterService.filter(request.getContent());
 
@@ -121,6 +135,7 @@ public class ChatMessageHandler {
         // 채팅방 참여자에게 메시지 수신 알림 발송 (발신자 제외)
         chatMemberRepository.findByChatRoomId(chatRoomId).stream()
                 .filter(member -> !member.getUserId().equals(senderId)) // 발신자 제외
+                .filter(member -> !member.isNoShow()) // 노쇼 멤버 알림 제외
                 .forEach(member ->
                         // 13. 채팅 메시지 수신 알림 - 메시지 수신자에게
                         notificationPublisher.sendChatReceived(member.getUserId(), chatRoomId));

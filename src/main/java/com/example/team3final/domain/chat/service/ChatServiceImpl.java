@@ -150,16 +150,18 @@ public class ChatServiceImpl implements ChatService {
         // 노쇼 멤버면 leftAt 이후 메시지 차단 (null이면 정상 참여 중 → 제한 없음)
         LocalDateTime readableUntil = chatMember.getLeftAt();
 
-        // 입장 시각 이후 메시지만 조회 (이전 참여자와의 대화 격리)
-        List<ChatMessage> messages = chatMessageRepository
-                .findByChatRoomIdAndIdLessThanAndCreatedAtAfterOrderByIdDesc(
-                        chatRoomId, cursorId, joinedAt, PageRequest.of(0, size + 1));
-
-        // 노쇼 판정 시각 이후 메시지 필터링 — 이의제기용 기존 대화만 열람 가능
+        // leftAt 여부에 따라 쿼리 분기
+        // 노쇼 멤버: leftAt 이전 메시지만 DB에서 조회 (페이지네이션 정확성 보장)
+        // 정상 멤버: joinedAt 이후 전체 조회
+        List<ChatMessage> messages;
         if (readableUntil != null) {
-            messages = messages.stream()
-                    .filter(m -> m.getCreatedAt().isBefore(readableUntil))
-                    .toList();
+            // 노쇼 판정 시각 이전 메시지만 조회 — DB 레벨에서 필터링
+            messages = chatMessageRepository.findByChatRoomIdAndIdLessThanAndCreatedAtBetweenOrderByIdDesc(
+                    chatRoomId, cursorId, joinedAt, readableUntil, PageRequest.of(0, size + 1));
+        } else {
+            // 정상 참여자 — 입장 시각 이후 전체 조회
+            messages = chatMessageRepository.findByChatRoomIdAndIdLessThanAndCreatedAtAfterOrderByIdDesc(
+                    chatRoomId, cursorId, joinedAt, PageRequest.of(0, size + 1));
         }
 
         // 읽음 처리 - 내가 보낸 메시지가 아닌 것만
