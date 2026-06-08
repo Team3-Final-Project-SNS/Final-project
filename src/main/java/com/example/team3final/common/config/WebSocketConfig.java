@@ -13,11 +13,12 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final ChatHandshakeInterceptor chatHandshakeInterceptor;
+    private final ChatHandshakeHandler chatHandshakeHandler;
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
         // 구독 경로 prefix - 클라이언트가 메시지 받을 때
-        registry.enableSimpleBroker("/sub");
+        registry.enableSimpleBroker("/sub", "/user");
 
         // 발행 경로 prefix - 클라이언트가 메시지 보낼 때
         registry.setApplicationDestinationPrefixes("/pub");
@@ -28,6 +29,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registry.addEndpoint("/ws/chat") // 웹소켓 연결 엔드포인트
                 .setAllowedOriginPatterns("*") // 임시: 모든 origin 허용
                 .addInterceptors(chatHandshakeInterceptor)
+                .setHandshakeHandler(chatHandshakeHandler)
                 .withSockJS(); // SockJS 폴백 지원
     }
 }
