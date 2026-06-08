@@ -252,28 +252,40 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
         // 정책: 응급실/장례식 등 불가피한 사유 → 실제 만남 없음 → 매칭 취소 → 예치금 50% 반환
         // 포인트 50% 반환은 judgeDispute()의 PARTIALLY_ACCEPTED 분기에서 이미 처리됨
         if (judgment == DisputeStatus.PARTIALLY_ACCEPTED) {
-            // 상대방 ID + 예치금 결정
-            Long opponentId = submitterIsAuthor
-                    ? match.getApplicantId()
-                    : postMatchInfo.authorId();
-            int opponentDeposit = submitterIsAuthor
-                    ? match.getApplicantDeposit()
-                    : postMatchInfo.authorDeposit();
 
-            // 상대방 전액 환불 (귀책 없음)
-            userPointService.refundPoint(opponentId, opponentDeposit, dispute.getMatchId());
-
-            // 원래 노쇼 상태만 꺼내기 (status 복원 없음)
             VerificationStatus restoredStatus = meetVerification.getDisputedFromStatus();
 
-            // MeetVerification → NO_SHOW_CANCELLED로 전환
-            meetVerification.partiallyAcceptDispute();
+            if (restoredStatus == VerificationStatus.BOTH_NO_SHOW) {
+                // 상대방도 노쇼 당사자 → 노쇼 예정 상태로 전환 + 이의제기 기회 부여
+                // 상대방 포인트 처리 없음
+                if (submitterIsAuthor) {
+                    // 등록자가 이의제기자 → 신청자 GUEST_NO_SHOW 예정 상태로 전환
+                    meetVerification.markApplicantNoShow();
+                    notificationPublisher.sendNoShowWarning(
+                            match.getApplicantId(), dispute.getMatchId());
+                } else {
+                    // 신청자가 이의제기자 → 등록자 HOST_NO_SHOW 예정 상태로 전환
+                    meetVerification.markAuthorNoShow();
+                    notificationPublisher.sendNoShowWarning(
+                            postMatchInfo.authorId(), dispute.getMatchId());
+                }
+                // Match → DISPUTED 유지 (상대방 이의제기 대기 상태)
 
-            // 포인트 정산 없이 Match 노쇼 상태만 확정
-            matchService.markNoShowByDisputeWithoutPointSettlement(
-                    dispute.getMatchId(), restoredStatus);
+            } else {
+                // HOST_NO_SHOW 또는 GUEST_NO_SHOW → 상대방은 피해자 → 전액 환불
+                Long opponentId = submitterIsAuthor
+                        ? match.getApplicantId()
+                        : postMatchInfo.authorId();
+                int opponentDeposit = submitterIsAuthor
+                        ? match.getApplicantDeposit()
+                        : postMatchInfo.authorDeposit();
+                userPointService.refundPoint(opponentId, opponentDeposit, dispute.getMatchId());
 
-            // 채팅방 읽기 전용 전환
+                meetVerification.partiallyAcceptDispute();
+                matchService.markNoShowByDisputeWithoutPointSettlement(
+                        dispute.getMatchId(), restoredStatus);
+            }
+
             chatService.makeReadOnlyChatRoom(match.getPostId());
             return;
         }
@@ -313,26 +325,38 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
         // → 만남 완료(DONE)로 처리 → 예치 포인트 100% 반환
         // 제출자 보증금 100% 반환은 judgeDispute()의 ACCEPTED 분기에서 이미 처리됨
         if (dispute.getDisputeType().isMatchCancelType()) {
-            // 장례식 / 응급실 → 매칭 취소 처리
-            // 제출자 100% 환불은 judgeDispute()에서 이미 처리됨
-            // 상대방 예치금도 전액 환불
-            Long opponentId = submitterIsAuthor
-                    ? match.getApplicantId()
-                    : postMatchInfo.authorId();
-            int opponentDeposit = submitterIsAuthor
-                    ? match.getApplicantDeposit()
-                    : postMatchInfo.authorDeposit();
-            userPointService.refundPoint(opponentId, opponentDeposit, dispute.getMatchId());
 
-            // MeetVerification 상태 → NO_SHOW_CANCELLED (노쇼가 아닌 취소로 인정)
-            meetVerification.partiallyAcceptDispute();
+            VerificationStatus restoredStatus = meetVerification.getDisputedFromStatus();
 
-            // Match/Post → CANCELLED
-            matchService.cancelMatchByDispute(dispute.getMatchId());
+            if (restoredStatus == VerificationStatus.BOTH_NO_SHOW) {
+                // 상대방도 노쇼 당사자 → 노쇼 예정 상태로 전환 + 이의제기 기회 부여
+                // 상대방 포인트 처리 없음
+                if (submitterIsAuthor) {
+                    meetVerification.markApplicantNoShow();
+                    notificationPublisher.sendNoShowWarning(
+                            match.getApplicantId(), dispute.getMatchId());
+                } else {
+                    meetVerification.markAuthorNoShow();
+                    notificationPublisher.sendNoShowWarning(
+                            postMatchInfo.authorId(), dispute.getMatchId());
+                }
+                // Match → DISPUTED 유지 (상대방 이의제기 대기 상태)
 
-            // 채팅방 읽기 전용 전환
+            } else {
+                // HOST_NO_SHOW 또는 GUEST_NO_SHOW → 상대방은 피해자 → 전액 환불
+                Long opponentId = submitterIsAuthor
+                        ? match.getApplicantId()
+                        : postMatchInfo.authorId();
+                int opponentDeposit = submitterIsAuthor
+                        ? match.getApplicantDeposit()
+                        : postMatchInfo.authorDeposit();
+                userPointService.refundPoint(opponentId, opponentDeposit, dispute.getMatchId());
+
+                meetVerification.partiallyAcceptDispute();
+                matchService.cancelMatchByDispute(dispute.getMatchId());
+            }
+
             chatService.makeReadOnlyChatRoom(match.getPostId());
-
         } else {
             // GPS/QR/스마트폰 오류 → 실제 만남은 있었음 → 만남 완료 처리
             // 제출자 100% 환불은 judgeDispute()에서 이미 처리됨
