@@ -26,6 +26,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,6 +39,7 @@ public class PostServiceImpl implements PostService{
     private final UserPointService userPointService;
     private final NotificationPublisher notificationPublisher;
     private final ReviewAvoidanceService reviewAvoidanceService;
+    private final RedisPostService redisPostService;
 
 
     @Override
@@ -191,6 +193,16 @@ public class PostServiceImpl implements PostService{
             throw new PostException(ErrorCode.POST_INVALID_PAGE_SIZE);
         }
 
+        // Redis 캐시에서 게시글 목록 조회 응답을 먼저 확인
+        Optional<PageResponseDto<GetPostsItemResponseDto>> cachedPostList = redisPostService.getPostList(
+                currentUserId, status, pageable.getPageNumber(), pageable.getPageSize()
+        );
+
+        // 캐시된 응답이 없으면 DB 조회 없이 바로 반환
+        if (cachedPostList.isPresent()) {
+            return cachedPostList.get();
+        }
+
         // 1. 현재 유저의 학교 ID 조회
         // getUserInfo()는 UserInfoDto를 반환 — universityId 포함
         UserInfoDto currentUser = userService.getUserInfo(currentUserId);
@@ -250,7 +262,22 @@ public class PostServiceImpl implements PostService{
             );
         });
 
-        return PageResponseDto.from(dtoPage);
+//        return PageResponseDto.from(dtoPage);
+
+        // DB 조회 결과를 게시글 목록 API 응답 DTO로 변환
+        PageResponseDto<GetPostsItemResponseDto> responseDto = PageResponseDto.from(dtoPage);
+
+        // 동일 요청에서 DB 조회를 줄일 수 있도록 Redis 응답 결과를 저장
+        redisPostService.savePostList(
+                currentUserId,
+                status,
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                responseDto
+        );
+
+        // 최종 응답 반환
+        return responseDto;
     }
 
     @Override

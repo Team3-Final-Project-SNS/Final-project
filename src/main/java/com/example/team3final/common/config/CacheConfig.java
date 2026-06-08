@@ -1,6 +1,5 @@
 package com.example.team3final.common.config;
 
-import com.example.team3final.domain.post.cache.PostCachePolicy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -14,7 +13,6 @@ import org.springframework.data.redis.serializer.JdkSerializationRedisSerializer
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 
 import java.time.Duration;
-import java.util.Map;
 
 // Spring Cache 공용 설정 파일
 // Redis를 직접 StringRedisTemplate로 사용하는 기능과 별개로,
@@ -41,13 +39,13 @@ public class CacheConfig {
                 .cacheDefaults(defaultConfig.entryTtl(DEFAULT_TTL))
                 // withInitialCacheConfigurations() -> 캐시 이름별로 TTL 정책을 다르게 설정,
                 // 캐시를 추가할 경우 이 Map에 cacheName별 정책을 추가하여 사용
-                .withInitialCacheConfigurations(Map.of(
-                        PostCachePolicy.SAME_UNIVERSITY_USER_IDS,
-                        jdkSerializedCacheConfig(
-                                defaultConfig,
-                                PostCachePolicy.SAME_UNIVERSITY_USER_IDS_TTL
-                        )
-                ))
+//                .withInitialCacheConfigurations(Map.of(
+//                        PostCachePolicy.POST_LIST,
+//                        jdkSerializedCacheConfig(
+//                                defaultConfig,
+//                                PostCachePolicy.POST_LIST_TTL
+//                        )
+//                ))
                 .build();
     }
 
@@ -85,6 +83,7 @@ public class CacheConfig {
     // 이런 경우 JdkSerializationRedisSerializer를 사용하면,Java 객체 타입 정보를 보존할 수 있다.
     public static RedisCacheConfiguration jdkSerializedCacheConfig(
             RedisCacheConfiguration baseConfig, Duration ttl) {
+
         return baseConfig
                 .entryTtl(ttl)
                 .serializeValuesWith(
