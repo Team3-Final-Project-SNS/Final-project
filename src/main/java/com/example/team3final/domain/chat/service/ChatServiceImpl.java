@@ -338,11 +338,11 @@ public class ChatServiceImpl implements ChatService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     @Override
     public void markGuestNoShow(Long postId, Long applicantId) {
-        // postId로 채팅방 조회, 없으면 조용히 종료
+        // postId로 채팅방 조회, 없으면 데이터 정합성 오류로 예외 발생
         ChatRoom chatRoom = chatRoomRepository.findByPostId(postId)
                 .orElseThrow(() -> new ChatException(ErrorCode.CHAT_ROOM_NOT_FOUND));
 
-        // 해당 신청자 멤버 조회, 없으면 조용히 종료
+        // 해당 신청자 멤버 조회, 없으면 데이터 정합성 오류로 예외 발생
         ChatMember chatMember = chatMemberRepository
                 .findByChatRoomIdAndUserId(chatRoom.getId(), applicantId)
                 .orElseThrow(() -> new ChatException(ErrorCode.CHAT_NOT_PARTICIPANT));
@@ -365,7 +365,7 @@ public class ChatServiceImpl implements ChatService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     @Override
     public void makeReadOnlyChatRoom(Long postId) {
-        // 채팅방이 없으면 조용히 종료
+        // postId로 채팅방 조회, 없으면 데이터 정합성 오류로 예외 발생
         ChatRoom chatRoom = chatRoomRepository.findByPostId(postId)
                 .orElseThrow(() -> new ChatException(ErrorCode.CHAT_ROOM_NOT_FOUND));
 
