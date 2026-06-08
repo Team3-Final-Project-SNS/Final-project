@@ -6,6 +6,7 @@ import com.example.team3final.domain.pointTransaction.entity.PointTransaction;
 import com.example.team3final.domain.pointTransaction.enums.PointSource;
 import com.example.team3final.domain.pointTransaction.enums.PointTransactionType;
 import com.example.team3final.domain.pointTransaction.repository.PointTransactionRepository;
+import com.example.team3final.domain.post.cache.PostCacheNames;
 import com.example.team3final.domain.user.dto.request.UpdateUserRequestDto;
 import com.example.team3final.domain.user.dto.response.AdminUserInfoDto;
 import com.example.team3final.domain.user.dto.response.GetUserResponseDto;
@@ -16,6 +17,7 @@ import com.example.team3final.domain.user.enums.Gender;
 import com.example.team3final.domain.user.enums.UserStatus;
 import com.example.team3final.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -37,7 +39,6 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final PointTransactionRepository pointTransactionRepository;
     private final PasswordEncoder passwordEncoder;
-
     private static final int SIGNUP_BONUS_POINT = 10_000;
 
     // 회원가입
@@ -249,6 +250,10 @@ public class UserServiceImpl implements UserService {
 
     // 같은 학교 활성 사용자 ID 목록 조회
     @Override
+    @Cacheable(
+            cacheNames = PostCacheNames.SAME_UNIVERSITY_USER_IDS,
+            key = "#universityId"
+    )
     public List<Long> getUserIdsByUniversityId(Long universityId) {
         // UserRepository에서 universityId 기준으로 ACTIVE 유저 ID만 조회
         // 탈퇴/정지 유저 제외 → 게시글 목록에 노출되면 안 되는 유저 자동 필터링
