@@ -132,6 +132,9 @@ export default function ChatPage() {
             newMessage.senderId === currentUserId ? newMessage : { ...newMessage, isRead: true },
           ]);
         });
+        client.subscribe('/user/queue/errors', (payload) => {
+          setError(payload.body);
+        });
       },
       onStompError: (frame) => {
         console.error('Broker reported error: ' + frame.headers['message']);
