@@ -359,6 +359,11 @@ public class AuthServiceImpl implements AuthService{
     @Override
     public TokenResponseDto refresh(String refreshToken, HttpServletResponse response) {
 
+        // refreshToken이 null이면 NPE 발생 -> null 체크
+        if (refreshToken == null) {
+            throw new AuthException(ErrorCode.AUTH_INVALID_TOKEN);
+        }
+
         // 1. 토큰 형식 및 서명 검증
         if (!jwtProvider.validateToken(refreshToken)) {
             throw new AuthException(ErrorCode.AUTH_INVALID_TOKEN);

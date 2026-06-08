@@ -1,21 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Bell, Sparkles, Utensils, QrCode, Shield, User, Users } from 'lucide-react';
-import { logout } from '../../api/authApi';
-import { getUserMe } from '../../api/userApi';
+import { logout } from '@/api/authApi';
+import { getUserMe } from '@/api/userApi';
+import { clearAccessToken, getAccessToken } from '@/api/axiosInstance';
 import {
   getNotifications,
   getUnreadNotificationCount,
   markAllNotificationsRead,
   markNotificationRead,
   NotificationResponse,
-} from '../../api/notificationApi';
+} from '@/api/notificationApi';
 import MobileLoggedInNavigation from '../components/MobileLoggedInNavigation';
 import { getNotificationTargetPath } from '../notificationNavigation';
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(sessionStorage.getItem('accessToken')));
+  const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(getAccessToken()));
   const [point, setPoint] = useState<number | null>(null);
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -29,7 +30,7 @@ export default function HomePage() {
 
   useEffect(() => {
     const syncLoginState = async () => {
-      const loggedIn = Boolean(sessionStorage.getItem('accessToken'));
+      const loggedIn = Boolean(getAccessToken());
       setIsLoggedIn(loggedIn);
 
       if (!loggedIn) {
@@ -51,11 +52,9 @@ export default function HomePage() {
     };
 
     syncLoginState();
-    window.addEventListener('storage', syncLoginState);
     window.addEventListener('focus', syncLoginState);
 
     return () => {
-      window.removeEventListener('storage', syncLoginState);
       window.removeEventListener('focus', syncLoginState);
     };
   }, []);
@@ -94,7 +93,7 @@ export default function HomePage() {
     } catch (err) {
       console.error('Logout request failed', err);
     } finally {
-      sessionStorage.removeItem('accessToken');
+      clearAccessToken();
       setIsLoggedIn(false);
       setPoint(null);
       setUnreadCount(0);

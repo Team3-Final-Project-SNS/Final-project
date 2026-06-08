@@ -98,10 +98,10 @@ export default function AdminFaqPage() {
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={{
-                    table: ({ children }) => (
-                      <div className="my-5 overflow-x-auto rounded-xl border border-[#eeeeee] bg-white">
-                        <table>{children}</table>
-                      </div>
+                    table: ({ children }: { children?: React.ReactNode }) => (
+                        <div className="my-5 overflow-x-auto rounded-xl border border-[#eeeeee] bg-white">
+                          <table>{children}</table>
+                        </div>
                     ),
                   }}
                 >

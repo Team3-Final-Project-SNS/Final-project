@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { AlertCircle, Loader2, LogOut, User } from 'lucide-react';
-import { logout } from '../../api/authApi';
-import { getUserMe, GetUserResponse } from '../../api/userApi';
+import { logout } from '@/api/authApi';
+import { getUserMe, GetUserResponse } from '@/api/userApi';
+import { clearAccessToken } from '@/api/axiosInstance';
 
 export default function MyInfoPage() {
   const navigate = useNavigate();
@@ -37,7 +38,7 @@ export default function MyInfoPage() {
     } catch (err) {
       console.error('Logout request failed', err);
     } finally {
-      sessionStorage.removeItem('accessToken');
+      clearAccessToken();
       navigate('/');
     }
   };

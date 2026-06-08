@@ -1,7 +1,7 @@
 import { FormEvent, useState } from 'react';
 import { Link } from 'react-router';
 import { AlertCircle, ArrowRight, Bot, CalendarClock, CheckCircle2, Coins, Loader2, Send, Sparkles, XCircle } from 'lucide-react';
-import { RecommendedPost, streamMatchingChat } from '../../api/aiApi';
+import { RecommendedPost, streamMatchingChat } from '@/api/aiApi';
 
 const EXAMPLE_QUESTIONS = [
   '오늘 3시쯤 밥 먹을 사람 추천해줘',
@@ -508,23 +508,22 @@ function parseRecommendationCards(content: string): ParsedRecommendation[] {
 
   return parts
       .slice(1)
-      .map((part) => {
+      .flatMap((part): ParsedRecommendation[] => {
         const nextBlock = part.split(/\n-\s*게시글\s*ID\s*:\s*/)[0];
         const idMatch = nextBlock.match(/^(\d+)/);
 
         if (!idMatch) {
-          return null;
+          return []; // null 대신 빈 배열 반환 → flatMap이 펼쳐서 제거
         }
 
-        return {
+        return [{
           postId: Number(idMatch[1]),
           placeName: extractField(nextBlock, '장소'),
           meetAt: extractField(nextBlock, '시간'),
           deposit: extractField(nextBlock, '책임비'),
           reason: extractField(nextBlock, '이유'),
-        };
+        }];
       })
-      .filter((post): post is ParsedRecommendation => Boolean(post))
       .slice(0, 3);
 }
 

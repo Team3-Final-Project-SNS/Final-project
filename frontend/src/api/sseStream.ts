@@ -1,3 +1,5 @@
+import { getAccessToken } from './axiosInstance';
+
 type StreamPostOptions<TBody> = {
   path: string;
   body: TBody;
@@ -8,8 +10,9 @@ type StreamPostOptions<TBody> = {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
 export async function streamPost<TBody>({ path, body, admin = false, onChunk }: StreamPostOptions<TBody>) {
-  const tokenKey = admin ? 'adminAccessToken' : 'accessToken';
-  const token = sessionStorage.getItem(tokenKey);
+  const token = admin
+      ? sessionStorage.getItem('adminAccessToken')
+      : getAccessToken();
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',

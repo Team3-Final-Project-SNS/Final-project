@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router';
 import { User, Bell, Sparkles } from 'lucide-react';
-import { logout } from '../../api/authApi';
-import { getUserMe } from '../../api/userApi';
+import { logout } from '@/api/authApi';
+import { getUserMe } from '@/api/userApi';
+import { clearAccessToken, getAccessToken } from '@/api/axiosInstance';
 import {
   getNotifications,
   getUnreadNotificationCount,
   markAllNotificationsRead,
   markNotificationRead,
   NotificationResponse,
-} from '../../api/notificationApi';
+} from '@/api/notificationApi';
 import MobileLoggedInNavigation from './MobileLoggedInNavigation';
 import { getNotificationTargetPath } from '../notificationNavigation';
 
@@ -33,7 +34,8 @@ export default function Layout() {
 
   useEffect(() => {
     const fetchMyPoint = async () => {
-      if (!sessionStorage.getItem('accessToken')) {
+      // sessionStorage → 메모리에서 토큰 확인
+      if (!getAccessToken()) {
         setPoint(null);
         setUnreadCount(0);
         return;
@@ -96,7 +98,7 @@ export default function Layout() {
     const nextOpen = !notificationOpen;
     setNotificationOpen(nextOpen);
 
-    if (!nextOpen || !sessionStorage.getItem('accessToken')) {
+    if (!nextOpen || !getAccessToken()) {
       return;
     }
 
@@ -120,7 +122,7 @@ export default function Layout() {
     } catch (err) {
       console.error('Logout request failed', err);
     } finally {
-      sessionStorage.removeItem('accessToken');
+      clearAccessToken();
       navigate('/');
     }
   };
