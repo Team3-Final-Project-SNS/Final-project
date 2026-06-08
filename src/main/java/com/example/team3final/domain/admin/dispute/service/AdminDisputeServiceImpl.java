@@ -252,16 +252,29 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
         // 정책: 응급실/장례식 등 불가피한 사유 → 실제 만남 없음 → 매칭 취소 → 예치금 50% 반환
         // 포인트 50% 반환은 judgeDispute()의 PARTIALLY_ACCEPTED 분기에서 이미 처리됨
         if (judgment == DisputeStatus.PARTIALLY_ACCEPTED) {
+            // 상대방 ID + 예치금 결정
+            Long opponentId = submitterIsAuthor
+                    ? match.getApplicantId()
+                    : postMatchInfo.authorId();
+            int opponentDeposit = submitterIsAuthor
+                    ? match.getApplicantDeposit()
+                    : postMatchInfo.authorDeposit();
 
-            // MeetVerification 상태를 NO_SHOW_CANCELLED로 전환
+            // 상대방 전액 환불 (귀책 없음)
+            userPointService.refundPoint(opponentId, opponentDeposit, dispute.getMatchId());
+
+            // 원래 노쇼 상태만 꺼내기 (status 복원 없음)
+            VerificationStatus restoredStatus = meetVerification.getDisputedFromStatus();
+
+            // MeetVerification → NO_SHOW_CANCELLED로 전환
             meetVerification.partiallyAcceptDispute();
 
-            // Match/Post 상태를 취소로 확정
-            matchService.cancelMatchByDispute(dispute.getMatchId());
+            // 포인트 정산 없이 Match 노쇼 상태만 확정
+            matchService.markNoShowByDisputeWithoutPointSettlement(
+                    dispute.getMatchId(), restoredStatus);
 
-            // 취소된 매칭이므로 채팅방을 읽기 전용으로 전환
+            // 채팅방 읽기 전용 전환
             chatService.makeReadOnlyChatRoom(match.getPostId());
-
             return;
         }
 
@@ -299,24 +312,48 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
         // 정책: 실제 만남은 있었으나 서비스 오류(GPS/QR 인식 오류 등)로 인증만 실패한 경우
         // → 만남 완료(DONE)로 처리 → 예치 포인트 100% 반환
         // 제출자 보증금 100% 반환은 judgeDispute()의 ACCEPTED 분기에서 이미 처리됨
+        if (dispute.getDisputeType().isMatchCancelType()) {
+            // 장례식 / 응급실 → 매칭 취소 처리
+            // 제출자 100% 환불은 judgeDispute()에서 이미 처리됨
+            // 상대방 예치금도 전액 환불
+            Long opponentId = submitterIsAuthor
+                    ? match.getApplicantId()
+                    : postMatchInfo.authorId();
+            int opponentDeposit = submitterIsAuthor
+                    ? match.getApplicantDeposit()
+                    : postMatchInfo.authorDeposit();
+            userPointService.refundPoint(opponentId, opponentDeposit, dispute.getMatchId());
 
-        // 상대방 ID 확정 (제출자가 등록자면 상대방은 신청자, 반대도 동일)
-        Long opponentId = submitterIsAuthor ? match.getApplicantId() : postMatchInfo.authorId();
+            // MeetVerification 상태 → NO_SHOW_CANCELLED (노쇼가 아닌 취소로 인정)
+            meetVerification.partiallyAcceptDispute();
 
-        // 상대방 보증금 금액 확정
-        int opponentDeposit = submitterIsAuthor ? match.getApplicantDeposit() : postMatchInfo.authorDeposit();
+            // Match/Post → CANCELLED
+            matchService.cancelMatchByDispute(dispute.getMatchId());
 
-        // 상대방 보증금 전액 반환 (ACCEPTED이므로 양쪽 모두 반환)
-        userPointService.refundPoint(opponentId, opponentDeposit, dispute.getMatchId());
+            // 채팅방 읽기 전용 전환
+            chatService.makeReadOnlyChatRoom(match.getPostId());
 
-        // 인증 상태를 DONE으로 전환 (실제 만남이 있었음을 인정)
-        meetVerification.completeByDispute();
+        } else {
+            // GPS/QR/스마트폰 오류 → 실제 만남은 있었음 → 만남 완료 처리
+            // 제출자 100% 환불은 judgeDispute()에서 이미 처리됨
+            // 상대방 예치금도 전액 환불
+            Long opponentId = submitterIsAuthor
+                    ? match.getApplicantId()
+                    : postMatchInfo.authorId();
+            int opponentDeposit = submitterIsAuthor
+                    ? match.getApplicantDeposit()
+                    : postMatchInfo.authorDeposit();
+            userPointService.refundPoint(opponentId, opponentDeposit, dispute.getMatchId());
 
-        // Match/Post를 완료 상태로 변경
-        matchService.completeMatchByDispute(dispute.getMatchId());
+            // MeetVerification → DONE (만남 완료 인정)
+            meetVerification.completeByDispute();
 
-        // 정상 완료 흐름처럼 채팅방 비활성화 예약
-        chatService.scheduleChatRoomDeactivation(match.getPostId());
+            // Match/Post → COMPLETED
+            matchService.completeMatchByDispute(dispute.getMatchId());
+
+            // 채팅방 2시간 후 비활성화 예약
+            chatService.scheduleChatRoomDeactivation(match.getPostId());
+        }
     }
 
     @Override

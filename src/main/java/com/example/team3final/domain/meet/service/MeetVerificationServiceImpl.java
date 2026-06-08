@@ -439,23 +439,27 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
             // 위치 기반 노쇼 판정 분기
             if (authorInRange && !applicantInRange) {
-                // 16. 노쇼 예정 알림 - 노쇼 예정 유저에게
-                // 등록자는 있고 신청자가 없는 경우 → GUEST_NO_SHOW
+                // 등록자는 현장에 있고 신청자가 없는 경우 → GUEST_NO_SHOW 예정
                 meetVerification.markApplicantNoShow();
                 notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), matchId);
 
             } else if (!authorInRange && applicantInRange) {
-                // 16. 노쇼 예정 알림 - 노쇼 예정 유저에게
-                // 신청자는 있고 등록자가 없는 경우 → HOST_NO_SHOW
+                // 신청자는 현장에 있고 등록자가 없는 경우 → HOST_NO_SHOW 예정
                 meetVerification.markAuthorNoShow();
                 notificationPublisher.sendNoShowWarning(postInfoDto.authorId(), matchId);
 
-            } else {
-                // 16. 노쇼 예정 알림 - 노쇼 예정 유저에게
-                // 둘 다 없거나 둘 다 있는데 QR 만료 → BOTH_NO_SHOW
+            } else if (!authorInRange) {
+                // 여기 도달 시점 = authorInRange=false, applicantInRange=false 확정
+                // 둘 다 현장에 없는 경우 → BOTH_NO_SHOW 예정
                 meetVerification.markBothNoShow();
                 notificationPublisher.sendNoShowWarning(postInfoDto.authorId(), matchId);
                 notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), matchId);
+
+            } else {
+                // 여기 도달 시점 = authorInRange=true, applicantInRange=true 확정
+                // 정책 시나리오 3-6: QR 만료 시각까지 둘 다 현장에 있었는데 QR 인증 미완료
+                // → 노쇼 아님, 귀책 없음 → 매칭 취소 + 양측 전액 환불
+                matchService.cancelMatchBySystem(matchId);
             }
 
             // 위치 정보 삭제 (개인정보 최소 수집 원칙)
