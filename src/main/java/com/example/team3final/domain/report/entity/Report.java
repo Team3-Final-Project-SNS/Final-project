@@ -79,12 +79,6 @@ public class Report extends BaseTimeEntity {
 
     // ==================== 도메인 메서드 ====================
 
-    // 신고 취소 (WITHDRAWN)
-    public void withdraw() {
-        this.status = ReportStatus.WITHDRAWN;
-        this.cancelledAt = LocalDateTime.now();
-    }
-
     // 신고 채택 (ACCEPTED) - 관리자 처리
     public void accept(Long adminId) {
         this.status = ReportStatus.ACCEPTED;
@@ -102,11 +96,6 @@ public class Report extends BaseTimeEntity {
     // 포상 지급 완료 처리
     public void markRewarded() {
         this.isRewarded = true;
-    }
-
-    // 취소 가능 여부 확인 (PENDING 상태만 가능)
-    public boolean isWithdrawable() {
-        return this.status == ReportStatus.PENDING;
     }
 
     // 이미 처리된 신고인지 확인
