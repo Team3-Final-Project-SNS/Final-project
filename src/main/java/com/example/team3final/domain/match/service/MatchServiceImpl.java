@@ -62,6 +62,7 @@ public class MatchServiceImpl implements MatchService{
     private static final long REDIS_LOCK_LEASE_SECONDS = 5;
 
     @Override
+    @Transactional
     public CreateMatchResponseDto createMatch(Long postId, Long applicantId) {
 
         String lockKey = MATCH_LOCK_KEY + postId;
@@ -307,6 +308,37 @@ public class MatchServiceImpl implements MatchService{
         if (match.getStatus() == MatchStatus.MATCHED) {
             match.dispute();
         }
+    }
+
+    // 시스템 취소 — QR 만료 시점까지 양측 모두 현장에 있었으나 QR 인증 미완료
+    @Override
+    @Transactional
+    public void cancelMatchBySystem(Long matchId) {
+
+        Match match = getMatchById(matchId);
+
+        // 이미 종결된 건은 스킵 (스케줄러 중복 실행 방어)
+        if (match.getStatus() != MatchStatus.MATCHED) {
+            return;
+        }
+
+        // Match → CANCELLED
+        match.cancel();
+
+        Post post = postService.getPostById(match.getPostId());
+
+        // Post → CANCELLED
+        post.cancel();
+
+        // 양측 전액 환불 (둘 다 현장에 있었으므로 귀책 없음 → 패널티 없음)
+        userPointService.refundPoint(post.getAuthorId(), post.getAuthorDeposit(), matchId);
+        userPointService.refundPoint(match.getApplicantId(), match.getApplicantDeposit(), matchId);
+
+        // 위치 데이터 삭제 (개인정보 최소 수집 원칙)
+        userLocationCleanupService.deleteLocationsByMatchId(matchId);
+
+        // 채팅방 비활성화
+        chatService.deactivateChatRoom(match.getPostId());
     }
 
     @Override

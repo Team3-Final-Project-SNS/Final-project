@@ -2,7 +2,6 @@ package com.example.team3final.domain.match.service;
 
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.MatchException;
-import com.example.team3final.domain.admin.dispute.service.AdminDisputeService;
 import com.example.team3final.domain.match.dto.request.CancelMatchRequestDto;
 import com.example.team3final.domain.match.dto.response.*;
 import com.example.team3final.domain.match.entity.Match;
@@ -18,7 +17,6 @@ public interface MatchService {
 
     /**
      * 매칭 신청 / 생성 (선착순)
-     *
      * @param postId      신청 대상 게시글 ID
      * @param applicantId 신청자 ID (Controller에서 인증 정보로 추출)
      * @return 생성된 매칭 정보
@@ -28,8 +26,7 @@ public interface MatchService {
     /**
      * 매칭 완료 처리 — 도메인 간 호출용 (만남 인증 QR 성공 시)
      * 오케스트레이션: Match→COMPLETED, Post→COMPLETED, 채팅방 비활성화, 양측 환불
-     *
-     * @throws MatchException MATCH_001 — 매칭이 존재하지 않음
+     * throws MatchException MATCH_001 — 매칭이 존재하지 않음
      */
     void completeMatch(Long matchId);
 
@@ -37,6 +34,14 @@ public interface MatchService {
     // MeetVerification.markDispute()와 함께 호출되어 양측 상태를 동시에 이의제기 상태로 전환
     // 포인트 정산 없음 — 이의제기가 종결될 때까지 예치금 보류
     void markDisputed(Long matchId);
+
+    /**
+     * 시스템 취소 — QR 만료 시점까지 양측 모두 현장에 있었으나 QR 인증 미완료
+     * 귀책 없음 → 양측 예치금 전액 환불, 노쇼 아님
+     * 사용처: MeetVerificationServiceImpl.judgeQrNoShow()
+     */
+    void cancelMatchBySystem(Long matchId);
+
 
     // 이의제기 판정: 만남 완료 인정
     // GPS/QR 오류 등으로 인증만 실패했고 실제 만남은 있었다고 관리자가 판정한 경우
@@ -70,7 +75,6 @@ public interface MatchService {
 
     /**
      * 매칭 취소 — Controller 직접 호출 (명세서 5.3)
-     *
      * @param matchId 취소할 매칭 ID
      * @param userId  취소 요청자 ID (당사자 검증 + 50%/100% 구분)
      * @param request 취소 요청 DTO
@@ -102,7 +106,6 @@ public interface MatchService {
 
     /**
      * 특정 사용자가 특정 게시글에 이미 신청했는지 확인합니다.
-     *
      * AI 매칭, 게시글 검증 등 다른 도메인에서 중복 신청 여부만 필요할 때
      * MatchRepository를 직접 참조하지 않고 Match 도메인 서비스로 조회합니다.
      */
@@ -110,7 +113,6 @@ public interface MatchService {
 
     /**
      * 특정 게시글에 생성된 매칭 ID 목록을 조회합니다.
-     *
      * Review 도메인이 단체 만남의 리뷰 평균을 계산할 때
      * MatchRepository를 직접 참조하지 않도록 서비스 메서드로 제공합니다.
      */
@@ -118,7 +120,6 @@ public interface MatchService {
 
     /**
      * 특정 게시글에 속한 COMPLETED 매칭 목록을 조회합니다.
-     *
      * Chat 도메인이 만남 완료 후 채팅방 READ_ONLY 전환 알림을 보낼 때
      * MatchRepository를 직접 참조하지 않도록 서비스 메서드로 제공합니다.
      */
@@ -126,7 +127,6 @@ public interface MatchService {
 
     /**
      * COMPLETED 상태의 매칭을 Optional로 조회합니다.
-     *
      * Review 도메인이 후기 작성 마지막 날 알림 처리 시
      * MatchRepository를 직접 참조하지 않도록 서비스 메서드로 제공합니다.
      */
@@ -135,7 +135,6 @@ public interface MatchService {
 
     /**
      * 내 매칭 목록 조회 — Controller 직접 호출 (명세서 5.4)
-     *
      * @param status null이면 전체 조회
      * @param pageable 페이징 + 정렬 (Controller에서 createdAt DESC로 생성)
      */
@@ -145,12 +144,10 @@ public interface MatchService {
      * 매칭 정보 일괄 조회 — 도메인 간 호출용 (벌크)
      * 사용처: Meet 도메인 노쇼 일괄 판정(judgeGpsNoShow) — N건의 verification에 대해
      *         Match 정보를 한 번의 IN 쿼리로 가져와 N+1 문제 방지
-     *
      * 반환 형태:
      *  - Key   = matchId
      *  - Value = MatchInfoDto
      *  - 호출 측에서 O(1) 룩업이 가능하도록 Map으로 반환
-     *
      * Contract:
      *  - matchIds 가 비어있거나 null이면 빈 Map 반환 (예외 던지지 않음)
      *  - 존재하지 않는 matchId 가 섞여 있어도 예외를 던지지 않고, 결과 Map에서 빠진 채로 반환

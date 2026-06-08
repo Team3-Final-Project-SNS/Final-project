@@ -77,28 +77,18 @@ public class DisputeServiceImpl implements DisputeService {
             throw new DisputeException(ErrorCode.DISPUTE_NOT_NO_SHOW);
         }
 
-        // 6. 장소 인증(GPS) 완료 검증
-        // 요청자가 등록하면 등록자 GPS 진입 시각을, 신청자면 신청자 GPS 진입 시각을 본다.
-        boolean isRequesterHost = userId.equals(authorId);
-        boolean placeVerified = isRequesterHost
-                ? meet.authorPlaceVerifiedAt() != null
-                : meet.applicantPlaceVerifiedAt() != null;
-        if (!placeVerified) {
-            throw new DisputeException(ErrorCode.DISPUTE_PLACE_NOT_VERIFIED);
-        }
-
-        // 7. 중복 제출 검증
+        // 6. 중복 제출 검증
         if (disputeRepository.existsByMatchIdAndSubmitterId(matchId, userId)) {
             throw new DisputeException(ErrorCode.DISPUTE_ALREADY_SUBMITTED);
         }
 
-        // 8. 24시간 제한 검증
+        // 7. 24시간 제한 검증
         LocalDateTime decidedAt = meet.noShowDecidedAt();
         if (decidedAt == null || Duration.between(decidedAt, LocalDateTime.now()).toHours() >= 24L) {
                 throw new DisputeException(ErrorCode.DISPUTE_DEADLINE_EXCEEDED);
         }
 
-        // 9. 저장
+        // 8. 저장
         // evidenceUrl은 S3도입 전까지 null로 고정
         Dispute dispute = Dispute.builder()
                 .matchId(matchId)

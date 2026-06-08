@@ -294,6 +294,19 @@ public class MeetVerification {
     }
 
     /**
+     * disputedFromStatus(원래 노쇼 상태)만 꺼내서 반환
+     * PARTIALLY_ACCEPTED 판정 시 사용
+     * - rejectDispute()와 달리 status를 복원하지 않음
+     * - partiallyAcceptDispute()와 함께 사용할 때 순서 의존성 없음
+     */
+    public VerificationStatus getDisputedFromStatus() {
+        if (this.disputedFromStatus == null) {
+            throw new IllegalStateException("백업된 노쇼 상태가 없습니다.");
+        }
+        return this.disputedFromStatus;
+    }
+
+    /**
      * [부분 수용 - PARTIALLY_ACCEPTED] 이의제기 부분 수용 시 호출
      * - 정책: 응급실/장례식 등 불가피한 사유로 실제 만남이 이루어지지 않은 경우
      * - 노쇼가 아닌 매칭 취소로 처리 → 예치 포인트 50% 반환
