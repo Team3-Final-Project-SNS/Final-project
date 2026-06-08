@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   Clock,
   CreditCard,
-  Eye,
   RefreshCcw,
   Search,
   X,
@@ -272,8 +271,8 @@ export default function AdminPaymentsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#fff7ed] via-[#f7fbff] to-[#eaf7f1]">
-      <main className="mx-auto max-w-screen-xl px-4 py-10">
+    <div>
+      <main className="mx-auto max-w-screen-xl">
         <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#fff3e0]">
@@ -470,7 +469,8 @@ export default function AdminPaymentsPage() {
 
           <div className="overflow-x-auto">
             <div className="min-w-[1120px]">
-              <div className="grid grid-cols-[1.35fr_1.35fr_0.85fr_0.85fr_0.8fr_0.8fr_1fr_0.6fr] gap-3 border-b border-[#eeeeee] bg-[#fafafa] px-5 py-3 text-xs font-bold text-[#757575]">
+              <div className="grid grid-cols-[0.35fr_1.6fr_1.2fr_0.85fr_0.85fr_0.8fr_0.8fr_1fr] gap-3 border-b border-[#eeeeee] bg-[#fafafa] px-5 py-3 text-xs font-bold text-[#757575]">
+                <span className="text-center">번호</span>
                 <span>주문번호</span>
                 <span>유저</span>
                 <span>결제금액</span>
@@ -478,25 +478,26 @@ export default function AdminPaymentsPage() {
                 <span>결제수단</span>
                 <span>상태</span>
                 <span>요청 시각</span>
-                <span>관리</span>
               </div>
 
               {filteredPayments.length > 0 ? (
-                filteredPayments.map((payment) => (
+                filteredPayments.map((payment, index) => (
                   <div
                     key={payment.paymentId}
-                    className="grid grid-cols-[1.35fr_1.35fr_0.85fr_0.85fr_0.8fr_0.8fr_1fr_0.6fr] gap-3 border-b border-[#f5f5f5] px-5 py-4 text-sm last:border-b-0"
+                    className="grid grid-cols-[0.35fr_1.6fr_1.2fr_0.85fr_0.85fr_0.8fr_0.8fr_1fr] gap-3 border-b border-[#f5f5f5] px-5 py-4 text-sm last:border-b-0"
                   >
-                    <div>
-                      <p className="font-bold text-[#212121]">#{payment.paymentId}</p>
-                      <p className="mt-1 text-xs font-semibold text-[#757575]">{payment.merchantUid}</p>
-                    </div>
+                    <span className="text-center font-semibold text-[#9e9e9e]">{index + 1}</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPayment(payment)}
+                      className="w-fit text-left text-sm font-bold text-[#212121] underline-offset-4 hover:underline"
+                    >
+                      {payment.merchantUid}
+                    </button>
                     <div>
                       <p className="font-bold text-[#212121]">{payment.userName}</p>
-                      <p className="mt-1 text-xs text-[#757575]">{payment.userEmail}</p>
-                      <p className="mt-1 text-xs font-semibold text-[#9e9e9e]">{payment.universityName}</p>
                     </div>
-                    <span className="font-bold text-[#d84315]">{payment.amount.toLocaleString()}원</span>
+                    <span className="font-bold text-[#212121]">{payment.amount.toLocaleString()}원</span>
                     <span className="font-bold text-[#424242]">{payment.chargePoint.toLocaleString()}P</span>
                     <span className="text-[#616161]">{methodLabels[payment.method]}</span>
                     <span>
@@ -505,14 +506,6 @@ export default function AdminPaymentsPage() {
                       </span>
                     </span>
                     <span className="font-semibold text-[#616161]">{formatDateTime(payment.createdAt)}</span>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedPayment(payment)}
-                      className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-[#e0e0e0] px-3 text-xs font-bold text-[#616161] transition-colors hover:border-[#d84315] hover:text-[#d84315]"
-                    >
-                      <Eye size={14} />
-                      상세
-                    </button>
                   </div>
                 ))
               ) : (
@@ -576,7 +569,7 @@ function PaymentDetailModal({ payment, onClose }: { payment: AdminPaymentItem; o
       <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-bold text-[#d84315]">결제 #{payment.paymentId}</p>
+            <p className="text-sm font-bold text-[#d84315]">주문번호</p>
             <h2 className="mt-1 text-2xl font-bold text-[#212121]">{payment.merchantUid}</h2>
           </div>
           <button
@@ -589,8 +582,7 @@ function PaymentDetailModal({ payment, onClose }: { payment: AdminPaymentItem; o
         </div>
 
         <div className="rounded-xl bg-[#fafafa] p-4">
-          <DetailRow label="유저" value={`${payment.userName} (${payment.userEmail})`} />
-          <DetailRow label="학교" value={payment.universityName} />
+          <DetailRow label="유저" value={payment.userName} />
           <DetailRow label="결제 금액" value={`${payment.amount.toLocaleString()}원`} />
           <DetailRow label="충전 포인트" value={`${payment.chargePoint.toLocaleString()}P`} />
           <DetailRow label="결제 수단" value={methodLabels[payment.method]} />

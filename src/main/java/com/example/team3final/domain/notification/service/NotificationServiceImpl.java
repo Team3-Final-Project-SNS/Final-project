@@ -1,9 +1,9 @@
 package com.example.team3final.domain.notification.service;
 
-import com.example.team3final.common.config.CacheConfig;
 import com.example.team3final.common.dto.response.CursorResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.NotificationException;
+import com.example.team3final.domain.notification.cache.NotificationCachePolicy;
 import com.example.team3final.domain.notification.dto.response.GetNotificationsResponseDto;
 import com.example.team3final.domain.notification.dto.response.GetUnreadCountResponseDto;
 import com.example.team3final.domain.notification.dto.response.UpdateAllNotificationsReadResponseDto;
@@ -36,7 +36,7 @@ public class NotificationServiceImpl implements NotificationService {
     // 알림 목록 조회 (커서 기반 페이징)
     @Override
     @Cacheable(
-            cacheNames = CacheConfig.NOTIFICATION_LIST,
+            cacheNames = NotificationCachePolicy.NOTIFICATION_LIST,
             key = "#receiverType + ':' + #receiverId + ':' + #cursorId + ':' + #size"
     )
     public CursorResponseDto<GetNotificationsResponseDto> getNotifications(
@@ -72,12 +72,12 @@ public class NotificationServiceImpl implements NotificationService {
     @Caching(evict = {
             // 알림 목록 캐시 전체 삭제
             @CacheEvict(
-                    cacheNames = CacheConfig.NOTIFICATION_LIST,
+                    cacheNames = NotificationCachePolicy.NOTIFICATION_LIST,
                     allEntries = true
             ),
             // 미확인 카운트 캐시 삭제 - 전체 읽음 후 숫자 즉시 반영
             @CacheEvict(
-                    cacheNames = CacheConfig.NOTIFICATION_UNREAD,
+                    cacheNames = NotificationCachePolicy.NOTIFICATION_UNREAD,
                     key = "#receiverType + ':' + #receiverId"
             )
     })
@@ -99,12 +99,12 @@ public class NotificationServiceImpl implements NotificationService {
     @Caching(evict = {
             // 알림 목록 캐시 전체 삭제 - isRead 상태 변경 반영
             @CacheEvict(
-                    cacheNames = CacheConfig.NOTIFICATION_LIST,
+                    cacheNames = NotificationCachePolicy.NOTIFICATION_LIST,
                     allEntries = true
             ),
             // 미확인 카운트 캐시 삭제 - 읽음 처리 후 숫자 즉시 반영
             @CacheEvict(
-                    cacheNames = CacheConfig.NOTIFICATION_UNREAD,
+                    cacheNames = NotificationCachePolicy.NOTIFICATION_UNREAD,
                     key = "#receiverType + ':' + #receiverId"
             )
     })
@@ -145,7 +145,7 @@ public class NotificationServiceImpl implements NotificationService {
     // 미확인 알림 카운트를 Redis에 캐싱
     // TTL 10초 — 벨 아이콘 숫자는 실시간성 중요하므로 짧게 설정 (CacheConfig 참고)
     @Cacheable(
-            cacheNames = CacheConfig.NOTIFICATION_UNREAD,
+            cacheNames = NotificationCachePolicy.NOTIFICATION_UNREAD,
             key = "#receiverType + ':' + #receiverId"
     )
     public GetUnreadCountResponseDto getUnreadCount(

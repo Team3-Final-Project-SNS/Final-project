@@ -1,6 +1,6 @@
 package com.example.team3final.domain.notification.service;
 
-import com.example.team3final.common.config.CacheConfig;
+import com.example.team3final.domain.notification.cache.NotificationCachePolicy;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
@@ -29,11 +29,11 @@ public class NotificationCacheService {
      */
     @Caching(evict = {
             @CacheEvict(
-                    cacheNames = CacheConfig.NOTIFICATION_LIST,
+                    cacheNames = NotificationCachePolicy.NOTIFICATION_LIST,
                     allEntries = true   // 모든 유저의 알림 목록 캐시 삭제
             ),
             @CacheEvict(
-                    cacheNames = CacheConfig.NOTIFICATION_UNREAD,
+                    cacheNames = NotificationCachePolicy.NOTIFICATION_UNREAD,
                     allEntries = true   // 모든 유저의 미확인 카운트 캐시 삭제
             )
     })

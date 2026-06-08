@@ -75,8 +75,8 @@ export default function AdminInquiriesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#fff7ed] via-[#f7fbff] to-[#eaf7f1]">
-      <main className="mx-auto max-w-screen-lg px-4 py-10">
+    <div>
+      <main className="mx-auto max-w-screen-xl">
         <h1 className="text-3xl font-bold text-[#212121]">고객 문의 관리</h1>
         <p className="mb-6 mt-2 text-sm text-[#757575]">접수된 문의를 확인하고 답변합니다.</p>
 

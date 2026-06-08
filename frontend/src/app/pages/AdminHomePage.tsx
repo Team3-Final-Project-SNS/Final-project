@@ -105,7 +105,7 @@ export default function AdminHomePage() {
     ...summary.recentReports.map((item) => ({
       id: `report-${item.reportId}`,
       title: `신고 #${item.reportId}`,
-      description: `${item.reporterNickname}님의 신고가 접수되었습니다.`,
+      description: `${item.reporterNickname} · ${item.reason}`,
       createdAt: item.createdAt,
       path: `/admin/reports?reportId=${item.reportId}`,
       category: '신고',
@@ -114,7 +114,7 @@ export default function AdminHomePage() {
     ...summary.recentInquiries.map((item) => ({
       id: `inquiry-${item.inquiryId}`,
       title: item.title,
-      description: `${item.userNickname}님의 고객 문의입니다.`,
+      description: `${item.userNickname} · ${item.type}`,
       createdAt: item.createdAt,
       path: `/admin/inquiries?inquiryId=${item.inquiryId}`,
       category: '문의',
@@ -123,13 +123,13 @@ export default function AdminHomePage() {
     ...summary.recentDisputes.map((item) => ({
       id: `dispute-${item.disputeId}`,
       title: `이의제기 #${item.disputeId}`,
-      description: `${item.applicantNickname}님의 이의제기가 접수되었습니다.`,
+      description: `${item.applicantNickname}님의 요청`,
       createdAt: item.submittedAt,
       path: `/admin/disputes?disputeId=${item.disputeId}`,
       category: '이의제기',
       color: 'bg-[#f3e5f5] text-[#7b1fa2]',
     })),
-  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 6), [summary]);
+  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [summary]);
 
   const cards = [
     {
@@ -171,7 +171,7 @@ export default function AdminHomePage() {
   ];
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-screen-xl">
       <div className="mb-7 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <div className="flex items-center gap-3">
@@ -228,18 +228,18 @@ export default function AdminHomePage() {
         ))}
       </section>
 
-      <section className="mt-6 rounded-2xl border border-[#e0e0e0] bg-white shadow-sm">
+      <section className="mt-7 min-h-[430px] overflow-hidden rounded-2xl border border-[#e0e0e0] bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-[#eeeeee] px-6 py-5">
           <div>
-            <h2 className="text-lg font-bold text-[#212121]">최근 처리 대기 목록</h2>
+            <h2 className="text-xl font-bold text-[#212121]">처리 대기 목록</h2>
             <p className="mt-1 text-sm text-[#757575]">
-              현재 처리 대기 중인 신고·문의·이의제기 {loading ? '-' : totalPending}건을 최근 순으로 보여줍니다.
+              처리 대기 중인 신고·문의·이의제기를 최신순으로 보여줍니다. 총 {loading ? '-' : totalPending}건
             </p>
           </div>
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-14 text-sm text-[#9e9e9e]">
+          <div className="flex min-h-[330px] items-center justify-center gap-2 text-sm text-[#9e9e9e]">
             <Loader2 className="animate-spin" size={18} />
             운영 현황을 불러오는 중...
           </div>
@@ -249,9 +249,9 @@ export default function AdminHomePage() {
               <Link
                 key={activity.id}
                 to={activity.path}
-                className="flex items-center gap-4 px-6 py-4 transition hover:bg-[#fffaf7]"
+                className="group flex items-center gap-4 px-6 py-4 transition hover:bg-[#fffaf7]"
               >
-                <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${activity.color}`}>
+                <span className={`w-16 shrink-0 rounded-full px-2.5 py-1 text-center text-xs font-bold ${activity.color}`}>
                   {activity.category}
                 </span>
                 <div className="min-w-0 flex-1">
@@ -261,12 +261,17 @@ export default function AdminHomePage() {
                 <time className="shrink-0 text-xs font-semibold text-[#9e9e9e]">
                   {formatDateTime(activity.createdAt)}
                 </time>
-                <ArrowRight className="shrink-0 text-[#bdbdbd]" size={16} />
+                <ArrowRight
+                  className="shrink-0 text-[#bdbdbd] transition group-hover:translate-x-0.5 group-hover:text-[#d84315]"
+                  size={16}
+                />
               </Link>
             ))}
           </div>
         ) : (
-          <div className="py-14 text-center text-sm text-[#9e9e9e]">최근 접수된 관리 요청이 없습니다.</div>
+          <div className="flex min-h-[330px] items-center justify-center text-sm text-[#9e9e9e]">
+            최근 접수된 관리 요청이 없습니다.
+          </div>
         )}
       </section>
     </div>

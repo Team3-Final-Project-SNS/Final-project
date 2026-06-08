@@ -130,7 +130,7 @@ export default function MobileLoggedInNavigation({
                           알림을 불러오는 중...
                         </div>
                     ) : notifications.length > 0 ? (
-                        <div className="max-h-[60vh] overflow-y-auto">
+                        <div className="max-h-[60vh] overflow-y-auto overscroll-contain">
                           {notifications.map((notification) => (
                               <button
                                   type="button"

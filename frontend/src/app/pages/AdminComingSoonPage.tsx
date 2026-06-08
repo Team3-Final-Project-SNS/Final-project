@@ -12,8 +12,8 @@ export default function AdminComingSoonPage() {
   const title = pageTitles[location.pathname] || '관리자 기능';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#fff7ed] via-[#f7fbff] to-[#eaf7f1]">
-      <main className="mx-auto max-w-screen-lg px-4 py-10">
+    <div>
+      <main className="mx-auto max-w-screen-xl">
         <Link to="/admin" className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-[#616161] hover:text-[#d84315]">
           <ArrowLeft size={16} />
           관리자 콘솔

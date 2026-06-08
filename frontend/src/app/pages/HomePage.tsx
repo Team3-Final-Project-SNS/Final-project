@@ -271,7 +271,7 @@ export default function HomePage() {
                                   알림을 불러오는 중...
                                 </div>
                             ) : notifications.length > 0 ? (
-                                <div className="max-h-96 overflow-y-auto">
+                                <div className="max-h-96 overflow-y-auto overscroll-contain">
                                   {notifications.map((notification) => (
                                       <button
                                           type="button"

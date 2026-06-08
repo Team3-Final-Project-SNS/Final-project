@@ -143,7 +143,8 @@ export default function AdminUsersPage() {
         </div>
       ) : (
         <div className="overflow-hidden rounded-2xl border border-[#e0e0e0] bg-white shadow-sm">
-          <div className="grid grid-cols-[1.2fr_1fr_1fr_0.8fr_0.8fr_0.8fr] gap-3 border-b border-[#eeeeee] bg-[#fafafa] px-5 py-3 text-xs font-bold text-[#757575]">
+          <div className="grid grid-cols-[0.35fr_1.2fr_1fr_1fr_0.8fr_0.8fr_0.8fr] gap-3 border-b border-[#eeeeee] bg-[#fafafa] px-5 py-3 text-xs font-bold text-[#757575]">
+            <span className="text-center">번호</span>
             <span>유저</span>
             <span>학교</span>
             <span>닉네임</span>
@@ -153,18 +154,19 @@ export default function AdminUsersPage() {
           </div>
 
           {filteredUsers.length > 0 ? (
-            filteredUsers.map((user) => (
+            filteredUsers.map((user, index) => (
               <div
                 key={user.userId}
-                className="grid grid-cols-[1.2fr_1fr_1fr_0.8fr_0.8fr_0.8fr] gap-3 border-b border-[#f5f5f5] px-5 py-4 text-sm last:border-b-0"
+                className="grid grid-cols-[0.35fr_1.2fr_1fr_1fr_0.8fr_0.8fr_0.8fr] gap-3 border-b border-[#f5f5f5] px-5 py-4 text-sm last:border-b-0"
               >
+                <span className="text-center font-semibold text-[#9e9e9e]">{index + 1}</span>
                 <div>
                   <p className="font-bold text-[#212121]">{user.name}</p>
                   <p className="mt-1 text-xs text-[#757575]">{user.email}</p>
                 </div>
                 <span className="font-semibold text-[#424242]">{user.universityName}</span>
                 <span className="text-[#616161]">{user.nickname}</span>
-                <span className="font-bold text-[#d84315]">{user.point.toLocaleString()}P</span>
+                <span className="font-bold text-[#212121]">{user.point.toLocaleString()}P</span>
                 <span className="font-bold text-[#2e7d32]">{Number(user.mannerTemperature).toFixed(1)}°C</span>
                 <span>
                   <span className={`rounded px-2.5 py-1 text-xs font-bold ${statusClasses[user.status]}`}>
@@ -186,8 +188,8 @@ export default function AdminUsersPage() {
 
 function AdminPageShell({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#fff7ed] via-[#f7fbff] to-[#eaf7f1]">
-      <main className="mx-auto max-w-screen-lg px-4 py-10">
+    <div>
+      <main className="mx-auto max-w-screen-xl">
         <div className="mb-6 flex items-center gap-3">
           <Users className="text-[#d84315]" size={28} />
           <div>

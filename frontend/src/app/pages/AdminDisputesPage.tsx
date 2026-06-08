@@ -102,8 +102,8 @@ export default function AdminDisputesPage() {
   const canJudge = selected && !['ACCEPTED', 'PARTIALLY_ACCEPTED', 'REJECTED'].includes(selected.status);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#fff7ed] via-[#f7fbff] to-[#eaf7f1]">
-      <main className="mx-auto max-w-screen-xl px-4 py-10">
+    <div>
+      <main className="mx-auto max-w-screen-xl">
         <h1 className="text-3xl font-bold text-[#212121]">이의제기 관리</h1>
         <p className="mb-6 mt-2 text-sm text-[#757575]">이의제기 사유와 인증·채팅 내역을 확인하고 판정합니다.</p>
 
