@@ -1,5 +1,7 @@
 package com.example.team3final.domain.post.cache;
 
+import com.example.team3final.domain.post.enums.PostStatus;
+
 import java.time.Duration;
 
 // 게시글 도메인에서 사용하는 캐시 이름을 관리
@@ -9,12 +11,27 @@ public class PostCachePolicy {
 
     }
 
-    // 게시글 목록 조회 전에 반복 조회되는 같은 대학교 유저 ID 목록 캐시 키
-    public static final String SAME_UNIVERSITY_USER_IDS = "post:sameUniversityUserIds";
+    // 게시글 목록 조회 캐시 키
+    // Redis에는 이 cacheName을 prefix로 사용하여 key 생성
+    // ex) post:list::user:8:status:OPEN:page:0:size:20
+    public static final String POST_LIST_PREFIX = "post:list";
 
-    // 같은 대학교 유저 ID 목록 캐시 TTL
-    // TTL : 10분 -> 너무 짧으면 캐시 효과가 약해짐, 너무 길면 유저 상태 변경이 게시글 노출 범위에 늦게 반영될 수 있음
-    // 10분은 조회 성능 개선과 데이터 최신성 사이의 절충 값
-    public static final Duration SAME_UNIVERSITY_USER_IDS_TTL = Duration.ofMinutes(10);
+    // 게시글 목록 조회 TTL : 30초로 설정
+    // 게시글 목록은 조회 빈도가 높지만, 게시글 등록, 모집 상태 변경, 신청자 수 변경 등에 따라 결과가 달라질 수 있음,
+    // 따라서 너무 긴 TTL을 두면 오래된 목록이 노출될 수 있으므로, 30초로 짧게 선정
+    public static final Duration POST_LIST_TTL = Duration.ofSeconds(30);
+
+    // 게시글 목록 조회 결과를 구분하기 위한 Redis key를 생성
+    public static String postListKey(Long userId, PostStatus status, int page, int size) {
+        return POST_LIST_PREFIX
+                // 사용자별 캐시를 구분
+                + ":user:" + userId
+                // 상태별 조회 결과가 다르므로 status를 key에 포함
+                + ":status:" + (status == null ? "ALL" : status.name())
+                // 페이지 번호별 조회 결과가 다르므로 page를 key에 포함
+                + ":page:" + page
+                // 페이지 크기별 조회 결과가 다르므로 size를 key에 포함
+                + ":size:" + size;
+    }
 
 }

@@ -250,10 +250,6 @@ public class UserServiceImpl implements UserService {
 
     // 같은 학교 활성 사용자 ID 목록 조회
     @Override
-    @Cacheable(
-            cacheNames = PostCachePolicy.SAME_UNIVERSITY_USER_IDS,
-            key = "#universityId"
-    )
     public List<Long> getUserIdsByUniversityId(Long universityId) {
         // UserRepository에서 universityId 기준으로 ACTIVE 유저 ID만 조회
         // 탈퇴/정지 유저 제외 → 게시글 목록에 노출되면 안 되는 유저 자동 필터링
