@@ -62,6 +62,7 @@ public class MatchServiceImpl implements MatchService{
     private static final long REDIS_LOCK_LEASE_SECONDS = 5;
 
     @Override
+    @Transactional
     public CreateMatchResponseDto createMatch(Long postId, Long applicantId) {
 
         String lockKey = MATCH_LOCK_KEY + postId;
