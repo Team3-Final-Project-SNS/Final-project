@@ -4,6 +4,7 @@ import com.example.team3final.common.exception.ChatException;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.domain.chat.dto.request.ChatMessageRequestDto;
 import com.example.team3final.domain.chat.dto.response.ChatMessageResponseDto;
+import com.example.team3final.domain.chat.entity.ChatMember;
 import com.example.team3final.domain.chat.entity.ChatMessage;
 import com.example.team3final.domain.chat.entity.ChatRoom;
 import com.example.team3final.domain.chat.pubsub.KafkaChatMessageProducer;
@@ -82,8 +83,13 @@ public class ChatMessageHandler {
             return;
         }
 
-        // 채팅방 참여자인지 확인
-        if (!chatMemberRepository.existsByChatRoomIdAndUserId(chatRoomId, senderId)) {
+        // 참여자 여부 확인 + 노쇼 상태 체크를 한 번의 조회로 처리
+        ChatMember sender = chatMemberRepository
+                .findByChatRoomIdAndUserId(chatRoomId, senderId)
+                .orElse(null);
+
+        // 참여자가 아니면 차단
+        if (sender == null) {
             messagingTemplate.convertAndSendToUser(
                     email,
                     "/queue/errors",
@@ -93,18 +99,14 @@ public class ChatMessageHandler {
         }
 
         // 노쇼 판정(예정)된 멤버는 메시지 전송 차단
-        // GUEST_NO_SHOW 처리 시 ChatMember.status = NO_SHOW로 변경됨
-        chatMemberRepository.findByChatRoomIdAndUserId(chatRoomId, senderId)
-                .ifPresent(member -> {
-                    if (member.isNoShow()) {
-                        messagingTemplate.convertAndSendToUser(
-                                email,
-                                "/queue/errors",
-                                ErrorCode.CHAT_ROOM_READ_ONLY.getMessage()
-                        );
-                        throw new ChatException(ErrorCode.CHAT_ROOM_READ_ONLY);
-                    }
-                });
+        if (sender.isNoShow()) {
+            messagingTemplate.convertAndSendToUser(
+                    email,
+                    "/queue/errors",
+                    ErrorCode.CHAT_ROOM_READ_ONLY.getMessage()
+            );
+            return;
+        }
 
         // 욕설 필터링 후 메시지 DB 저장
         String filteredContent = badWordFilterService.filter(request.getContent());
