@@ -3,9 +3,11 @@ package com.example.team3final.domain.user.repository;
 
 import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.enums.UserStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -65,4 +67,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // 닉네임 LIKE 검색 -> 관리자 게시글 작성자 검색용
     @Query("SELECT u.id FROM User u WHERE u.nickname LIKE %:nickname%")
     List<Long> findIdsByNicknameLike(@Param("nickname") String nickname);
+
+    // 비관적락 관련 메서드
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM User u WHERE u.id = :id")
+    Optional<User> findByIdWithPessimisticLock(@Param("id") Long id);
 }
