@@ -9,6 +9,7 @@ import com.example.team3final.domain.chat.entity.ChatMember;
 import com.example.team3final.domain.chat.entity.ChatMessage;
 import com.example.team3final.domain.chat.entity.ChatRoom;
 import com.example.team3final.domain.chat.enums.ChatMemberRole;
+import com.example.team3final.domain.chat.enums.ChatMemberStatus;
 import com.example.team3final.domain.chat.repository.ChatMemberRepository;
 import com.example.team3final.domain.chat.repository.ChatMessageRepository;
 import com.example.team3final.domain.chat.repository.ChatRoomRepository;
@@ -19,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -145,11 +147,20 @@ public class ChatServiceImpl implements ChatService {
         // 참여자 입장 시각 (이 시각 이후 메시지만 반환)
         LocalDateTime joinedAt = chatMember.getCreatedAt();
 
+        // 노쇼 멤버면 leftAt 이후 메시지 차단 (null이면 정상 참여 중 → 제한 없음)
+        LocalDateTime readableUntil = chatMember.getLeftAt();
+
         // 입장 시각 이후 메시지만 조회 (이전 참여자와의 대화 격리)
         List<ChatMessage> messages = chatMessageRepository
                 .findByChatRoomIdAndIdLessThanAndCreatedAtAfterOrderByIdDesc(
                         chatRoomId, cursorId, joinedAt, PageRequest.of(0, size + 1));
 
+        // 노쇼 판정 시각 이후 메시지 필터링 — 이의제기용 기존 대화만 열람 가능
+        if (readableUntil != null) {
+            messages = messages.stream()
+                    .filter(m -> m.getCreatedAt().isBefore(readableUntil))
+                    .toList();
+        }
 
         // 읽음 처리 - 내가 보낸 메시지가 아닌 것만
         messages.stream()
@@ -321,18 +332,40 @@ public class ChatServiceImpl implements ChatService {
         );
     }
 
-    // 채팅방 즉시 읽기 전용 전환 - 노쇼 예정 시 내부 호출
-    // ACTIVE → READ_ONLY (메시지 조회만 가능, 전송 불가)
-    @Transactional
+    // GUEST 노쇼 → 해당 멤버만 NO_SHOW / HOST,BOTH 노쇼 → 전체 READ_ONLY
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     @Override
-    public void makeReadOnlyChatRoom(Long postId) {
-        // postId로 채팅방 조회, 없으면 예외
+    public void markGuestNoShow(Long postId, Long applicantId) {
+        // postId로 채팅방 조회, 없으면 조용히 종료
         ChatRoom chatRoom = chatRoomRepository.findByPostId(postId)
-                .orElse(null);
+                .orElseThrow(() -> new ChatException(ErrorCode.CHAT_ROOM_NOT_FOUND));
 
-        if (chatRoom == null) {
+        // 해당 신청자 멤버 조회, 없으면 조용히 종료
+        ChatMember chatMember = chatMemberRepository
+                .findByChatRoomIdAndUserId(chatRoom.getId(), applicantId)
+                .orElseThrow(() -> new ChatException(ErrorCode.CHAT_NOT_PARTICIPANT));
+
+        // 이미 NO_SHOW면 스킵 (멱등성 보장)
+        if (chatMember.isNoShow()) {
             return;
         }
+
+        // NO_SHOW 상태 + leftAt 기록 — leftAt 이후 메시지는 조회 불가
+        chatMemberRepository.updateStatusAndLeftAt(
+                chatRoom.getId(),
+                applicantId,
+                ChatMemberStatus.NO_SHOW,
+                LocalDateTime.now()
+        );
+    }
+
+    // HOST/BOTH 노쇼 시 채팅방 전체 READ_ONLY
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Override
+    public void makeReadOnlyChatRoom(Long postId) {
+        // 채팅방이 없으면 조용히 종료
+        ChatRoom chatRoom = chatRoomRepository.findByPostId(postId)
+                .orElseThrow(() -> new ChatException(ErrorCode.CHAT_ROOM_NOT_FOUND));
 
         // 이미 READ_ONLY 또는 DEACTIVATED면 스킵 (멱등성 보장)
         if (!chatRoom.isActive()) {
@@ -340,7 +373,6 @@ public class ChatServiceImpl implements ChatService {
         }
 
         // ACTIVE → READ_ONLY 전환
-        // @Transactional 더티 체킹으로 자동 UPDATE
         chatRoom.deactivateByNoShow();
     }
 }

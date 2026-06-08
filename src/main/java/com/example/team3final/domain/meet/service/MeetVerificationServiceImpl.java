@@ -356,7 +356,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             if (!authorVerified && !applicantVerified) {
                 meetVerification.markBothNoShow();
                 userLocationCleanupService.deleteLocationsByMatchId(meetVerification.getMatchId());
-                // 노쇼 예정 시 채팅방 읽기전용 전환
+                // BOTH_NO_SHOW → 채팅방 전체 READ_ONLY
                 chatService.makeReadOnlyChatRoom(matchInfoDto.postId());
                 // 발송 플래그 확인 → 중복 발송 방지
                 if (!meetVerification.isNoShowWarningSent()) {
@@ -368,8 +368,8 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             } else if (authorVerified && !applicantVerified) {
                 meetVerification.markApplicantNoShow();
                 userLocationCleanupService.deleteLocationsByMatchId(meetVerification.getMatchId());
-                // 노쇼 예정 시 채팅방 읽기전용 전환
-                chatService.makeReadOnlyChatRoom(matchInfoDto.postId());
+                // GUEST_NO_SHOW → 해당 신청자만 NO_SHOW 처리
+                chatService.markGuestNoShow(matchInfoDto.postId(), matchInfoDto.applicantId());
                 // 발송 플래그 확인 → 중복 발송 방지
                 if (!meetVerification.isNoShowWarningSent()) {
                     notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), meetVerification.getMatchId());
@@ -379,7 +379,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             } else if (!authorVerified) {
                 meetVerification.markAuthorNoShow();
                 userLocationCleanupService.deleteLocationsByMatchId(meetVerification.getMatchId());
-                // 노쇼 예정 시 채팅방 읽기전용 전환
+                // HOST_NO_SHOW → 채팅방 전체 READ_ONLY
                 chatService.makeReadOnlyChatRoom(matchInfoDto.postId());
                 // 발송 플래그 확인 → 중복 발송 방지
                 if (!meetVerification.isNoShowWarningSent()) {
@@ -454,8 +454,8 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             if (authorInRange && !applicantInRange) {
                 // 등록자는 현장에 있고 신청자가 없는 경우 → GUEST_NO_SHOW 예정
                 meetVerification.markApplicantNoShow();
-                // 노쇼 예정 시 채팅방 읽기전용 전환
-                chatService.makeReadOnlyChatRoom(matchInfoDto.postId());
+                // GUEST_NO_SHOW → 해당 신청자만 NO_SHOW 처리
+                chatService.markGuestNoShow(matchInfoDto.postId(), matchInfoDto.applicantId());
                 // 발송 플래그 확인 → 중복 발송 방지
                 if (!meetVerification.isNoShowWarningSent()) {
                     notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), matchId);
@@ -465,7 +465,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             } else if (!authorInRange && applicantInRange) {
                 // 신청자는 현장에 있고 등록자가 없는 경우 → HOST_NO_SHOW 예정
                 meetVerification.markAuthorNoShow();
-                // 노쇼 예정 시 채팅방 읽기전용 전환
+                // HOST_NO_SHOW → 채팅방 전체 READ_ONLY
                 chatService.makeReadOnlyChatRoom(matchInfoDto.postId());
                 // 발송 플래그 확인 → 중복 발송 방지
                 if (!meetVerification.isNoShowWarningSent()) {
@@ -477,7 +477,7 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                 // 여기 도달 시점 = authorInRange=false, applicantInRange=false 확정
                 // 둘 다 현장에 없는 경우 → BOTH_NO_SHOW 예정
                 meetVerification.markBothNoShow();
-                // 노쇼 예정 시 채팅방 읽기전용 전환
+                // BOTH_NO_SHOW → 채팅방 전체 READ_ONLY
                 chatService.makeReadOnlyChatRoom(matchInfoDto.postId());
                 // 발송 플래그 확인 → 중복 발송 방지
                 if (!meetVerification.isNoShowWarningSent()) {
