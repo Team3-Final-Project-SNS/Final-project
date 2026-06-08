@@ -4,6 +4,7 @@ import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.PostException;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
+import com.example.team3final.domain.post.cache.PostCachePolicy;
 import com.example.team3final.domain.post.dto.request.CreatePostRequestDto;
 import com.example.team3final.domain.post.dto.request.UpdatePostRequestDto;
 import com.example.team3final.domain.post.dto.response.*;
@@ -15,6 +16,7 @@ import com.example.team3final.domain.user.dto.response.UserInfoDto;
 import com.example.team3final.domain.user.service.UserPointService;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -179,6 +181,17 @@ public class PostServiceImpl implements PostService{
         return DeletePostResponseDto.of(postId, refundedPoint);
     }
 
+    @Cacheable(
+            // 게시글 목록 조회  API 응답 결과를 캐싱
+            cacheNames = PostCachePolicy.POST_LIST,
+            // currentUserId -> 게시글 목록은 같은 학교 유저 기준으로 조회,
+            // 또한 회피/차단 관계에 따라 사용자별로 보이는 게시글이 달라질 수 있고,
+            // universityId만 key로 쓰면 다른 사용자의 필터링 결과가 섞일 수 있음
+            // status -> OPEN, COMPLETED, CANCELLED 등 상태별 조회 결과가 다르므로 key에 포함
+            // page, size: 페이지 번호와 페이지 크기에 따라 응답 content가 달라지므로 key에 포함
+            // ex) Redis key -> post:list::user:8:status:OPEN:page:0:size:20
+            key = "'user:' + #currentUserId + ':status:' + #status + ':page:' +#pageable.pageNumber + ':size:' + #pageable.pageSize"
+    )
     @Override
     public PageResponseDto<GetPostsItemResponseDto> getPosts(
             Long currentUserId,
