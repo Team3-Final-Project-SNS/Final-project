@@ -1,6 +1,5 @@
 package com.example.team3final.common.config;
 
-import com.example.team3final.domain.notification.cache.NotificationCachePolicy;
 import com.example.team3final.domain.post.cache.PostCachePolicy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -35,25 +34,25 @@ public class CacheConfig {
     public RedisCacheManager redisCacheManager(RedisConnectionFactory connectionFactory) {
 
         RedisCacheConfiguration defaultConfig = createDefaultJsonCacheConfig();
-
+        // RedisCacheManager 생성
+        // cacheDefaults() -> 별도 정책을 지정하지 않은 캐시에 적용되는 기본 TTL
+        // 기본 TTL -> 5분으로 설정
         return RedisCacheManager.builder(connectionFactory)
-                // cacheDefaults() -> 별도 정책을 지정하지 않은 캐시에 적용되는 기본 TTL 5분
                 .cacheDefaults(defaultConfig.entryTtl(DEFAULT_TTL))
-                // withInitialCacheConfigurations() -> 캐시 이름별로 TTL 정책을 다르게 설정
+                // withInitialCacheConfigurations() -> 캐시 이름별로 TTL 정책을 다르게 설정,
                 // 캐시를 추가할 경우 이 Map에 cacheName별 정책을 추가하여 사용
                 .withInitialCacheConfigurations(Map.of(
-                        // 게시글 캐시 (팀원)
                         PostCachePolicy.SAME_UNIVERSITY_USER_IDS,
                         jdkSerializedCacheConfig(
                                 defaultConfig,
                                 PostCachePolicy.SAME_UNIVERSITY_USER_IDS_TTL
                         ),
-                        // 알림 목록 캐시 (블레어) - record 타입이라 타입 정보 포함 JSON 직렬화 사용
+                        // 알림 목록 캐시
                         NotificationCachePolicy.NOTIFICATION_LIST,
                         NotificationCachePolicy.notificationCacheConfig(
                                 NotificationCachePolicy.NOTIFICATION_LIST_TTL
                         ),
-                        // 미확인 알림 카운트 캐시 (블레어)
+                        // 미확인 알림 카운트 캐시
                         NotificationCachePolicy.NOTIFICATION_UNREAD,
                         NotificationCachePolicy.notificationCacheConfig(
                                 NotificationCachePolicy.NOTIFICATION_UNREAD_TTL
@@ -62,29 +61,38 @@ public class CacheConfig {
                 .build();
     }
 
+
     // 기본 Redis Cache 설정
-    // 대부분의 캐시는 JSON 형태로 저장해도 충분하므로,
+    // 대부분의 캐시는 JSON 형태로 저장해도 충분 하므로,
     // GenericJackson2JsonRedisSerializer를 기본 직렬화 방식으로 사용
     private RedisCacheConfiguration createDefaultJsonCacheConfig() {
+
         ObjectMapper objectMapper = new ObjectMapper();
-        // Java 8 날짜/시간 타입 직렬화 지원
+
+        // Redis 캐시에 LocalDateTime,LocalDate, LocalTime 같은 Java Time 타입이 들어갈 수 있으므로,
+        // Jackson이 Java 8 날짜/시간 타입을 JSON으로 직렬화/역직렬화할 수 있게 모듈을 등록
         objectMapper.registerModule(new JavaTimeModule());
-        // ISO-8601 문자열 형태로 저장
+
+        // 날짜 / 시간 값을 timestamp 배열이 아니라 ISO-8601 문자열 형태로 저장
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-        GenericJackson2JsonRedisSerializer jsonSerializer =
-                new GenericJackson2JsonRedisSerializer(objectMapper);
+        GenericJackson2JsonRedisSerializer jsonSerializer = new GenericJackson2JsonRedisSerializer(objectMapper);
 
+        // defaultCacheConfig() -> 모든 캐시에 공통으로 적용할 기본 설정
         return RedisCacheConfiguration.defaultCacheConfig()
                 .disableCachingNullValues()
                 .serializeValuesWith(
-                        RedisSerializationContext.SerializationPair.fromSerializer(jsonSerializer)
+                        RedisSerializationContext.SerializationPair.fromSerializer(
+                                // GenericJackson2JsonRedisSerializer -> 캐시 값을 JSON 형태로 직렬화
+                                // List<Long>, DTO, Map 같은 객체도 Redis에 저장할 수 있게 해줌
+                                jsonSerializer
+                        )
                 );
     }
 
     // 타입 보존이 중요한 캐시에 사용하는 공용 설정
-    // ex) List<Long> 같은 제네릭 컬렉션은 JSON 역직렬화 과정에서 Integer로 복원될 수 있음
-    // JdkSerializationRedisSerializer를 사용하면 Java 객체 타입 정보를 보존할 수 있다.
+    // ex) List<Long> 같은 제네릭 컬렉션은 JSON 역직렬화 과정에서 Integer로 복원될 수 있음,
+    // 이런 경우 JdkSerializationRedisSerializer를 사용하면,Java 객체 타입 정보를 보존할 수 있다.
     public static RedisCacheConfiguration jdkSerializedCacheConfig(
             RedisCacheConfiguration baseConfig, Duration ttl) {
         return baseConfig
