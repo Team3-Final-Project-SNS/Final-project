@@ -4,6 +4,7 @@ import com.example.team3final.common.exception.ChatException;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.domain.chat.dto.request.ChatMessageRequestDto;
 import com.example.team3final.domain.chat.dto.response.ChatMessageResponseDto;
+import com.example.team3final.domain.chat.entity.ChatMember;
 import com.example.team3final.domain.chat.entity.ChatMessage;
 import com.example.team3final.domain.chat.entity.ChatRoom;
 import com.example.team3final.domain.chat.pubsub.KafkaChatMessageProducer;
@@ -82,12 +83,27 @@ public class ChatMessageHandler {
             return;
         }
 
-        // 채팅방 참여자인지 확인
-        if (!chatMemberRepository.existsByChatRoomIdAndUserId(chatRoomId, senderId)) {
+        // 참여자 여부 확인 + 노쇼 상태 체크를 한 번의 조회로 처리
+        ChatMember sender = chatMemberRepository
+                .findByChatRoomIdAndUserId(chatRoomId, senderId)
+                .orElse(null);
+
+        // 참여자가 아니면 차단
+        if (sender == null) {
             messagingTemplate.convertAndSendToUser(
                     email,
                     "/queue/errors",
                     ErrorCode.CHAT_NOT_PARTICIPANT.getMessage()
+            );
+            return;
+        }
+
+        // 노쇼 판정(예정)된 멤버는 메시지 전송 차단
+        if (sender.isNoShow()) {
+            messagingTemplate.convertAndSendToUser(
+                    email,
+                    "/queue/errors",
+                    ErrorCode.CHAT_ROOM_READ_ONLY.getMessage()
             );
             return;
         }
@@ -121,6 +137,7 @@ public class ChatMessageHandler {
         // 채팅방 참여자에게 메시지 수신 알림 발송 (발신자 제외)
         chatMemberRepository.findByChatRoomId(chatRoomId).stream()
                 .filter(member -> !member.getUserId().equals(senderId)) // 발신자 제외
+                .filter(member -> !member.isNoShow()) // 노쇼 멤버 알림 제외
                 .forEach(member ->
                         // 13. 채팅 메시지 수신 알림 - 메시지 수신자에게
                         notificationPublisher.sendChatReceived(member.getUserId(), chatRoomId));

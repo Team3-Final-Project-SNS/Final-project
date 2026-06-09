@@ -3,6 +3,8 @@ package com.example.team3final.domain.chat.pubsub;
 import com.example.team3final.common.kafka.KafkaIdempotencyService;
 import com.example.team3final.common.kafka.KafkaTopics;
 import com.example.team3final.domain.chat.dto.response.ChatMessageResponseDto;
+import com.example.team3final.domain.chat.repository.ChatMemberRepository;
+import com.example.team3final.domain.user.service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +25,9 @@ public class KafkaChatMessageConsumer {
 
     // 멱등성 체크 서비스 주입
     private final KafkaIdempotencyService kafkaIdempotencyService;
+
+    private final ChatMemberRepository chatMemberRepository;
+    private final UserService userService;
 
     // Kafka chat-messages 토픽에서 메시지가 오면 자동으로 호출됨
     // KafkaChatMessageProducer -> Kafka -> 이 메서드 -> WebSocket 구독자들에게 전달
@@ -45,9 +50,19 @@ public class KafkaChatMessageConsumer {
             log.info("[Kafka Chat Consumer] 메시지 수신 - topic: {}, chatRoomId: {}, messageId: {}",
                     KafkaTopics.CHAT_MESSAGES, response.chatRoomId(), response.messageId());
 
-            // WebSocket 구독자들에게 전달
-            // /sub/chat/rooms/{chatRoomId} 구독 중인 모든 클라이언트에게 전송
-            messagingTemplate.convertAndSend("/sub/chat/rooms/" + response.chatRoomId(), response);
+            // NO_SHOW 멤버를 제외한 구독자에게만 개별 전송
+            chatMemberRepository.findByChatRoomId(response.chatRoomId()).stream()
+                    .filter(member -> !member.isNoShow())
+                    .forEach(member -> {
+                        // convertAndSendToUser는 Principal.getName() = email 기준으로 전달
+                        String memberEmail = userService.getEmailByUserId(member.getUserId());
+                        messagingTemplate.convertAndSendToUser(
+                                memberEmail,
+                                "/sub/chat/rooms/" + response.chatRoomId(),
+                                response
+                        );
+                    });
+
         } catch (Exception e) {
             log.error("[Kafka Chat Consumer] 메시지 처리 실패 - error: {}", e.getMessage());
         }

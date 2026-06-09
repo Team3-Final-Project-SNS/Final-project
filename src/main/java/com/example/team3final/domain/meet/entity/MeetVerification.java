@@ -96,6 +96,14 @@ public class MeetVerification {
     @Column(name = "imminent_sent", nullable = false)
     private boolean imminentSent = false;
 
+    // 노쇼 예정 알림 발송 여부 (중복 발송 방지)
+    @Column(name = "no_show_warning_sent", nullable = false)
+    private boolean noShowWarningSent = false;
+
+    // 노쇼 확정 알림 발송 여부 (중복 발송 방지)
+    @Column(name = "no_show_confirmed_sent", nullable = false)
+    private boolean noShowConfirmedSent = false;
+
     @Builder
     private MeetVerification(Long matchId, VerificationStatus status, Boolean isMeetVerified,
                              ExtensionStatus extensionStatus, boolean isExtended) {
@@ -344,5 +352,15 @@ public class MeetVerification {
         this.completedAt = LocalDateTime.now();
         // 백업 필드 초기화
         this.disputedFromStatus = null;
+    }
+
+    // 노쇼 예정 알림 발송 완료 처리
+    public void markNoShowWarningSent() {
+        this.noShowWarningSent = true;
+    }
+
+    // 노쇼 확정 알림 발송 완료 처리
+    public void markNoShowConfirmedSent() {
+        this.noShowConfirmedSent = true;
     }
 }

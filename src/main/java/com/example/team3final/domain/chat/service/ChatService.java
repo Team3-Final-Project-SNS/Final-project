@@ -49,4 +49,8 @@ public interface ChatService {
     // READ_ONLY: 메시지 조회 가능, 전송 불가
     // 이의제기 기간(24시간) 채팅 기록 열람 필요
     void makeReadOnlyChatRoom(Long postId);
+
+    // GUEST 노쇼 판정 시 해당 멤버만 전송 차단 + leftAt 기록
+    // HOST/BOTH 노쇼와 달리 채팅방 전체를 잠그지 않고 해당 신청자만 제한
+    void markGuestNoShow(Long postId, Long applicantId);
 }

@@ -125,12 +125,15 @@ export default function ChatPage() {
       onConnect: () => {
         setConnected(true);
         setError('');
-        client.subscribe(`/sub/chat/rooms/${chatRoomId}`, (payload) => {
+        client.subscribe(`/user/sub/chat/rooms/${chatRoomId}`, (payload) => {
           const newMessage: ChatMessageResponse = JSON.parse(payload.body);
           setMessages((prev) => [
             ...prev,
             newMessage.senderId === currentUserId ? newMessage : { ...newMessage, isRead: true },
           ]);
+        });
+        client.subscribe('/user/queue/errors', (payload) => {
+          setError(payload.body);
         });
       },
       onStompError: (frame) => {

@@ -79,8 +79,10 @@ public class NotificationEventConsumer {
                 }
             });
 
-            log.info("[Kafka Notification Consumer] 알림 처리 완료 - receiverId: {}, type: {}, notificationId: {}",
-                    event.receiverId(), event.type(), notification.getId());
+            log.info("[Kafka Notification Consumer] 알림 처리 완료 - receiverId: {}, type: {}, title: {}, notificationId: {}",
+                    event.receiverId(), event.type(), event.title(), notification.getId());
+            log.debug("[Kafka Notification Consumer] 알림 상세 내용 - title: {}, content: {}",
+                    event.title(), event.content());
         } catch (Exception e) {
             log.error("[Kafka Notification Consumer] 알림 처리 실패 - error: {}", e.getMessage());
         }

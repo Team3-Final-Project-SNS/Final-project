@@ -49,6 +49,9 @@ public interface UserService {
     // 이메일로 사용자 ID를 조회합니다.
     Long getUserIdByEmail(String email);
 
+    // userId로 이메일 조회 — WebSocket Principal 매핑용
+    String getEmailByUserId(Long userId);
+
     // 같은 학교 유저 ID 목록 조회
     List<Long> getUserIdsByUniversityId(Long universityId);
 

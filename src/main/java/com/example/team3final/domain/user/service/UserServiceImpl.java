@@ -241,6 +241,14 @@ public class UserServiceImpl implements UserService {
         return user.getId();
     }
 
+    // userId로 이메일 조회 — WebSocket Principal 매핑용
+    @Override
+    public String getEmailByUserId(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND))
+                .getEmail();
+    }
+
     // 이메일로 User 엔티티 조회(로그인 시 사용)
     @Override
     public User findByEmail(String email) {

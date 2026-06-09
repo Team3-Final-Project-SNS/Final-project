@@ -32,6 +32,18 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
             Pageable pageable
     );
 
+    // leftAt 필터 적용 - 노쇼 판정(예정) 시각 이전 메시지만 조회
+    // leftAt이 null이면 정상 참여 중 → 제한 없음
+    // leftAt이 있으면 노쇼 멤버 → 판정 시각 이전 메시지만 열람 가능 (이의제기 증빙용)
+    @Query("SELECT m FROM ChatMessage m WHERE m.chatRoomId = :chatRoomId AND m.id < :cursorId AND m.createdAt >= :joinedAt AND m.createdAt < :leftAt ORDER BY m.id DESC")
+    List<ChatMessage> findByChatRoomIdAndIdLessThanAndCreatedAtBetweenOrderByIdDesc(
+            @Param("chatRoomId") Long chatRoomId,
+            @Param("cursorId") Long cursorId,
+            @Param("joinedAt") LocalDateTime joinedAt,
+            @Param("leftAt") LocalDateTime leftAt,
+            Pageable pageable
+    );
+
     // 채팅방 전체 메시지 오래된 순 조회 — 어드민 이의제기 상세 조회용
     List<ChatMessage> findByChatRoomIdOrderByIdAsc(Long chatRoomId);
 }

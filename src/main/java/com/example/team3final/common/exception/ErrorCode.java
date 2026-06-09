@@ -141,7 +141,6 @@ public enum ErrorCode {
     // Report
     REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "REPORT_001", "존재하지 않는 신고입니다."),
     REPORT_ALREADY_PROCESSED(HttpStatus.CONFLICT, "REPORT_002", "이미 처리된 신고입니다."),
-    REPORT_NOT_OWNER(HttpStatus.FORBIDDEN, "REPORT_003", "본인의 신고만 취소할 수 있습니다."),
     REPORT_TOO_SOON(HttpStatus.CONFLICT, "REPORT_004", "3일 이내 동일 게시글 재신고는 불가합니다."),
     REPORT_SELF_REPORT(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_005", "본인의 게시글은 신고할 수 없습니다."),
     REPORT_ALREADY_REPORTED(HttpStatus.CONFLICT, "REPORT_006", "이미 신고한 게시글입니다."),

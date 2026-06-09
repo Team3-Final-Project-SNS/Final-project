@@ -1,6 +1,5 @@
 package com.example.team3final.domain.report.service;
 
-import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.ReportException;
 import com.example.team3final.domain.admin.service.AdminService;
@@ -9,8 +8,6 @@ import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.service.PostService;
 import com.example.team3final.domain.report.dto.request.CreateReportRequestDto;
 import com.example.team3final.domain.report.dto.response.CreateReportResponseDto;
-import com.example.team3final.domain.report.dto.response.DeleteReportResponseDto;
-import com.example.team3final.domain.report.dto.response.GetMyReportsResponseDto;
 import com.example.team3final.domain.report.entity.Report;
 import com.example.team3final.domain.report.enums.ReportStatus;
 import com.example.team3final.domain.report.repository.ReportRepository;
@@ -109,37 +106,6 @@ public class ReportServiceImpl implements ReportService {
         );
 
         return CreateReportResponseDto.from(savedReport);
-    }
-
-    // 내 신고 내역 조회
-    @Override
-    public PageResponseDto<GetMyReportsResponseDto> getMyReports(Long reporterId, Pageable pageable) {
-
-        Page<GetMyReportsResponseDto> page = reportRepository
-                .findByReporterIdOrderByCreatedAtDesc(reporterId, pageable)
-                .map(GetMyReportsResponseDto::from);
-
-        return PageResponseDto.from(page);
-    }
-
-    // 신고 취소
-    @Override
-    @Transactional
-    public DeleteReportResponseDto deleteReport(Long reporterId, Long reportId) {
-
-        // 신고 존재 여부 + 본인 신고 확인
-        Report report = reportRepository.findByIdAndReporterId(reportId, reporterId)
-                .orElseThrow(() -> new ReportException(ErrorCode.REPORT_NOT_FOUND));
-
-        // 이미 처리된 신고는 취소 불가
-        if (report.isProcessed()) {
-            throw new ReportException(ErrorCode.REPORT_ALREADY_PROCESSED);
-        }
-
-        // 소프트 딜리트 (WITHDRAWN)
-        report.withdraw();
-
-        return DeleteReportResponseDto.of(report.getId(), report.getCancelledAt());
     }
 
     // 신고 채택 - 관리자 호출용

@@ -16,12 +16,6 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
     // AI_report 관리자 콘솔 챗봇의 대시보드 요약용 읽기 전용 집계입니다.
     long countByStatus(ReportStatus status);
 
-    // 내 신고 내역 조회 (최신순 페이징)
-    Page<Report> findByReporterIdOrderByCreatedAtDesc(Long reporterId, Pageable pageable);
-
-    // 특정 신고 조회 (본인 신고만)
-    Optional<Report> findByIdAndReporterId(Long id, Long reporterId);
-
     // 이미 신고한 대상인지 확인 (중복 신고 방지)
     boolean existsByReporterIdAndTargetIdAndStatusIn(
             Long reporterId, Long targetId, java.util.Collection<ReportStatus> statuses);
