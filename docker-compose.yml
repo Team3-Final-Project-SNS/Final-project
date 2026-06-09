@@ -128,6 +128,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
 
       # DB — "localhost"가 아닌 서비스 이름 "mysql"로 접근
+      DB_URL: jdbc:mysql://mysql:3306/hankkipot?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8&serverTimezone=Asia/Seoul
       DB_USERNAME: ${MYSQL_USER}
       DB_PASSWORD: ${MYSQL_PASSWORD}
 
