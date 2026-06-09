@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import java.util.UUID;
 
@@ -96,6 +97,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     // ── 매칭 ──────────────────────────────────────────────────────────────
 
     // 1. 게시글 신청 알림 - HOST에게
+    @Async
     @Override
     public void sendMatchApplied(Long userId, Long matchId) {
         publish(userId, NotificationType.MATCH_APPLIED,
@@ -105,6 +107,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     }
 
     // 2. 매칭 확정 알림 - 등록자에게
+    @Async
     @Override
     public void sendMatchConfirmed(Long userId, Long matchId) {
         publish(userId, NotificationType.MATCH_CONFIRMED,
