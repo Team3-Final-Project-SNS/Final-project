@@ -176,9 +176,9 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         // 전파 후 이 MeetVerification의 상태가 바뀌었을 수 있으므로 엔티티에서 다시 읽음
         boolean bothVerified = meetVerification.getStatus() == VerificationStatus.VERIFIED;
 
-        // 양측 장소 인증 완료 시 QR 즉시 발급 (기존과 동일)
+        // 양측 장소 인증 완료 시 Post 기준 공통 QR 토큰을 발급하거나 기존 토큰을 재사용한다.
         if (bothVerified) {
-            issueQrTokenIfNeeded(meetVerification);
+            issueQrTokenIfNeeded(meetVerification, matchInfo.postId());
         }
 
         // 14. 장소 인증 완료 알림
@@ -199,36 +199,55 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         return PlaceVerificationResponseDto.of(meetVerification, distanceMeters, bothVerified);
     }
 
-    // QR 코드 조회 (등록자 전용)
     @Override
     @Transactional
-    public QrResponseDto getMeetQr(Long userId, Long matchId) {
+    public QrResponseDto getMeetQrByPost(Long userId, Long postId) {
 
-        // MeetVerification + MatchInfo + PostInfo 한 번에 조회
-        MeetContext ctx = loadMeetContext(matchId);
-        MeetVerification meetVerification = ctx.meetVerification();
-        PostInfoDto postInfo = ctx.postInfo();
+        // Post 정보를 조회해서 요청자가 등록자인지 확인
+        PostInfoDto postInfoDto = postQueryService.getPostInfo(postId);
 
-        // 등록자인지 확인 (QR 발급은 등록자만 가능!)
-        if (!userId.equals(postInfo.authorId())) {
+        // QR은 등록자만 화면에 띄울 수 있으므로, 작성자 검증
+        if (!userId.equals(postInfoDto.authorId())) {
             throw new MeetException(ErrorCode.QR_NOT_AUTHOR);
         }
 
-        // 장소 인증 완료된 상태인지 체크
-        if (meetVerification.getStatus() != VerificationStatus.VERIFIED) {
+        // 같은 Post에 속한 모든 Match ID를 조회
+        List<Long> siblingMatchIds = matchService.getMatchIdsByPostId(postId);
+
+        // 매칭이 하나도 없다면 아직 QR을 발급할 수 없는 상태
+        if (siblingMatchIds.isEmpty()) {
             throw new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED);
         }
 
-        // 장소 인증 완료 시 createPlaceVerification()에서 이미 발급했지만
-        // 혹시 발급이 누락된 경우를 대비한 안전망 — 없으면 발급, 있으면 스킵
-        issueQrTokenIfNeeded(meetVerification);
+        // 같은 Post에 속한 MeetVerification을 벌크 조회
+        List<MeetVerification> siblingMvList = meetVerificationRepository.findAllByMatchIdIn(siblingMatchIds);
 
-        // QR 만료 여부 체크
-        if (meetVerification.isQrExpired()) {
+        // 등록자와 신청자 양측 장소 인증이 끝난 MeetVerification이 하나라도 있는지 확인
+        MeetVerification verified = siblingMvList.stream()
+                .filter(mv -> mv.getStatus() == VerificationStatus.VERIFIED)
+                .findFirst()
+                .orElseThrow( () -> new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED));
+
+        // 같은 Post에 이미 발급된 공통 QR 토큰이 있는지 확인
+        MeetVerification tokenOwner = findPostQrTokenOwner(siblingMvList);
+
+        // 아직 QR토큰이 없다면 VERIFIED 상태의 MeetVerification에 최초 발급
+        if (tokenOwner == null) {
+            issueQrTokenIfNeeded(verified, postId);
+            tokenOwner = verified;
+        }
+
+        // 공통 QR 토큰의 만료 여부를 확인
+        if (tokenOwner.isQrExpired()) {
             throw new MeetException(ErrorCode.QR_EXPIRED);
         }
 
-        return QrResponseDto.of(matchId, meetVerification);
+        // Post 기준 공통 QR 응답을 반환
+        return QrResponseDto.of(
+                postId,
+                tokenOwner.getQrToken(),
+                tokenOwner.getQrExpiresAt()
+        );
     }
 
     // QR 스캔 (신청자 전용)
@@ -236,58 +255,76 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     @Transactional
     public QrScanResponseDto createQrScan(Long userId, Long matchId, QrScanRequestDto requestDto) {
 
-        // matchId로 MeetVerification 조회
-        // createQrScan은 신청자 검증만 필요하므로 PostInfo까지는 불필요 — 개별 조회
+        // matchId로 신청자 본인의 MeetVerification을 조회
         MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
                 .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
 
-        // 신청자 검증을 위해 MatchInfo만 조회
+        // 신청자 검증과 postId 확인을 위해 MatchInfo를 조회
         MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
 
-        // 신청자인지 확인 (QR 스캔은 신청자만 가능!)
+        // QR 스캔은 해당 Match의 신청자만 수행할 수 있음
         if (!matchInfo.isApplicant(userId)) {
             throw new MeetException(ErrorCode.SCAN_NOT_APPLICANT);
         }
 
-        // DONE 상태 재스캔 차단
+        // 이미 DONE 상태라면 중복 스캔이므로 차단
         if (meetVerification.getStatus() == VerificationStatus.DONE) {
             throw new MeetException(ErrorCode.GPS_ALREADY_VERIFIED);
         }
 
-        // 장소 인증 완료 상태인지 체크
+        // 신청자 본인의 Match에서 양측 장소 인증이 완료되어야 QR 스캔이 가능
         if (meetVerification.getStatus() != VerificationStatus.VERIFIED) {
             throw new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED);
         }
 
-        // QR 토큰 만료 여부 체크
-        if (meetVerification.isQrExpired()) {
+        // 같은 Post에 발급된 공통 QR 토큰을 가진 MeetVerification을 조회
+        MeetVerification tokenOwner = getPostQrTokenOwner(matchInfo.postId());
+
+        // 아직 공통 QR 토큰이 없다면 등록자가 QR을 발급하지 않은 상태로 봄
+        if (tokenOwner == null || tokenOwner.getQrToken() == null) {
+            throw new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED);
+        }
+
+        // QR 만료 여부는 신청자 본인의 MV가 아니라 공통 토큰을 가진 MV 기준으로 판단
+        if (tokenOwner.isQrExpired()) {
             throw new MeetException(ErrorCode.QR_EXPIRED);
         }
 
-        // QR 토큰 일치 여부 검증
-        if (!requestDto.getQrToken().equals(meetVerification.getQrToken())) {
+        // 요청으로 들어온 QR 토큰이 Post 공통 QR 토큰과 일치하는지 검증
+        if (!requestDto.getQrToken().equals(tokenOwner.getQrToken())) {
             throw new MeetException(ErrorCode.SCAN_INVALID_QR_TOKEN);
         }
 
-        // 매치 단건 조회 — 신청자 예치금 확인용
+        // 응답에 환급 포인트를 포함해야 하므로 Match 완료 처리 전에 신청자 예치금을 조회
         Match match = matchService.getMatchById(matchId);
 
-        // 신청자의 예치금 (환불 응답 DTO에 포함)
+        // 신청자에게 환급될 포인트 금액을 응답용으로 보관
         int refundedPoint = match.getApplicantDeposit();
 
-        // 만남 인증 완료 처리
+        // 신청자 본인의 MeetVerification만 DONE 상태로 전환
         meetVerification.meetVerifiedDone();
 
-        // 위치 데이터 삭제 (개인정보 최소 수집 원칙)
+        // 만남 인증이 끝난 Match의 위치 데이터는 개인정보 최소 수집 원칙에 따라 삭제
         userLocationCleanupService.deleteLocationsByMatchId(matchId);
 
-        // 만남 인증 완료 즉시 채팅방을 닫지 않고 "2시간 후 비활성화"를 예약
-        chatService.scheduleChatRoomDeactivation(matchInfo.postId());
+        // Match 단건 완료와 신청자 예치금 환급은 Match 도메인에 위임
+        boolean isLastScan = matchService.completeSingleMatch(matchId);
 
-        // Match 상태 COMPLETED로 변경
-        matchService.completeMatch(matchId);
+        // 마지막 신청자의 스캔이라면 Post 완료와 등록자 책임비 환급을 Match 도메인에 위임
+        if (isLastScan) {
+            matchService.completePostIfAllMatchesCompleted(matchInfo.postId());
 
-        return QrScanResponseDto.of(matchId, meetVerification, MatchStatus.COMPLETED, refundedPoint);
+            // 모든 신청자의 인증이 끝난 뒤 채팅방 비활성화를 예약
+            chatService.scheduleChatRoomDeactivation(matchInfo.postId());
+        }
+
+        // QR 스캔 완료 응답을 반환
+        return QrScanResponseDto.of(
+                matchId,
+                meetVerification,
+                MatchStatus.COMPLETED,
+                refundedPoint
+        );
     }
 
     // 인증 상태 조회
@@ -853,29 +890,71 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
     // QR 토큰 발급 — 중복 발급 방지 포함
     // 호출 시점: 양측 GPS 인증 완료 직후
-    private void issueQrTokenIfNeeded(MeetVerification meetVerification) {
+    private void issueQrTokenIfNeeded(MeetVerification meetVerification, Long postId) {
 
-        // 이미 발급된 토큰이 있으면 스킵 — 멱등성 보장 (여러 번 호출해도 1번만 발급됨)
+        // 현재 MeetVerification에 이미 QR 토큰이 있으면 중복 발급 X
         if (meetVerification.getQrToken() != null) {
             return;
         }
 
-        // 양측 GPS 인증이 완료되지 않았으면 스킵 (정상적으로는 도달하지 않아야 하는 방어 코드)
+        // 등록자와 신청자 양측 장소 인증이 끝나지 않았으면 QR을 발급 X
         if (meetVerification.getAuthorPlaceVerifiedAt() == null
                 || meetVerification.getApplicantPlaceVerifiedAt() == null) {
             return;
         }
 
-        // QR 만료 시각 = 양측 중 더 나중에 인증한 시각 + 30분
+        // 같은 Post에 이미 QR 토큰을 가진 MeetVerification이 있는지 확인
+        MeetVerification tokenOwner = getPostQrTokenOwner(postId);
+
+        // 기존 토큰이 있으면 재사용하고, 없으면 새 공통 QR 토큰을 생성
+        String sharedToken = tokenOwner != null
+                ? tokenOwner.getQrToken()
+                : "hp_qr_" + UUID.randomUUID().toString().replace("-", "");
+
+        // 등록자와 신청자의 장소 인증 시각 중 더 늦은 시각을 기준으로 QR 만료 시간을 계산
         LocalDateTime placeVerifiedCompletedAt = meetVerification.getAuthorPlaceVerifiedAt()
                 .isAfter(meetVerification.getApplicantPlaceVerifiedAt())
                 ? meetVerification.getAuthorPlaceVerifiedAt()
                 : meetVerification.getApplicantPlaceVerifiedAt();
 
-        LocalDateTime expiresAt = placeVerifiedCompletedAt.plusMinutes(QR_TOKEN_VALIDITY_MINUTES);
-        String qrToken = "hp_qr_" + UUID.randomUUID().toString().replace("-", "");
+        // QR 만료 시각은 양측 장소 인증 완료 시각 기준 30분 이후
+        LocalDateTime expiresAt =
+                placeVerifiedCompletedAt.plusMinutes(QR_TOKEN_VALIDITY_MINUTES);
 
-        meetVerification.issueQrToken(qrToken, expiresAt);
+        // 현재 MeetVerification에 Post 공통 QR 토큰과 만료 시각을 저장
+        meetVerification.issueQrToken(sharedToken, expiresAt);
+    }
+
+    // postId 기준으로 이미 발급된 공통 QR 토큰 Owner를 조회
+    // QR 토큰이 저장된 MeetVerification 하나를 공통 토큰 owner로 사용
+    private MeetVerification getPostQrTokenOwner(Long postId) {
+
+        // 같은 Post에 속한 모든 Match ID를 조회
+        List<Long> siblingMatchIds = matchService.getMatchIdsByPostId(postId);
+
+        // 같은 Post에 Match가 없다면 공통 QR 토큰도 존재할 수 없음
+        if (siblingMatchIds.isEmpty()) {
+            return null;
+        }
+
+        // 같은 Post에 속한 MeetVerification을 한 번에 조회
+        List<MeetVerification> siblingMvList =
+                meetVerificationRepository.findAllByMatchIdIn(siblingMatchIds);
+
+        // 조회된 목록에서 QR 토큰을 가진 MeetVerification을 찾기
+        return findPostQrTokenOwner(siblingMvList);
+    }
+
+    // MeetVerification 목록에서 QR 토큰을 가진 항목 하나를 찾기,
+    // 이미 발급된 Post 공통 QR 토큰이 있는지 확인하는 공통메서드
+    // 없으면 null을 반환해 호출부에서 최초 발급
+    private MeetVerification findPostQrTokenOwner(List<MeetVerification> meetVerifications) {
+
+        // QR 토큰이 null이 아닌 MeetVerification을 하나 찾는다.
+        return meetVerifications.stream()
+                .filter(mv -> mv.getQrToken() != null)
+                .findFirst()
+                .orElse(null);
     }
 
     // ① MeetVerification + MatchInfo + PostInfo 한 번에 조회
@@ -943,23 +1022,27 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     // 등록자 GPS 인증을 같은 postId의 모든 MeetVerification에 전파
     private void propagateAuthorVerification(Long postId) {
 
-        // 같은 postId에 속한 모든 matchId 목록 조회
+        // 같은 Post에 속한 모든 Match ID를 조회
         List<Long> siblingMatchIds = matchService.getMatchIdsByPostId(postId);
 
-        for (Long siblingMatchId : siblingMatchIds) {
+        // 전파 대상이 없으면 바로 종료
+        if (siblingMatchIds.isEmpty()) {
+            return;
+        }
 
-            // 각 matchId의 MeetVerification 조회
-            // 데이터 정합성 문제로 없는 경우 방어 — 해당 건만 스킵
-            MeetVerification mv = meetVerificationRepository.findByMatchId(siblingMatchId)
-                    .orElse(null);
-            if (mv == null) continue;
+        // 같은 Post에 속한 MeetVerification을 한 번에 조회
+        List<MeetVerification> mvList =
+                meetVerificationRepository.findAllByMatchIdIn(siblingMatchIds);
 
-            // 이미 등록자 인증이 완료된 건은 중복 처리 방지
-            // (등록자가 두 번 호출하거나 스케줄러 중복 실행 시 멱등성 보장)
-            if (mv.isAuthorPlaceVerified()) continue;
+        // 각 MeetVerification에 등록자 장소 인증을 전파
+        for (MeetVerification mv : mvList) {
 
-            // 등록자 GPS 인증 처리
-            // 내부 updateToVerifiedIfDone(): 신청자도 인증됐으면 VERIFIED로 자동 전환
+            // 이미 등록자 인증이 완료된 항목은 중복 처리하지 않음
+            if (mv.isAuthorPlaceVerified()) {
+                continue;
+            }
+
+            // 등록자 장소 인증 완료 시각을 기록하고, 신청자도 인증 완료 상태면 VERIFIED로 전환
             mv.verifyAuthorPlace();
         }
     }
