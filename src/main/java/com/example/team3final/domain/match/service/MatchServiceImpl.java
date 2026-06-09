@@ -26,10 +26,14 @@ import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -58,49 +62,63 @@ public class MatchServiceImpl implements MatchService{
     private final UserLocationCleanupService userLocationCleanupService;
     private final RedissonClient redissonClient;
 
+    @Autowired
+    @Lazy
+    private MatchServiceImpl self;
+
+    @Value("${match.lock.group-wait-ms:500}")
+    // @Value: application.yml에서 값 주입, 없으면 기본값 500 사용
+    private long groupLockWaitMs;
+
     private static final String MATCH_LOCK_KEY = "match:lock:post:";
     private static final long REDIS_LOCK_LEASE_SECONDS = 5;
 
     @Override
-    @Transactional
     public CreateMatchResponseDto createMatch(Long postId, Long applicantId) {
 
         String lockKey = MATCH_LOCK_KEY + postId;
         RLock lock = redissonClient.getLock(lockKey);
 
         boolean acquired = false;
+        CreateMatchResponseDto result = null; // 알림 발송에 필요한 정보 보관용
+
         try {
             Post post = postService.getPostById(postId);
-
-            // 1:1 매칭(maxApplicants == 2): 즉시 실패 (waitTime=0)
-            // 단체 매칭(maxApplicants > 2): 500ms 대기
-            long waitTime = (post.getMaxApplicants() == 2) ? 0L : 500L;
-
+            long waitTime = (post.getMaxApplicants() == 2) ? 0L : groupLockWaitMs;
             acquired = lock.tryLock(waitTime, REDIS_LOCK_LEASE_SECONDS * 1000, TimeUnit.MILLISECONDS);
 
             if (!acquired) {
-                // 락 획득 실패 -> 이미 다른 요청이 처리 중
                 throw new MatchException(ErrorCode.MATCH_ALREADY_MATCHED);
             }
 
-            // 락 획득 성공 -> 트랜잭션 안에서 실제 로직 실행
-            return createMatchInTransaction(postId, applicantId);
+            // DB 작업만 트랜잭션 안에서 처리 (알림 발송 제외)
+            result = self.createMatchInTransaction(postId, applicantId);
+            return result;
 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new MatchException(ErrorCode.MATCH_ALREADY_MATCHED);
         } finally {
-            // 반드시 finally에서 락 해제
             if (acquired && lock.isHeldByCurrentThread()) {
                 lock.unlock();
             }
-        }
+                // ✅ 락 해제 후 알림 발송
+                // → Kafka 대기 시간(3초×2)이 락 점유 시간에서 완전히 제거됨
+                // → 다음 스레드가 락을 빠르게 획득 가능 → 단체 매칭 순차 처리 보장
+                // result가 null이면 createMatchInTransaction()에서 예외 발생한 것
+                // → 매칭 실패 케이스이므로 알림 발송 불필요
+                if (result != null) {
+                    notificationPublisher.sendMatchApplied(result.authorId(), result.matchId());
+                    notificationPublisher.sendMatchConfirmed(result.applicantId(), result.matchId());
+                }
+            }
+
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public CreateMatchResponseDto createMatchInTransaction(Long postId, Long applicantId) {
 
-        Post post = postService.getPostById(postId);
+        Post post = postService.getPostWithPessimisticLock(postId);
 
         // 1. 본인 소유 게시글 신청 차단
         if (post.getAuthorId().equals(applicantId)) {
@@ -182,15 +200,9 @@ public class MatchServiceImpl implements MatchService{
         String authorNickname = userService.getUserInfo(post.getAuthorId()).nickname();
         String applicantNickname = userService.getUserInfo(applicantId).nickname();
 
-        // 1. 게시글 신청 알림 - HOST에게
-        notificationPublisher.sendMatchApplied(post.getAuthorId(), savedMatch.getId());
-
-        // 2. 매칭 확정 알림 - 등록자에게
-        notificationPublisher.sendMatchConfirmed(applicantId, savedMatch.getId());
-
-        // 만남 알림 ZSet 예약 (30분/15분/5분 전 / 10분 경과)
-        // HOST(등록자): postId 단위 예약 → 신청자가 여러 명이어도 ZSet 중복 불가라 1건 유지
-        // GUEST(신청자): matchId 단위 예약 → 신청자별 각자 1번 수신
+        // 만남 알림 ZSet 예약 (30분/15분/5분 전)
+        // score = 알림 발송할 Unix Timestamp
+        // member = matchId (스케줄러가 꺼내서 알림 발송에 사용)
         LocalDateTime meetAt = post.getMeetAt();
         LocalDateTime now = LocalDateTime.now();
         ZoneOffset KST = ZoneOffset.ofHours(9);
