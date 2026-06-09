@@ -128,7 +128,6 @@ services:
       SPRING_PROFILES_ACTIVE: prod
 
       # DB — "localhost"가 아닌 서비스 이름 "mysql"로 접근
-      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8&serverTimezone=Asia/Seoul
       DB_USERNAME: ${MYSQL_USER}
       DB_PASSWORD: ${MYSQL_PASSWORD}
 
@@ -139,6 +138,8 @@ services:
 
       # Kafka — 컨테이너 내부 통신은 29092 포트 사용
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_KAFKA_CONSUMER_GROUP_ID: hankkipot-group
+      SPRING_AI_OPENAI_API_KEY: ${OPEN_AI_KEY}
 
       # 이하 .env 파일에서 값을 읽어서 컨테이너에 전달
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
