@@ -2,13 +2,16 @@ package com.example.team3final.domain.match.repository;
 
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.enums.MatchStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface MatchRepository extends JpaRepository<Match, Long> {
 
@@ -115,4 +118,10 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
 
     long countByPostId(Long postId);
     // Spring Data JPA가 자동으로 "SELECT COUNT(*) FROM matches WHERE post_id = ?" 생성
+
+    // Match 단건을 PESSIMISTIC_WRITE 락으로 조회
+    // 동일 Match에 대해 QR 스캔이 동시에 들어왔을 때 중복 완료/중복 환급을 막기 위해 사용
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT m FROM Match m WHERE m.id = :matchId")
+    Optional<Match> findByIdWithLock(@Param("matchId") Long matchId);
 }

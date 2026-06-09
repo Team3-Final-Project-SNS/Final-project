@@ -279,41 +279,6 @@ public class MatchServiceImpl implements MatchService{
 
     @Override
     @Transactional
-    public void completeMatch(Long matchId) {
-
-        Match match = getMatchById(matchId);
-
-        if (match.getStatus() != MatchStatus.MATCHED) {
-            throw new MatchException(ErrorCode.MATCH_INVALID_STATUS);
-        }
-
-        // Match 상태 → COMPLETED (엔티티가 status+completedAt 책임)
-        match.complete();
-
-        // Post 상태 → COMPLETED (Post 도메인에 위임)
-        postService.completePost(match.getPostId());
-
-        // 양측 100% 전액 환급
-        Post post = postService.getPostById(match.getPostId());
-        userPointService.refundPoint(post.getAuthorId(), post.getAuthorDeposit(), matchId);
-        userPointService.refundPoint(match.getApplicantId(), match.getApplicantDeposit(), matchId);
-
-        // 후기 작성 마지막 날 알림 예약
-        // completedAt + 7일이 되는 날 오전 9시에 알림 발송
-        LocalDateTime reviewDeadlineReminderAt = match.getCompletedAt()
-                .plusDays(7)
-                .toLocalDate()
-                .atTime(9, 0);
-
-        redisTemplate.opsForZSet().add(
-                ReviewRedisZSetKeys.DEADLINE_REMINDER,
-                String.valueOf(match.getId()),
-                reviewDeadlineReminderAt.toEpochSecond(ZoneOffset.ofHours(9))
-        );
-    }
-
-    @Override
-    @Transactional
     public void markDisputed(Long matchId) {
 
         Match match = getMatchById(matchId);
@@ -786,6 +751,91 @@ public class MatchServiceImpl implements MatchService{
                         Match::getId,
                         MatchInfoDto::from
                 ));
+    }
+
+    // QR 스캔 성공 시 Match 단건만 COMPLETE 처리하는 메서드
+    // 신청자 예치금 환급, Post 완료, 등록자 환급, 채팅방 비활성화 예약은 여기서 하지 않음
+    @Override
+    @Transactional
+    public boolean completeSingleMatch(Long matchId) {
+
+        // 동일 Match에 대한 동시 QR 스캔을 막기 위해 PESSIMISTIC_WRITE 락으로 조회
+        Match match = matchRepository.findByIdWithLock(matchId)
+                .orElseThrow(() -> new MatchException(ErrorCode.MATCH_NOT_FOUND));
+
+        // 이미 완료된 Match에 대해서 중복 QR 스캔 방어
+        if (match.getStatus() == MatchStatus.COMPLETED) {
+            return false;
+        }
+
+        // QR 정상 완료는 MATCHED 상태에서만 가능
+        if (match.getStatus() != MatchStatus.MATCHED) {
+            throw new MatchException(ErrorCode.MATCH_INVALID_STATUS);
+        }
+
+        // Match 엔티티의 도메인 메서드로 MATCHED -> COMPLETED 상태 전이
+        match.complete();
+
+        // 신청자 예치금 환급
+        // Meet 도메인에서 하지 않고 Match 도메인에서 처리
+        userPointService.refundPoint(
+                match.getApplicantId(),
+                match.getApplicantDeposit(),
+                match.getId()
+        );
+
+        // 정상 만남 완료 후 후기 작성 마지막 날 알림 예약
+        // 기존 completeMatch()에서 하던 역할을 completeSingleMatch()에도 반영
+        LocalDateTime reviewDeadlineReminderAt = match.getCompletedAt()
+                .plusDays(7)
+                .toLocalDate()
+                .atTime(9, 0);
+
+        // 후기 작성 마지막 날 오전 9시에 알림 발송되도록 ZSet에 예약
+        redisTemplate.opsForZSet().add(
+                ReviewRedisZSetKeys.DEADLINE_REMINDER,
+                String.valueOf(match.getId()),
+                reviewDeadlineReminderAt.toEpochSecond(ZoneOffset.ofHours(9))
+        );
+
+        // 아직 진행 중인 MATCHED가 남아 있으면 Post는 아직 완료하면 안 됨
+        long remainingMatchedCount = matchRepository.countByPostIdAndStatus(match.getPostId(), MatchStatus.MATCHED);
+
+        // 남은 MATCHED Match가 0개라면 이번 스캔이 해당 Post의 마지막 스캔
+        return remainingMatchedCount == 0;
+    }
+
+    // 모든 활성 매칭이 종료된 뒤 Post 전체 COMPLETED 처리
+    // Post COMPLETE 처리, 등록자 책임비 환급, 중복 호출되어도 한 번만 처리되도록 멱등성 보장
+    @Override
+    @Transactional
+    public void completePostIfAllMatchesCompleted(Long postId) {
+
+        // 방어 로직 -> 아직 QR 인증이 끝나지 않은 MATCHED 매칭이 있다면 Post를 완료하면 안 됨
+        long remainingMatchedCount = matchRepository.countByPostIdAndStatus(postId, MatchStatus.MATCHED);
+
+        // 남은 MATCHED 매칭이 있으면 아직 그룹 만남이 끝난 것이 아니므로 스킵
+        if (remainingMatchedCount > 0) {
+            return;
+        }
+
+        // 이미 PostService에 있는 PESSIMISTIC_WRITE 락 조회
+        Post post = postService.getPostByIdWithLock(postId);
+
+        // 멱등성 보장 -> 이미 완료된 Post면 등록자 환급도 다시 하지 않음
+        if (post.getStatus() == PostStatus.COMPLETED) {
+            return;
+        }
+
+        // Post 엔티티의 도메인 메서드로 상태를 COMPLETED로 전환
+        post.complete();
+
+        // 등록자 책임비는 그룹 만남 전체가 정상 종료된 시점에 한 번만 환급
+        userPointService.refundPoint(
+                post.getAuthorId(),
+                post.getAuthorDeposit(),
+                post.getId()
+        );
     }
 
     // canFinalizeNoShow: 배치 노쇼 확정 처리 가능 여부
