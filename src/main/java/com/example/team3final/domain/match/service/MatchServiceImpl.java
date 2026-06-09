@@ -689,7 +689,7 @@ public class MatchServiceImpl implements MatchService{
         // 0. 매칭 목록 조회 (기존 그대로) — 쿼리 1번
         Page<Match> matchPage = (status == null)
                 ? matchRepository.findAllByUserId(userId, pageable)
-                : matchRepository.findAllByUserIdAndStatus(userId, status.name(), pageable);
+                : matchRepository.findAllByUserIdAndStatus(userId, status, pageable);
 
         // 현재 페이지의 실제 매칭 리스트 (ID 수집·룩업에 사용)
         List<Match> matches = matchPage.getContent();
