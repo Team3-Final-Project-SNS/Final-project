@@ -91,6 +91,9 @@ public enum ErrorCode {
     MEET_EXTEND_SELF_RESPONSE(HttpStatus.FORBIDDEN, "VERIFY_014", "본인이 요청한 연장은 본인이 응답할 수 없습니다."),
     MEET_EXTEND_NO_ACTIVE_REQUEST(HttpStatus.UNPROCESSABLE_ENTITY, "VERIFY_015", "응답 가능한 연장 요청이 없습니다."),
     MEET_EXTEND_EXPIRED(HttpStatus.GONE, "VERIFY_016", "연장 요청이 만료되었습니다."),
+    MEET_EXTEND_ONLY_APPLICANT(HttpStatus.FORBIDDEN, "VERIFY_017", "연장 요청은 신청자만 가능합니다."),
+    MEET_EXTEND_ONLY_AUTHOR(HttpStatus.FORBIDDEN, "VERIFY_018", "연장 수락/거절은 등록자만 가능합니다."),
+    MEET_EXTEND_ALREADY_REJECTED(HttpStatus.CONFLICT, "VERIFY_019", "이미 거절된 연장 요청입니다."),
 
     // Chat
     CHAT_ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "CHAT_001", "존재하지 않는 채팅방입니다."),
