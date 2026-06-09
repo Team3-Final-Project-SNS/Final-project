@@ -97,7 +97,21 @@ dependencies {
     // 충돌 날 경우 대안:
     // implementation 'io.portone:server-sdk:0.12.0:all'
 
+    // ✅ QueryDSL 추가 (Spring Boot 3.x → Jakarta 기반이므로 jakarta classifier 사용)
+    // querydsl-jpa: QueryDSL이 JPA와 통신하는 핵심 라이브러리
+    implementation 'com.querydsl:querydsl-jpa:5.1.0:jakarta'
+
+    // querydsl-apt: 빌드 시 Q클래스(QMatch, QPost 등)를 자동 생성하는 어노테이션 프로세서
+    // annotationProcessor로 등록해야 Gradle이 컴파일 전에 Q클래스를 먼저 만들어 줌
+    annotationProcessor 'com.querydsl:querydsl-apt:5.1.0:jakarta'
+
+    // jakarta.annotation-api: Q클래스 생성 시 필요한 Jakarta 어노테이션 제공
+    annotationProcessor 'jakarta.annotation:jakarta.annotation-api'
+
+    // jakarta.persistence-api: @Entity 등 JPA 어노테이션 인식에 필요
+    annotationProcessor 'jakarta.persistence:jakarta.persistence-api'
 }
+
 dependencyManagement {
     imports {
         mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
