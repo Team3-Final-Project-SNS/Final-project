@@ -205,33 +205,36 @@ public class MatchServiceImpl implements MatchService{
         // member = matchId (스케줄러가 꺼내서 알림 발송에 사용)
         LocalDateTime meetAt = post.getMeetAt();
         LocalDateTime now = LocalDateTime.now();
+        ZoneOffset KST = ZoneOffset.ofHours(9);
+        String postIdStr = String.valueOf(postId);
+        String matchIdStr = String.valueOf(savedMatch.getId());
 
-        // 30분 전 알림 예약 - 현재 시각이 meetAt-30분 이전일 때만 등록
-        // 이미 지난 시점이면 스킵 (매칭 완료 시점이 약속시간 임박 후인 경우 방지)
+        // 30분 전 알림 예약
         if (now.isBefore(meetAt.minusMinutes(30))) {
-            redisTemplate.opsForZSet().add(
-                    MeetRedisZSetKeys.REMINDER_30,
-                    String.valueOf(savedMatch.getId()),
-                    meetAt.minusMinutes(30).toEpochSecond(ZoneOffset.ofHours(9))
-            );
+            double score30 = meetAt.minusMinutes(30).toEpochSecond(KST);
+            redisTemplate.opsForZSet().add(MeetRedisZSetKeys.REMINDER_30_HOST, postIdStr, score30);
+            redisTemplate.opsForZSet().add(MeetRedisZSetKeys.REMINDER_30_GUEST, matchIdStr, score30);
         }
 
-        // 15분 전 알림 예약 - 현재 시각이 meetAt-15분 이전일 때만 등록
+        // 15분 전 알림 예약
         if (now.isBefore(meetAt.minusMinutes(15))) {
-            redisTemplate.opsForZSet().add(
-                    MeetRedisZSetKeys.REMINDER_15,
-                    String.valueOf(savedMatch.getId()),
-                    meetAt.minusMinutes(15).toEpochSecond(ZoneOffset.ofHours(9))
-            );
+            double score15 = meetAt.minusMinutes(15).toEpochSecond(KST);
+            redisTemplate.opsForZSet().add(MeetRedisZSetKeys.REMINDER_15_HOST, postIdStr, score15);
+            redisTemplate.opsForZSet().add(MeetRedisZSetKeys.REMINDER_15_GUEST, matchIdStr, score15);
         }
 
-        // 임박 알림 예약 - 현재 시각이 meetAt-5분 이전일 때만 등록
+        // 임박 알림 예약 (5분 전)
         if (now.isBefore(meetAt.minusMinutes(5))) {
-            redisTemplate.opsForZSet().add(
-                    MeetRedisZSetKeys.REMINDER_IMMINENT,
-                    String.valueOf(savedMatch.getId()),
-                    meetAt.minusMinutes(5).toEpochSecond(ZoneOffset.ofHours(9))
-            );
+            double score5 = meetAt.minusMinutes(5).toEpochSecond(KST);
+            redisTemplate.opsForZSet().add(MeetRedisZSetKeys.REMINDER_IMMINENT_HOST, postIdStr, score5);
+            redisTemplate.opsForZSet().add(MeetRedisZSetKeys.REMINDER_IMMINENT_GUEST, matchIdStr, score5);
+        }
+
+        // 10분 경과 알림 예약
+        if (now.isBefore(meetAt.plusMinutes(10))) {
+            double scoreOverdue = meetAt.plusMinutes(10).toEpochSecond(KST);
+            redisTemplate.opsForZSet().add(MeetRedisZSetKeys.REMINDER_OVERDUE_HOST, postIdStr, scoreOverdue);
+            redisTemplate.opsForZSet().add(MeetRedisZSetKeys.REMINDER_OVERDUE_GUEST, matchIdStr, scoreOverdue);
         }
 
         return CreateMatchResponseDto.of(
@@ -610,12 +613,26 @@ public class MatchServiceImpl implements MatchService{
         }
 
         // 매칭 취소 시 ZSet 알림 예약 제거
-        // 취소된 매칭은 알림 발송 불필요
-        String matchIdStr = String.valueOf(matchId);
-        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_30, matchIdStr);
-        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_15, matchIdStr);
-        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_IMMINENT, matchIdStr);
-        redisTemplate.opsForZSet().remove(ReviewRedisZSetKeys.DEADLINE_REMINDER, matchIdStr);
+        String cancelMatchIdStr = String.valueOf(matchId);
+        String cancelPostIdStr = String.valueOf(match.getPostId());
+
+        // GUEST ZSet에서 해당 matchId 제거
+        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_30_GUEST, cancelMatchIdStr);
+        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_15_GUEST, cancelMatchIdStr);
+        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_IMMINENT_GUEST, cancelMatchIdStr);
+        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_OVERDUE_GUEST, cancelMatchIdStr);
+        redisTemplate.opsForZSet().remove(ReviewRedisZSetKeys.DEADLINE_REMINDER, cancelMatchIdStr);
+
+        // HOST ZSet: 활성 신청자가 한 명도 없을 때만 postId 제거
+        // match.cancel()이 이미 실행된 후 카운트하므로 본인은 CANCELLED로 빠져있음
+        // → 0이면 진짜 마지막, 1 이상이면 다른 신청자 남아있음
+        long activeMatchCount = matchRepository.countByPostIdAndStatus(match.getPostId(), MatchStatus.MATCHED);
+        if (activeMatchCount <= 0) {
+            redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_30_HOST, cancelPostIdStr);
+            redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_15_HOST, cancelPostIdStr);
+            redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_IMMINENT_HOST, cancelPostIdStr);
+            redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_OVERDUE_HOST, cancelPostIdStr);
+        }
 
         return CancelMatchResponseDto.of(
                 match.getId(),
