@@ -30,6 +30,10 @@ public class AiReportToolResultConverter implements ToolCallResultConverter {
             return formatDashboard(dashboard);
         }
 
+        if (result instanceof AiDisputeContextToolResult dispute) {
+            return formatDispute(dispute);
+        }
+
         if (result instanceof List<?> list) {
             StringBuilder sb = new StringBuilder();
             for (Object item : list) {
@@ -85,6 +89,49 @@ public class AiReportToolResultConverter implements ToolCallResultConverter {
                 dashboard.cancelledPaymentCount(),
                 dashboard.failedPaymentCount(),
                 dashboard.paidPaymentAmount()
+        );
+    }
+
+    private String formatDispute(AiDisputeContextToolResult dispute) {
+        StringBuilder recentMessages = new StringBuilder();
+        for (AiDisputeContextToolResult.ChatMessage message : dispute.recentChatMessages()) {
+            recentMessages.append("- ")
+                    .append(message.createdAt())
+                    .append(" / ")
+                    .append(blankToDefault(message.senderNickname()))
+                    .append(": ")
+                    .append(blankToDefault(message.content()))
+                    .append("\n");
+        }
+
+        return String.format(
+                """
+                이의제기 ID: %d
+                매칭 ID: %d
+                제출자: %s
+                이의제기 유형: %s
+                이의제기 상세 사유: %s
+                이의제기 상태: %s
+                만남 인증 상태: %s
+                등록자 GPS 인증 시각: %s
+                신청자 GPS 인증 시각: %s
+                제출 시각: %s
+                관련 채팅 메시지 수: %d
+                최근 채팅 일부:
+                %s
+                """,
+                dispute.disputeId(),
+                dispute.matchId(),
+                blankToDefault(dispute.applicantNickname()),
+                dispute.disputeType(),
+                blankToDefault(dispute.reason()),
+                dispute.status(),
+                dispute.verificationStatus(),
+                dispute.authorPlaceVerifiedAt() == null ? "없음" : dispute.authorPlaceVerifiedAt(),
+                dispute.applicantPlaceVerifiedAt() == null ? "없음" : dispute.applicantPlaceVerifiedAt(),
+                dispute.submittedAt(),
+                dispute.chatMessageCount(),
+                recentMessages.isEmpty() ? "채팅 정보 없음" : recentMessages.toString()
         );
     }
 

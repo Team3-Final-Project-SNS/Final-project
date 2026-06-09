@@ -1,5 +1,7 @@
 package com.example.team3final.domain.ai.report.tool;
 
+import com.example.team3final.domain.admin.dispute.dto.response.GetAdminDisputeResponseDto;
+import com.example.team3final.domain.admin.dispute.service.AdminDisputeService;
 import com.example.team3final.domain.ai.report.dashboard.dto.AiReportDashboardSnapshotDto;
 import com.example.team3final.domain.ai.report.dashboard.service.AiReportDashboardQueryService;
 import com.example.team3final.domain.post.entity.Post;
@@ -34,6 +36,7 @@ public class AiReportTool {
     private final PostService postService;
     private final UserService userService;
     private final AiReportDashboardQueryService aiReportDashboardQueryService;
+    private final AdminDisputeService adminDisputeService;
 
     /**
      * 특정 신고 건의 분석에 필요한 전체 맥락을 조회합니다.
@@ -198,6 +201,50 @@ public class AiReportTool {
                 snapshot.cancelledPaymentCount(),
                 snapshot.failedPaymentCount(),
                 snapshot.paidPaymentAmount()
+        );
+    }
+
+    /**
+     * 특정 이의제기 건의 관리자 검토에 필요한 맥락을 조회합니다.
+     *
+     * 관리자 이의제기 상세조회와 동일한 데이터를 사용하므로,
+     * SUBMITTED 상태의 이의제기는 상세조회 정책에 따라 UNDER_REVIEW로 전환될 수 있습니다.
+     */
+    @Tool(
+            description = "이의제기 ID를 기준으로 이의제기 사유, 만남 인증 상태, GPS 인증 시각, 관련 채팅 일부를 조회합니다.",
+            resultConverter = AiReportToolResultConverter.class
+    )
+    public AiDisputeContextToolResult getDisputeContext(
+            @ToolParam(description = "요청 관리자 ID", required = true)
+            Long adminId,
+            @ToolParam(description = "분석할 이의제기 ID", required = true)
+            Long disputeId
+    ) {
+        GetAdminDisputeResponseDto dispute = adminDisputeService.getDispute(adminId, disputeId);
+        List<AiDisputeContextToolResult.ChatMessage> recentMessages = dispute.chatMessages()
+                .stream()
+                .limit(10)
+                .map(message -> new AiDisputeContextToolResult.ChatMessage(
+                        message.senderId(),
+                        message.senderNickname(),
+                        message.content(),
+                        message.createdAt()
+                ))
+                .toList();
+
+        return new AiDisputeContextToolResult(
+                dispute.disputeId(),
+                dispute.matchId(),
+                dispute.applicantNickname(),
+                dispute.disputeType(),
+                dispute.reason(),
+                dispute.status(),
+                dispute.verificationStatus(),
+                dispute.authorPlaceVerifiedAt(),
+                dispute.applicantPlaceVerifiedAt(),
+                dispute.submittedAt(),
+                dispute.chatMessages().size(),
+                recentMessages
         );
     }
 

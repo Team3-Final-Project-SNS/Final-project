@@ -22,6 +22,8 @@ import com.example.team3final.domain.ai.report.enums.AiReportDecisionSuggestion;
 import com.example.team3final.domain.ai.report.enums.AiReportRiskLevel;
 import com.example.team3final.domain.ai.report.repository.AiReportChatMemoryRepository;
 import com.example.team3final.domain.ai.report.repository.AiReportSummaryRepository;
+import com.example.team3final.domain.ai.report.tool.AiDisputeContextToolResult;
+import com.example.team3final.domain.ai.report.tool.AiReportDashboardToolResult;
 import com.example.team3final.domain.ai.report.tool.AiReportHighRiskUserToolResult;
 import com.example.team3final.domain.ai.report.tool.AiReportTool;
 import com.example.team3final.domain.report.entity.Report;
@@ -71,7 +73,7 @@ public class AiReportServiceImpl implements AiReportService {
      */
     private static final String DEFAULT_REPORT_PROMPT = """
             너는 한끼팟 관리자 전용 신고 분석 AI다.
-            반드시 제공된 Tool을 먼저 호출해서 신고 원문과 누적 신고 맥락을 확인한다.
+            반드시 제공된 Tool을 먼저 호출해서 신고 원문, 이의제기 상세, 누적 신고 맥락을 확인한다.
             REPORT RAG 정책 문서가 있으면 Tool 결과와 함께 우선 근거로 사용한다.
             REPORT RAG 정책 문서가 없으면 Retrieval Augmentation Advisor 전략으로 GPT가 답변을 보강한다.
             이때 내부 정책 문서 근거가 없음을 밝히고, 조치 확정 대신 관리자 추가 검토를 우선 권고한다.
@@ -100,6 +102,12 @@ public class AiReportServiceImpl implements AiReportService {
             - 채택 누적 4회: 10일 정지
             - 채택 누적 5회: 30일 정지
             - 채택 누적 6회 이상: 영구 정지
+
+            Tool 사용 규칙:
+            - 신고 단건 분석이면 getReportContext(reportId)를 호출한다.
+            - 이의제기 단건 분석이면 getDisputeContext(adminId, disputeId)를 호출한다.
+            - 고위험 유저 조회이면 findHighRiskUserCandidates(limit)를 호출한다.
+            - 운영 현황 요약이면 getAdminDashboardSnapshot()을 호출한다.
 
             응답은 요청받은 Java record 스키마에 맞춰 한국어로 작성한다.
             confidenceScore는 0~100 정수로 작성한다.
@@ -171,7 +179,26 @@ public class AiReportServiceImpl implements AiReportService {
                     AiReportChatAction.ANALYZE_REPORT,
                     analysis,
                     null,
+                    null,
+                    null,
                     analysis.fallbackUsed()
+            );
+        }
+
+        if (action == AiReportChatAction.ANALYZE_DISPUTE) {
+            if (intent == null || intent.disputeId() == null) {
+                return clarify("분석할 이의제기 ID를 알려주세요. 예: 3번 이의제기 분석해줘");
+            }
+
+            AiReportDisputeAnalysisResponseDto analysis = analyzeDispute(adminId, intent.disputeId());
+            return new AiReportChatResponseDto(
+                    buildDisputeAnalysisChatAnswer(analysis),
+                    AiReportChatAction.ANALYZE_DISPUTE,
+                    null,
+                    analysis,
+                    null,
+                    null,
+                    false
             );
         }
 
@@ -182,15 +209,27 @@ public class AiReportServiceImpl implements AiReportService {
                     highRiskUsers.answer(),
                     AiReportChatAction.HIGH_RISK_USERS,
                     null,
+                    null,
                     highRiskUsers,
+                    null,
                     highRiskUsers.fallbackUsed()
             );
         }
 
-        return clarify(requiredText(
-                intent == null ? null : intent.clarificationMessage(),
-                "신고 ID를 지정해 분석을 요청하거나, 고위험 유저 조회를 요청해주세요."
-        ));
+        if (action == AiReportChatAction.DASHBOARD_SUMMARY) {
+            AiReportDashboardToolResult dashboard = aiReportTool.getAdminDashboardSnapshot();
+            return new AiReportChatResponseDto(
+                    buildDashboardSummaryAnswer(dashboard),
+                    AiReportChatAction.DASHBOARD_SUMMARY,
+                    null,
+                    null,
+                    null,
+                    dashboard,
+                    false
+            );
+        }
+
+        return buildGeneralGuide(adminId, request.message());
     }
 
     /**
@@ -240,13 +279,16 @@ public class AiReportServiceImpl implements AiReportService {
                             - "이전 대화에서", "앞서 말씀하신", "언급된 내용에 따르면", "대화 기록상" 같은 메타 표현을 쓰지 않는다.
                             - 이전 대화에서 알게 된 이름, 조건, 대상은 현재 대화의 자연스러운 정보처럼 바로 사용한다.
                             - 관리자 화면에 바로 보여줄 자연어 답변 본문만 작성한다.
-                            - 특정 신고 분석, 고위험 유저 조회, 신고 정책 안내가 필요하면 Tool 결과와 정책을 근거로 한다.
+                            - 특정 신고 분석, 특정 이의제기 분석, 고위험 유저 조회, 관리자 대시보드 운영 현황 요약, 정책 안내가 필요하면 Tool 결과와 정책을 근거로 한다.
+                            - 게시글, 신고, 고객 문의, 이의제기, 유저, 주문 결제, FAQ 정책 질문에 답할 수 있다.
+                            - "12번 신고 분석"처럼 신고 ID가 있으면 getReportContext Tool을 호출한다.
+                            - "3번 이의제기 분석"처럼 이의제기 ID가 있으면 getDisputeContext Tool을 호출한다. 이때 adminId는 현재 관리자 ID인 %d를 사용한다.
+                            - 운영 현황, 처리 대기, 대시보드 요약을 물으면 getAdminDashboardSnapshot Tool을 호출해 답한다.
                             - 정책이나 제재 기준을 설명할 때는 반드시 제목, 빈 줄, 짧은 목록, 빈 줄, 출처 순서로 작성한다.
                             - Markdown 제목 기호인 "#", "##", "###"를 쓰지 않는다.
                             - 정책 목록은 각 항목을 새 줄의 "- "로 시작한다. 절대 "1.내용 2.내용"처럼 한 문단에 붙여 쓰지 않는다.
                             - REPORT RAG 출처가 있으면 내부 정책 문서 근거로 답한다.
                             - REPORT RAG 출처가 비어 있으면 Retrieval Augmentation Advisor 전략으로 GPT가 답하되, 답변에 "출처:" 줄을 쓰지 않는다.
-                            - FAQ 정책은 안내 대상에서 제외하고, 게시글, 신고, 고객 문의, 유저, 주문 결제 정책 위주로 답한다.
                             - 내부 정책 근거가 있으면 답변 마지막에 [REPORT RAG 출처]에 제공된 정책명만 "출처:"로 포함한다.
                             - REPORT RAG 출처가 비어 있으면 출처를 만들지 않는다.
                             - 출력 형식은 반드시 아래처럼 줄바꿈을 지킨다.
@@ -260,7 +302,7 @@ public class AiReportServiceImpl implements AiReportService {
                               출처:
                               [REPORT RAG 출처 값]
                             - AI는 채택, 기각, 포상, 정지, 삭제를 직접 실행하지 않고 관리자 판단을 보조한다고 안내한다.
-                            """.formatted(conversationContext))
+                            """.formatted(conversationContext, adminId))
                     .user(contextualUserMessage)
                     .options(OpenAiChatOptions.builder()
                             .model(aiProperties.getReport().getModel())
@@ -554,6 +596,17 @@ public class AiReportServiceImpl implements AiReportService {
     }
 
     /**
+     * 특정 이의제기 건을 관리자 AI 챗봇에서 분석할 수 있는 구조로 변환합니다.
+     *
+     * 최종 판정은 AI가 수행하지 않고, 관리자 상세조회와 동일한 데이터를 바탕으로
+     * 검토 근거와 확인 순서를 제공하는 데만 사용합니다.
+     */
+    private AiReportDisputeAnalysisResponseDto analyzeDispute(Long adminId, Long disputeId) {
+        AiDisputeContextToolResult context = aiReportTool.getDisputeContext(adminId, disputeId);
+        return AiReportDisputeAnalysisResponseDto.of(context);
+    }
+
+    /**
      * 신고 AI 분석에 사용할 REPORT_SUMMARY 프롬프트를 렌더링합니다.
      *
      * 정상 흐름에서는 DB에 등록된 최신 프롬프트 템플릿과 프롬프트 파일을 읽어
@@ -727,8 +780,8 @@ public class AiReportServiceImpl implements AiReportService {
     /**
      * 관리자 자연어 메시지의 의도를 AI로 분류합니다.
      *
-     * 메시지를 ANALYZE_REPORT, HIGH_RISK_USERS, CLARIFY 중 하나로 분류하고,
-     * 신고 ID 또는 조회 제한 수 같은 부가 정보를 함께 추출합니다.
+     * 메시지를 ANALYZE_REPORT, ANALYZE_DISPUTE, HIGH_RISK_USERS, DASHBOARD_SUMMARY, GENERAL_GUIDE, CLARIFY 중 하나로 분류하고,
+     * 신고 ID, 이의제기 ID 또는 조회 제한 수 같은 부가 정보를 함께 추출합니다.
      *
      * 의도 분류 AI 호출에 실패하면 fallbackClassifyChatIntent를 사용해
      * 정규식 기반으로 최소한의 의도 분류를 수행합니다.
@@ -737,6 +790,7 @@ public class AiReportServiceImpl implements AiReportService {
         if (!looksLikeReportAiCommand(message)) {
             return new AiReportChatIntentResult(
                     AiReportChatAction.GENERAL_GUIDE,
+                    null,
                     null,
                     null,
                     null
@@ -752,14 +806,21 @@ public class AiReportServiceImpl implements AiReportService {
 
                             action enum:
                             - ANALYZE_REPORT: 특정 신고 ID 1건을 분석해 달라는 요청
+                            - ANALYZE_DISPUTE: 특정 이의제기 ID 1건을 분석해 달라는 요청
                             - HIGH_RISK_USERS: 신고 누적 기반 고위험 유저 후보를 보여 달라는 요청
+                            - DASHBOARD_SUMMARY: 관리자 콘솔 운영 현황, 처리 대기 건수, 게시글/신고/문의/이의제기/유저/결제 요약 요청
+                            - GENERAL_GUIDE: 게시글, 신고, 고객 문의, 이의제기, 유저, 결제, FAQ 정책 또는 화면 사용법 안내 요청
                             - CLARIFY: 신고 ID가 없거나 요청이 불명확해서 추가 질문이 필요한 경우
 
                             규칙:
+                            - "대시보드", "운영 현황", "처리 대기", "현황 요약", "오늘 관리할 것"처럼 관리자 콘솔 현황을 묻는 요청이면 DASHBOARD_SUMMARY로 판단한다.
                             - "12번 신고", "신고 12 분석"처럼 숫자와 신고 분석 의도가 있으면 ANALYZE_REPORT로 판단하고 reportId에 숫자를 넣는다.
+                            - "3번 이의제기", "이의제기 3 분석", "노쇼 이의제기 3번 검토"처럼 숫자와 이의제기 분석 의도가 있으면 ANALYZE_DISPUTE로 판단하고 disputeId에 숫자를 넣는다.
                             - "고위험", "위험 유저", "신고 많은 유저", "블랙리스트 후보"처럼 유저 목록 요청이면 HIGH_RISK_USERS로 판단한다.
+                            - 게시글, 신고, 고객 문의, 이의제기, 유저, 주문 결제, FAQ 정책 설명이나 메뉴 사용법 질문이면 GENERAL_GUIDE로 판단한다.
                             - HIGH_RISK_USERS에서 인원 숫자가 있으면 limit에 넣고, 없으면 5를 넣는다.
                             - ANALYZE_REPORT인데 신고 ID 숫자가 없으면 CLARIFY로 판단한다.
+                            - ANALYZE_DISPUTE인데 이의제기 ID 숫자가 없으면 CLARIFY로 판단한다.
                             - 응답은 요청받은 Java record 스키마에 맞춘다.
                             """)
                     .user(message)
@@ -783,9 +844,34 @@ public class AiReportServiceImpl implements AiReportService {
             return fallbackClassifyChatIntent(message);
         }
 
-        if (intent.action() == AiReportChatAction.CLARIFY && !looksLikeReportAnalysisRequest(message)) {
+        if (isDashboardSummaryRequest(message)) {
+            return new AiReportChatIntentResult(
+                    AiReportChatAction.DASHBOARD_SUMMARY,
+                    null,
+                    null,
+                    null,
+                    null
+            );
+        }
+
+        if (intent.action() == AiReportChatAction.ANALYZE_DISPUTE
+                && intent.disputeId() == null
+                && intent.reportId() != null) {
+            return new AiReportChatIntentResult(
+                    AiReportChatAction.ANALYZE_DISPUTE,
+                    null,
+                    intent.reportId(),
+                    intent.limit(),
+                    intent.clarificationMessage()
+            );
+        }
+
+        if (intent.action() == AiReportChatAction.CLARIFY
+                && !looksLikeReportAnalysisRequest(message)
+                && !looksLikeDisputeAnalysisRequest(message)) {
             return new AiReportChatIntentResult(
                     AiReportChatAction.GENERAL_GUIDE,
+                    null,
                     null,
                     null,
                     null
@@ -808,9 +894,30 @@ public class AiReportServiceImpl implements AiReportService {
         String normalized = message == null ? "" : message.toLowerCase();
         Long firstNumber = findFirstNumber(normalized);
 
+        if (isDashboardSummaryRequest(normalized)) {
+            return new AiReportChatIntentResult(
+                    AiReportChatAction.DASHBOARD_SUMMARY,
+                    null,
+                    null,
+                    null,
+                    null
+            );
+        }
+
+        if (looksLikeDisputeAnalysisRequest(normalized) && firstNumber != null) {
+            return new AiReportChatIntentResult(
+                    AiReportChatAction.ANALYZE_DISPUTE,
+                    null,
+                    firstNumber,
+                    null,
+                    null
+            );
+        }
+
         if (containsAny(normalized, "고위험", "위험 유저", "신고 많은", "신고많은", "블랙리스트", "후보")) {
             return new AiReportChatIntentResult(
                     AiReportChatAction.HIGH_RISK_USERS,
+                    null,
                     null,
                     firstNumber == null ? DEFAULT_HIGH_RISK_USER_LIMIT : firstNumber.intValue(),
                     null
@@ -822,12 +929,14 @@ public class AiReportServiceImpl implements AiReportService {
                     AiReportChatAction.ANALYZE_REPORT,
                     firstNumber,
                     null,
+                    null,
                     null
             );
         }
 
         return new AiReportChatIntentResult(
-                AiReportChatAction.CLARIFY,
+                looksLikeReportAnalysisRequest(normalized) ? AiReportChatAction.CLARIFY : AiReportChatAction.GENERAL_GUIDE,
+                null,
                 null,
                 null,
                 null
@@ -860,8 +969,10 @@ public class AiReportServiceImpl implements AiReportService {
 
         if (!reportCommand && isTinyCasualMessage(message)) {
             return new AiReportChatResponseDto(
-                    "네, 관리자님. 신고 관리나 고위험 유저 조회가 필요하시면 편하게 말씀해주세요.",
+                    "네, 관리자님. 운영 현황, 신고, 문의, 이의제기, 유저, 결제, FAQ 정책이 필요하시면 편하게 말씀해주세요.",
                     AiReportChatAction.GENERAL_GUIDE,
+                    null,
+                    null,
                     null,
                     null,
                     false
@@ -874,7 +985,7 @@ public class AiReportServiceImpl implements AiReportService {
                     .prompt()
                     .system("""
                             너는 한끼팟 관리자 콘솔의 AI 도우미다.
-                            관리자가 게시글, 신고, 고객 문의, 유저, 주문 결제 정책과 화면 사용법을 이해하도록 실무적으로 답한다.
+                            관리자가 게시글, 신고, 고객 문의, 이의제기, 유저, 주문 결제, FAQ 정책과 화면 사용법을 이해하도록 실무적으로 답한다.
                             아래 REPORT RAG 정책 문서 검색 결과가 있으면 최우선 근거로 사용한다.
                             REPORT RAG 출처가 비어 있으면 Retrieval Augmentation Advisor 전략으로 GPT가 답하되,
                             답변에 "출처:" 줄을 쓰지 않고 확정 조치 대신 관리자 추가 확인을 안내한다.
@@ -882,7 +993,6 @@ public class AiReportServiceImpl implements AiReportService {
                             일반 인사, 잡담, 의미가 짧은 메시지에는 신고 ID를 요구하지 않는다.
                             최종 처분은 관리자가 결정해야 하며, AI는 참고 의견만 제공한다고 말한다.
                             신고 관리와 무관한 잡담에는 친절하게 답하되 관리자 도우미 역할을 벗어나지 않는다.
-                            FAQ 정책은 안내 대상에서 제외하고, FAQ를 물으면 고객 문의 관리 범위에서 필요한 내용만 답한다.
 
                             [REPORT RAG 정책 문서 검색 결과]
                             %s
@@ -896,9 +1006,8 @@ public class AiReportServiceImpl implements AiReportService {
 
                             응답 규칙:
                             - 현재 메시지 분류가 "일반 대화"이면 절대 신고 ID를 요청하지 말고 자연스럽게 응답한다.
-                            - 관리자 메시지가 게시글, 신고, 고객 문의, 유저, 주문 결제, 계정, 제재, 포상, 재신고 제한, 신고 기능 제한 정책을 묻는 경우 REPORT RAG 정책 문서 검색 결과를 우선 근거로 답한다.
+                            - 관리자 메시지가 게시글, 신고, 고객 문의, 이의제기, 유저, 주문 결제, FAQ, 계정, 제재, 포상, 재신고 제한, 신고 기능 제한 정책을 묻는 경우 REPORT RAG 정책 문서 검색 결과를 우선 근거로 답한다.
                             - REPORT RAG 출처가 비어 있으면 GPT가 답변을 보강하되, 출처 섹션을 만들지 않는다.
-                            - FAQ 정책은 안내 대상에서 제외하고, FAQ를 물으면 고객 문의 관리 범위에서 필요한 내용만 답한다.
                             - 신고 ID 요청은 "신고 분석" 의도가 명확한데 ID가 없는 경우에만 한다.
                             - 정책 설명은 한 문단으로 뭉치지 말고 제목, 빈 줄, 짧은 목록, 빈 줄, 출처 순서로 답한다.
                             - Markdown 제목 기호인 "#", "##", "###"를 쓰지 않는다.
@@ -949,6 +1058,8 @@ public class AiReportServiceImpl implements AiReportService {
                     AiReportChatAction.GENERAL_GUIDE,
                     null,
                     null,
+                    null,
+                    null,
                     false
             );
         } catch (Exception e) {
@@ -973,6 +1084,8 @@ public class AiReportServiceImpl implements AiReportService {
                     AiReportChatAction.GENERAL_GUIDE,
                     null,
                     null,
+                    null,
+                    null,
                     true
             );
         }
@@ -982,6 +1095,8 @@ public class AiReportServiceImpl implements AiReportService {
         return new AiReportChatResponseDto(
                 message,
                 AiReportChatAction.CLARIFY,
+                null,
+                null,
                 null,
                 null,
                 false
@@ -994,7 +1109,7 @@ public class AiReportServiceImpl implements AiReportService {
 
     private String fallbackGeneralGuideAnswer(String message) {
         if (!looksLikeReportAiCommand(message)) {
-            return "네, 관리자님. 신고 관리나 고위험 유저 조회가 필요하시면 편하게 말씀해주세요.";
+            return "네, 관리자님. 운영 현황, 신고, 문의, 이의제기, 유저, 결제, FAQ 정책이 필요하시면 편하게 말씀해주세요.";
         }
 
         return "현재 관리자 AI 답변 생성이 원활하지 않습니다. 잠시 후 다시 질문하시거나, 관련 관리자 메뉴에서 정책 문서를 직접 확인해주세요.";
@@ -1019,6 +1134,85 @@ public class AiReportServiceImpl implements AiReportService {
                 analysis.riskLevel(),
                 analysis.summary(),
                 analysis.actionGuide()
+        );
+    }
+
+    /**
+     * 이의제기 분석 결과를 관리자 챗봇 응답 문구로 변환합니다.
+     */
+    private String buildDisputeAnalysisChatAnswer(AiReportDisputeAnalysisResponseDto analysis) {
+        return """
+                %d번 이의제기 검토 정보를 조회했습니다.
+                매칭 ID: %d
+                제출자: %s
+                이의제기 유형: %s
+                현재 상태: %s
+                만남 인증 상태: %s
+
+                판단 근거:
+                %s
+
+                관리자 액션:
+                %s
+                """.formatted(
+                analysis.disputeId(),
+                analysis.matchId(),
+                analysis.applicantNickname(),
+                analysis.disputeType(),
+                analysis.status(),
+                analysis.verificationStatus(),
+                analysis.evidence(),
+                analysis.actionGuide()
+        );
+    }
+
+    /**
+     * 관리자 콘솔 운영 현황 Tool 결과를 관리자 화면에 바로 보여줄 요약 문장으로 변환합니다.
+     */
+    private String buildDashboardSummaryAnswer(AiReportDashboardToolResult dashboard) {
+        return """
+                관리자 콘솔 운영 현황입니다.
+
+                - 전체 처리 대기 업무: %d건
+                - 게시글: 전체 %d건, 모집 중 %d건, 매칭 완료 %d건, 만료 %d건
+                - 신고: 전체 %d건, 처리 대기 %d건, 채택 %d건, 기각 %d건
+                - 고객 문의: 전체 %d건, 답변 대기 %d건, 답변 완료 %d건
+                - 이의제기: 전체 %d건, 검토 대기 %d건, 제출 %d건, 검토 중 %d건, 보류 %d건, 수용 %d건, 부분 수용 %d건, 기각 %d건
+                - 유저: 전체 %d명, 활성 %d명, 정지 %d명, 탈퇴 %d명
+                - 결제: 전체 %d건, 결제 대기 %d건, 결제 완료 %d건, 취소 %d건, 실패 %d건, 완료 결제 금액 합계 %d원
+
+                처리 대기 업무가 많은 영역부터 확인해 주세요. AI는 현황 요약만 제공하며 실제 처리와 판정은 관리자가 수행해야 합니다.
+                """.formatted(
+                dashboard.totalPendingWorkCount(),
+                dashboard.totalPostCount(),
+                dashboard.openPostCount(),
+                dashboard.matchedPostCount(),
+                dashboard.expiredPostCount(),
+                dashboard.totalReportCount(),
+                dashboard.pendingReportCount(),
+                dashboard.acceptedReportCount(),
+                dashboard.rejectedReportCount(),
+                dashboard.totalInquiryCount(),
+                dashboard.pendingInquiryCount(),
+                dashboard.answeredInquiryCount(),
+                dashboard.totalDisputeCount(),
+                dashboard.openDisputeCount(),
+                dashboard.submittedDisputeCount(),
+                dashboard.underReviewDisputeCount(),
+                dashboard.holdDisputeCount(),
+                dashboard.acceptedDisputeCount(),
+                dashboard.partiallyAcceptedDisputeCount(),
+                dashboard.rejectedDisputeCount(),
+                dashboard.totalUserCount(),
+                dashboard.activeUserCount(),
+                dashboard.suspendedUserCount(),
+                dashboard.withdrawnUserCount(),
+                dashboard.totalPaymentCount(),
+                dashboard.readyPaymentCount(),
+                dashboard.paidPaymentCount(),
+                dashboard.cancelledPaymentCount(),
+                dashboard.failedPaymentCount(),
+                dashboard.paidPaymentAmount()
         );
     }
 
@@ -1105,6 +1299,9 @@ public class AiReportServiceImpl implements AiReportService {
                 "게시물",
                 "글삭제",
                 "강제삭제",
+                "이의제기",
+                "이의 제기",
+                "노쇼 이의",
                 "문의",
                 "고객문의",
                 "답변",
@@ -1116,9 +1313,52 @@ public class AiReportServiceImpl implements AiReportService {
                 "portone",
                 "imp_uid",
                 "merchant_uid",
+                "대시보드",
+                "운영 현황",
+                "운영현황",
+                "처리 대기",
+                "처리대기",
+                "현황",
+                "요약",
+                "관리할 것",
+                "관리할거",
+                "faq",
+                "에프에이큐",
                 "제재",
                 "정지",
                 "처리"
+        );
+    }
+
+    private boolean isDashboardSummaryRequest(String message) {
+        String normalized = normalizeMessage(message);
+
+        return containsAny(
+                normalized,
+                "대시보드",
+                "운영 현황",
+                "운영현황",
+                "처리 대기",
+                "처리대기",
+                "현황 요약",
+                "전체 현황",
+                "관리 현황",
+                "오늘 관리",
+                "관리할 것",
+                "관리할거"
+        ) && containsAny(
+                normalized,
+                "대시보드",
+                "운영",
+                "현황",
+                "처리",
+                "관리",
+                "게시글",
+                "신고",
+                "문의",
+                "이의제기",
+                "유저",
+                "결제"
         );
     }
 
@@ -1136,6 +1376,26 @@ public class AiReportServiceImpl implements AiReportService {
                 "신고를 분석",
                 "신고건",
                 "신고 건"
+        );
+    }
+
+    private boolean looksLikeDisputeAnalysisRequest(String message) {
+        String normalized = normalizeMessage(message);
+
+        return containsAny(
+                normalized,
+                "이의제기 분석",
+                "이의 제기 분석",
+                "이의제기 확인",
+                "이의 제기 확인",
+                "이의제기 검토",
+                "이의 제기 검토",
+                "이의제기 처리",
+                "이의 제기 처리",
+                "이의제기 봐",
+                "이의 제기 봐",
+                "노쇼 이의제기",
+                "노쇼 이의 제기"
         );
     }
 
