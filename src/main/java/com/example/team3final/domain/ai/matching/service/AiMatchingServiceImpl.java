@@ -77,8 +77,10 @@ public class AiMatchingServiceImpl implements AiMatchingService {
     private final AiMatchingChatMemoryRepository aiMatchingChatMemoryRepository;
     private final AiMatchingChatMessageRepository aiMatchingChatMessageRepository;
 
-    // 대화 토큰 양 3000, 세션 만료는 15분
+    // 매칭 AI 멀티턴 컨텍스트는 최근 5턴(사용자/AI 메시지 최대 10개)과 3000토큰 중 먼저 도달하는 기준으로 제한합니다.
     private static final int MATCHING_MEMORY_TOKEN_BUDGET = 3000;
+    private static final int MATCHING_MEMORY_MAX_TURNS = 5;
+    private static final int MATCHING_MEMORY_MAX_MESSAGES = MATCHING_MEMORY_MAX_TURNS * 2;
     private static final int MATCHING_SESSION_EXPIRE_MINUTES = 15;
 
     private static final PromptTemplate MATCHING_REWRITE_PROMPT_TEMPLATE = new PromptTemplate("""
@@ -500,9 +502,9 @@ public class AiMatchingServiceImpl implements AiMatchingService {
     }
 
     /**
-     * 매칭 AI의 멀티턴 메모리는 최근 N개 메시지가 아니라 토큰 예산 기준으로 구성합니다.
+     * 매칭 AI의 멀티턴 메모리는 최근 5턴과 3000토큰 예산 중 먼저 도달하는 기준으로 구성합니다.
      *
-     * 최신 메시지부터 tokenCount를 누적해 3000토큰 안에 들어오는 메시지만 선택하고,
+     * 최신 메시지부터 최대 10개 메시지를 보면서 tokenCount를 누적해 3000토큰 안에 들어오는 메시지만 선택하고,
      * 프롬프트에는 다시 오래된 순서로 넣어 자연스러운 대화 흐름을 유지합니다.
      * 현재 요청 메시지는 user prompt에도 별도로 들어가므로 requestId로 제외합니다.
      */
@@ -517,9 +519,14 @@ public class AiMatchingServiceImpl implements AiMatchingService {
         int usedTokens = 0;
         List<AiMatchingChatMemory> selectedMessages = new ArrayList<>();
 
+        int selectedMessageCount = 0;
         for (AiMatchingChatMemory message : recentMessages) {
             if (currentRequestId.equals(message.getRequestId())) {
                 continue;
+            }
+
+            if (selectedMessageCount >= MATCHING_MEMORY_MAX_MESSAGES) {
+                break;
             }
 
             int tokenCount = resolveTokenCount(message.getTokenCount(), message.getContent());
@@ -529,6 +536,7 @@ public class AiMatchingServiceImpl implements AiMatchingService {
 
             selectedMessages.add(message);
             usedTokens += tokenCount;
+            selectedMessageCount++;
         }
 
         if (selectedMessages.isEmpty()) {
@@ -539,9 +547,16 @@ public class AiMatchingServiceImpl implements AiMatchingService {
 
         StringBuilder sb = new StringBuilder();
         sb.append("[매칭 AI 대화 메모리]\n")
-                .append("- 적용 전략: 최근 대화부터 최대 ")
+                .append("- 적용 전략: 최근 ")
+                .append(MATCHING_MEMORY_MAX_TURNS)
+                .append("턴과 최대 ")
                 .append(MATCHING_MEMORY_TOKEN_BUDGET)
-                .append("토큰 이하만 포함\n")
+                .append("토큰 중 먼저 도달하는 기준으로 포함\n")
+                .append("- 현재 포함된 메시지 수: ")
+                .append(selectedMessages.size())
+                .append("/")
+                .append(MATCHING_MEMORY_MAX_MESSAGES)
+                .append("\n")
                 .append("- 현재 포함된 대화 토큰: ")
                 .append(usedTokens)
                 .append("\n\n");
@@ -612,6 +627,7 @@ public class AiMatchingServiceImpl implements AiMatchingService {
      * 마지막 대화가 15분 이상 지난 매칭 AI conversation 전체를 삭제합니다.
      */
     @Scheduled(fixedDelay = 60000)
+    @Transactional
     public void cleanupExpiredMatchingMemory() {
         LocalDateTime cutoff = LocalDateTime.now().minusMinutes(MATCHING_SESSION_EXPIRE_MINUTES);
         List<AiMatchingChatMemoryRepository.ExpiredConversationKey> expiredConversations =
@@ -619,6 +635,10 @@ public class AiMatchingServiceImpl implements AiMatchingService {
 
         for (AiMatchingChatMemoryRepository.ExpiredConversationKey expiredConversation : expiredConversations) {
             aiMatchingChatMemoryRepository.deleteByUserIdAndConversationId(
+                    expiredConversation.getUserId(),
+                    expiredConversation.getConversationId()
+            );
+            aiMatchingChatMessageRepository.deleteByUserIdAndConversationId(
                     expiredConversation.getUserId(),
                     expiredConversation.getConversationId()
             );

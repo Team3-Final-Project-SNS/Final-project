@@ -14,4 +14,6 @@ public interface AiMatchingChatMessageRepository extends JpaRepository<AiMatchin
             Long userId,
             String conversationId
     );
+
+    void deleteByUserIdAndConversationId(Long userId, String conversationId);
 }

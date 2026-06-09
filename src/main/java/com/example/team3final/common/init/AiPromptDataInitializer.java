@@ -31,12 +31,30 @@ public class AiPromptDataInitializer implements ApplicationRunner {
         );
 
         saveIfMissing(
+                AiPromptType.MATCHING_CHAT,
+                AiFeature.MATCHING,
+                "v2",
+                "matching-chat-v2.st",
+                true,
+                "한끼팟 매칭 AI 조건 반영 강화 프롬프트"
+        );
+
+        saveIfMissing(
                 AiPromptType.SUPPORT_CHAT,
                 AiFeature.SUPPORT,
                 "v1",
                 "support-chat-v1.st",
                 true,
                 "한끼팟 고객센터 AI 기본 프롬프트"
+        );
+
+        saveIfMissing(
+                AiPromptType.SUPPORT_CHAT,
+                AiFeature.SUPPORT,
+                "v2",
+                "support-chat-v2.st",
+                true,
+                "한끼팟 고객센터 AI 예외 상황 안내 강화 프롬프트"
         );
 
         saveIfMissing(

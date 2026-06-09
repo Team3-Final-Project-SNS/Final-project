@@ -47,12 +47,15 @@ public class AiReportToolResultConverter implements ToolCallResultConverter {
         return String.format(
                 """
                 관리자 콘솔 운영 요약
+                전체 처리 대기 업무: %d건
                 게시글: 전체 %d건, 모집 중 %d건, 매칭 완료 %d건, 만료 %d건
                 신고: 전체 %d건, 처리 대기 %d건, 채택 %d건, 기각 %d건
                 고객 문의: 전체 %d건, 답변 대기 %d건, 답변 완료 %d건
+                이의제기: 전체 %d건, 검토 대기 %d건, 제출 %d건, 검토 중 %d건, 보류 %d건, 수용 %d건, 부분 수용 %d건, 기각 %d건
                 유저: 전체 %d명, 활성 %d명, 정지 %d명, 탈퇴 %d명
                 결제: 전체 %d건, 결제 대기 %d건, 결제 완료 %d건, 취소 %d건, 실패 %d건, 완료 결제 금액 합계 %d원
                 """,
+                dashboard.totalPendingWorkCount(),
                 dashboard.totalPostCount(),
                 dashboard.openPostCount(),
                 dashboard.matchedPostCount(),
@@ -64,6 +67,14 @@ public class AiReportToolResultConverter implements ToolCallResultConverter {
                 dashboard.totalInquiryCount(),
                 dashboard.pendingInquiryCount(),
                 dashboard.answeredInquiryCount(),
+                dashboard.totalDisputeCount(),
+                dashboard.openDisputeCount(),
+                dashboard.submittedDisputeCount(),
+                dashboard.underReviewDisputeCount(),
+                dashboard.holdDisputeCount(),
+                dashboard.acceptedDisputeCount(),
+                dashboard.partiallyAcceptedDisputeCount(),
+                dashboard.rejectedDisputeCount(),
                 dashboard.totalUserCount(),
                 dashboard.activeUserCount(),
                 dashboard.suspendedUserCount(),

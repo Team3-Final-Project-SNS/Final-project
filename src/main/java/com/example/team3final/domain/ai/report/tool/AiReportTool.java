@@ -155,11 +155,11 @@ public class AiReportTool {
     /**
      * 관리자 콘솔 홈에서 AI가 사용할 운영 현황 요약을 조회합니다.
      *
-     * 게시글, 신고, 문의, 유저, 결제의 핵심 카운트만 반환하며
+     * 게시글, 신고, 문의, 이의제기, 유저, 결제의 핵심 카운트만 반환하며
      * 개인정보나 결제 식별자 같은 상세 데이터는 포함하지 않습니다.
      */
     @Tool(
-            description = "관리자 콘솔 대시보드의 게시글, 신고, 문의, 유저, 결제 현황 요약 카운트를 조회합니다.",
+            description = "관리자 콘솔 대시보드의 게시글, 신고, 문의, 이의제기, 유저, 결제 현황 요약 카운트를 조회합니다.",
             resultConverter = AiReportToolResultConverter.class
     )
     public AiReportDashboardToolResult getAdminDashboardSnapshot() {
@@ -179,6 +179,15 @@ public class AiReportTool {
                 snapshot.totalInquiryCount(),
                 snapshot.pendingInquiryCount(),
                 snapshot.answeredInquiryCount(),
+                snapshot.totalDisputeCount(),
+                snapshot.openDisputeCount(),
+                snapshot.submittedDisputeCount(),
+                snapshot.underReviewDisputeCount(),
+                snapshot.holdDisputeCount(),
+                snapshot.acceptedDisputeCount(),
+                snapshot.partiallyAcceptedDisputeCount(),
+                snapshot.rejectedDisputeCount(),
+                snapshot.pendingReportCount() + snapshot.pendingInquiryCount() + snapshot.openDisputeCount(),
                 snapshot.totalUserCount(),
                 snapshot.activeUserCount(),
                 snapshot.suspendedUserCount(),

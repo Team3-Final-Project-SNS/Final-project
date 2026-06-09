@@ -380,6 +380,20 @@ public class AiMatchingTool {
                 );
             }
 
+            if (containsAny(normalized, "아침", "조식", "모닝")) {
+                return new TimeRange(
+                        today.atTime(7, 0),
+                        today.atTime(10, 0)
+                );
+            }
+
+            if (containsAny(normalized, "브런치")) {
+                return new TimeRange(
+                        today.atTime(10, 0),
+                        today.atTime(12, 0)
+                );
+            }
+
             if (containsAny(normalized, "점심", "런치")) {
                 return new TimeRange(
                         today.atTime(11, 0),

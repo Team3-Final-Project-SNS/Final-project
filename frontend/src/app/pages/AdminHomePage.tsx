@@ -16,6 +16,8 @@ import { AdminInquiryItem, getAdminInquiries } from '../../api/adminInquiryApi';
 import { AdminReportItem, getAdminReports } from '../../api/adminReportApi';
 import { getAdminUsers } from '../../api/adminUserApi';
 
+const OPEN_DISPUTE_STATUSES = ['SUBMITTED', 'UNDER_REVIEW', 'HOLD'] as const;
+
 type DashboardSummary = {
   pendingReports: number | null;
   pendingInquiries: number | null;
@@ -58,7 +60,7 @@ export default function AdminHomePage() {
     const [reportsResult, inquiriesResult, disputesResult, usersResult] = await Promise.allSettled([
       getAdminReports('PENDING', 0, 5),
       getAdminInquiries('PENDING', undefined, 0, 5),
-      getAdminDisputes('SUBMITTED', 0, 5),
+      loadOpenDisputes(),
       getAdminUsers(undefined, undefined, 0, 1),
     ]);
 
@@ -74,7 +76,7 @@ export default function AdminHomePage() {
         ? inquiriesResult.value.data.data.totalElements
         : null,
       pendingDisputes: disputesResult.status === 'fulfilled'
-        ? disputesResult.value.data.data.totalElements
+        ? disputesResult.value.totalElements
         : null,
       totalUsers: usersResult.status === 'fulfilled'
         ? usersResult.value.data.data.totalElements
@@ -86,7 +88,7 @@ export default function AdminHomePage() {
         ? inquiriesResult.value.data.data.content
         : [],
       recentDisputes: disputesResult.status === 'fulfilled'
-        ? disputesResult.value.data.data.content
+        ? disputesResult.value.content
         : [],
     });
 
@@ -276,6 +278,20 @@ export default function AdminHomePage() {
       </section>
     </div>
   );
+}
+
+async function loadOpenDisputes() {
+  const responses = await Promise.all(
+    OPEN_DISPUTE_STATUSES.map((status) => getAdminDisputes(status, 0, 5)),
+  );
+  const items = responses
+    .flatMap((response) => response.data.data.content)
+    .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+
+  return {
+    totalElements: responses.reduce((sum, response) => sum + response.data.data.totalElements, 0),
+    content: items.slice(0, 5),
+  };
 }
 
 function formatDateTime(value: string) {

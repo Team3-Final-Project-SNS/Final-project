@@ -19,7 +19,7 @@ import java.util.Optional;
  */
 public interface AiPromptTemplateRepository extends JpaRepository<AiPromptTemplate, Long> {
 
-    Optional<AiPromptTemplate> findFirstByPromptTypeOrderByCreatedAtDescIdDesc(AiPromptType promptType);
+    Optional<AiPromptTemplate> findFirstByPromptTypeAndActiveTrueOrderByCreatedAtDescIdDesc(AiPromptType promptType);
 
     boolean existsByPromptTypeAndVersion(AiPromptType promptType, String version);
 }
