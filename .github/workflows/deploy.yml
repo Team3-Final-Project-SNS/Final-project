@@ -1,9 +1,8 @@
-# main 브랜치에 push될 때 자동으로 EC2에 Docker Compose 배포
+# 수동으로 배포할 때만 EC2에 Docker Compose 배포
 name: Deploy to EC2
 
 on:
-  push:
-    branches: [ dav ]  # main 브랜치 push 시 실행
+  workflow_dispatch:  # GitHub Actions 탭에서 Run workflow 버튼으로 수동 실행
 
 jobs:
   deploy:
@@ -22,9 +21,9 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "."                          # 현재 디렉토리 전체 전송
-          target: "/home/ec2-user/app"         # EC2의 app 폴더에 저장
-          exclude: ".env,.git,*.pem"           # .env, .git, pem 파일 제외
+          source: "."
+          target: "/home/ec2-user/app"
+          exclude: ".env,.git,*.pem"
 
       # 3. EC2에서 Docker Compose 실행
       - name: Deploy with Docker Compose on EC2
