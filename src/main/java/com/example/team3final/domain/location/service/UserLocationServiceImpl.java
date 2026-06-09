@@ -22,7 +22,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -32,9 +36,6 @@ public class UserLocationServiceImpl implements UserLocationService {
     private final UserLocationRepository userLocationRepository;
     private final MatchService matchQueryService;
     private final PostService postQueryService;
-
-    // 반경 60m (GPS 오차 범위 포함)
-    private static final double PLACE_VERIFICATION_RADIUS_METERS = 60.0;
 
     // 내 위치 업데이트
     @Override
@@ -55,27 +56,27 @@ public class UserLocationServiceImpl implements UserLocationService {
             throw new LocationException(ErrorCode.MATCH_NOT_PARTICIPANT);
         }
 
-        // 기존 위치 조회
-        Optional<UserLocation> exist = userLocationRepository.findByMatchIdAndUserId(matchId, userId);
+        boolean isAuthor = userId.equals(postInfo.authorId());
+        List<Long> activeMatchIds = getActiveMatchIdsByPostId(matchInfo.postId());
+        UserLocation primaryLocation = null;
 
-        UserLocation userLocation;
-
-        if (exist.isPresent()) {
-            // 있으면 UPDATE - 더티 체킹으로 자동 저장
-            userLocation = exist.get();
-            userLocation.updateLocation(requestDto.getLatitude(), requestDto.getLongitude());
+        if (isAuthor) {
+            // 단체 매칭 등록자는 같은 게시글의 모든 활성 matchId에 위치를 동기화해,
+            // 각 신청자 화면에서도 등록자 위치가 보이도록 합니다.
+            for (Long activeMatchId : activeMatchIds) {
+                UserLocation savedLocation = upsertLocation(activeMatchId, userId, requestDto);
+                if (activeMatchId.equals(matchId)) {
+                    primaryLocation = savedLocation;
+                }
+            }
+            if (primaryLocation == null) {
+                primaryLocation = upsertLocation(matchId, userId, requestDto);
+            }
         } else {
-            // 없으면 INSERT
-            userLocation = UserLocation.builder()
-                    .matchId(matchId)
-                    .userId(userId)
-                    .latitude(requestDto.getLatitude())
-                    .longitude(requestDto.getLongitude())
-                    .build();
-            userLocationRepository.save(userLocation);
+            primaryLocation = upsertLocation(matchId, userId, requestDto);
         }
 
-        return UpdateLocationResponseDto.from(userLocation);
+        return UpdateLocationResponseDto.from(primaryLocation);
     }
 
     // 양측 위치 조회
@@ -96,46 +97,77 @@ public class UserLocationServiceImpl implements UserLocationService {
             throw new LocationException(ErrorCode.MATCH_NOT_PARTICIPANT);
         }
 
-        // 내가 등록자인지 신청자인지 판단 → role 결정에 사용
-        boolean isAuthor = userId.equals(postInfo.authorId());
+        List<Long> activeMatchIds = getActiveMatchIdsByPostId(matchInfo.postId());
+        Map<Long, MatchInfoDto> activeMatchMap = matchQueryService.getMatchInfos(activeMatchIds);
+        Set<Long> activeApplicantIds = activeMatchMap.values()
+                .stream()
+                .map(MatchInfoDto::applicantId)
+                .collect(Collectors.toSet());
 
-        // matchId로 양측 위치 전체 조회
-        List<UserLocation> locations = userLocationRepository.findAllByMatchId(matchId);
+        if (!userId.equals(postInfo.authorId()) && !activeApplicantIds.contains(userId)) {
+            throw new LocationException(ErrorCode.MATCH_NOT_PARTICIPANT);
+        }
+
+        // 같은 게시글의 활성 matchId 전체를 조회해 단체 매칭 참여자 위치를 한 번에 구성합니다.
+        List<UserLocation> locations = userLocationRepository.findAllByMatchIdIn(activeMatchIds);
 
         // 내 위치 — role은 내가 누구냐에 따라 결정
+        boolean isAuthor = userId.equals(postInfo.authorId());
         LocationDto myLocation = locations.stream()
                 .filter(loc -> loc.getUserId().equals(userId))
                 .findFirst()
                 .map(loc -> LocationDto.from(loc, isAuthor ? LocationRole.AUTHOR : LocationRole.APPLICANT))
                 .orElse(null);
 
-        // 상대방 위치: 약속 장소 반경 안에 있을 때만 노출
-        UserLocation opponentRaw = locations.stream()
+        // 상대방 위치는 반경 조건으로 숨기지 않고, 같은 게시글의 활성 참여자 위치를 모두 노출합니다.
+        List<LocationDto> opponentLocations = locations.stream()
                 .filter(loc -> !loc.getUserId().equals(userId))
-                .findFirst()
-                .orElse(null);
+                .filter(loc -> loc.getUserId().equals(postInfo.authorId()) || activeApplicantIds.contains(loc.getUserId()))
+                .collect(Collectors.toMap(
+                        UserLocation::getUserId,
+                        Function.identity(),
+                        (first, second) -> first
+                ))
+                .values()
+                .stream()
+                .map(loc -> LocationDto.from(
+                        loc,
+                        loc.getUserId().equals(postInfo.authorId()) ? LocationRole.AUTHOR : LocationRole.APPLICANT
+                ))
+                .toList();
 
-        // if문을 안타는 조건을 대비하여, null값으로 초기화
-        LocationDto opponentLocation = null;
+        return GetLocationResponseDto.of(myLocation, opponentLocations);
+    }
 
-        if (opponentRaw != null) {
-            // GpsUtils로 상대방과 약속 장소 간 거리 계산
-            double distance = GpsUtils.calculateDistance(
-                    opponentRaw.getLatitude().doubleValue(),
-                    opponentRaw.getLongitude().doubleValue(),
-                    postInfo.placeLat().doubleValue(),
-                    postInfo.placeLng().doubleValue()
-            );
+    private UserLocation upsertLocation(Long matchId, Long userId, UpdateLocationRequestDto requestDto) {
+        Optional<UserLocation> exist = userLocationRepository.findByMatchIdAndUserId(matchId, userId);
 
-            // 반경(60m) 안에 있을 때만 상대방 위치 노출
-            // 반경 밖이면 null 반환 → 프론트에서 마커 미표시
-            if (distance <= PLACE_VERIFICATION_RADIUS_METERS) {
-                LocationRole opponentRole = isAuthor ? LocationRole.APPLICANT : LocationRole.AUTHOR;
-                opponentLocation = LocationDto.from(opponentRaw, opponentRole);
-            }
+        if (exist.isPresent()) {
+            UserLocation userLocation = exist.get();
+            userLocation.updateLocation(requestDto.getLatitude(), requestDto.getLongitude());
+            return userLocation;
         }
 
-        return GetLocationResponseDto.of(myLocation, opponentLocation);
+        UserLocation userLocation = UserLocation.builder()
+                .matchId(matchId)
+                .userId(userId)
+                .latitude(requestDto.getLatitude())
+                .longitude(requestDto.getLongitude())
+                .build();
+        return userLocationRepository.save(userLocation);
+    }
+
+    private List<Long> getActiveMatchIdsByPostId(Long postId) {
+        List<Long> matchIds = matchQueryService.getMatchIdsByPostId(postId);
+        Map<Long, MatchInfoDto> matchInfoMap = matchQueryService.getMatchInfos(matchIds);
+
+        List<Long> activeMatchIds = matchInfoMap.values()
+                .stream()
+                .filter(match -> match.status() == MatchStatus.MATCHED)
+                .map(MatchInfoDto::matchId)
+                .toList();
+
+        return activeMatchIds.isEmpty() ? List.of() : activeMatchIds;
     }
 
     // QR 만료 시 노쇼 판정을 위해 호출되는 메서드
@@ -177,4 +209,3 @@ public class UserLocationServiceImpl implements UserLocationService {
         }
     }
 }
-
