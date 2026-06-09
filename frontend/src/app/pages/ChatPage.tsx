@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useLocation } from 'react-router';
 import { ArrowLeft, Send, MapPin, Loader2, AlertCircle, Clock } from 'lucide-react';
-import { getChatMessages, ChatMessageResponse, getChatRooms } from '@/api/chatApi';
-import { getMatchDetail, GetMatchResponse } from '@/api/matchApi';
+import { getChatMessages, ChatMessageResponse } from '@/api/chatApi';
+import { getMatchDetail, GetMatchResponse, getMyMatches } from '@/api/matchApi';
 import { createMeetExtension } from '@/api/meetApi';
 import { getUserMe } from '@/api/userApi';
 import SockJS from 'sockjs-client';
@@ -38,6 +38,35 @@ const mergeMessages = (
   return [...messageMap.values()].sort((a, b) => a.messageId - b.messageId);
 };
 
+const resolveMatchIdByChatRoomId = async (chatRoomId: number) => {
+  let page = 0;
+  const size = 100;
+
+  while (page < 5) {
+    const response = await getMyMatches(undefined, page, size);
+    const data = response.data.data;
+    const matchedRoom = data.content
+        .filter((item) => item.chatRoomId === chatRoomId)
+        .sort((a, b) => {
+          if (a.status === 'MATCHED' && b.status !== 'MATCHED') return -1;
+          if (a.status !== 'MATCHED' && b.status === 'MATCHED') return 1;
+          return new Date(b.matchedAt).getTime() - new Date(a.matchedAt).getTime();
+        })[0];
+
+    if (matchedRoom) {
+      return matchedRoom.matchId;
+    }
+
+    if (!data.hasNext) {
+      return null;
+    }
+
+    page += 1;
+  }
+
+  return null;
+};
+
 export default function ChatPage() {
   const { roomId, id } = useParams();
   const location = useLocation();
@@ -66,33 +95,42 @@ export default function ChatPage() {
       try {
         let currentMatchId: number | null = location.state?.matchId ?? routeMatchId;
         let currentChatRoomId: number | null = routeChatRoomId;
+        let nextMatchInfo: GetMatchResponse | null = null;
 
         if (!currentMatchId && currentChatRoomId) {
-          const roomsRes = await getChatRooms();
-          const room = roomsRes.data.data.find((item) => item.chatRoomId === currentChatRoomId);
-          currentMatchId = room?.matchId ?? null;
+          try {
+            currentMatchId = await resolveMatchIdByChatRoomId(currentChatRoomId);
+          } catch (roomLookupError) {
+            console.error('Failed to resolve match from chat room', roomLookupError);
+          }
         }
 
-        if (!currentMatchId) {
-          throw new Error('MATCH_NOT_FOUND');
+        if (currentMatchId) {
+          try {
+            const matchRes = await getMatchDetail(currentMatchId);
+            nextMatchInfo = matchRes.data.data;
+            currentChatRoomId = currentChatRoomId ?? nextMatchInfo.chatRoomId;
+          } catch (matchLookupError) {
+            if (!currentChatRoomId) {
+              throw matchLookupError;
+            }
+            console.error('Failed to load match detail for chat room', matchLookupError);
+          }
         }
-
-        const [matchRes, userRes] = await Promise.all([
-          getMatchDetail(currentMatchId),
-          getUserMe(),
-        ]);
-        currentChatRoomId = currentChatRoomId ?? matchRes.data.data.chatRoomId;
 
         if (!currentChatRoomId) {
           throw new Error('CHAT_ROOM_NOT_FOUND');
         }
 
-        const historyRes = await getChatMessages(currentChatRoomId);
+        const [historyRes, userRes] = await Promise.all([
+          getChatMessages(currentChatRoomId),
+          getUserMe(),
+        ]);
 
         setMessages(toChronologicalMessages(historyRes.data.data.content));
         setCursor(historyRes.data.data.nextCursor);
         setHasNext(historyRes.data.data.hasNext);
-        setMatchInfo(matchRes.data.data);
+        setMatchInfo(nextMatchInfo);
         setChatRoomId(currentChatRoomId);
         setCurrentUserId(userRes.data.data.userId);
       } catch (err: any) {

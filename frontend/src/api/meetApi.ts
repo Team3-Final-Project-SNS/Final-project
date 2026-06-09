@@ -58,8 +58,9 @@ export interface SingleLocationResponse {
 }
 
 export interface LocationResponse {
-    myLocation: SingleLocationResponse;
-    opponentLocation: SingleLocationResponse;
+    myLocation: SingleLocationResponse | null;
+    opponentLocation: SingleLocationResponse | null;
+    opponentLocations: SingleLocationResponse[];
 }
 
 // GPS 장소 인증 API
