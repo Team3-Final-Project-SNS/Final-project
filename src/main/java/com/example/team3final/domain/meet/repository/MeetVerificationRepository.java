@@ -92,4 +92,8 @@ public interface MeetVerificationRepository extends JpaRepository<MeetVerificati
             List<VerificationStatus> statuses,
             LocalDateTime deadline
     );
+
+    // matchId 목록으로 MeetVerification 벌크 조회
+    // getMeetVerification()에서 형제 MV 전체를 한 번에 가져올 때 사용 (N+1 방지)
+    List<MeetVerification> findAllByMatchIdIn(List<Long> matchIds);
 }
