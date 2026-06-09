@@ -63,7 +63,7 @@ public class AiPromptFileService {
      * 기능에서 사용합니다.
      */
     public RenderedPrompt renderWithMetadata(AiPromptType type, Map<String, Object> variables) {
-        AiPromptTemplate promptTemplate = aiPromptTemplateRepository.findFirstByPromptTypeOrderByCreatedAtDescIdDesc(type)
+        AiPromptTemplate promptTemplate = aiPromptTemplateRepository.findFirstByPromptTypeAndActiveTrueOrderByCreatedAtDescIdDesc(type)
                 .orElseThrow(() -> new AiException(ErrorCode.AI_PROMPT_TEMPLATE_NOT_FOUND));
 
         try {

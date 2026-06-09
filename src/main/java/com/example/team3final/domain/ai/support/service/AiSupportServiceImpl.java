@@ -97,8 +97,10 @@ public class AiSupportServiceImpl implements AiSupportService {
     private final AiProperties aiProperties;
     private final AiRagRetrieverService aiRagRetrieverService;
 
-    // 고객센터 AI 멀티턴 컨텍스트는 비용 제어를 위해 최근 대화부터 3000 추정 토큰까지만 전달합니다.
+    // 고객센터 AI 멀티턴 컨텍스트는 최근 5턴(사용자/AI 메시지 최대 10개)과 3000토큰 중 먼저 도달하는 기준으로 제한합니다.
     private static final int SUPPORT_MEMORY_TOKEN_BUDGET = 3000;
+    private static final int SUPPORT_MEMORY_MAX_TURNS = 5;
+    private static final int SUPPORT_MEMORY_MAX_MESSAGES = SUPPORT_MEMORY_MAX_TURNS * 2;
     private static final int SUPPORT_SESSION_EXPIRE_MINUTES = 15;
 
     public AiSupportServiceImpl(
@@ -580,11 +582,11 @@ public class AiSupportServiceImpl implements AiSupportService {
     }
 
     /**
-     * 고객센터 AI의 멀티턴 메모리는 최근 N개 메시지가 아니라 토큰 예산 기준으로 구성합니다.
+     * 고객센터 AI의 멀티턴 메모리는 최근 5턴과 3000토큰 예산 중 먼저 도달하는 기준으로 구성합니다.
      *
-     * 최신 메시지부터 tokenCount를 누적해 3000토큰 안에 들어오는 메시지만 선택하고,
+     * 최신 메시지부터 최대 10개 메시지를 보면서 tokenCount를 누적해 3000토큰 안에 들어오는 메시지만 선택하고,
      * 프롬프트에는 다시 오래된 순서로 넣어 자연스러운 대화 흐름을 유지합니다.
-     * 3000토큰은 고객센터 1턴 평균 300토큰 가정 시 약 10턴 맥락을 유지하는 값입니다.
+     * 3000토큰은 고객센터 1턴 평균 300토큰 가정 시 최대 10턴까지 가능하지만, 응답 속도와 비용을 위해 5턴으로 제한합니다.
      * 현재 요청 메시지는 user prompt에도 별도로 들어가므로 requestId로 제외합니다.
      */
     private String buildTokenWindowConversationContext(Long userId, String conversationId, String currentRequestId) {
@@ -598,9 +600,14 @@ public class AiSupportServiceImpl implements AiSupportService {
         int usedTokens = 0;
         List<AiSupportChatMemory> selectedMessages = new ArrayList<>();
 
+        int selectedMessageCount = 0;
         for (AiSupportChatMemory message : recentMessages) {
             if (currentRequestId.equals(message.getRequestId())) {
                 continue;
+            }
+
+            if (selectedMessageCount >= SUPPORT_MEMORY_MAX_MESSAGES) {
+                break;
             }
 
             int tokenCount = resolveTokenCount(message.getTokenCount(), message.getContent());
@@ -610,6 +617,7 @@ public class AiSupportServiceImpl implements AiSupportService {
 
             selectedMessages.add(message);
             usedTokens += tokenCount;
+            selectedMessageCount++;
         }
 
         if (selectedMessages.isEmpty()) {
@@ -620,10 +628,17 @@ public class AiSupportServiceImpl implements AiSupportService {
 
         StringBuilder sb = new StringBuilder();
         sb.append("[고객센터 AI 대화 메모리]\n")
-                .append("- 적용 전략: 최근 대화부터 최대 ")
+                .append("- 적용 전략: 최근 ")
+                .append(SUPPORT_MEMORY_MAX_TURNS)
+                .append("턴과 최대 ")
                 .append(SUPPORT_MEMORY_TOKEN_BUDGET)
-                .append("토큰 이하만 포함\n")
-                .append("- 설정 근거: 고객센터 1턴 평균 300토큰 기준 약 10턴 맥락 유지\n")
+                .append("토큰 중 먼저 도달하는 기준으로 포함\n")
+                .append("- 설정 근거: 고객센터는 응답 속도와 비용을 우선해 최근 5턴으로 제한\n")
+                .append("- 현재 포함된 메시지 수: ")
+                .append(selectedMessages.size())
+                .append("/")
+                .append(SUPPORT_MEMORY_MAX_MESSAGES)
+                .append("\n")
                 .append("- 현재 포함된 대화 토큰: ")
                 .append(usedTokens)
                 .append("\n\n");

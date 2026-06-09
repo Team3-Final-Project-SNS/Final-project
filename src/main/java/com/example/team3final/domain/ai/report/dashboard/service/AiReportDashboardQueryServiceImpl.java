@@ -1,6 +1,8 @@
 package com.example.team3final.domain.ai.report.dashboard.service;
 
 import com.example.team3final.domain.ai.report.dashboard.dto.AiReportDashboardSnapshotDto;
+import com.example.team3final.domain.dispute.enums.DisputeStatus;
+import com.example.team3final.domain.dispute.repository.DisputeRepository;
 import com.example.team3final.domain.inquiry.enums.InquiryAnswerStatus;
 import com.example.team3final.domain.inquiry.repository.InquiryRepository;
 import com.example.team3final.domain.payment.enums.PaymentStatus;
@@ -35,6 +37,7 @@ public class AiReportDashboardQueryServiceImpl implements AiReportDashboardQuery
     private final PostRepository postRepository;
     private final ReportRepository reportRepository;
     private final InquiryRepository inquiryRepository;
+    private final DisputeRepository disputeRepository;
     private final UserRepository userRepository;
     private final PaymentRepository paymentRepository;
 
@@ -42,6 +45,10 @@ public class AiReportDashboardQueryServiceImpl implements AiReportDashboardQuery
     public AiReportDashboardSnapshotDto getSnapshot() {
         // 현재 홈 챗봇에서 필요한 최소 지표만 조회합니다.
         // 상세 목록이나 개인정보는 각 관리자 메뉴 API에서 확인하게 하고, AI에는 카운트만 전달합니다.
+        long submittedDisputeCount = disputeRepository.countByStatus(DisputeStatus.SUBMITTED);
+        long underReviewDisputeCount = disputeRepository.countByStatus(DisputeStatus.UNDER_REVIEW);
+        long holdDisputeCount = disputeRepository.countByStatus(DisputeStatus.HOLD);
+
         return new AiReportDashboardSnapshotDto(
                 postRepository.count(),
                 postRepository.countByStatus(PostStatus.OPEN),
@@ -54,6 +61,14 @@ public class AiReportDashboardQueryServiceImpl implements AiReportDashboardQuery
                 inquiryRepository.count(),
                 inquiryRepository.countByAnswerStatus(InquiryAnswerStatus.PENDING),
                 inquiryRepository.countByAnswerStatus(InquiryAnswerStatus.ANSWERED),
+                disputeRepository.count(),
+                submittedDisputeCount + underReviewDisputeCount + holdDisputeCount,
+                submittedDisputeCount,
+                underReviewDisputeCount,
+                holdDisputeCount,
+                disputeRepository.countByStatus(DisputeStatus.ACCEPTED),
+                disputeRepository.countByStatus(DisputeStatus.PARTIALLY_ACCEPTED),
+                disputeRepository.countByStatus(DisputeStatus.REJECTED),
                 userRepository.count(),
                 userRepository.countByStatus(UserStatus.ACTIVE),
                 userRepository.countByStatus(UserStatus.SUSPENDED),
