@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -296,10 +297,45 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         // MeetVerification + MatchInfo + PostInfo 한 번에 조회
         MeetContext ctx = loadMeetContext(matchId);
 
-        // 매칭 당사자 검증
+        // 매칭 당사자 검증 (등록자인지 신청자인지)
         validateParticipant(userId, ctx.matchInfo(), ctx.postInfo());
 
-        return MeetVerificationResponseDto.of(matchId, ctx.meetVerification());
+        // 등록자 닉네임 조회
+        String authorNickname = userService.getUserInfo(ctx.postInfo.authorId()).nickname();
+
+        // postId 기준으로 모든 형제 matchId 조회
+        List<Long> siblingMatchIds = matchService.getMatchIdsByPostId(ctx.matchInfo.postId());
+
+        // 형제 matchId → MeetVerification 목록 조회 (N+1 방지용 벌크 조회)
+        List<MeetVerification> siblingMvList = meetVerificationRepository.findAllByMatchIdIn(siblingMatchIds);
+
+        // 형제 matchId → MatchInfoDto 벌크 조회 (N+1 방지용 벌크 조회)
+        Map<Long, MatchInfoDto> siblingMatchInfoMap = matchService.getMatchInfos(siblingMatchIds);
+
+        // 신청자 userId 목록 추출
+        List<Long> applicantIds = siblingMatchInfoMap.values().stream()
+                .map(MatchInfoDto::applicantId)
+                .toList();
+
+        // 신청자 닉네임 벌크 조회
+        Map<Long, String> nicknameMap = userService.getUserNicknameMap(applicantIds);
+
+        // matchId -> ParticipantInfo 맵 조립
+        Map<Long, MeetVerificationResponseDto.ParticipantInfo> applicantInfoMap =
+                siblingMatchInfoMap.entrySet().stream()
+                        .collect(Collectors.toMap(Map.Entry::getKey,
+                                e -> new MeetVerificationResponseDto.ParticipantInfo(
+                                        e.getValue().applicantId(),
+                                        nicknameMap.getOrDefault(e.getValue().applicantId(), "알 수 없음")
+                                )));
+
+        return MeetVerificationResponseDto.of(
+                matchId,
+                ctx.meetVerification(),
+                authorNickname,
+                siblingMvList,
+                applicantInfoMap
+        );
     }
 
     // 매칭 생성 시 PENDING 초기화
@@ -849,7 +885,8 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             MeetVerification meetVerification,
             MatchInfoDto matchInfo,
             PostInfoDto postInfo
-    ) {}
+    ) {
+    }
 
     private MeetContext loadMeetContext(Long matchId) {
         // matchId로 MeetVerification 조회, 없으면 예외
@@ -888,7 +925,8 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     private record BulkMatchContext(
             Map<Long, MatchInfoDto> matchInfoMap,
             Map<Long, PostInfoDto> postInfoMap
-    ) {}
+    ) {
+    }
 
     private BulkMatchContext loadBulkMatchContext(List<Long> matchIds) {
         // Match 도메인 벌크 조회 (N+1 방지)
