@@ -23,7 +23,6 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "."
           target: "/home/ec2-user/app"
-          exclude: ".env,.git,*.pem"
 
       # 3. EC2에서 Docker Compose 실행
       - name: Deploy with Docker Compose on EC2
