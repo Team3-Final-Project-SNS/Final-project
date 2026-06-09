@@ -98,6 +98,10 @@ dependencies {
     // implementation 'io.portone:server-sdk:0.12.0:all'
 
 
+    // AWS Parameter Store 연동
+    implementation 'io.awspring.cloud:spring-cloud-aws-starter-parameter-store:3.1.1'
+
+
 
 }
 dependencyManagement {
