@@ -23,13 +23,6 @@ public interface MatchService {
      */
     CreateMatchResponseDto createMatch(Long postId, Long applicantId);
 
-    /**
-     * 매칭 완료 처리 — 도메인 간 호출용 (만남 인증 QR 성공 시)
-     * 오케스트레이션: Match→COMPLETED, Post→COMPLETED, 채팅방 비활성화, 양측 환불
-     * throws MatchException MATCH_001 — 매칭이 존재하지 않음
-     */
-    void completeMatch(Long matchId);
-
     // 이의제기 접수 시 호출 — Match 상태를 DISPUTED로 변경
     // MeetVerification.markDispute()와 함께 호출되어 양측 상태를 동시에 이의제기 상태로 전환
     // 포인트 정산 없음 — 이의제기가 종결될 때까지 예치금 보류
@@ -154,4 +147,12 @@ public interface MatchService {
      *    (단건 getMatchInfo와의 의도적인 차이 — 부분 실패가 전체 실패로 번지지 않도록)
      */
     Map<Long, MatchInfoDto> getMatchInfos(List<Long> matchIds);
+
+    // QR 스캔 성공 시 Match 단건만 COMPLETE 처리
+    // 해당 Match 1개만 COMPLETE 전환
+    boolean completeSingleMatch(Long matchId);
+
+    // 모든 활성 매칭이 종료된 뒤 Post 전체 종결 처리
+    // 등록자 책임비 환급, 중복 호출되어도 한 번만 처리되도록 멱등성 보장
+    void completePostIfAllMatchesCompleted(Long postId);
 }
