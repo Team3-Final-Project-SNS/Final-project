@@ -24,7 +24,6 @@ import com.example.team3final.domain.post.dto.response.PostInfoDto;
 import com.example.team3final.domain.post.service.PostService;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -160,26 +159,41 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             throw new MeetException(ErrorCode.GPS_OUT_OF_RANGE);
         }
 
-        // userId 기반으로 등록자/신청자 구분하여 각각 인증 처리
+        // 등록자 / 신청자 구분해서 인증 처리
         if (isAuthor) {
-            meetVerification.verifyAuthorPlace();
+            // [변경] 등록자는 그룹 전체의 호스트
+            // 같은 postId에 속한 모든 MeetVerification에 authorPlaceVerifiedAt 전파
+            // 이유: 전파하지 않으면 다른 신청자 MV에 authorPlaceVerifiedAt = null 이 남아
+            //       스케줄러가 HOST_NO_SHOW로 오판함
+            propagateAuthorVerification(matchInfo.postId());
         } else {
+            // 신청자는 자기 matchId의 MeetVerification에만 기록 (기존과 동일)
             meetVerification.verifyApplicantPlace();
         }
 
+        // VERIFIED 여부 확인
+        // 전파 후 이 MeetVerification의 상태가 바뀌었을 수 있으므로 엔티티에서 다시 읽음
         boolean bothVerified = meetVerification.getStatus() == VerificationStatus.VERIFIED;
 
-        // 양측 장소 인증이 완료된 순간 QR을 즉시 발급
-        // 등록자가 먼저 인증하든 신청자가 먼저 하든 마지막 인증 완료 시점에 한 번만 발급됨
-        // (내부에서 이미 토큰이 있으면 스킵 — 중복 발급 방지)
+        // 양측 장소 인증 완료 시 QR 즉시 발급 (기존과 동일)
         if (bothVerified) {
             issueQrTokenIfNeeded(meetVerification);
         }
 
-        // 14. 장소 인증 완료 알림 - 1:1: 상대방에게 / 그룹: 모임 참여자 전원에게
-        // isAuthor면 상대방은 신청자(applicantId), 아니면 등록자(authorId)
-        Long opponentId = isAuthor ? matchInfo.applicantId() : postInfo.authorId();
-        notificationPublisher.sendPlaceVerified(opponentId, matchId);
+        // 14. 장소 인증 완료 알림
+        // [변경] 등록자 인증 → 모든 신청자에게 알림 (그룹 전파 알림)
+        //        신청자 인증 → 등록자에게만 알림 (기존과 동일)
+        if (isAuthor) {
+            // postId 기준 모든 신청자에게 알림
+            List<Long> siblingMatchIds = matchService.getMatchIdsByPostId(matchInfo.postId());
+            Map<Long, MatchInfoDto> siblingInfos = matchService.getMatchInfos(siblingMatchIds);
+            // 각 신청자에게 "등록자가 장소 인증했습니다" 알림 발송
+            siblingInfos.values()
+                    .forEach(m -> notificationPublisher.sendPlaceVerified(m.applicantId(), matchId));
+        } else {
+            // 신청자 인증 → 등록자에게만 알림
+            notificationPublisher.sendPlaceVerified(postInfo.authorId(), matchId);
+        }
 
         return PlaceVerificationResponseDto.of(meetVerification, distanceMeters, bothVerified);
     }
@@ -886,5 +900,29 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                 .toList();
         Map<Long, PostInfoDto> postInfoMap = postQueryService.getPostInfos(postIds);
         return new BulkMatchContext(matchInfoMap, postInfoMap);
+    }
+
+    // 등록자 GPS 인증을 같은 postId의 모든 MeetVerification에 전파
+    private void propagateAuthorVerification(Long postId) {
+
+        // 같은 postId에 속한 모든 matchId 목록 조회
+        List<Long> siblingMatchIds = matchService.getMatchIdsByPostId(postId);
+
+        for (Long siblingMatchId : siblingMatchIds) {
+
+            // 각 matchId의 MeetVerification 조회
+            // 데이터 정합성 문제로 없는 경우 방어 — 해당 건만 스킵
+            MeetVerification mv = meetVerificationRepository.findByMatchId(siblingMatchId)
+                    .orElse(null);
+            if (mv == null) continue;
+
+            // 이미 등록자 인증이 완료된 건은 중복 처리 방지
+            // (등록자가 두 번 호출하거나 스케줄러 중복 실행 시 멱등성 보장)
+            if (mv.isAuthorPlaceVerified()) continue;
+
+            // 등록자 GPS 인증 처리
+            // 내부 updateToVerifiedIfDone(): 신청자도 인증됐으면 VERIFIED로 자동 전환
+            mv.verifyAuthorPlace();
+        }
     }
 }
