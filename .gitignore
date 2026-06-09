@@ -50,3 +50,4 @@ frontend/.env.local
 frontend/.env*.local
 .codex-tmp/
 outputs/
+.pen
