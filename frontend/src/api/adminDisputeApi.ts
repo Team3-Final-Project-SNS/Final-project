@@ -1,4 +1,4 @@
-import axiosInstance from './axiosInstance';
+﻿import axiosInstance from './axiosInstance';
 import { ApiResponse } from './authApi';
 import { PageResponse } from './postApi';
 
@@ -79,3 +79,10 @@ export const judgeAdminDispute = (
   comment: string,
 ) =>
   axiosInstance.patch(`/api/v1/admin/disputes/${disputeId}/judge`, { status, comment });
+
+export const overrideAdminDisputeStatus = (
+  disputeId: number,
+  status: DisputeStatus,
+  comment: string,
+) =>
+  axiosInstance.patch(`/api/v1/admin/disputes/${disputeId}/override`, { status, comment });
