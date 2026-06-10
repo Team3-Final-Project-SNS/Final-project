@@ -51,12 +51,14 @@ export default function MyInfoEditPage() {
     setError('');
 
     try {
-      await updateUserMe({
+      const payload: Parameters<typeof updateUserMe>[0] = {
         nickname: nickname.trim(),
         major: major.trim(),
-        currentPassword: currentPassword || undefined,
-        newPassword: newPassword || undefined,
-      });
+      };
+      if (currentPassword) payload.currentPassword = currentPassword;
+      if (newPassword) payload.newPassword = newPassword;
+
+      await updateUserMe(payload);
       alert('내 정보가 수정되었습니다.');
       navigate('/me');
     } catch (err: any) {
