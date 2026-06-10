@@ -27,6 +27,16 @@ export interface AdminDisputeItem {
   submittedAt: string;
 }
 
+export interface AdminNoShowCandidate {
+  matchId: number;
+  verificationStatus: string;
+  hostNickname: string;
+  guestNickname: string;
+  meetAt: string;
+  hasDispute: boolean;
+  disputeDeadline: string | null;
+}
+
 export interface AdminDisputeDetail {
   disputeId: number;
   matchId: number;
@@ -53,6 +63,11 @@ export const getAdminDisputes = (
 ) =>
   axiosInstance.get<ApiResponse<PageResponse<AdminDisputeItem>>>('/api/v1/admin/disputes', {
     params: { status, page, size },
+  });
+
+export const getAdminNoShowCandidates = (page: number = 0, size: number = 20) =>
+  axiosInstance.get<ApiResponse<PageResponse<AdminNoShowCandidate>>>('/api/v1/admin/no-show-candidates', {
+    params: { page, size },
   });
 
 export const getAdminDispute = (disputeId: number) =>
