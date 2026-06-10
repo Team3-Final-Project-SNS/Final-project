@@ -4,9 +4,11 @@ import com.example.team3final.domain.meet.dto.response.MeetReminderResponseDto;
 import com.example.team3final.domain.meet.entity.MeetVerification;
 import com.example.team3final.domain.meet.enums.ExtensionStatus;
 import com.example.team3final.domain.meet.enums.VerificationStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -96,4 +98,15 @@ public interface MeetVerificationRepository extends JpaRepository<MeetVerificati
     // matchId 목록으로 MeetVerification 벌크 조회
     // getMeetVerification()에서 형제 MV 전체를 한 번에 가져올 때 사용 (N+1 방지)
     List<MeetVerification> findAllByMatchIdIn(List<Long> matchIds);
+
+    // matchId 목록에 해당하는 MeetVerification들을 PESSIMISTIC_WRITE 락으로 조회
+    // 같은 Post의 그룹 연장 요청이 동시에 들어왔을 때 상태 덮어쓰기 방지를 위해 사용
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+                SELECT mv
+                FROM MeetVerification mv
+                WHERE mv.matchId IN :matchIds
+                ORDER BY mv.id ASC
+            """)
+    List<MeetVerification> findAllByMatchIdInWithLock(@Param("matchIds") List<Long> matchIds);
 }

@@ -189,8 +189,9 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             List<Long> siblingMatchIds = matchService.getMatchIdsByPostId(matchInfo.postId());
             Map<Long, MatchInfoDto> siblingInfos = matchService.getMatchInfos(siblingMatchIds);
             // 각 신청자에게 "등록자가 장소 인증했습니다" 알림 발송
-            siblingInfos.values()
-                    .forEach(m -> notificationPublisher.sendPlaceVerified(m.applicantId(), matchId));
+            siblingInfos.forEach((siblingMatchId, info) ->
+                    notificationPublisher.sendPlaceVerified(info.applicantId(), siblingMatchId)
+            );
         } else {
             // 신청자 인증 → 등록자에게만 알림
             notificationPublisher.sendPlaceVerified(postInfo.authorId(), matchId);
@@ -687,7 +688,14 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         // 매칭 당사자 확인
         validateParticipant(userId, matchInfoDto, postInfoDto);
 
-        // MATCH 상태 확인 (노쇼 판정 이후 or 완료된 매칭엔 연장 불가)
+        // 연장 요청 -> 신청자만 가능,
+        // 연장 수락/거절 -> 등록자만 가능
+        if (!matchInfoDto.isApplicant(userId)) {
+            throw new MeetException(ErrorCode.MEET_EXTEND_ONLY_APPLICANT);
+        }
+
+        // 요청 기준 Match가 MATCHED 상태인지 확인
+        // 이미 취소/완료/노쇼/이의제기 상태라면 연장 요청을 허용하지 않는다.
         if (matchInfoDto.status() != MatchStatus.MATCHED) {
             throw new MeetException(ErrorCode.MEET_EXTEND_MATCH_NOT_MATCHED);
         }
@@ -697,47 +705,59 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             throw new MeetException(ErrorCode.MEET_EXTEND_BEFORE_MEET_AT);
         }
 
-        // ACCEPTED → 이미 1회 연장 성공 → 영영 불가
-        // REJECTED → 거절됨 → 영영 불가
-        if (meetVerification.isExtended() || meetVerification.getExtensionStatus() == ExtensionStatus.REJECTED) {
-            throw new MeetException(ErrorCode.MEET_EXTEND_ALREADY_ACCEPTED);
+        // 같은 Post에 속한 활성 Match ID 목록을 조회
+        // 연장 요청이 수락되면 이 목록에 해당하는 모든 MeetVerification에 연장이 전파
+        List<Long> activeMatchIds = getActiveMatchIdsByPostId(matchInfoDto.postId());
+
+        // 활성 Match가 없다면 정상적인 연장 요청 대상이 아니므로 예외 처리
+        if (activeMatchIds.isEmpty()) {
+            throw new MeetException(ErrorCode.MEET_EXTEND_MATCH_NOT_MATCHED);
         }
 
-        // 진행 중인 요청(REQUESTED) 체크 전에 만료 여부를 먼저 확인
-        // 스케줄러가 EXPIRED로 전환하지 않은 타이밍에도 재요청을 허용하기 위함
-        if (meetVerification.getExtensionStatus() == ExtensionStatus.REQUESTED) {
-            if (meetVerification.isExtensionExpired(EXTENSION_TIMEOUT_MINUTES)) {
-                // 5분 타임아웃이 지났으면 → 즉시 EXPIRED 처리 후 요청 허용
-                meetVerification.expireExtension();
-            } else {
-                // 아직 5분 안 지났으면 진행 중인 요청이 있으므로 차단
-                throw new MeetException(ErrorCode.MEET_EXTEND_ALREADY_REQUESTED);
-            }
+        // 같은 Post에 속한 활성 MeetVerification들을 PESSIMISTIC_WRITE 락으로 조회
+        // 동시에 여러 신청자가 연장 요청을 보내더라도, 한 트랜잭션이 검증/REQUESTED 전파를 끝낼 때까지 다른 요청은 대기
+        List<MeetVerification> activeMvList = meetVerificationRepository.findAllByMatchIdInWithLock(activeMatchIds);
+
+        // 요청 기준 MeetVerification이 활성 목록에 포함되어 있는지 확인
+        // 방어 코드: 요청한 matchId가 이미 취소/완료되어 activeMatchIds에서 빠진 경우를 막음
+        boolean requestMvIsActive = activeMvList.stream()
+                .anyMatch(mv -> mv.getMatchId().equals(matchId));
+
+        // 요청한 Match가 활성 상태가 아니면 연장 요청을 진행할 수 없음
+        if (!requestMvIsActive) {
+            throw new MeetException(ErrorCode.MEET_EXTEND_MATCH_NOT_MATCHED);
         }
 
-        // 연장 요청 처리
-        meetVerification.requestExtension(userId);
+        // 같은 Post의 모든 활성 MeetVerification이 연장 요청 가능한 상태인지 검증
+        // 한 명이 요청하더라도 전체 연장으로 처리되므로, 전체 상태가 요청 가능해야 함
+        validateGroupExtensionRequestable(activeMvList);
 
-        // 상대방에게 연장 요청 알림 발송
-        Long opponentId = userId.equals(postInfoDto.authorId())
-                ? matchInfoDto.applicantId()
-                : postInfoDto.authorId();
-        // 18. 만남 시간 연장 요청 알림 - 만남 상대방에게
-        notificationPublisher.sendMeetExtendRequested(opponentId, matchId);
+        // 같은 Post의 모든 활성 MeetVerification에 동일한 연장 요청 상태를 기록
+        // requesterId는 실제 요청자인 신청자 userId로 동일하게 저장
+        for (MeetVerification mv : activeMvList) {
 
-        // 연장 타임아웃 ZSet 예약
-        // score = 요청 시각 + 5분 Unix Timestamp
-        // member = meetVerification ID (스케줄러가 꺼내서 만료 처리)
-        redisTemplate.opsForZSet().add(
-                MeetRedisZSetKeys.EXTENSION_TIMEOUT,
-                String.valueOf(meetVerification.getId()),
-                LocalDateTime.now().plusMinutes(EXTENSION_TIMEOUT_MINUTES).toEpochSecond(KST)
-        );
+            // 각 Match별 MeetVerification에 REQUESTED 상태를 저장
+            // 이렇게 해야 수락/거절/만료 시 같은 Post 전체를 일관되게 처리할 수 있음
+            mv.requestExtension(userId);
+
+            // 각 MeetVerification ID 기준으로 5분 타임아웃을 예약
+            // 기존 구조가 MV ID를 ZSet member로 사용하므로, 전체 MV를 각각 예약
+            reserveExtensionTimeout(mv);
+        }
+
+        // 연장 요청 알림은 등록자에게 1번만 발송
+        // 신청자 중 누가 요청했든, 최종 응답자는 등록자이기 때문
+        notificationPublisher.sendMeetExtendRequested(postInfoDto.authorId(), matchId);
 
         // 요청자 닉네임 조회
         String requesterNickname = userService.getUserInfo(userId).nickname();
 
-        return CreateMeetExtensionResponseDto.of(meetVerification, requesterNickname, postInfoDto.meetAt());
+        // 요청 기준 MeetVerification으로 응답을 생성
+        return CreateMeetExtensionResponseDto.of(
+                meetVerification,
+                requesterNickname,
+                postInfoDto.meetAt()
+        );
     }
 
     // 만남 시간 연장 수락
@@ -747,42 +767,84 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
         // MeetVerification + MatchInfo + PostInfo 한 번에 조회
         MeetContext ctx = loadMeetContext(matchId);
-        MeetVerification meetVerification = ctx.meetVerification();
         MatchInfoDto matchInfoDto = ctx.matchInfo();
         PostInfoDto postInfoDto = ctx.postInfo();
 
-        // 매칭 당사자 확인
+        // 요청자가 해당 Match의 당사자인지 검증
         validateParticipant(userId, matchInfoDto, postInfoDto);
 
-        // 연장 요청 만료 여부 확인 + 즉시 만료 처리
-        validateExtensionNotExpired(meetVerification);
+        // 연장 요청 -> 신청자만 가능,
+        // 연장 수락/거절 -> 등록자만 가능
+        if (!userId.equals(postInfoDto.authorId())) {
+            throw new MeetException(ErrorCode.MEET_EXTEND_ONLY_AUTHOR);
+        }
 
-        // 응답 가능한 요청이 있는지 확인
-        if (meetVerification.getExtensionStatus() != ExtensionStatus.REQUESTED) {
+        // 같은 Post에 속한 활성 Match ID 목록을 조회
+        // 수락 시 연장 적용은 같은 Post의 모든 활성 MeetVerification에 전파
+        List<Long> activeMatchIds = getActiveMatchIdsByPostId(matchInfoDto.postId());
+
+        // 활성 Match가 없다면 수락 가능한 연장 요청도 없음
+        if (activeMatchIds.isEmpty()) {
             throw new MeetException(ErrorCode.MEET_EXTEND_NO_ACTIVE_REQUEST);
         }
 
-        // 본인 요청은 본인이 수락 불가
-        if (userId.equals(meetVerification.getExtensionRequesterId())) {
+        // 같은 Post의 활성 MeetVerification들을 락으로 조회
+        // 등록자의 수락 처리와 타임아웃 배치 또는 중복 수락 요청이 동시에 실행되는 것을 방지
+        List<MeetVerification> activeMvList =
+                meetVerificationRepository.findAllByMatchIdInWithLock(activeMatchIds);
+
+        // 요청 기준 MeetVerification을 락이 걸린 목록에서 다시 찾음
+        MeetVerification requestMeetVerification = activeMvList.stream()
+                .filter(mv -> mv.getMatchId().equals(matchId))
+                .findFirst()
+                .orElseThrow(() -> new MeetException(ErrorCode.MEET_EXTEND_NO_ACTIVE_REQUEST));
+
+        // 요청 기준 MeetVerification이 만료됐는지 먼저 확인
+        // 만료됐다면 같은 Post의 연장 요청 전체를 EXPIRED 처리하고 예외를 던짐
+        validateGroupExtensionNotExpired(matchInfoDto.postId(), requestMeetVerification);
+
+        // 요청 기준 MV가 REQUESTED 상태인지 확인
+        // REQUESTED가 아니라면 수락 가능한 활성 요청이 없는 상태
+        if (requestMeetVerification.getExtensionStatus() != ExtensionStatus.REQUESTED) {
+            throw new MeetException(ErrorCode.MEET_EXTEND_NO_ACTIVE_REQUEST);
+        }
+
+        // 등록자가 자기 자신이 요청한 연장을 수락하는 상황을 방어
+        // 현재 정책상 신청자만 요청 가능하므로 보통 발생하지 않지만, 데이터 오염 방어용
+        if (userId.equals(requestMeetVerification.getExtensionRequesterId())) {
             throw new MeetException(ErrorCode.MEET_EXTEND_SELF_RESPONSE);
         }
 
-        // 수락 처리 → meetAt + 10분을 extendedMeetAt에 저장
-        meetVerification.acceptExtension(postInfoDto.meetAt(), EXTENSION_MINUTES);
+        // 같은 Post의 모든 REQUESTED 상태 MeetVerification에 연장 수락을 전파
+        for (MeetVerification mv : activeMvList) {
 
-        // QR 만료 시각도 10분 연장
-        meetVerification.extendQrExpiry(EXTENSION_MINUTES);
+            // REQUESTED 상태인 항목만 ACCEPTED 처리
+            // 이미 EXPIRED/REJECTED/ACCEPTED인 데이터가 섞여 있어도 불필요한 상태 변경을 피함
+            if (mv.getExtensionStatus() == ExtensionStatus.REQUESTED) {
 
-        // 19. 만남 시간 연장 수락 알림 - 연장 요청자에게
-        notificationPublisher.sendMeetExtendAccepted(meetVerification.getExtensionRequesterId(), matchId);
+                // extendedMeetAt = 기존 meetAt + EXTENSION_MINUTES 로 설정
+                // 즉, 한 신청자의 요청이 수락되면 모든 신청자의 만남 시간이 동일하게 연장
+                mv.acceptExtension(postInfoDto.meetAt(), EXTENSION_MINUTES);
 
-        // 수락 시 타임아웃 예약 제거 (더 이상 만료 처리 불필요)
-        redisTemplate.opsForZSet().remove(
-                MeetRedisZSetKeys.EXTENSION_TIMEOUT,
-                String.valueOf(meetVerification.getId())
+                // QR이 이미 발급된 경우 QR 만료 시각도 함께 연장
+                // 그룹 전체 연장이므로 모든 MV의 QR 만료 시간도 동일하게 밀어줌
+                mv.extendQrExpiry(EXTENSION_MINUTES);
+            }
+
+            // 수락이 끝났으므로 각 MV의 타임아웃 예약을 제거
+            removeExtensionTimeout(mv);
+        }
+
+        // 연장 요청자에게 수락 알림을 보냄
+        // 요청자는 한 명이므로, requestMv에 저장된 requesterId에게만 알림을 보냄
+        notificationPublisher.sendMeetExtendAccepted(
+                requestMeetVerification.getExtensionRequesterId(),
+                matchId
         );
 
-        return AcceptMeetExtensionResponseDto.of(meetVerification, postInfoDto.meetAt());
+        // 요청 기준 MeetVerification으로 응답한다.
+        // 실제 연장 적용은 같은 Post의 모든 활성 MV에 전파되어 있다.
+        return AcceptMeetExtensionResponseDto.of(requestMeetVerification, postInfoDto.meetAt());
     }
 
     // 만남 시간 연장 거절
@@ -792,39 +854,72 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
         // MeetVerification + MatchInfo + PostInfo 한 번에 조회
         MeetContext ctx = loadMeetContext(matchId);
-        MeetVerification meetVerification = ctx.meetVerification();
         MatchInfoDto matchInfoDto = ctx.matchInfo();
         PostInfoDto postInfoDto = ctx.postInfo();
 
-        // 매칭 당사자 확인
+        // 요청자가 해당 Match의 당사자인지 검증한다.
         validateParticipant(userId, matchInfoDto, postInfoDto);
 
-        // 연장 요청 만료 여부 확인 + 즉시 만료 처리
-        validateExtensionNotExpired(meetVerification);
+        // 최종 정책: 연장 거절은 등록자만 가능하다.
+        if (!userId.equals(postInfoDto.authorId())) {
+            throw new MeetException(ErrorCode.MEET_EXTEND_ONLY_AUTHOR);
+        }
 
-        // 응답 가능한 요청 있는지 확인
-        if (meetVerification.getExtensionStatus() != ExtensionStatus.REQUESTED) {
+        // 같은 Post에 속한 활성 Match ID 목록을 조회한다.
+        List<Long> activeMatchIds = getActiveMatchIdsByPostId(matchInfoDto.postId());
+
+        // 활성 Match가 없다면 거절 가능한 연장 요청도 없음
+        if (activeMatchIds.isEmpty()) {
             throw new MeetException(ErrorCode.MEET_EXTEND_NO_ACTIVE_REQUEST);
         }
 
-        // 본인 요청은 본인이 거절 불가
-        if (userId.equals(meetVerification.getExtensionRequesterId())) {
+        // 같은 Post의 활성 MeetVerification들을 락으로 조회
+        // 수락/거절/타임아웃 처리가 같은 요청에 대해 동시에 실행되는 상황을 줄임
+        List<MeetVerification> activeMvList =
+                meetVerificationRepository.findAllByMatchIdInWithLock(activeMatchIds);
+
+        // 요청 기준 MeetVerification을 락이 걸린 목록에서 다시 찾음
+        MeetVerification requestMeetVerification = activeMvList.stream()
+                .filter(mv -> mv.getMatchId().equals(matchId))
+                .findFirst()
+                .orElseThrow(() -> new MeetException(ErrorCode.MEET_EXTEND_NO_ACTIVE_REQUEST));
+
+        // 요청 기준 MeetVerification이 만료됐는지 먼저 확인한다.
+        // 이미 만료된 요청이면 같은 Post 전체 요청을 EXPIRED 처리하고 예외를 던진다.
+        validateGroupExtensionNotExpired(matchInfoDto.postId(), requestMeetVerification);
+
+        // 요청 기준 MV가 REQUESTED 상태인지 확인한다.
+        // REQUESTED 상태가 아니면 거절할 수 있는 활성 요청이 없다.
+        if (requestMeetVerification.getExtensionStatus() != ExtensionStatus.REQUESTED) {
+            throw new MeetException(ErrorCode.MEET_EXTEND_NO_ACTIVE_REQUEST);
+        }
+
+        // 등록자가 자기 자신이 요청한 연장을 거절하는 상황을 방어한다.
+        // 현재 정책상 신청자만 요청 가능하므로 보통 발생하지 않지만, 데이터 오염 방어용이다.
+        if (userId.equals(requestMeetVerification.getExtensionRequesterId())) {
             throw new MeetException(ErrorCode.MEET_EXTEND_SELF_RESPONSE);
         }
 
-        // 거절 처리
-        meetVerification.rejectExtension();
+        // 같은 Post의 모든 REQUESTED 상태 MeetVerification을 거절 처리한다.
+        for (MeetVerification mv : activeMvList) {
 
-        // 20. 만남 시간 연장 거절 알림 - 연장 요청자에게
-        notificationPublisher.sendMeetExtendRejected(meetVerification.getExtensionRequesterId(), matchId);
+            // REQUESTED 상태인 항목만 REJECTED 처리한다.
+            if (mv.getExtensionStatus() == ExtensionStatus.REQUESTED) {
+                mv.rejectExtension();
+            }
 
-        // 거절 시 타임아웃 예약 제거
-        redisTemplate.opsForZSet().remove(
-                MeetRedisZSetKeys.EXTENSION_TIMEOUT,
-                String.valueOf(meetVerification.getId())
+            // 거절이 끝났으므로 각 MV의 타임아웃 예약을 제거한다.
+            removeExtensionTimeout(mv);
+        }
+
+        // 연장 요청자에게 거절 알림을 보낸다.
+        notificationPublisher.sendMeetExtendRejected(
+                requestMeetVerification.getExtensionRequesterId(),
+                matchId
         );
 
-        return RejectMeetExtensionResponseDto.from(meetVerification);
+        // 요청 기준 MeetVerification으로 응답한다.
+        return RejectMeetExtensionResponseDto.from(requestMeetVerification);
     }
 
     // 연장 상태 조회
@@ -854,29 +949,70 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     @Transactional
     public void expireTimeoutExtensions() {
 
-        // 요청 시각 + 5분이 지난 REQUESTED 상태 목록 조회
+        // REQUESTED 상태이면서 요청 시각이 5분보다 오래된 MeetVerification을 조회
+        // 즉, 등록자가 제한 시간 안에 수락/거절하지 않은 연장 요청
         LocalDateTime expireThreshold = LocalDateTime.now().minusMinutes(EXTENSION_TIMEOUT_MINUTES);
 
+        // 만료 대상 MeetVerification 목록 조회
         List<MeetVerification> expiredList = meetVerificationRepository
                 .findAllByExtensionStatusAndExtensionRequestedAtBefore(ExtensionStatus.REQUESTED, expireThreshold);
 
+        // 만료 대상이 없으면 바로 종료
         if (expiredList.isEmpty()) {
             return;
         }
 
-        // 일괄 EXPIRED 처리 (더티체킹으로 자동 업데이트)
-        expiredList.forEach(mv -> {
-            mv.expireExtension();
+        // 같은 Post가 여러 MV로 중복 조회될 수 있으므로, 이미 처리한 postId를 저장
+        Set<Long> processedPostIds = new java.util.HashSet<>();
 
-            // 만료 처리 완료 → ZSet에서 제거 (중복 처리 방지)
-            redisTemplate.opsForZSet().remove(
-                    MeetRedisZSetKeys.EXTENSION_TIMEOUT,
-                    String.valueOf(mv.getId())
-            );
+        // 만료된 MeetVerification들을 순회
+        for (MeetVerification expiredMv : expiredList) {
 
-            // 21. 만남 시간 연장 만료 알림 - 연장 요청자에게
-            notificationPublisher.sendMeetExtendExpired(mv.getExtensionRequesterId(), mv.getMatchId());
-        });
+            // MeetVerification에는 postId가 없으므로 matchId를 통해 MatchInfo를 조회
+            MatchInfoDto matchInfo = matchService.getMatchInfo(expiredMv.getMatchId());
+
+            // 같은 Post를 이미 처리했다면 중복 만료 처리를 하지 않음
+            if (!processedPostIds.add(matchInfo.postId())) {
+                continue;
+            }
+
+            // 같은 Post에 속한 모든 Match ID를 조회
+            List<Long> siblingMatchIds = matchService.getMatchIdsByPostId(matchInfo.postId());
+
+            // 비어 있으면 스킵
+            if (siblingMatchIds.isEmpty()) {
+                continue;
+            }
+
+            // 같은 Post에 속한 모든 MeetVerification을 락으로 조회
+            // 스케줄러 만료 처리와 등록자의 수락/거절 요청이 겹칠 때 상태 충돌을 방지
+            List<MeetVerification> siblingMvList =
+                    meetVerificationRepository.findAllByMatchIdInWithLock(siblingMatchIds);
+
+            // 만료 알림을 보낼 요청자 ID를 확보
+            Long requesterId = expiredMv.getExtensionRequesterId();
+
+            // 같은 Post의 REQUESTED 상태 MeetVerification을 모두 EXPIRED 처리
+            for (MeetVerification mv : siblingMvList) {
+
+                // REQUESTED 상태인 항목만 만료 처리
+                if (mv.getExtensionStatus() == ExtensionStatus.REQUESTED) {
+                    mv.expireExtension();
+                }
+
+                // 만료 처리 후 각 MV의 타임아웃 예약을 제거
+                removeExtensionTimeout(mv);
+            }
+
+            // requesterId가 존재할 때만 만료 알림을 보냄
+            // 데이터가 오염되어 requesterId가 null이면 NPE 방지를 위해 알림을 생략
+            if (requesterId != null) {
+                notificationPublisher.sendMeetExtendExpired(
+                        requesterId,
+                        expiredMv.getMatchId()
+                );
+            }
+        }
     }
 
     // matchId로 MeetVerification 단건 조회 (외부 도메인 사용)
@@ -988,14 +1124,128 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         }
     }
 
-    // ③ 연장 만료 여부 확인 + 즉시 만료 처리
-    // 사용 위치: acceptMeetExtension, rejectMeetExtension
-    private void validateExtensionNotExpired(MeetVerification meetVerification) {
-        // REQUESTED 상태에서 5분 타임아웃이 지났으면 즉시 EXPIRED 처리 후 예외
+    // 그룹 연장 요청의 만료 여부를 확인
+    // 만료된 상태라면 같은 Post의 모든 REQUESTED MeetVerification을 EXPIRED 처리하고 예외를 던짐
+    private void validateGroupExtensionNotExpired(Long postId, MeetVerification meetVerification) {
+
+        // 요청 기준 MV가 REQUESTED 상태이고 5분 타임아웃이 지났는지 확인
         if (meetVerification.getExtensionStatus() == ExtensionStatus.REQUESTED
                 && meetVerification.isExtensionExpired(EXTENSION_TIMEOUT_MINUTES)) {
-            meetVerification.expireExtension();
+
+            // 같은 Post에 속한 모든 Match ID를 조회
+            List<Long> siblingMatchIds = matchService.getMatchIdsByPostId(postId);
+
+            // 요청 기준 MV가 이미 만료된 상태이므로, 대상 Match가 없더라도 수락/거절 흐름은 차단
+            if (siblingMatchIds.isEmpty()) {
+                throw new MeetException(ErrorCode.MEET_EXTEND_EXPIRED);
+            }
+
+            // 같은 Post에 속한 모든 MeetVerification을 PESSIMISTIC_WRITE 락으로 조회
+            // 수락/거절 요청과 만료 처리가 동시에 들어와도, 한쪽 트랜잭션이 상태 변경을 끝낼 때까지 다른 쪽은 대기
+            List<MeetVerification> siblingMvList =
+                    meetVerificationRepository.findAllByMatchIdInWithLock(siblingMatchIds);
+
+            // 같은 Post의 REQUESTED 상태를 모두 EXPIRED 처리
+            for (MeetVerification mv : siblingMvList) {
+
+                // REQUESTED 상태인 항목만 만료 처리
+                if (mv.getExtensionStatus() == ExtensionStatus.REQUESTED) {
+                    mv.expireExtension();
+                }
+
+                // 각 MV의 타임아웃 예약을 제거
+                removeExtensionTimeout(mv);
+            }
+
+            // 호출부에 만료 예외를 알림
             throw new MeetException(ErrorCode.MEET_EXTEND_EXPIRED);
+        }
+    }
+
+    // 연장 요청 타임아웃을 ZSet에 예약
+    private void reserveExtensionTimeout(MeetVerification meetVerification) {
+
+        // 현재 시각 + 5분을 Unix Timestamp로 변환
+        double timeoutScore = LocalDateTime.now()
+                .plusMinutes(EXTENSION_TIMEOUT_MINUTES)
+                .toEpochSecond(KST);
+
+        // ZSet member는 MeetVerification ID
+        // 기존 스케줄러 구조가 MeetVerification ID를 기준으로 만료 대상을 찾기 때문
+        redisTemplate.opsForZSet().add(
+                MeetRedisZSetKeys.EXTENSION_TIMEOUT,
+                String.valueOf(meetVerification.getId()),
+                timeoutScore
+        );
+    }
+
+    // 연장 요청 타임아웃 예약을 ZSet에서 제거
+    private void removeExtensionTimeout(MeetVerification meetVerification) {
+
+        // ZSet member는 MeetVerification ID
+        redisTemplate.opsForZSet().remove(
+                MeetRedisZSetKeys.EXTENSION_TIMEOUT,
+                String.valueOf(meetVerification.getId())
+        );
+    }
+
+    // 같은 Post에 속한 활성 Match ID 목록을 조회
+    // 활성 Match란 현재 만남이 진행 중인 MATCHED 상태의 Match를 의미
+    private List<Long> getActiveMatchIdsByPostId(Long postId) {
+
+        // 같은 Post에 속한 모든 Match ID를 조회
+        List<Long> siblingMatchIds = matchService.getMatchIdsByPostId(postId);
+
+        // Match ID가 없으면 빈 리스트를 반환
+        if (siblingMatchIds.isEmpty()) {
+            return List.of();
+        }
+
+        // Match 정보를 벌크 조회
+        Map<Long, MatchInfoDto> siblingMatchInfoMap =
+                matchService.getMatchInfos(siblingMatchIds);
+
+        // MATCHED 상태인 Match ID만 필터링해서 반환
+        return siblingMatchInfoMap.entrySet().stream()
+                .filter(entry -> entry.getValue().status() == MatchStatus.MATCHED)
+                .map(Map.Entry::getKey)
+                .toList();
+    }
+
+    // 같은 Post의 모든 활성 MeetVerification이 연장 요청 가능한 상태인지 검증
+    // 한 신청자가 요청해도 전체 연장으로 처리되므로, 전체 상태가 요청 가능해야 함
+    private void validateGroupExtensionRequestable(List<MeetVerification> activeMvList) {
+
+        // 활성 MV가 없다면 연장 요청을 진행할 수 없음
+        if (activeMvList.isEmpty()) {
+            throw new MeetException(ErrorCode.MEET_EXTEND_MATCH_NOT_MATCHED);
+        }
+
+        // 같은 Post의 모든 활성 MV 상태를 확인
+        for (MeetVerification mv : activeMvList) {
+
+            // 이미 연장이 수락되어 extendedMeetAt이 설정된 상태라면 재연장을 허용하지 않음
+            if (mv.isExtended()) {
+                throw new MeetException(ErrorCode.MEET_EXTEND_ALREADY_ACCEPTED);
+            }
+
+            // 이미 거절된 요청이 있다면 정책상 재요청을 허용하지 않음
+            if (mv.getExtensionStatus() == ExtensionStatus.REJECTED) {
+                throw new MeetException(ErrorCode.MEET_EXTEND_ALREADY_REJECTED);
+            }
+
+            // 아직 만료되지 않은 REQUESTED 요청이 있으면 중복 요청으로 판단
+            if (mv.getExtensionStatus() == ExtensionStatus.REQUESTED
+                    && !mv.isExtensionExpired(EXTENSION_TIMEOUT_MINUTES)) {
+                throw new MeetException(ErrorCode.MEET_EXTEND_ALREADY_REQUESTED);
+            }
+
+            // REQUESTED 상태지만 이미 만료된 요청이면 EXPIRED 처리 후 새 요청을 허용
+            if (mv.getExtensionStatus() == ExtensionStatus.REQUESTED
+                    && mv.isExtensionExpired(EXTENSION_TIMEOUT_MINUTES)) {
+                mv.expireExtension();
+                removeExtensionTimeout(mv);
+            }
         }
     }
 
