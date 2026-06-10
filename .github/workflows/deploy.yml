@@ -1,20 +1,16 @@
-# 수동으로 배포할 때만 EC2에 Docker Compose 배포
 name: Deploy to EC2
 
 on:
-  workflow_dispatch:  # GitHub Actions 탭에서 Run workflow 버튼으로 수동 실행
+  workflow_dispatch:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest  # GitHub 제공 우분투 서버에서 실행
+    runs-on: ubuntu-latest
 
     steps:
-      # 1. 코드 가져오기
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2. 프로젝트 파일 전체를 EC2로 전송
-      # .env 파일은 EC2에 이미 올려져 있으므로 제외
       - name: Copy project files to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -24,7 +20,6 @@ jobs:
           source: "."
           target: "/home/ec2-user/app"
 
-      # 3. EC2에서 Docker Compose 실행
       - name: Deploy with Docker Compose on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -32,13 +27,30 @@ jobs:
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            set -e
+
             cd /home/ec2-user/app
 
-            # 기존 컨테이너 종료
+            if [ ! -f .env ]; then
+              echo ".env file is missing on EC2: /home/ec2-user/app/.env"
+              exit 1
+            fi
+
+            set -a
+            . ./.env
+            set +a
+
+            export SPRING_PROFILES_ACTIVE_DOCKER=prod
+
+            export MYSQL_ROOT_PASSWORD_LOCAL="${MYSQL_ROOT_PASSWORD_PROD}"
+            export MYSQL_DATABASE_LOCAL="${MYSQL_DATABASE_PROD}"
+            export MYSQL_USER_LOCAL="${MYSQL_USER_PROD}"
+            export MYSQL_PASSWORD_LOCAL="${MYSQL_PASSWORD_PROD}"
+
+            export REDIS_PASSWORD_LOCAL="${REDIS_PASSWORD_PROD}"
+
+            export VITE_API_BASE_URL_LOCAL="${VITE_API_BASE_URL_PROD}"
+
             docker-compose down
-
-            # 새 이미지 빌드 후 백그라운드 실행
             docker-compose up --build -d
-
-            # 실행 중인 컨테이너 확인
             docker-compose ps

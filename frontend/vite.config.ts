@@ -41,6 +41,7 @@ export default defineConfig({
     // 이 설정 없으면 Vite가 보안상 외부 도메인 요청을 403으로 차단
     allowedHosts: [
       'app.dogpedia.store',
+      'hankkipot.cloud'
     ],
   },
 })
