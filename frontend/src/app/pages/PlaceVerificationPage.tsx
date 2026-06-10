@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { MapPin, Loader2, Navigation } from 'lucide-react';
+import { ArrowLeft, MapPin, Loader2, Navigation } from 'lucide-react';
 import { createPlaceVerification, updateMyLocation, getLocations, getMeetVerification } from '@/api/meetApi';
 import { getMatchDetail } from '@/api/matchApi';
 import type { LocationRole } from '@/api/meetApi';
@@ -53,6 +53,7 @@ export default function PlaceVerificationPage() {
     const [locationError, setLocationError] = useState<string | null>(null);
     const [useSimulation, setUseSimulation] = useState(false);
     const [opponentPositions, setOpponentPositions] = useState<OpponentPosition[]>([]);
+    const [chatRoomId, setChatRoomId] = useState<number | null>(null);
 
     // ★ 추가: 카카오맵 사용 가능 여부 상태
     // false가 되면 SVG fallback으로 전환
@@ -80,6 +81,7 @@ export default function PlaceVerificationPage() {
                     latitude: data.placeLat,
                     longitude: data.placeLng,
                 });
+                setChatRoomId(data.chatRoomId);
             } catch (err) {
                 console.error('매칭 정보 조회 실패:', err);
             } finally {
@@ -344,6 +346,14 @@ export default function PlaceVerificationPage() {
     };
 
     const handleGoToQR = () => navigate(`/matches/${id}/qr`);
+    const handleBackToChat = () => {
+        if (chatRoomId) {
+            navigate(`/chat/${chatRoomId}`, { state: { matchId: Number(id) } });
+            return;
+        }
+
+        navigate(`/matches/${id}`);
+    };
 
     if (loading || !meetingPlace) {
         return (
@@ -358,6 +368,15 @@ export default function PlaceVerificationPage() {
 
     return (
         <div className="max-w-2xl mx-auto p-4">
+            <button
+                type="button"
+                onClick={handleBackToChat}
+                className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#616161] transition-colors hover:text-[#d84315]"
+            >
+                <ArrowLeft size={18} />
+                채팅방으로 돌아가기
+            </button>
+
             <div className="bg-white rounded-2xl shadow-lg p-8">
 
                 {/* 헤더 */}
