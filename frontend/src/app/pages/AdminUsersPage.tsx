@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Search, Users } from 'lucide-react';
-import { AdminUserItem, AdminUserStatus, getAdminUsers } from '../../api/adminUserApi';
+import { Loader2, Search, ShieldOff, ShieldCheck, Users } from 'lucide-react';
+import { AdminUserItem, AdminUserStatus, getAdminUsers, reinstateAdminUser, suspendAdminUser } from '../../api/adminUserApi';
 import { getUniversities, UniversityResponse } from '../../api/univApi';
 
 const statusLabels: Record<AdminUserStatus, string> = {
@@ -25,6 +25,7 @@ export default function AdminUsersPage() {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
+  const [processingUserId, setProcessingUserId] = useState<number | null>(null);
 
   useEffect(() => {
     const loadUniversities = async () => {
@@ -71,6 +72,40 @@ export default function AdminUsersPage() {
     setSearchKeyword(keyword);
   };
 
+  const handleSuspendUser = async (user: AdminUserItem) => {
+    const reason = window.prompt(`${user.nickname} 계정을 정지하는 사유를 입력해주세요.`);
+    if (!reason?.trim()) return;
+
+    setProcessingUserId(user.userId);
+    setMessage('');
+    try {
+      await suspendAdminUser(user.userId, reason.trim());
+      setMessage('유저 계정을 정지했습니다.');
+      setUsers((prev) => prev.map((item) => item.userId === user.userId ? { ...item, status: 'SUSPENDED' } : item));
+    } catch (err: any) {
+      setMessage(err.response?.data?.message || '유저 계정 정지에 실패했습니다.');
+    } finally {
+      setProcessingUserId(null);
+    }
+  };
+
+  const handleReinstateUser = async (user: AdminUserItem) => {
+    const reason = window.prompt(`${user.nickname} 계정 정지를 해제하는 사유를 입력해주세요.`);
+    if (!reason?.trim()) return;
+
+    setProcessingUserId(user.userId);
+    setMessage('');
+    try {
+      await reinstateAdminUser(user.userId, reason.trim());
+      setMessage('유저 계정 정지를 해제했습니다.');
+      setUsers((prev) => prev.map((item) => item.userId === user.userId ? { ...item, status: 'ACTIVE' } : item));
+    } catch (err: any) {
+      setMessage(err.response?.data?.message || '유저 계정 정지 해제에 실패했습니다.');
+    } finally {
+      setProcessingUserId(null);
+    }
+  };
+
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
       const matchesUniversity = universityName === 'ALL' || user.universityName === universityName;
@@ -101,9 +136,9 @@ export default function AdminUsersPage() {
           className="h-11 rounded-lg border border-[#e0e0e0] bg-white px-3 text-sm font-semibold text-[#424242] outline-none focus:border-[#d84315]"
         >
           <option value="ALL">전체 상태</option>
-          <option value="ACTIVE">활성</option>
-          <option value="SUSPENDED">정지</option>
-          <option value="WITHDRAWN">탈퇴</option>
+          <option value="ACTIVE">{statusLabels.ACTIVE}</option>
+          <option value="SUSPENDED">{statusLabels.SUSPENDED}</option>
+          <option value="WITHDRAWN">{statusLabels.WITHDRAWN}</option>
         </select>
 
         <label className="flex h-11 items-center gap-2 rounded-lg border border-[#e0e0e0] bg-white px-3">
@@ -143,7 +178,7 @@ export default function AdminUsersPage() {
         </div>
       ) : (
         <div className="overflow-hidden rounded-2xl border border-[#e0e0e0] bg-white shadow-sm">
-          <div className="grid grid-cols-[0.35fr_1.2fr_1fr_1fr_0.8fr_0.8fr_0.8fr] gap-3 border-b border-[#eeeeee] bg-[#fafafa] px-5 py-3 text-xs font-bold text-[#757575]">
+          <div className="grid grid-cols-[0.35fr_1.2fr_1fr_1fr_0.8fr_0.8fr_0.8fr_0.9fr] gap-3 border-b border-[#eeeeee] bg-[#fafafa] px-5 py-3 text-xs font-bold text-[#757575]">
             <span className="text-center">번호</span>
             <span>유저</span>
             <span>학교</span>
@@ -151,13 +186,14 @@ export default function AdminUsersPage() {
             <span>포인트</span>
             <span>매너온도</span>
             <span>상태</span>
+            <span>관리</span>
           </div>
 
           {filteredUsers.length > 0 ? (
             filteredUsers.map((user, index) => (
               <div
                 key={user.userId}
-                className="grid grid-cols-[0.35fr_1.2fr_1fr_1fr_0.8fr_0.8fr_0.8fr] gap-3 border-b border-[#f5f5f5] px-5 py-4 text-sm last:border-b-0"
+                className="grid grid-cols-[0.35fr_1.2fr_1fr_1fr_0.8fr_0.8fr_0.8fr_0.9fr] gap-3 border-b border-[#f5f5f5] px-5 py-4 text-sm last:border-b-0"
               >
                 <span className="text-center font-semibold text-[#9e9e9e]">{index + 1}</span>
                 <div>
@@ -172,6 +208,31 @@ export default function AdminUsersPage() {
                   <span className={`rounded px-2.5 py-1 text-xs font-bold ${statusClasses[user.status]}`}>
                     {statusLabels[user.status]}
                   </span>
+                </span>
+                <span>
+                  {user.status === 'ACTIVE' ? (
+                    <button
+                      type="button"
+                      disabled={processingUserId === user.userId}
+                      onClick={() => handleSuspendUser(user)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 disabled:opacity-60"
+                    >
+                      {processingUserId === user.userId ? <Loader2 className="animate-spin" size={14} /> : <ShieldOff size={14} />}
+                      정지
+                    </button>
+                  ) : user.status === 'SUSPENDED' ? (
+                    <button
+                      type="button"
+                      disabled={processingUserId === user.userId}
+                      onClick={() => handleReinstateUser(user)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-[#c8e6c9] px-3 py-2 text-xs font-bold text-[#2e7d32] hover:bg-[#e8f5e9] disabled:opacity-60"
+                    >
+                      {processingUserId === user.userId ? <Loader2 className="animate-spin" size={14} /> : <ShieldCheck size={14} />}
+                      해제
+                    </button>
+                  ) : (
+                    <span className="text-xs font-semibold text-[#bdbdbd]">불가</span>
+                  )}
                 </span>
               </div>
             ))
