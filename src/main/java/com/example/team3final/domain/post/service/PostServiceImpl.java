@@ -153,6 +153,11 @@ public class PostServiceImpl implements PostService{
         // 1. Post 조회
         Post post = getPostById(postId);
 
+        // 이미 COMPLETED면 중복 처리 방지 (그룹 매칭에서 completePost 중복 호출 방어)
+        if (post.getStatus() == PostStatus.COMPLETED) {
+            return;
+        }
+
         // 2. 도메인 메서드 호출 — 상태 전이 규칙은 엔티티가 책임
         post.complete();
 
@@ -210,7 +215,7 @@ public class PostServiceImpl implements PostService{
                 currentUserId, status, pageable.getPageNumber(), pageable.getPageSize()
         );
 
-        // 캐시된 응답이 없으면 DB 조회 없이 바로 반환
+        // 캐시된 응답이 있으면 DB 조회 없이 바로 반환
         if (cachedPostList.isPresent()) {
             return cachedPostList.get();
         }

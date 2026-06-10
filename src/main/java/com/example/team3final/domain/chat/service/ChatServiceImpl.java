@@ -50,7 +50,6 @@ public class ChatServiceImpl implements ChatService {
     public Long createChatRoom(Long postId, Long authorId, Long applicantId) {
 
         // 이미 채팅방이 있으면 생성 안 함
-        // (신청자 취소 후 재신청 시에도 기존 채팅방 재사용)
         if (chatRoomRepository.findByPostId(postId).isPresent()) {
             throw new ChatException(ErrorCode.CHAT_ROOM_ALREADY_EXISTS);
         }
@@ -254,15 +253,21 @@ public class ChatServiceImpl implements ChatService {
                 .toList();
     }
 
-    // ChatServiceImpl 구현
+    // 신청자 취소 시 ChatMember를 삭제하지 않고 퇴장 시각만 기록
+    // 삭제하면 leftAt 이전 채팅 기록을 조회할 수 없으므로,
+    // LEFT 상태 + leftAt 기록 방식으로 변경 (이전 대화 이력 보존)
     @Transactional
     @Override
     public void removeChatMember(Long postId, Long userId) {
-        // postId로 채팅방 조회
         ChatRoom chatRoom = chatRoomRepository.findByPostId(postId)
                 .orElseThrow(() -> new ChatException(ErrorCode.CHAT_ROOM_NOT_FOUND));
-        // 해당 유저를 ChatMember에서 제거
-        chatMemberRepository.deleteByChatRoomIdAndUserId(chatRoom.getId(), userId);
+        // LEFT 상태로 변경 + leftAt = 현재 시각 기록
+        chatMemberRepository.updateStatusAndLeftAt(
+                chatRoom.getId(),
+                userId,
+                ChatMemberStatus.LEFT,
+                LocalDateTime.now()
+        );
     }
 
     // 채팅방 참여자 목록 조회 - 채팅방 멤버만 접근 가능
@@ -283,8 +288,8 @@ public class ChatServiceImpl implements ChatService {
             throw new ChatException(ErrorCode.CHAT_NOT_PARTICIPANT);
         }
 
-        // 참여자 목록 조회
-        List<ChatMember> members = chatMemberRepository.findByChatRoomId(chatRoomId);
+        // leftAt이 null인 현재 참여 중인 멤버만 조회 (취소 퇴장한 멤버 제외)
+        List<ChatMember> members = chatMemberRepository.findByChatRoomIdAndLeftAtIsNull(chatRoomId);
 
         // 유저 ID 목록 한 번에 조회 (N+1 방지)
         List<Long> userIds = members.stream()
