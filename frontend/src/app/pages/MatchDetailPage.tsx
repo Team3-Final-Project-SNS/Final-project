@@ -127,19 +127,11 @@ export default function MatchDetailPage() {
   const status = statusPresentation[match.status];
   const isAuthor = currentUserId === match.authorId;
   const myDeposit = isAuthor ? match.authorDeposit : match.applicantDeposit;
-  const opponent = isAuthor
-      ? {
-        role: '신청자',
-        nickname: match.applicantNickname,
-        major: match.applicantMajor,
-        studentNumber: match.applicantStudentNumber,
-      }
-      : {
-        role: '등록자',
-        nickname: match.authorNickname,
-        major: match.authorMajor,
-        studentNumber: match.authorStudentNumber,
-      };
+  const postAuthor = {
+    nickname: match.authorNickname,
+    major: match.authorMajor,
+    studentNumber: match.authorStudentNumber,
+  };
   const isNoShow = ['AUTHOR_NO_SHOW', 'APPLICANT_NO_SHOW', 'BOTH_NO_SHOW'].includes(match.status);
 
   return (
@@ -176,8 +168,8 @@ export default function MatchDetailPage() {
             <DetailItem icon={MapPin} label="만남 장소" value={match.placeName} />
             <DetailItem
                 icon={UserRound}
-                label={`상대방 (${opponent.role})`}
-                value={`${opponent.nickname} · ${opponent.major} · ${opponent.studentNumber}`}
+                label="게시글 등록자"
+                value={`${postAuthor.nickname} · ${postAuthor.major} · ${postAuthor.studentNumber}`}
             />
             <DetailItem
                 icon={CircleDollarSign}

@@ -318,7 +318,7 @@ export default function MatchesPage() {
 
                           <div className="space-y-2 mb-4">
                             <div className="flex items-center gap-2 text-sm text-[#616161]">
-                              <span className="font-medium text-[#424242]">상대방:</span> {formatOpponentNames(match)}
+                              <span className="font-medium text-[#424242]">{match.isAuthor ? '신청자' : '게시글 등록자'}:</span> {formatOpponentNames(match)}
                             </div>
                             <div className="flex items-center gap-2 text-sm text-[#616161]">
                               <Clock size={16} className="text-[#d84315]" />
