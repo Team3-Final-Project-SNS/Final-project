@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router';
 import { MapPin, Clock, Plus, AlertCircle, User, Users, Thermometer } from 'lucide-react';
 import { getPosts, PostItemResponse } from '../../api/postApi';
 import { getUserMe } from '../../api/userApi';
+import { getMyMatches } from '../../api/matchApi';
 
 export default function PostListPage() {
   const [searchParams] = useSearchParams();
@@ -14,6 +15,7 @@ export default function PostListPage() {
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [activeMatchedPostIds, setActiveMatchedPostIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -21,7 +23,7 @@ export default function PostListPage() {
       setError('');
       try {
         let userId = currentUserId;
-        if (myPostsOnly && userId === null) {
+        if (userId === null) {
           const userRes = await getUserMe();
           userId = userRes.data.data.userId;
           setCurrentUserId(userId);
@@ -29,7 +31,13 @@ export default function PostListPage() {
 
         // 게시글 목록은 모집중인 게시글만 노출합니다.
         // MATCHED 게시글은 신청할 수 없으므로 목록에서 제외합니다.
-        const res = await getPosts('OPEN', page, 20);
+        const [res, activeMatchRes] = await Promise.all([
+          getPosts('OPEN', page, 20),
+          getMyMatches('MATCHED', 0, 100),
+        ]);
+        setActiveMatchedPostIds(
+            new Set(activeMatchRes.data.data.content.map((match) => match.postId)),
+        );
         setPosts(res.data.data.content);
         setTotalPages(res.data.data.totalPages);
       } catch (err: any) {
@@ -59,9 +67,13 @@ export default function PostListPage() {
     return past.toLocaleDateString();
   };
 
-  const scopedPosts = myPostsOnly && currentUserId !== null
-      ? posts.filter((post) => post.authorId === currentUserId)
-      : posts;
+  const scopedPosts = posts.filter((post) => {
+    if (myPostsOnly && currentUserId !== null) {
+      return post.authorId === currentUserId;
+    }
+
+    return post.authorId === currentUserId || !activeMatchedPostIds.has(post.postId);
+  });
 
   const sortedPosts = [...scopedPosts].sort((a, b) => {
     if (sortBy === '최신순') {
