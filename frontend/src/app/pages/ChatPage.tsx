@@ -11,6 +11,7 @@ import {
   MeetExtensionResponse,
 } from '@/api/meetApi';
 import { getUserMe } from '@/api/userApi';
+import { setExtendedMeetAt } from '@/store/matchStore';
 import SockJS from 'sockjs-client';
 import { Client } from '@stomp/stompjs';
 import { getAccessToken } from '@/api/axiosInstance';
@@ -276,7 +277,8 @@ export default function ChatPage() {
 
     try {
       setExtensionActionLoading(true);
-      await acceptMeetExtension(matchInfo.matchId);
+      const res = await acceptMeetExtension(matchInfo.matchId);
+      setExtendedMeetAt(matchInfo.matchId, res.data.data.extendedMeetAt);
       setExtensionInfo((prev) => prev ? { ...prev, extensionStatus: 'ACCEPTED' } : prev);
     } catch (err: any) {
       alert(err.response?.data?.message || '수락에 실패했습니다.');
