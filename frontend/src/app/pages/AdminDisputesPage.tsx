@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Loader2, MessageSquareText, Send } from 'lucide-react';
+import { AlertTriangle, Clock, Loader2, MessageSquareText, Send } from 'lucide-react';
 import { useSearchParams } from 'react-router';
 import {
   AdminDisputeDetail,
   AdminDisputeItem,
+  AdminNoShowCandidate,
   DisputeStatus,
   getAdminDispute,
   getAdminDisputes,
+  getAdminNoShowCandidates,
   judgeAdminDispute,
 } from '../../api/adminDisputeApi';
 
@@ -29,10 +31,22 @@ const statusLabels: Record<DisputeStatus, string> = {
   HOLD: '보류',
 };
 
+const verificationStatusLabels: Record<string, string> = {
+  PENDING: '장소 인증 대기',
+  VERIFIED: '장소 인증 완료',
+  DONE: '만남 완료',
+  HOST_NO_SHOW: '등록자 노쇼 예정',
+  GUEST_NO_SHOW: '신청자 노쇼 예정',
+  BOTH_NO_SHOW: '양측 노쇼 예정',
+  DISPUTE: '이의제기 검토 중',
+  NO_SHOW_CONFIRMED: '노쇼 확정',
+};
+
 export default function AdminDisputesPage() {
   const [searchParams] = useSearchParams();
   const requestedDisputeId = Number(searchParams.get('disputeId'));
   const [items, setItems] = useState<AdminDisputeItem[]>([]);
+  const [noShowCandidates, setNoShowCandidates] = useState<AdminNoShowCandidate[]>([]);
   const [selected, setSelected] = useState<AdminDisputeDetail | null>(null);
   const [filter, setFilter] = useState<'ALL' | DisputeStatus>('SUBMITTED');
   const [judgment, setJudgment] = useState<'ACCEPTED' | 'PARTIALLY_ACCEPTED' | 'REJECTED' | 'HOLD'>('ACCEPTED');
@@ -46,8 +60,12 @@ export default function AdminDisputesPage() {
     setLoading(true);
     setMessage('');
     try {
-      const response = await getAdminDisputes(filter === 'ALL' ? undefined : filter);
+      const [response, candidateResponse] = await Promise.all([
+        getAdminDisputes(filter === 'ALL' ? undefined : filter),
+        getAdminNoShowCandidates(),
+      ]);
       setItems(response.data.data.content);
+      setNoShowCandidates(candidateResponse.data.data.content);
     } catch (err: any) {
       setMessage(err.response?.data?.message || '이의제기 목록을 불러오지 못했습니다.');
     } finally {
@@ -129,7 +147,8 @@ export default function AdminDisputesPage() {
         </div>
 
         <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
-          <section className="rounded-2xl border border-[#e0e0e0] bg-white p-5 shadow-sm">
+          <section className="space-y-5">
+            <div className="rounded-2xl border border-[#e0e0e0] bg-white p-5 shadow-sm">
             <h2 className="mb-4 text-lg font-bold">이의제기 목록</h2>
             {loading ? (
               <div className="py-12 text-center text-sm text-[#9e9e9e]">
@@ -156,6 +175,7 @@ export default function AdminDisputesPage() {
                       <span className="text-xs text-[#9e9e9e]">#{item.disputeId}</span>
                     </div>
                     <p className="mt-3 font-bold">{item.applicantNickname}</p>
+                    <p className="mt-1 text-xs font-semibold text-[#9e9e9e]">매칭 #{item.matchId} · {formatDateTime(item.submittedAt)}</p>
                     <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#757575]">{item.reason}</p>
                   </button>
                 ))}
@@ -165,6 +185,59 @@ export default function AdminDisputesPage() {
                 표시할 이의제기가 없습니다.
               </div>
             )}
+            </div>
+
+            <div className="rounded-2xl border border-[#e0e0e0] bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="text-lg font-bold">노쇼 후보</h2>
+                <span className="text-xs font-semibold text-[#9e9e9e]">그룹 매칭 기준</span>
+              </div>
+
+              {loading ? (
+                  <div className="py-8 text-center text-sm text-[#9e9e9e]">
+                    <Loader2 className="mx-auto mb-3 animate-spin text-[#d84315]" />
+                    노쇼 후보를 확인하는 중...
+                  </div>
+              ) : noShowCandidates.length ? (
+                  <div className="space-y-2">
+                    {noShowCandidates.map((candidate) => (
+                        <div key={candidate.matchId} className="rounded-xl border border-[#eeeeee] p-4">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="rounded bg-[#ffebee] px-2 py-1 text-xs font-bold text-[#c62828]">
+                              {formatVerificationStatus(candidate.verificationStatus)}
+                            </span>
+                            {candidate.hasDispute ? (
+                                <span className="rounded bg-[#fff3e0] px-2 py-1 text-xs font-bold text-[#e65100]">
+                                  이의제기 접수
+                                </span>
+                            ) : (
+                                <span className="rounded bg-[#f5f5f5] px-2 py-1 text-xs font-bold text-[#757575]">
+                                  이의제기 없음
+                                </span>
+                            )}
+                          </div>
+                          <div className="mt-3 space-y-1 text-xs leading-5 text-[#616161]">
+                            <p className="font-bold text-[#212121]">매칭 #{candidate.matchId}</p>
+                            <p>등록자: {candidate.hostNickname}</p>
+                            <p>신청자: {candidate.guestNickname}</p>
+                            <p className="flex items-center gap-1">
+                              <Clock size={13} />
+                              만남: {formatDateTime(candidate.meetAt)}
+                            </p>
+                            <p className="flex items-center gap-1">
+                              <AlertTriangle size={13} />
+                              확정 예정: {formatOptionalDate(candidate.disputeDeadline)}
+                            </p>
+                          </div>
+                        </div>
+                    ))}
+                  </div>
+              ) : (
+                  <div className="rounded-xl border border-dashed border-[#e0e0e0] p-6 text-center text-sm text-[#9e9e9e]">
+                    현재 노쇼 후보가 없습니다.
+                  </div>
+              )}
+            </div>
           </section>
 
           <section className="rounded-2xl border border-[#e0e0e0] bg-white p-6 shadow-sm">
@@ -177,13 +250,14 @@ export default function AdminDisputesPage() {
             ) : selected ? (
               <div>
                 <div className="space-y-2 rounded-xl bg-[#fafafa] p-4">
-                  <InfoRow label="신청자" value={selected.applicantNickname} />
+                  <InfoRow label="이의제기자" value={selected.applicantNickname} />
                   <InfoRow label="관련 매칭" value={`#${selected.matchId}`} />
                   <InfoRow label="이의제기 유형" value={selected.disputeType} />
                   <InfoRow label="처리 상태" value={statusLabels[selected.status]} />
-                  <InfoRow label="인증 상태" value={selected.verificationStatus} />
+                  <InfoRow label="인증 상태" value={formatVerificationStatus(selected.verificationStatus)} />
                   <InfoRow label="등록자 인증" value={formatOptionalDate(selected.authorPlaceVerifiedAt)} />
-                  <InfoRow label="신청자 인증" value={formatOptionalDate(selected.applicantPlaceVerifiedAt)} />
+                  <InfoRow label="해당 신청자 인증" value={formatOptionalDate(selected.applicantPlaceVerifiedAt)} />
+                  <InfoRow label="제출 시각" value={formatDateTime(selected.submittedAt)} />
                 </div>
 
                 <DetailSection title="제출 사유">{selected.reason}</DetailSection>
@@ -275,6 +349,10 @@ function DetailSection({ title, children }: { title: string; children: React.Rea
 
 function formatOptionalDate(value: string | null) {
   return value ? formatDateTime(value) : '미인증';
+}
+
+function formatVerificationStatus(value: string) {
+  return verificationStatusLabels[value] ?? value;
 }
 
 function formatDateTime(value: string) {
