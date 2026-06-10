@@ -3,10 +3,10 @@ services:
     image: mysql:8.0
     container_name: hankkipot-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD_LOCAL}
-      MYSQL_DATABASE: ${MYSQL_DATABASE_LOCAL}
-      MYSQL_USER: ${MYSQL_USER_LOCAL}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD_LOCAL}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD_PROD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE_PROD}
+      MYSQL_USER: ${MYSQL_USER_PROD}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD_PROD}
     ports:
       - "3307:3306"
     volumes:
@@ -15,7 +15,7 @@ services:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD_LOCAL}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD_PROD}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -33,9 +33,9 @@ services:
       - --appendonly
       - "yes"
       - --requirepass
-      - ${REDIS_PASSWORD_LOCAL}
+      - ${REDIS_PASSWORD_PROD}
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD_LOCAL}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD_PROD}", "ping"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -100,7 +100,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE_DOCKER:-docker}
+      SPRING_PROFILES_ACTIVE: prod
     restart: unless-stopped
 
   prometheus:
@@ -133,7 +133,7 @@ services:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      - VITE_API_BASE_URL=${VITE_API_BASE_URL_LOCAL}
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL_PROD}
       - VITE_PORTONE_STORE_ID=${PORTONE_STORE_ID}
       - VITE_PORTONE_CHANNEL_KEY=${PORTONE_CHANNEL_KEY}
     depends_on:

@@ -36,21 +36,11 @@ jobs:
               exit 1
             fi
 
-            set -a
-            . ./.env
-            set +a
+            if [ ! -f frontend/.env.local ]; then
+              echo "frontend/.env.local file is missing on EC2: /home/ec2-user/app/frontend/.env.local"
+              exit 1
+            fi
 
-            export SPRING_PROFILES_ACTIVE_DOCKER=prod
-
-            export MYSQL_ROOT_PASSWORD_LOCAL="${MYSQL_ROOT_PASSWORD_PROD}"
-            export MYSQL_DATABASE_LOCAL="${MYSQL_DATABASE_PROD}"
-            export MYSQL_USER_LOCAL="${MYSQL_USER_PROD}"
-            export MYSQL_PASSWORD_LOCAL="${MYSQL_PASSWORD_PROD}"
-
-            export REDIS_PASSWORD_LOCAL="${REDIS_PASSWORD_PROD}"
-
-            export VITE_API_BASE_URL_LOCAL="${VITE_API_BASE_URL_PROD}"
-
-            docker-compose down
-            docker-compose up --build -d
-            docker-compose ps
+            docker-compose -f docker-compose.prod.yml down
+            docker-compose -f docker-compose.prod.yml up --build -d
+            docker-compose -f docker-compose.prod.yml ps
