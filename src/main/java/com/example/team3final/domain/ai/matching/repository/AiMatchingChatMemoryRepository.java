@@ -28,9 +28,27 @@ public interface AiMatchingChatMemoryRepository extends JpaRepository<AiMatching
             """)
     List<ExpiredConversationKey> findExpiredConversationKeys(@Param("cutoff") LocalDateTime cutoff);
 
+    @Query("""
+            select m.userId as userId,
+                   m.conversationId as conversationId,
+                   coalesce(sum(m.tokenCount), 0) as totalTokens
+            from AiMatchingChatMemory m
+            group by m.userId, m.conversationId
+            having max(m.createdAt) >= :cutoff
+            """)
+    List<ActiveConversationTokenStats> findActiveConversationTokenStats(@Param("cutoff") LocalDateTime cutoff);
+
     interface ExpiredConversationKey {
         Long getUserId();
 
         String getConversationId();
+    }
+
+    interface ActiveConversationTokenStats {
+        Long getUserId();
+
+        String getConversationId();
+
+        Long getTotalTokens();
     }
 }

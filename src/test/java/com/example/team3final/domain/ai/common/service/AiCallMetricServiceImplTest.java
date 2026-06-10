@@ -5,11 +5,12 @@ import com.example.team3final.domain.ai.common.enums.AiCallStatus;
 import com.example.team3final.domain.ai.common.enums.AiErrorType;
 import com.example.team3final.domain.ai.common.enums.AiFeature;
 import com.example.team3final.domain.ai.common.repository.AiCallMetricRepository;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -22,8 +23,15 @@ class AiCallMetricServiceImplTest {
     @Mock
     private AiCallMetricRepository aiCallMetricRepository;
 
-    @InjectMocks
+    private SimpleMeterRegistry meterRegistry;
+
     private AiCallMetricServiceImpl aiCallMetricService;
+
+    @BeforeEach
+    void setUp() {
+        meterRegistry = new SimpleMeterRegistry();
+        aiCallMetricService = new AiCallMetricServiceImpl(aiCallMetricRepository, meterRegistry);
+    }
 
     @Test
     @DisplayName("AI 호출 성공 시 토큰 사용량과 응답 시간을 SUCCESS 메트릭으로 저장한다")
@@ -61,6 +69,16 @@ class AiCallMetricServiceImplTest {
         assertThat(metric.getStatus()).isEqualTo(AiCallStatus.SUCCESS);
         assertThat(metric.getErrorType()).isNull();
         assertThat(metric.getErrorMessage()).isNull();
+
+        assertThat(meterRegistry.get("ai.matching.call")
+                .tag("model", "gpt-4o-mini")
+                .tag("status", "SUCCESS")
+                .counter()
+                .count()).isEqualTo(1.0);
+        assertThat(meterRegistry.get("ai.matching.tokens").counter().count()).isEqualTo(200.0);
+        assertThat(meterRegistry.get("ai.matching.prompt.tokens").counter().count()).isEqualTo(120.0);
+        assertThat(meterRegistry.get("ai.matching.completion.tokens").counter().count()).isEqualTo(80.0);
+        assertThat(meterRegistry.get("ai.matching.latency.ms").summary().totalAmount()).isEqualTo(1500.0);
     }
 
     @Test
@@ -95,6 +113,18 @@ class AiCallMetricServiceImplTest {
         assertThat(metric.getCompletionTokens()).isEqualTo(20);
         assertThat(metric.getTotalTokens()).isEqualTo(110);
         assertThat(metric.getLatencyMs()).isEqualTo(3200L);
+
+        assertThat(meterRegistry.get("ai.matching.call")
+                .tag("model", "gpt-4o-mini")
+                .tag("status", "FALLBACK")
+                .counter()
+                .count()).isEqualTo(1.0);
+        assertThat(meterRegistry.get("ai.matching.error")
+                .tag("error_type", "SERVER_ERROR")
+                .counter()
+                .count()).isEqualTo(1.0);
+        assertThat(meterRegistry.get("ai.matching.tokens").counter().count()).isEqualTo(110.0);
+        assertThat(meterRegistry.get("ai.matching.latency.ms").summary().totalAmount()).isEqualTo(3200.0);
     }
 
     @Test
@@ -128,5 +158,54 @@ class AiCallMetricServiceImplTest {
         assertThat(metric.getErrorMessage()).hasSize(500);
         assertThat(metric.getErrorMessage()).isEqualTo("x".repeat(500));
         assertThat(metric.getLatencyMs()).isEqualTo(5000L);
+
+        assertThat(meterRegistry.get("ai.matching.call")
+                .tag("model", "gpt-4o-mini")
+                .tag("status", "FAILED")
+                .counter()
+                .count()).isEqualTo(1.0);
+        assertThat(meterRegistry.get("ai.matching.error")
+                .tag("error_type", "RATE_LIMIT")
+                .counter()
+                .count()).isEqualTo(1.0);
+        assertThat(meterRegistry.find("ai.matching.tokens").counter()).isNull();
+        assertThat(meterRegistry.get("ai.matching.latency.ms").summary().totalAmount()).isEqualTo(5000.0);
+    }
+
+    @Test
+    @DisplayName("고객센터 AI 호출 메트릭은 SUPPORT 전용 Prometheus 메트릭으로 기록한다")
+    void createAiCallMetric_supportPrometheusMetrics() {
+        aiCallMetricService.createAiCallMetric(
+                "request-support-1",
+                4L,
+                AiFeature.SUPPORT,
+                "gpt-4o-mini",
+                13L,
+                "v1",
+                180,
+                70,
+                250,
+                2400L,
+                AiCallStatus.SUCCESS,
+                null,
+                null
+        );
+
+        ArgumentCaptor<AiCallMetric> captor = ArgumentCaptor.forClass(AiCallMetric.class);
+        verify(aiCallMetricRepository).save(captor.capture());
+
+        AiCallMetric metric = captor.getValue();
+        assertThat(metric.getFeature()).isEqualTo(AiFeature.SUPPORT);
+        assertThat(metric.getStatus()).isEqualTo(AiCallStatus.SUCCESS);
+
+        assertThat(meterRegistry.get("ai.support.call")
+                .tag("model", "gpt-4o-mini")
+                .tag("status", "SUCCESS")
+                .counter()
+                .count()).isEqualTo(1.0);
+        assertThat(meterRegistry.get("ai.support.tokens").counter().count()).isEqualTo(250.0);
+        assertThat(meterRegistry.get("ai.support.prompt.tokens").counter().count()).isEqualTo(180.0);
+        assertThat(meterRegistry.get("ai.support.completion.tokens").counter().count()).isEqualTo(70.0);
+        assertThat(meterRegistry.get("ai.support.latency.ms").summary().totalAmount()).isEqualTo(2400.0);
     }
 }
