@@ -42,6 +42,15 @@ const verificationStatusLabels: Record<string, string> = {
   NO_SHOW_CONFIRMED: '노쇼 확정',
 };
 
+const disputeTypeLabels: Record<string, string> = {
+  FUNERAL_CEREMONY: '경조사',
+  MEDICAL_EMERGENCY: '응급 상황',
+  PHONE_MALFUNCTION: '휴대폰 고장',
+  GPS_ERROR: 'GPS 인증 오류',
+  QR_ERROR: 'QR 코드 인식 오류',
+  ADMIN_OVERRIDE: '관리자 조정',
+};
+
 export default function AdminDisputesPage() {
   const [searchParams] = useSearchParams();
   const requestedDisputeId = Number(searchParams.get('disputeId'));
@@ -252,7 +261,7 @@ export default function AdminDisputesPage() {
                 <div className="space-y-2 rounded-xl bg-[#fafafa] p-4">
                   <InfoRow label="이의제기자" value={selected.applicantNickname} />
                   <InfoRow label="관련 매칭" value={`#${selected.matchId}`} />
-                  <InfoRow label="이의제기 유형" value={selected.disputeType} />
+                  <InfoRow label="이의제기 유형" value={disputeTypeLabels[selected.disputeType] || selected.disputeType} />
                   <InfoRow label="처리 상태" value={statusLabels[selected.status]} />
                   <InfoRow label="인증 상태" value={formatVerificationStatus(selected.verificationStatus)} />
                   <InfoRow label="등록자 인증" value={formatOptionalDate(selected.authorPlaceVerifiedAt)} />

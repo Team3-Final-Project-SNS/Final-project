@@ -9,6 +9,7 @@ const statusLabels: Record<PostStatus, string> = {
   MATCHED: '매칭됨',
   COMPLETED: '완료',
   CANCELLED: '취소',
+  EXPIRED: '만료',
 };
 
 const statusClasses: Record<PostStatus, string> = {
@@ -16,6 +17,7 @@ const statusClasses: Record<PostStatus, string> = {
   MATCHED: 'bg-[#fff3e0] text-[#ef6c00]',
   COMPLETED: 'bg-[#e3f2fd] text-[#1565c0]',
   CANCELLED: 'bg-[#ffebee] text-[#c62828]',
+  EXPIRED: 'bg-[#f5f5f5] text-[#757575]',
 };
 
 export default function AdminPostsPage() {
@@ -173,6 +175,7 @@ export default function AdminPostsPage() {
             <option value="MATCHED">매칭됨</option>
             <option value="COMPLETED">완료</option>
             <option value="CANCELLED">취소</option>
+            <option value="EXPIRED">만료</option>
           </select>
 
           <select
