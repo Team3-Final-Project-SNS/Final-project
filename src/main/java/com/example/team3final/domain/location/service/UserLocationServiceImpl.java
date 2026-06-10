@@ -37,6 +37,10 @@ public class UserLocationServiceImpl implements UserLocationService {
     private final MatchService matchQueryService;
     private final PostService postQueryService;
 
+    // 위치 업데이트 시 반경 안/밖 여부를 계산할 때 사용할 기준 반경
+    // 정책상 사용자 안내 반경은 50m지만, GPS 오차 10m를 고려해 서버 판정은 60m로 처리
+    private static final double LOCATION_TRACKING_RADIUS_METERS = 60.0;
+
     // 내 위치 업데이트
     @Override
     @Transactional
@@ -64,16 +68,37 @@ public class UserLocationServiceImpl implements UserLocationService {
             // 단체 매칭 등록자는 같은 게시글의 모든 활성 matchId에 위치를 동기화해,
             // 각 신청자 화면에서도 등록자 위치가 보이도록 합니다.
             for (Long activeMatchId : activeMatchIds) {
-                UserLocation savedLocation = upsertLocation(activeMatchId, userId, requestDto);
+
+                UserLocation savedLocation = upsertLocation(
+                        activeMatchId,
+                        userId,
+                        requestDto,
+                        postInfo.placeLat(),
+                        postInfo.placeLng()
+                );
+
                 if (activeMatchId.equals(matchId)) {
                     primaryLocation = savedLocation;
                 }
             }
             if (primaryLocation == null) {
-                primaryLocation = upsertLocation(matchId, userId, requestDto);
+
+                primaryLocation = upsertLocation(
+                        matchId,
+                        userId,
+                        requestDto,
+                        postInfo.placeLat(),
+                        postInfo.placeLng()
+                );
             }
         } else {
-            primaryLocation = upsertLocation(matchId, userId, requestDto);
+            primaryLocation = upsertLocation(
+                    matchId,
+                    userId,
+                    requestDto,
+                    postInfo.placeLat(),
+                    postInfo.placeLng()
+            );
         }
 
         return UpdateLocationResponseDto.from(primaryLocation);
@@ -139,22 +164,120 @@ public class UserLocationServiceImpl implements UserLocationService {
         return GetLocationResponseDto.of(myLocation, opponentLocations);
     }
 
-    private UserLocation upsertLocation(Long matchId, Long userId, UpdateLocationRequestDto requestDto) {
+    private UserLocation upsertLocation(
+            Long matchId,
+            Long userId,
+            UpdateLocationRequestDto requestDto,
+            BigDecimal placeLat,
+            BigDecimal placeLng
+    ) {
+        // 최신 위치가 약속 장소 반경 안인지 서버에서 직접 계산
+        // 프론트 값을 믿지 않고 서버 기준으로 isInRange / leftRangeAt을 관리하기 위함
+        boolean inRange = isWithinTrackingRadius(
+                requestDto.getLatitude(),
+                requestDto.getLongitude(),
+                placeLat,
+                placeLng
+        );
+
         Optional<UserLocation> exist = userLocationRepository.findByMatchIdAndUserId(matchId, userId);
 
         if (exist.isPresent()) {
             UserLocation userLocation = exist.get();
-            userLocation.updateLocation(requestDto.getLatitude(), requestDto.getLongitude());
+
+            // 기존 위치를 갱신하면서 반경 안/밖 전환 시각도 함께 갱신
+            userLocation.updateLocation(
+                    requestDto.getLatitude(),
+                    requestDto.getLongitude(),
+                    inRange
+            );
+
             return userLocation;
         }
 
+        // 최초 위치 저장 시에도 현재 반경 안/밖 여부를 함께 저장
         UserLocation userLocation = UserLocation.builder()
                 .matchId(matchId)
                 .userId(userId)
                 .latitude(requestDto.getLatitude())
                 .longitude(requestDto.getLongitude())
+                .isInRange(inRange)
                 .build();
+
         return userLocationRepository.save(userLocation);
+    }
+
+    // 먼저 나간사용자 판단 메서드
+    @Override
+    public Optional<Long> findFirstLeftUserId(Long matchId, Long authorId, Long applicantId) {
+
+        // 등록자 위치 데이터 조회
+        Optional<UserLocation> authorLocationOpt =
+                userLocationRepository.findByMatchIdAndUserId(matchId, authorId);
+
+        // 신청자 위치 데이터 조회
+        Optional<UserLocation> applicantLocationOpt =
+                userLocationRepository.findByMatchIdAndUserId(matchId, applicantId);
+
+        // 둘 중 하나라도 위치 데이터가 없으면 먼저 벗어난 사람을 판단할 수 없음
+        if (authorLocationOpt.isEmpty() || applicantLocationOpt.isEmpty()) {
+            return Optional.empty();
+        }
+
+        UserLocation authorLocation = authorLocationOpt.get();
+        UserLocation applicantLocation = applicantLocationOpt.get();
+
+        // leftRangeAt이 있으면 그 값을 사용
+        // leftRangeAt이 없는 경우는 앱 종료 등으로 "반경 안 → 밖" 전환을 못 잡은 케이스일 수 있으므로
+        // 마지막 반경 안 체류 시각(lastInRangeAt)을 보조 기준으로 사용
+        LocalDateTime authorLeftAt = authorLocation.getLeftRangeAt() != null
+                ? authorLocation.getLeftRangeAt()
+                : authorLocation.getLastInRangeAt();
+
+        LocalDateTime applicantLeftAt = applicantLocation.getLeftRangeAt() != null
+                ? applicantLocation.getLeftRangeAt()
+                : applicantLocation.getLastInRangeAt();
+
+
+        // 양쪽 모두 기준 시각이 없으면 판단 불가.
+        if (authorLeftAt == null && applicantLeftAt == null) {
+            return Optional.empty();
+        }
+
+        // 한쪽만 기준 시각이 없는 경우도 데이터가 불완전한 상태이므로 임의 판정하지 않는다.
+        if (authorLeftAt == null || applicantLeftAt == null) {
+            return Optional.empty();
+        }
+
+        // 등록자가 더 이른 시각에 벗어났으면 등록자 노쇼
+        if (authorLeftAt.isBefore(applicantLeftAt)) {
+            return Optional.of(authorId);
+        }
+
+        // 신청자가 더 이른 시각에 벗어났으면 신청자 노쇼
+        if (applicantLeftAt.isBefore(authorLeftAt)) {
+            return Optional.of(applicantId);
+        }
+
+        // 시각이 완전히 같으면 판단 불가
+        return Optional.empty();
+    }
+
+    // 현재 위치가 약속 장소 반경 안인지 계산
+    private boolean isWithinTrackingRadius(
+            BigDecimal currentLat,
+            BigDecimal currentLng,
+            BigDecimal placeLat,
+            BigDecimal placeLng
+    ) {
+        double distance = GpsUtils.calculateDistance(
+                currentLat.doubleValue(),
+                currentLng.doubleValue(),
+                placeLat.doubleValue(),
+                placeLng.doubleValue()
+        );
+
+        return distance <= LOCATION_TRACKING_RADIUS_METERS;
     }
 
     private List<Long> getActiveMatchIdsByPostId(Long postId) {

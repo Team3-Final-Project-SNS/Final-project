@@ -35,18 +35,22 @@ public interface MatchService {
      */
     void cancelMatchBySystem(Long matchId);
 
+    // 관리자 ACCEPTED 판정
+    // 노쇼가 아니라고 인정된 케이스이므로 Match를 정상 완료 처리
+    // 포인트 정산은 Match 도메인에서 처리
+    // 반환값: 이의제기자에게 실제 반환된 포인트
+    int completeSingleMatchByDispute(Long matchId, Long submitterId);
 
-    // 이의제기 판정: 만남 완료 인정
-    // GPS/QR 오류 등으로 인증만 실패했고 실제 만남은 있었다고 관리자가 판정한 경우
-    // 포인트 환불은 호출자(AdminDisputeService.judgeDispute ACCEPTED 분기)에서 처리됨
-    // 여기서는 Match→COMPLETED, Post→COMPLETED, 후기 알림 예약만 처리
-    void completeMatchByDispute(Long matchId);
+    // 관리자 PARTIALLY_ACCEPTED 판정
+    // 노쇼는 맞지만 이의제기자의 사유가 일부 인정된 케이스
+    // 포인트 정산은 Match 도메인에서 처리
+    // 반환값: 이의제기자에게 실제 반환된 포인트
+    int markNoShowByDispute(
+            Long matchId,
+            VerificationStatus restoredStatus,
+            Long submitterId
+    );
 
-    // 이의제기 판정: 매칭 취소 인정
-    // 장례식/응급실 등 불가피한 사유로 노쇼가 아닌 취소로 인정된 경우
-    // 포인트 환불은 호출자(AdminDisputeService.applyDisputeJudgment ACCEPTED 분기)에서 처리됨
-    // 여기서는 Match→CANCELLED, Post→CANCELLED 상태 전이만 처리
-    void cancelMatchByDispute(Long matchId);
 
     // 등록자 노쇼 확정 — 배치(judgeNoShowConfirmed) 또는 이의제기 REJECTED 판정 시 호출
     // 처리: Match→AUTHOR_NO_SHOW, Post→COMPLETED, 등록자 예치금 몰수, 신청자 전액 환급
@@ -59,12 +63,6 @@ public interface MatchService {
     // 양측 노쇼 확정 — 배치(judgeNoShowConfirmed) 또는 이의제기 REJECTED 판정 시 호출
     // 처리: Match→BOTH_NO_SHOW, Post→COMPLETED, 양측 예치금 모두 몰수
     void markBothNoShow(Long matchId);
-
-    // 이의제기 부분 수용(PARTIALLY_ACCEPTED) 판정 시 호출
-    // 이의제기자에게 50% 환불은 judgeDispute()에서 이미 처리됨
-    // 여기서는 포인트 정산 없이 restoredStatus 기반으로 Match 노쇼 상태만 확정
-    // restoredStatus: DISPUTE 진입 전 백업해둔 원래 노쇼 예정 상태 (HOST/GUEST/BOTH_NO_SHOW)
-    void markNoShowByDisputeWithoutPointSettlement(Long matchId, VerificationStatus restoredStatus);
 
     /**
      * 매칭 취소 — Controller 직접 호출 (명세서 5.3)
