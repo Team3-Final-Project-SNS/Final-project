@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { Check, Camera } from 'lucide-react';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
-import { getMeetQr, createQrScan, getMeetVerification } from '../../api/meetApi';
+import { getMeetQrByPost, createQrScan, getMeetVerification } from '../../api/meetApi';
 import { getMatchDetail } from '../../api/matchApi';
 import { getUserMe } from '../../api/userApi';
 
@@ -21,6 +21,7 @@ export default function QRVerificationPage() {
   const roleParam = searchParams.get('role');
 
   const [role, setRole] = useState<QrRole | null>(null);
+  const [postId, setPostId] = useState<number | null>(null);
   const [step, setStep] = useState<'display' | 'scan' | 'success'>('display');
   const [qrToken, setQrToken] = useState('');
   const [qrImageUrl, setQrImageUrl] = useState(''); // ✅ 추가: QR 이미지 base64
@@ -41,17 +42,13 @@ export default function QRVerificationPage() {
   // ───────────────────────────────────────────
   // 현재 로그인 사용자 기준으로 등록자/신청자 역할 판별
   // URL에 role이 없어도 올바른 화면을 보여준다.
+  // roleParam 유무와 관계없이 항상 match detail을 fetch해 postId를 저장한다.
   // ───────────────────────────────────────────
   useEffect(() => {
     const resolveRole = async () => {
       if (!matchId) return;
 
       const tokenFromUrl = searchParams.get('qrToken');
-      if (roleParam === 'author' || roleParam === 'applicant') {
-        setRole(roleParam);
-        setStep(roleParam === 'applicant' ? 'scan' : 'display');
-        return;
-      }
 
       try {
         setLoading(true);
@@ -62,10 +59,17 @@ export default function QRVerificationPage() {
 
         const match = matchRes.data.data;
         const currentUserId = userRes.data.data.userId;
-        const resolvedRole = currentUserId === match.authorId ? 'author' : 'applicant';
 
-        setRole(resolvedRole);
-        setStep(resolvedRole === 'applicant' || tokenFromUrl ? 'scan' : 'display');
+        setPostId(match.postId);
+
+        if (roleParam === 'author' || roleParam === 'applicant') {
+          setRole(roleParam);
+          setStep(roleParam === 'applicant' ? 'scan' : 'display');
+        } else {
+          const resolvedRole = currentUserId === match.authorId ? 'author' : 'applicant';
+          setRole(resolvedRole);
+          setStep(resolvedRole === 'applicant' || tokenFromUrl ? 'scan' : 'display');
+        }
       } catch (err) {
         console.error('QR 역할 판별 실패:', err);
         alert('매칭 정보를 확인할 수 없습니다.');
@@ -82,18 +86,18 @@ export default function QRVerificationPage() {
   // 등록자: 마운트 시 QR 토큰 발급/조회
   // ───────────────────────────────────────────
   useEffect(() => {
-    if (role !== 'author') return;
+    if (role !== 'author' || !postId) return;
 
     const fetchQr = async () => {
       try {
         setLoading(true);
-        const res = await getMeetQr(matchId);
-        const data = res.data.data; // { matchId, qrToken, expiresAt }
+        const res = await getMeetQrByPost(postId);
+        const data = res.data.data; // { postId, qrToken, qrExpiresAt }
 
         setQrToken(data.qrToken);
 
         // 만료 시각 기준으로 남은 시간(초) 계산
-        const expiresAt = new Date(data.expiresAt).getTime();
+        const expiresAt = new Date(data.qrExpiresAt).getTime();
         const now = new Date().getTime();
         const remainingSeconds = Math.floor((expiresAt - now) / 1000);
         setTimeRemaining(remainingSeconds > 0 ? remainingSeconds : 0);
@@ -107,7 +111,7 @@ export default function QRVerificationPage() {
     };
 
     fetchQr();
-  }, [matchId, role]);
+  }, [postId, role]);
 
   // ───────────────────────────────────────────
   // ✅ 추가: qrToken → QR 이미지 생성

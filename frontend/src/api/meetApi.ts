@@ -11,9 +11,9 @@ export interface PlaceVerificationResponse {
 }
 
 export interface QrResponse {
-    matchId: number;
+    postId: number;
     qrToken: string;
-    expiresAt: string;
+    qrExpiresAt: string;
 }
 
 export interface QrScanResponse {
@@ -24,14 +24,23 @@ export interface QrScanResponse {
     refundedPoint: number;
 }
 
+export interface ParticipantVerification {
+    matchId: number;
+    nickname: string;
+    verified: boolean;
+    verifiedAt: string | null;
+}
+
 export interface MeetVerificationResponse {
     matchId: number;
     verificationStatus: string;
+    authorNickname: string;
     authorPlaceVerifiedAt: string | null;
-    applicantPlaceVerifiedAt: string | null;
+    participants: ParticipantVerification[];
     qrIssuedToAuthor: boolean;
     qrExpiresAt: string | null;
     completedAt: string | null;
+    noShowDecidedAt: string | null;
 }
 
 export type ExtensionStatus = "NONE" | "REQUESTED" | "ACCEPTED" | "REJECTED" | "EXPIRED";
@@ -46,6 +55,21 @@ export interface MeetExtensionResponse {
     expectedMeetAt: string;
     requestedAt: string | null;
     expiresAt: string | null;
+}
+
+export interface AcceptMeetExtensionResponse {
+    matchId: number;
+    extensionStatus: ExtensionStatus;
+    originalMeetAt: string;
+    extendedMeetAt: string;
+    isExtended: boolean;
+    extendedAt: string;
+}
+
+export interface RejectMeetExtensionResponse {
+    matchId: number;
+    extensionStatus: ExtensionStatus;
+    rejectedAt: string;
 }
 
 export type LocationRole = 'AUTHOR' | 'APPLICANT';
@@ -69,8 +93,8 @@ export const createPlaceVerification = (matchId: number, data: { currentLat: num
 };
 
 // QR 토큰 발급/조회 API (등록자만 호출)
-export const getMeetQr = (matchId: number) => {
-    return axiosInstance.get<ApiResponse<QrResponse>>(`/api/v1/matches/${matchId}/qr`);
+export const getMeetQrByPost = (postId: number) => {
+    return axiosInstance.get<ApiResponse<QrResponse>>(`/api/v1/posts/${postId}/qr`);
 };
 
 // QR 스캔 API (신청자만 호출)
@@ -93,6 +117,16 @@ export const createMeetExtension = (matchId: number) => {
 // 만남 시간 연장 상태 조회
 export const getMeetExtension = (matchId: number) => {
     return axiosInstance.get<ApiResponse<MeetExtensionResponse>>(`/api/v1/matches/${matchId}/extension`);
+};
+
+// 만남 시간 연장 수락
+export const acceptMeetExtension = (matchId: number) => {
+    return axiosInstance.patch<ApiResponse<AcceptMeetExtensionResponse>>(`/api/v1/matches/${matchId}/extension/accept`);
+};
+
+// 만남 시간 연장 거절
+export const rejectMeetExtension = (matchId: number) => {
+    return axiosInstance.patch<ApiResponse<RejectMeetExtensionResponse>>(`/api/v1/matches/${matchId}/extension/reject`);
 };
 
 // ────────────────────────────────────────

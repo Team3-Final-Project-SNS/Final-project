@@ -10,6 +10,7 @@ import {
   ReviewGoodTag,
   ReviewItem,
 } from '../../api/reviewApi';
+import { applyExtendedMeetAt } from '../../store/matchStore';
 
 type FilterStatus = MatchStatus | '전체' | 'NO_SHOW';
 
@@ -108,7 +109,7 @@ export default function MatchesPage() {
         }
 
         // backend PageResponseDto has 'content', 'page', 'size', 'totalPages', 'hasNext'
-        setMatches(nextMatches);
+        setMatches(applyExtendedMeetAt(nextMatches));
         setTotalPages(nextTotalPages);
 
         const completedMatches = nextMatches.filter((match) => match.status === 'COMPLETED');

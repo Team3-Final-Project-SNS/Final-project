@@ -1,10 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useLocation } from 'react-router';
-import { ArrowLeft, Send, MapPin, Loader2, AlertCircle, Clock } from 'lucide-react';
+import { ArrowLeft, Send, MapPin, Loader2, AlertCircle, Clock, Check } from 'lucide-react';
 import { getChatMessages, ChatMessageResponse } from '@/api/chatApi';
 import { getMatchDetail, GetMatchResponse, getMyMatches } from '@/api/matchApi';
-import { createMeetExtension } from '@/api/meetApi';
+import {
+  createMeetExtension,
+  getMeetExtension,
+  acceptMeetExtension,
+  rejectMeetExtension,
+  MeetExtensionResponse,
+} from '@/api/meetApi';
 import { getUserMe } from '@/api/userApi';
+import { setExtendedMeetAt } from '@/store/matchStore';
 import SockJS from 'sockjs-client';
 import { Client } from '@stomp/stompjs';
 import { getAccessToken } from '@/api/axiosInstance';
@@ -83,6 +90,8 @@ export default function ChatPage() {
   const [hasNext, setHasNext] = useState(false);
   const [connected, setConnected] = useState(false);
   const [extensionLoading, setExtensionLoading] = useState(false);
+  const [extensionInfo, setExtensionInfo] = useState<MeetExtensionResponse | null>(null);
+  const [extensionActionLoading, setExtensionActionLoading] = useState(false);
 
   const stompClient = useRef<Client | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -147,7 +156,6 @@ export default function ChatPage() {
   useEffect(() => {
     if (!chatRoomId) return;
 
-    // sessionStorage → 메모리에서 토큰 꺼내기
     const accessToken = getAccessToken();
     if (!accessToken) {
       setConnected(false);
@@ -210,6 +218,26 @@ export default function ChatPage() {
     return () => window.clearInterval(intervalId);
   }, [chatRoomId, currentUserId]);
 
+  // 연장 상태 폴링 — MATCHED 상태일 때만 3초마다 조회
+  useEffect(() => {
+    if (!matchInfo || matchInfo.status !== 'MATCHED') return;
+
+    const matchId = matchInfo.matchId;
+
+    const fetchExtension = async () => {
+      try {
+        const res = await getMeetExtension(matchId);
+        setExtensionInfo(res.data.data);
+      } catch {
+        // 폴링 실패는 무시
+      }
+    };
+
+    fetchExtension();
+    const intervalId = setInterval(fetchExtension, 3000);
+    return () => clearInterval(intervalId);
+  }, [matchInfo]);
+
   // 자동 스크롤
   useEffect(() => {
     if (scrollRef.current) {
@@ -234,12 +262,42 @@ export default function ChatPage() {
 
     try {
       setExtensionLoading(true);
-      await createMeetExtension(matchInfo.matchId);
-      alert('시간 연장 요청을 보냈습니다. 상대방이 수락하면 10분 연장됩니다.');
+      const res = await createMeetExtension(matchInfo.matchId);
+      // 요청 성공 시 즉시 REQUESTED 상태로 UI 반영 (폴링 전 공백 방지)
+      setExtensionInfo({ ...res.data.data, isMyRequest: true });
     } catch (err: any) {
       alert(err.response?.data?.message || '시간 연장 요청에 실패했습니다.');
     } finally {
       setExtensionLoading(false);
+    }
+  };
+
+  const handleAcceptExtension = async () => {
+    if (!matchInfo || extensionActionLoading) return;
+
+    try {
+      setExtensionActionLoading(true);
+      const res = await acceptMeetExtension(matchInfo.matchId);
+      setExtendedMeetAt(matchInfo.matchId, res.data.data.extendedMeetAt);
+      setExtensionInfo((prev) => prev ? { ...prev, extensionStatus: 'ACCEPTED' } : prev);
+    } catch (err: any) {
+      alert(err.response?.data?.message || '수락에 실패했습니다.');
+    } finally {
+      setExtensionActionLoading(false);
+    }
+  };
+
+  const handleRejectExtension = async () => {
+    if (!matchInfo || extensionActionLoading) return;
+
+    try {
+      setExtensionActionLoading(true);
+      await rejectMeetExtension(matchInfo.matchId);
+      setExtensionInfo((prev) => prev ? { ...prev, extensionStatus: 'REJECTED' } : prev);
+    } catch (err: any) {
+      alert(err.response?.data?.message || '거절에 실패했습니다.');
+    } finally {
+      setExtensionActionLoading(false);
     }
   };
 
@@ -255,6 +313,15 @@ export default function ChatPage() {
       console.error('Failed to load older messages', err);
     }
   };
+
+  // 시간 연장 버튼 활성화 조건: NONE 또는 EXPIRED 상태일 때만 요청 가능
+  const canRequestExtension =
+      !extensionInfo ||
+      extensionInfo.extensionStatus === 'NONE' ||
+      extensionInfo.extensionStatus === 'EXPIRED';
+
+  // 신청자 여부: 현재 로그인한 유저가 applicant일 때만 시간 연장 버튼 노출
+  const isApplicant = currentUserId !== null && matchInfo !== null && currentUserId === matchInfo.applicantId;
 
   if (loading) return (
       <div className="flex flex-col items-center justify-center py-20">
@@ -296,15 +363,17 @@ export default function ChatPage() {
                     <MapPin size={16} />
                     장소 인증
                   </Link>
-                  <button
-                      type="button"
-                      onClick={handleExtendMeetTime}
-                      disabled={extensionLoading}
-                      className="px-5 py-2.5 bg-white border border-[#d84315] text-[#d84315] rounded-xl text-sm font-semibold hover:bg-[#fff3e0] transition-all shadow-sm flex items-center gap-2 disabled:opacity-50"
-                  >
-                    {extensionLoading ? <Loader2 size={16} className="animate-spin" /> : <Clock size={16} />}
-                    시간 연장
-                  </button>
+                  {isApplicant && (
+                    <button
+                        type="button"
+                        onClick={handleExtendMeetTime}
+                        disabled={extensionLoading || !canRequestExtension}
+                        className="px-5 py-2.5 bg-white border border-[#d84315] text-[#d84315] rounded-xl text-sm font-semibold hover:bg-[#fff3e0] transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {extensionLoading ? <Loader2 size={16} className="animate-spin" /> : <Clock size={16} />}
+                      시간 연장
+                    </button>
+                  )}
                 </>
             ) : (
                 <button
@@ -319,11 +388,85 @@ export default function ChatPage() {
           </div>
         </div>
 
+        {/* 에러 배너 */}
         {error && (
             <div className="bg-[#ffebee] border-x border-b border-[#ef5350] px-4 py-3 flex items-start gap-2 text-sm text-[#c62828]">
               <AlertCircle size={16} className="mt-0.5 shrink-0" />
               <span>{error}</span>
             </div>
+        )}
+
+        {/* 연장 상태 배너 */}
+        {extensionInfo && extensionInfo.extensionStatus !== 'NONE' && matchInfo?.status === 'MATCHED' && (
+            <>
+              {/* 상대방이 요청 → 수락/거절 배너 */}
+              {extensionInfo.extensionStatus === 'REQUESTED' && !extensionInfo.isMyRequest && (
+                  <div className="bg-[#fff3e0] border-x border-b border-[#ff9800] px-4 py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-sm text-[#e65100]">
+                      <Clock size={16} className="shrink-0" />
+                      <span>
+                        <strong>{extensionInfo.requesterNickname}</strong>님이 만남 시간 10분 연장을 요청했습니다.
+                      </span>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                          onClick={handleAcceptExtension}
+                          disabled={extensionActionLoading}
+                          className="px-3 py-1.5 bg-[#4caf50] text-white text-xs font-semibold rounded-lg hover:bg-[#43a047] transition-colors disabled:opacity-50"
+                      >
+                        {extensionActionLoading ? <Loader2 size={12} className="animate-spin" /> : '수락'}
+                      </button>
+                      <button
+                          onClick={handleRejectExtension}
+                          disabled={extensionActionLoading}
+                          className="px-3 py-1.5 bg-white border border-[#ef5350] text-[#ef5350] text-xs font-semibold rounded-lg hover:bg-[#ffebee] transition-colors disabled:opacity-50"
+                      >
+                        거절
+                      </button>
+                    </div>
+                  </div>
+              )}
+
+              {/* 내가 요청 → 대기 중 배너 */}
+              {extensionInfo.extensionStatus === 'REQUESTED' && extensionInfo.isMyRequest && (
+                  <div className="bg-[#e3f2fd] border-x border-b border-[#2196f3] px-4 py-3 flex items-center gap-2 text-sm text-[#1565c0]">
+                    <Clock size={16} className="shrink-0" />
+                    <span>연장 요청을 보냈습니다. 상대방의 응답을 기다리는 중...</span>
+                  </div>
+              )}
+
+              {/* 수락됨 → 양측에 새 약속시간 표시 */}
+              {extensionInfo.extensionStatus === 'ACCEPTED' && (
+                  <div className="bg-[#e8f5e9] border-x border-b border-[#4caf50] px-4 py-3 flex items-center gap-2 text-sm text-[#2e7d32]">
+                    <Check size={16} className="shrink-0" />
+                    <span>
+                      만남 시간이 10분 연장되었습니다. 새 약속시간:{' '}
+                      <strong>
+                        {new Date(extensionInfo.expectedMeetAt).toLocaleTimeString('ko-KR', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </strong>
+                    </span>
+                  </div>
+              )}
+
+              {/* 거절됨 → 요청자에게만 표시 */}
+              {extensionInfo.extensionStatus === 'REJECTED' && extensionInfo.isMyRequest && (
+                  <div className="bg-[#ffebee] border-x border-b border-[#ef5350] px-4 py-3 flex items-center gap-2 text-sm text-[#c62828]">
+                    <AlertCircle size={16} className="shrink-0" />
+                    <span>상대방이 시간 연장 요청을 거절했습니다.</span>
+                  </div>
+              )}
+
+              {/* 만료됨 → 요청자에게만 표시 */}
+              {extensionInfo.extensionStatus === 'EXPIRED' && extensionInfo.isMyRequest && (
+                  <div className="bg-[#f5f5f5] border-x border-b border-[#bdbdbd] px-4 py-3 flex items-center gap-2 text-sm text-[#757575]">
+                    <AlertCircle size={16} className="shrink-0" />
+                    <span>연장 요청이 5분 타임아웃으로 만료되었습니다. 다시 요청할 수 있습니다.</span>
+                  </div>
+              )}
+            </>
         )}
 
         {/* 메시지 목록 영역 */}
@@ -345,7 +488,6 @@ export default function ChatPage() {
             {messages.map((msg, idx) => {
               const isMe = currentUserId !== null && msg.senderId === currentUserId;
 
-              // 날짜 구분선 표시 여부
               const date = formatMessageDate(msg.createdAt);
               const showDate = idx === 0 || formatMessageDate(messages[idx - 1].createdAt) !== date;
 
@@ -386,7 +528,7 @@ export default function ChatPage() {
                             </div>
                           </div>
                       )}
-                        </div>
+                    </div>
                   </div>
               );
             })}
@@ -406,7 +548,6 @@ export default function ChatPage() {
               disabled={!connected}
               className="flex-1 px-4 py-3 border border-[#e0e0e0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#d84315] focus:border-transparent"
           />
-          {/* 전송 버튼: 연결 안됐거나 메시지 없으면 비활성화 */}
           <button
               type="submit"
               disabled={!connected || !message.trim()}
