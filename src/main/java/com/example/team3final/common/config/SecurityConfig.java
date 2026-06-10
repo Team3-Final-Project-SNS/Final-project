@@ -63,7 +63,7 @@ public class SecurityConfig {
                         ).permitAll()
 
                         // Actuator 헬스체크 허용
-                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/info", "/actuator/prometheus").permitAll()
 
                         // 그 외 모든 요청은 인증 필요
                         .anyRequest().authenticated()

@@ -15,6 +15,7 @@ import com.example.team3final.domain.user.dto.response.UserInfoDto;
 import com.example.team3final.domain.user.service.UserPointService;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -29,6 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
@@ -80,6 +82,9 @@ public class PostServiceImpl implements PostService{
 
         // 4. 저장
         Post savedPost = postRepository.save(post);
+
+        log.info("[Post] 게시글 생성 완료 - postId: {}, authorId: {}, status: {}, meetAt: {}",
+                savedPost.getId(), authorId, savedPost.getStatus(), savedPost.getMeetAt());
 
         // 5. Response
         // userService.getUserInfo(authorId) → UserInfoDto 반환, 거기서 nickname() 추출
@@ -150,6 +155,10 @@ public class PostServiceImpl implements PostService{
 
         // 2. 도메인 메서드 호출 — 상태 전이 규칙은 엔티티가 책임
         post.complete();
+
+        log.info("[Post] 게시글 완료 처리 - postId: {}, status: {}",
+                postId, post.getStatus());
+
     }
 
     @Override
@@ -177,6 +186,9 @@ public class PostServiceImpl implements PostService{
 
         // 6. 게시글 소프트 삭제
         post.delete();
+
+        log.info("[Post] 게시글 삭제 처리 - postId: {}, authorId: {}, refundedPoint: {}",
+                postId, userId, refundedPoint);
 
         return DeletePostResponseDto.of(postId, refundedPoint);
     }
@@ -567,6 +579,9 @@ public class PostServiceImpl implements PostService{
         //    Post 엔티티에 changeStatus() 도메인 메서드가 있어야 함
         //    없다면 아래처럼 추가: public void changeStatus(PostStatus status) { this.status = status; }
         post.changeStatus(status);
+
+        log.info("[Post] 게시글 상태 변경 - postId: {}, status: {}",
+                postId, status);
 
         // 3. 명시적 save() 없음 → @Transactional + Dirty Checking이 자동 UPDATE 처리
     }
