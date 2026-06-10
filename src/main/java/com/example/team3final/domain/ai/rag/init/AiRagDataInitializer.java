@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
  * 서버를 다시 켜도 변경되지 않은 문서는 embedding/vector_store에 중복 저장되지 않습니다.
  */
 @Slf4j
-@Profile("prod")
+@Profile("local")
 @Component
 @RequiredArgsConstructor
 @ConditionalOnProperty(
