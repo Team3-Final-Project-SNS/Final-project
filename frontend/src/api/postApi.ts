@@ -1,7 +1,7 @@
-import axiosInstance from "./axiosInstance";
+﻿import axiosInstance from "./axiosInstance";
 import { ApiResponse } from "./authApi";
 
-export type PostStatus = "OPEN" | "MATCHED" | "COMPLETED" | "CANCELLED" | "EXPIRED";
+export type PostStatus = "OPEN" | "MATCHED" | "COMPLETED" | "CANCELLED" | "EXPIRED" | "DELETED";
 
 export interface PostItemResponse {
     postId: number;
@@ -76,27 +76,34 @@ export interface DeletedPostReasonResponse {
     deletedAt: string;
 }
 
-// 게시글 작성
+// 寃뚯떆湲 ?묒꽦
 export const createPost = (data: CreatePostRequest) =>
     axiosInstance.post<ApiResponse<{ postId: number }>>("/api/v1/posts", data);
 
-// 게시글 목록 조회
+// 寃뚯떆湲 紐⑸줉 議고쉶
 export const getPosts = (status: PostStatus = "OPEN", page: number = 0, size: number = 20) =>
     axiosInstance.get<ApiResponse<PageResponse<PostItemResponse>>>(`/api/v1/posts`, {
         params: { status, page, size }
     });
 
-// 게시글 상세 조회
+// 寃뚯떆湲 ?곸꽭 議고쉶
 export const getPost = (postId: number) =>
     axiosInstance.get<ApiResponse<GetPostResponse>>(`/api/v1/posts/${postId}`);
 
-// 게시글 수정
+// 寃뚯떆湲 ?섏젙
 export const updatePost = (postId: number, data: UpdatePostRequest) =>
     axiosInstance.patch<ApiResponse<{ postId: number }>>(`/api/v1/posts/${postId}`, data);
 
-// 게시글 삭제
+// 寃뚯떆湲 ??젣
 export const deletePost = (postId: number) =>
     axiosInstance.delete<ApiResponse<{ postId: number, refundedPoint: number }>>(`/api/v1/posts/${postId}`);
 
 export const getDeletedPostReason = (postId: number) =>
     axiosInstance.get<ApiResponse<DeletedPostReasonResponse>>(`/api/v1/posts/${postId}/delete-reason`);
+
+export const getMyPosts = (page: number = 0, size: number = 20) =>
+    axiosInstance.get<ApiResponse<PageResponse<PostItemResponse>>>(`/api/v1/posts/me`, {
+        params: { page, size }
+    });
+
+
