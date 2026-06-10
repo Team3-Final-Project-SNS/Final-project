@@ -20,9 +20,6 @@ public interface ChatMemberRepository extends JpaRepository<ChatMember, Long> {
     // 특정 채팅방에서 특정 유저의 멤버 정보 조회 (참여자 검증)
     Optional<ChatMember> findByChatRoomIdAndUserId(Long chatRoomId, Long userId);
 
-    // 특정 채팅방에서 특정 역할의 멤버 조회
-    Optional<ChatMember> findByChatRoomIdAndRole(Long chatRoomId, ChatMemberRole role);
-
     // 특정 채팅방에 해당 유저가 존재하는지 확인
     boolean existsByChatRoomIdAndUserId(Long chatRoomId, Long userId);
 

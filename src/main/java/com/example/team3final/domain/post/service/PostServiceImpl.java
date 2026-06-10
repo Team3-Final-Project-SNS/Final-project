@@ -215,7 +215,7 @@ public class PostServiceImpl implements PostService{
                 currentUserId, status, pageable.getPageNumber(), pageable.getPageSize()
         );
 
-        // 캐시된 응답이 없으면 DB 조회 없이 바로 반환
+        // 캐시된 응답이 있으면 DB 조회 없이 바로 반환
         if (cachedPostList.isPresent()) {
             return cachedPostList.get();
         }

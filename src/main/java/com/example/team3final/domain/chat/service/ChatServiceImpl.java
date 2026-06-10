@@ -50,7 +50,6 @@ public class ChatServiceImpl implements ChatService {
     public Long createChatRoom(Long postId, Long authorId, Long applicantId) {
 
         // 이미 채팅방이 있으면 생성 안 함
-        // (신청자 취소 후 재신청 시에도 기존 채팅방 재사용)
         if (chatRoomRepository.findByPostId(postId).isPresent()) {
             throw new ChatException(ErrorCode.CHAT_ROOM_ALREADY_EXISTS);
         }
@@ -289,7 +288,7 @@ public class ChatServiceImpl implements ChatService {
             throw new ChatException(ErrorCode.CHAT_NOT_PARTICIPANT);
         }
 
-        // 참여자 목록 조회
+        // leftAt이 null인 현재 참여 중인 멤버만 조회 (취소 퇴장한 멤버 제외)
         List<ChatMember> members = chatMemberRepository.findByChatRoomIdAndLeftAtIsNull(chatRoomId);
 
         // 유저 ID 목록 한 번에 조회 (N+1 방지)
