@@ -83,6 +83,7 @@ export default function InquiryCenterPage() {
   const [disputeType, setDisputeType] = useState<DisputeType>('GPS_ERROR');
   const [disputeReason, setDisputeReason] = useState('');
   const isNoShowView = view === 'noShow';
+  const isRequestedNoShowMatchLocked = isNoShowView && Boolean(requestedNoShowMatchId);
 
   const openInquiryForm = () => {
     setError('');
@@ -141,7 +142,9 @@ export default function InquiryCenterPage() {
             (match) => String(match.matchId) === requestedNoShowMatchId,
         );
         setSelectedNoShowMatchId(
-            requestedMatch
+            requestedNoShowMatchId
+                ? String(requestedNoShowMatchId)
+                : requestedMatch
                 ? String(requestedMatch.matchId)
                 : nextMatches[0]
                     ? String(nextMatches[0].matchId)
@@ -330,18 +333,27 @@ export default function InquiryCenterPage() {
                     <select
                       value={selectedNoShowMatchId}
                       onChange={(event) => setSelectedNoShowMatchId(event.target.value)}
-                      className="w-full rounded-lg border border-[#e0e0e0] bg-white px-3 py-2 text-sm focus:border-[#d84315] focus:outline-none focus:ring-2 focus:ring-[#fff3e0]"
+                      disabled={isRequestedNoShowMatchLocked}
+                      className="w-full rounded-lg border border-[#e0e0e0] bg-white px-3 py-2 text-sm focus:border-[#d84315] focus:outline-none focus:ring-2 focus:ring-[#fff3e0] disabled:bg-[#f5f5f5] disabled:text-[#757575]"
                     >
                       {noShowMatches.map((match) => (
                         <option key={match.matchId} value={match.matchId}>
                           {formatDateTime(match.meetAt)} · {match.placeName} · {match.opponentNickname}
                         </option>
                       ))}
+                      {isRequestedNoShowMatchLocked && !noShowMatches.some((match) => String(match.matchId) === selectedNoShowMatchId) && (
+                        <option value={selectedNoShowMatchId}>선택된 노쇼 매칭 #{selectedNoShowMatchId}</option>
+                      )}
                     </select>
                   ) : (
                     <div className="rounded-lg border border-dashed border-[#e0e0e0] bg-[#fafafa] px-3 py-3 text-sm text-[#9e9e9e]">
                       이의제기 가능한 노쇼 매칭이 없습니다.
                     </div>
+                  )}
+                  {isRequestedNoShowMatchLocked && (
+                    <p className="mt-2 text-xs font-semibold text-[#d84315]">
+                      알림에서 연결된 매칭으로 자동 지정되어 변경할 수 없습니다.
+                    </p>
                   )}
                 </div>
                 <div>
