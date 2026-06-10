@@ -57,6 +57,8 @@ type DisplayMatch = GetMatchesItemResponse & {
   opponentNicknames: string[];
 };
 
+const activeMatchStatuses: MatchStatus[] = ['MATCHED', 'DISPUTED'];
+
 export default function MatchesPage() {
   const [searchParams] = useSearchParams();
   const requestedReviewMatchId = Number(searchParams.get('reviewMatchId'));
@@ -316,7 +318,7 @@ export default function MatchesPage() {
 
                           <div className="space-y-2 mb-4">
                             <div className="flex items-center gap-2 text-sm text-[#616161]">
-                              <span className="font-medium text-[#424242]">상대방:</span> {match.opponentNickname}
+                              <span className="font-medium text-[#424242]">상대방:</span> {formatOpponentNames(match)}
                             </div>
                             <div className="flex items-center gap-2 text-sm text-[#616161]">
                               <Clock size={16} className="text-[#d84315]" />
@@ -397,9 +399,21 @@ export default function MatchesPage() {
                                 </>
                             )}
                             {match.status === 'CANCELLED' && (
-                                <div className="flex-1 text-center py-2.5 bg-[#f5f5f5] text-[#9e9e9e] rounded-lg text-sm font-semibold">
-                                  취소된 매칭입니다.
-                                </div>
+                                <>
+                                  {match.chatRoomId ? (
+                                      <Link
+                                          to={`/chat/${match.chatRoomId}`}
+                                          state={{ matchId: match.matchId }}
+                                          className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white border border-[#e0e0e0] rounded-lg text-sm font-semibold text-[#616161] hover:bg-[#f5f5f5] transition-colors"
+                                      >
+                                        <MessageCircle size={16} />
+                                        채팅 이력
+                                      </Link>
+                                  ) : null}
+                                  <div className="flex-1 text-center py-2.5 bg-[#f5f5f5] text-[#9e9e9e] rounded-lg text-sm font-semibold">
+                                    취소된 매칭입니다.
+                                  </div>
+                                </>
                             )}
                           </div>
                         </div>
@@ -485,13 +499,22 @@ function groupMatchesByPost(matches: GetMatchesItemResponse[]): DisplayMatch[] {
       return;
     }
 
+    const shouldUseCurrentAsRepresentative =
+        activeMatchStatuses.includes(match.status) && !activeMatchStatuses.includes(existing.status);
+
     grouped.set(match.postId, {
-      ...existing,
+      ...(shouldUseCurrentAsRepresentative ? match : existing),
       opponentNicknames: [...existing.opponentNicknames, match.opponentNickname],
     });
   });
 
   return Array.from(grouped.values());
+}
+
+function formatOpponentNames(match: DisplayMatch) {
+  return match.opponentNicknames.length > 0
+      ? match.opponentNicknames.join(', ')
+      : match.opponentNickname;
 }
 
 function ReviewWriteModal({
