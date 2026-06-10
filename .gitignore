@@ -40,7 +40,7 @@ out/
 
 application.yml
 application-local.yml
-application-prod.yml
+application-docker.yml
 application-test.yml
 
 # 프론트엔드 의존성

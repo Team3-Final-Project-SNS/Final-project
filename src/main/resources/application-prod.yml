@@ -1,0 +1,40 @@
+spring:
+  autoconfigure:
+    exclude: org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreAutoConfiguration
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DB_URL_PROD}
+    username: ${DB_USERNAME_PROD}
+    password: ${DB_PASSWORD_PROD}
+
+  jpa:
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO_PROD}
+    properties:
+      hibernate:
+        format_sql: false
+        show_sql: false
+
+  data:
+    redis:
+      host: ${REDIS_HOST_PROD}
+      port: ${REDIS_PORT_PROD}
+      password: ${REDIS_PASSWORD_PROD}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS_PROD}
+
+logging:
+  level:
+    root: info
+    com:
+      example:
+        team3final: info
+
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS_PROD}
+
+websocket:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS_PROD}
