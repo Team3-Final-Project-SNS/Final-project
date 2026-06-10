@@ -812,4 +812,12 @@ public class MatchServiceImpl implements MatchService{
     private boolean canResolveDispute(Match match) {
         return match.getStatus() == MatchStatus.MATCHED || match.getStatus() == MatchStatus.DISPUTED;
     }
+
+    // 사용자가 등록자 또는 신청자로 참여한 전체 매칭 ID 목록 조회
+    // MeetVerification 도메인에서 노쇼 예정 매칭 필터링 시 사용
+    // matchId 목록만 반환해 불필요한 Match 엔티티 로딩을 줄임
+    @Override
+    public List<Long> getAllMatchIdsByUserId(Long userId) {
+        return matchRepository.findAllMatchIdsByUserId(userId);
+    }
 }

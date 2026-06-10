@@ -153,4 +153,7 @@ public interface MatchService {
     // 모든 활성 매칭이 종료된 뒤 Post 전체 종결 처리
     // 등록자 책임비 환급, 중복 호출되어도 한 번만 처리되도록 멱등성 보장
     void completePostIfAllMatchesCompleted(Long postId);
+
+    // 사용자가 당사자인 전체 매칭 ID 목록 조회
+    List<Long> getAllMatchIdsByUserId(Long userId);
 }

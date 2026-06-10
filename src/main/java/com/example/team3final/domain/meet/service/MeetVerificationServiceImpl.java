@@ -1139,6 +1139,31 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         }
     }
 
+    // 사용자 노쇼 예정 매칭 목록 조회
+    // 내가 등록자 또는 신청자로 참여한 매칭 중 노쇼 예정 상태인 것만 반환
+    // 이의제기 화면 드롭다운에 표시할 매칭 목록 제공용
+    @Override
+    public List<NoShowMatchResponseDto> getNoShowMatchesForUser(Long userId) {
+
+        // 1. 내가 참여한 전체 매칭 ID 목록 조회 (matchService 통해 서비스투서비스)
+        List<Long> myMatchIds = matchService.getAllMatchIdsByUserId(userId);
+
+        // 2. 매칭이 없으면 빈 리스트 반환
+        if (myMatchIds.isEmpty()) {
+            return List.of();
+        }
+
+        // 3. 내 매칭 중 노쇼 예정 상태인 MeetVerification만 조회
+        // NO_SHOW_STATUSES = HOST_NO_SHOW, GUEST_NO_SHOW, BOTH_NO_SHOW
+        List<MeetVerification> noShowMvList = meetVerificationRepository
+                .findAllByMatchIdInAndStatusIn(myMatchIds, NO_SHOW_STATUSES);
+
+        // 4. DTO 변환
+        return noShowMvList.stream()
+                .map(NoShowMatchResponseDto::from)
+                .toList();
+    }
+
     // matchId로 MeetVerification 단건 조회 (외부 도메인 사용)
     @Override
     public MeetVerification getByMatchId(Long matchId) {

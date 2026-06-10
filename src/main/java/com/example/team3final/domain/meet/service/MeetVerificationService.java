@@ -7,6 +7,8 @@ import com.example.team3final.domain.meet.entity.MeetVerification;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
+
 public interface MeetVerificationService {
 
     // GPS 장소 인증
@@ -60,6 +62,9 @@ public interface MeetVerificationService {
 
     // 스케줄러 -> 5분 타임아웃 된 연장 요청 일괄 EXPIRED 처리
     void expireTimeoutExtensions();
+
+    // 사용자 노쇼 예정 매칭 목록 조회 — 이의제기 화면 드롭다운용
+    List<NoShowMatchResponseDto> getNoShowMatchesForUser(Long userId);
 
     // 이의제기 상세 조회 - matchId로 단건 조회
     MeetVerification getByMatchId(Long matchId);

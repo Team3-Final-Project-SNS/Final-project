@@ -6,6 +6,9 @@ import com.example.team3final.domain.dispute.dto.response.CreateDisputeResponseD
 import com.example.team3final.domain.dispute.dto.response.DisputeResponseDto;
 import com.example.team3final.domain.dispute.service.DisputeService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
+import com.example.team3final.domain.meet.dto.response.NoShowMatchResponseDto;
+import com.example.team3final.domain.meet.service.MeetVerificationService;
+import java.util.List;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -19,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 public class DisputeController {
 
     private final DisputeService disputeService;
+    private final MeetVerificationService meetVerificationService;
 
     @PostMapping("/{matchId}/disputes")
     public ResponseEntity<ApiResponseDto<CreateDisputeResponseDto>> createDispute(
@@ -59,6 +63,18 @@ public class DisputeController {
 
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
+
+    // 이의제기 가능한 노쇼 예정 매칭 목록 조회
+    // 이의제기 화면 드롭다운에 표시할 내 노쇼 예정 매칭 목록 반환
+    @GetMapping("/me/no-show")
+    public ResponseEntity<ApiResponseDto<List<NoShowMatchResponseDto>>> getNoShowMatches(
+            @AuthenticationPrincipal UserDetailsImpl userDetails
+    ) {
+        Long userId = userDetails.getUserId();
+        List<NoShowMatchResponseDto> response = meetVerificationService.getNoShowMatchesForUser(userId);
+        return ResponseEntity.ok(ApiResponseDto.success(response));
+    }
+
 
     // 재이의제기 제출
     @PostMapping("/{matchId}/disputes/resubmit")
