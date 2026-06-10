@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { School, HandHeart, Lock } from 'lucide-react';
+import { ArrowLeft, School, HandHeart, Lock } from 'lucide-react';
 import { login } from '@/api/authApi';
 import { setAccessToken, clearAccessToken } from '@/api/axiosInstance';
 
@@ -66,6 +66,15 @@ export default function LoginPage() {
 
         <div className="w-1/2 bg-white flex items-center justify-center p-12">
           <div className="w-full max-w-md">
+            <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="mb-8 inline-flex items-center gap-2 text-sm font-semibold text-[#616161] transition-colors hover:text-[#d84315]"
+            >
+              <ArrowLeft size={18} />
+              홈으로 돌아가기
+            </button>
+
             <h2 className="text-2xl font-bold text-[#212121] mb-2">로그인</h2>
             <p className="text-[#616161] text-sm mb-8">학교 이메일로 로그인하세요</p>
 
