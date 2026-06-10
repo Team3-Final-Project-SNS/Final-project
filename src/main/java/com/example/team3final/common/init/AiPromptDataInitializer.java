@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-@Profile("local")
+@Profile({"prod", "docker", "local"})
 @Component
 @RequiredArgsConstructor
 public class AiPromptDataInitializer implements ApplicationRunner {

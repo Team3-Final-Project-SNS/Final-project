@@ -39,7 +39,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-@Profile({"prod"})
+@Profile({"prod", "docker", "local"})
 @Component
 @RequiredArgsConstructor
 public class DataInitializer implements ApplicationRunner {
