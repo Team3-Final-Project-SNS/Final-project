@@ -95,6 +95,7 @@ export default function ChatPage() {
 
   const stompClient = useRef<Client | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isCancelledMatch = matchInfo?.status === 'CANCELLED';
 
   // 초기 데이터 로드 (매칭 정보 + 메시지 히스토리)
   useEffect(() => {
@@ -156,6 +157,12 @@ export default function ChatPage() {
   useEffect(() => {
     if (!chatRoomId) return;
 
+    if (matchInfo?.status === 'CANCELLED') {
+      setConnected(false);
+      setError('');
+      return;
+    }
+
     const accessToken = getAccessToken();
     if (!accessToken) {
       setConnected(false);
@@ -200,7 +207,7 @@ export default function ChatPage() {
         stompClient.current.deactivate();
       }
     };
-  }, [chatRoomId, currentUserId]);
+  }, [chatRoomId, currentUserId, matchInfo?.status]);
 
   useEffect(() => {
     if (!chatRoomId || currentUserId === null) return;
@@ -247,7 +254,7 @@ export default function ChatPage() {
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim() || !chatRoomId || !stompClient.current?.connected) return;
+    if (isCancelledMatch || !message.trim() || !chatRoomId || !stompClient.current?.connected) return;
 
     stompClient.current.publish({
       destination: `/pub/chat/rooms/${chatRoomId}`,
@@ -544,13 +551,13 @@ export default function ChatPage() {
               type="text"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder={connected ? "메시지를 입력하세요..." : "연결 중입니다..."}
-              disabled={!connected}
+              placeholder={isCancelledMatch ? "취소된 매칭의 이전 대화만 조회할 수 있습니다." : connected ? "메시지를 입력하세요..." : "연결 중입니다..."}
+              disabled={isCancelledMatch || !connected}
               className="flex-1 px-4 py-3 border border-[#e0e0e0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#d84315] focus:border-transparent"
           />
           <button
               type="submit"
-              disabled={!connected || !message.trim()}
+              disabled={isCancelledMatch || !connected || !message.trim()}
               className="px-6 py-3 bg-[#d84315] text-white rounded-xl font-semibold hover:bg-[#bf360c] transition-all shadow-md hover:shadow-lg flex items-center gap-2 disabled:bg-[#e0e0e0]"
           >
             <Send size={18} />
