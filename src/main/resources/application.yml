@@ -1,0 +1,162 @@
+spring:
+  profiles:
+    default: local
+
+  application:
+    name: Team3-final
+
+  jackson:
+    time-zone: Asia/Seoul
+    serialization:
+      write-dates-as-timestamps: false
+
+  jpa:
+    open-in-view: false
+
+  kafka:
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      retries: 3
+      acks: all
+    consumer:
+      group-id: hankkipot-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+
+  mail:
+    host: smtp.naver.com
+    port: 465
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          ssl:
+            enable: true
+            trust: smtp.naver.com
+
+  ai:
+    vectorstore:
+      pgvector:
+        enabled: false
+    openai:
+      api-key: ${OPEN_AI_KEY}
+      chat:
+        options:
+          model: ${AI_DEFAULT_MODEL}
+          temperature: ${AI_DEFAULT_TEMPERATURE}
+          max-tokens: ${AI_DEFAULT_MAX_TOKENS}
+      embedding:
+        options:
+          model: ${AI_EMBEDDING_MODEL}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+    tags:
+      application: ${spring.application.name}
+
+otp:
+  expire-seconds: ${OTP_EXPIRE_SECONDS}
+  cooldown-seconds: ${OTP_COOLDOWN_SECONDS}
+  max-resend-count: ${OTP_MAX_RESEND_COUNT}
+  resend-window-seconds: ${OTP_RESEND_WINDOW_SECONDS}
+
+jwt:
+  secret-key: ${JWT_SECRET_KEY}
+  signup-token-validity-time: ${JWT_SIGNUP_TOKEN_VALIDITY_TIME}
+  access-token-validity-time: ${JWT_ACCESS_TOKEN_VALIDITY_TIME}
+  refresh-token-validity-time: ${JWT_REFRESH_TOKEN_VALIDITY_TIME}
+  admin-access-token-validity-time: ${JWT_ADMIN_ACCESS_TOKEN_VALIDITY_TIME}
+
+chat:
+  inactivity-timeout-minutes: ${CHAT_INACTIVITY_TIMEOUT_MINUTES}
+
+auth:
+  required-term-versions:
+    - terms-of-service:v1
+    - privacy-policy:v1
+
+admin:
+  init:
+    email: ${ADMIN_INIT_EMAIL}
+    password: ${ADMIN_INIT_PASSWORD}
+    name: ${ADMIN_INIT_NAME}
+
+portone:
+  api-secret: ${PORTONE_API_SECRET}
+  store-id: ${PORTONE_STORE_ID}
+  webhook-secret: ${PORTONE_WEBHOOK_SECRET:}
+
+app:
+  ai:
+    enabled: ${AI_ENABLED}
+    timeout-ms: ${AI_TIMEOUT_MS}
+
+    prompt:
+      base-path: ${AI_PROMPT_BASE_PATH}
+      fallback-to-classpath: ${AI_PROMPT_FALLBACK_TO_CLASSPATH}
+
+    rag-store:
+      enabled: ${AI_RAG_VECTOR_ENABLED}
+      driver-class-name: org.postgresql.Driver
+      url: ${AI_RAG_POSTGRES_URL}
+      username: ${AI_RAG_POSTGRES_USERNAME}
+      password: ${AI_RAG_POSTGRES_PASSWORD}
+      schema-name: ${AI_RAG_POSTGRES_SCHEMA}
+      table-name: ${AI_RAG_VECTOR_TABLE}
+      dimensions: ${AI_RAG_VECTOR_DIMENSIONS}
+      initialize-schema: ${AI_RAG_VECTOR_INITIALIZE_SCHEMA}
+      distance-type: ${AI_RAG_VECTOR_DISTANCE_TYPE}
+      index-type: ${AI_RAG_VECTOR_INDEX_TYPE}
+
+    matching:
+      model: ${AI_MATCHING_MODEL}
+      max-tokens: ${AI_MATCHING_MAX_TOKENS}
+      temperature: ${AI_MATCHING_TEMPERATURE}
+      memory-window-size: ${AI_MATCHING_MEMORY_WINDOW_SIZE}
+      stream-enabled: ${AI_MATCHING_STREAM_ENABLED}
+      rag:
+        top-k: ${AI_MATCHING_RAG_TOP_K}
+        similarity-threshold: ${AI_MATCHING_RAG_SIMILARITY_THRESHOLD}
+
+    support:
+      model: ${AI_SUPPORT_MODEL}
+      max-tokens: ${AI_SUPPORT_MAX_TOKENS}
+      temperature: ${AI_SUPPORT_TEMPERATURE}
+      memory-window-size: ${AI_SUPPORT_MEMORY_WINDOW_SIZE}
+      stream-enabled: ${AI_SUPPORT_STREAM_ENABLED}
+      rag:
+        top-k: ${AI_SUPPORT_RAG_TOP_K}
+        similarity-threshold: ${AI_SUPPORT_RAG_SIMILARITY_THRESHOLD}
+
+    report:
+      model: ${AI_REPORT_MODEL}
+      max-tokens: ${AI_REPORT_MAX_TOKENS}
+      temperature: ${AI_REPORT_TEMPERATURE}
+      rag:
+        top-k: ${AI_REPORT_RAG_TOP_K}
+        similarity-threshold: ${AI_REPORT_RAG_SIMILARITY_THRESHOLD}
+
+    moderation:
+      model: ${AI_MODERATION_MODEL}
+      max-tokens: ${AI_MODERATION_MAX_TOKENS}
+      temperature: ${AI_MODERATION_TEMPERATURE}
+      rule-first: ${AI_MODERATION_RULE_FIRST}
+      ai-check-enabled: ${AI_MODERATION_AI_CHECK_ENABLED}
+
+    metrics:
+      enabled: ${AI_METRICS_ENABLED}
