@@ -1,6 +1,6 @@
 package com.example.team3final.domain.ai.report.dto.response;
 
-import com.example.team3final.domain.ai.report.entity.AiReportSummary;
+import com.example.team3final.domain.ai.report.entity.AiAdminResult;
 import com.example.team3final.domain.ai.report.enums.AiReportDecisionSuggestion;
 import com.example.team3final.domain.ai.report.enums.AiReportRiskLevel;
 import com.example.team3final.domain.report.enums.ReportReason;
@@ -29,21 +29,21 @@ public record AiReportAnalysisResponseDto(
         LocalDateTime createdAt
 ) {
 
-    public static AiReportAnalysisResponseDto of(AiReportSummary summary, String actionGuide) {
+    public static AiReportAnalysisResponseDto of(AiAdminResult result, String actionGuide) {
         return new AiReportAnalysisResponseDto(
-                summary.getId(),
-                summary.getReportId(),
-                summary.getReportReason(),
-                summary.getDecisionSuggestion(),
-                summary.getRiskLevel(),
-                summary.getSummary(),
-                summary.getEvidence(),
-                summary.getRecommendationReason(),
+                result.getId(),
+                result.getTargetId(),
+                result.getReportReason(),
+                result.getDecisionSuggestion(),
+                result.getRiskLevel(),
+                result.getSummary(),
+                result.getEvidence(),
+                result.getRecommendation(),
                 actionGuide,
-                summary.getConfidenceScore(),
-                summary.isNeedsAdminReview(),
-                summary.isFallbackUsed(),
-                summary.getCreatedAt()
+                result.getConfidenceScore(),
+                result.isNeedsAdminReview(),
+                result.isFallbackUsed(),
+                result.getCreatedAt()
         );
     }
 }

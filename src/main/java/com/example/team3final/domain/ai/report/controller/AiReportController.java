@@ -12,14 +12,14 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 
 /**
- * 관리자용 신고 AI 분석 API 컨트롤러입니다.
+ * 관리자 콘솔 AI 챗봇 API 컨트롤러입니다.
  *
- * 관리자 자연어 메시지를 받아 신고 AI 서비스로 전달하고,
- * SSE 스트리밍으로 답변을 반환합니다.
+ * 관리자 자연어 메시지를 서비스 계층으로 전달하고,
+ * SSE 스트리밍으로 답변 본문을 반환합니다.
  *
  * 컨트롤 흐름:
  * 1. /chat/stream은 관리자의 자연어 메시지를 받습니다.
- * 2. LLM이 신고 Tool을 직접 호출해 신고 맥락, 고위험 유저 후보, 대시보드 정보를 조회합니다.
+ * 2. 서비스 계층이 관리자 Tool, RAG 정책 문서, GPT 일반 응답 전략을 선택합니다.
  * 3. 관리자 화면에는 자연어 답변 본문만 실시간으로 전송합니다.
  */
 
@@ -31,12 +31,12 @@ public class AiReportController {
     private final AiReportService aiReportService;
 
     /**
-     * 관리자 신고 AI 답변을 SSE로 스트리밍합니다.
+     * 관리자 콘솔 AI 답변을 SSE로 스트리밍합니다.
      *
      * 컨트롤 흐름:
      * 1. 관리자 인증 정보를 확인합니다.
      * 2. 자연어 메시지를 서비스 계층으로 전달합니다.
-     * 3. 서비스가 신고 Tool과 관리자 정책 프롬프트를 연결합니다.
+     * 3. 서비스가 관리자 Tool, RAG 정책 문서, GPT 일반 응답 전략을 연결합니다.
      * 4. LLM 답변 본문을 text/event-stream으로 실시간 전송합니다.
      *
      *
