@@ -1,4 +1,4 @@
-import axiosInstance from './axiosInstance';
+﻿import axiosInstance from './axiosInstance';
 import { ApiResponse } from './authApi';
 import { PageResponse } from './postApi';
 
@@ -25,6 +25,16 @@ export interface AdminDisputeItem {
   reason: string;
   status: DisputeStatus;
   submittedAt: string;
+}
+
+export interface AdminNoShowCandidate {
+  matchId: number;
+  verificationStatus: string;
+  hostNickname: string;
+  guestNickname: string;
+  meetAt: string;
+  hasDispute: boolean;
+  disputeDeadline: string | null;
 }
 
 export interface AdminDisputeDetail {
@@ -55,6 +65,11 @@ export const getAdminDisputes = (
     params: { status, page, size },
   });
 
+export const getAdminNoShowCandidates = (page: number = 0, size: number = 20) =>
+  axiosInstance.get<ApiResponse<PageResponse<AdminNoShowCandidate>>>('/api/v1/admin/no-show-candidates', {
+    params: { page, size },
+  });
+
 export const getAdminDispute = (disputeId: number) =>
   axiosInstance.get<ApiResponse<AdminDisputeDetail>>(`/api/v1/admin/disputes/${disputeId}`);
 
@@ -64,3 +79,10 @@ export const judgeAdminDispute = (
   comment: string,
 ) =>
   axiosInstance.patch(`/api/v1/admin/disputes/${disputeId}/judge`, { status, comment });
+
+export const overrideAdminDisputeStatus = (
+  disputeId: number,
+  status: DisputeStatus,
+  comment: string,
+) =>
+  axiosInstance.patch(`/api/v1/admin/disputes/${disputeId}/override`, { status, comment });

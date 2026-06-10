@@ -1,19 +1,38 @@
-import { useState, useEffect } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { MapPin, Clock, Plus, AlertCircle, User, Users, Thermometer } from 'lucide-react';
-import { getPosts, PostItemResponse } from '../../api/postApi';
+import { getPosts, PostItemResponse, PostStatus } from '../../api/postApi';
 import { getUserMe } from '../../api/userApi';
+import { getMyMatches } from '../../api/matchApi';
+
+const POST_STATUSES_FOR_MY_POSTS: PostStatus[] = ['OPEN', 'MATCHED', 'COMPLETED', 'CANCELLED', 'EXPIRED'];
+
+type SortOption = '책임비 높은 순' | '만남시간 빠른 순' | '최신순';
+
+const statusLabels: Record<PostStatus, string> = {
+  OPEN: '모집중',
+  MATCHED: '매칭됨',
+  COMPLETED: '완료',
+  CANCELLED: '취소',
+  EXPIRED: '만료',
+  DELETED: '삭제됨',
+};
 
 export default function PostListPage() {
   const [searchParams] = useSearchParams();
   const myPostsOnly = searchParams.get('mine') === '1';
   const [posts, setPosts] = useState<PostItemResponse[]>([]);
-  const [sortBy, setSortBy] = useState('책임비 높은 순');
+  const [sortBy, setSortBy] = useState<SortOption>('책임비 높은 순');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [activeMatchedPostIds, setActiveMatchedPostIds] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    setPage(0);
+  }, [myPostsOnly]);
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -21,19 +40,38 @@ export default function PostListPage() {
       setError('');
       try {
         let userId = currentUserId;
-        if (myPostsOnly && userId === null) {
+        if (userId === null) {
           const userRes = await getUserMe();
           userId = userRes.data.data.userId;
           setCurrentUserId(userId);
         }
 
-        // 게시글 목록은 모집중인 게시글만 노출합니다.
-        // MATCHED 게시글은 신청할 수 없으므로 목록에서 제외합니다.
-        const res = await getPosts('OPEN', page, 20);
-        setPosts(res.data.data.content);
-        setTotalPages(res.data.data.totalPages);
+        const activeMatchPromise = getMyMatches('MATCHED', 0, 100);
+
+        if (myPostsOnly) {
+          const [statusResponses, activeMatchRes] = await Promise.all([
+            Promise.all(POST_STATUSES_FOR_MY_POSTS.map((postStatus) => getPosts(postStatus, 0, 50))),
+            activeMatchPromise,
+          ]);
+          const mergedPosts = statusResponses
+            .flatMap((response) => response.data.data.content)
+            .filter((post) => post.authorId === userId)
+            .filter((post, index, self) => self.findIndex((item) => item.postId === post.postId) === index);
+
+          setActiveMatchedPostIds(new Set(activeMatchRes.data.data.content.map((match) => match.postId)));
+          setPosts(mergedPosts);
+          setTotalPages(1);
+        } else {
+          const [res, activeMatchRes] = await Promise.all([
+            getPosts('OPEN', page, 20),
+            activeMatchPromise,
+          ]);
+          setActiveMatchedPostIds(new Set(activeMatchRes.data.data.content.map((match) => match.postId)));
+          setPosts(res.data.data.content);
+          setTotalPages(res.data.data.totalPages || 1);
+        }
       } catch (err: any) {
-        setError('게시글을 불러오는데 실패했습니다.');
+        setError(err.response?.data?.message || '게시글을 불러오지 못했습니다.');
         console.error(err);
       } finally {
         setLoading(false);
@@ -42,33 +80,17 @@ export default function PostListPage() {
     fetchPosts();
   }, [page, myPostsOnly, currentUserId]);
 
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const getTimeAgo = (dateStr: string) => {
-    const now = new Date();
-    const past = new Date(dateStr);
-    const diffMs = now.getTime() - past.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    if (diffMins < 1) return '방금 전';
-    if (diffMins < 60) return `${diffMins}분 전`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}시간 전`;
-    return past.toLocaleDateString();
-  };
-
-  const scopedPosts = myPostsOnly && currentUserId !== null
-      ? posts.filter((post) => post.authorId === currentUserId)
-      : posts;
+  const scopedPosts = posts.filter((post) => {
+    if (myPostsOnly) return true;
+    return post.authorId === currentUserId || !activeMatchedPostIds.has(post.postId);
+  });
 
   const sortedPosts = [...scopedPosts].sort((a, b) => {
     if (sortBy === '최신순') {
-      return new Date(b.createAt).getTime() - new Date(a.createAt).getTime();
+      return new Date(b.createdAt || b.createAt).getTime() - new Date(a.createdAt || a.createAt).getTime();
     }
 
-    if (sortBy === '만남시간 임박 순') {
+    if (sortBy === '만남시간 빠른 순') {
       return new Date(a.meetAt).getTime() - new Date(b.meetAt).getTime();
     }
 
@@ -76,158 +98,170 @@ export default function PostListPage() {
   });
 
   return (
-      <div>
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[#212121] mb-3">
-            {myPostsOnly ? '내가 작성한 게시물' : '밥 같이 먹을 사람 구해요 🍚'}
-          </h1>
-          <p className="text-[#616161]">{myPostsOnly ? '내 모집중 게시글' : '모집중 게시글'}</p>
+    <div>
+      <div className="mb-8">
+        <h1 className="mb-3 text-3xl font-bold text-[#212121]">
+          {myPostsOnly ? '내가 작성한 게시물' : '밥 같이 먹을 사람 구해요 🍚'}
+        </h1>
+        <p className="text-[#616161]">{myPostsOnly ? '내가 작성한 게시글 전체' : '모집중 게시글'}</p>
+      </div>
+
+      <div className="mb-6 flex items-center justify-between">
+        <div />
+        <div className="flex items-center gap-4">
+          <select
+            value={sortBy}
+            onChange={(event) => setSortBy(event.target.value as SortOption)}
+            className="rounded-lg border border-[#e0e0e0] px-4 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#d84315]"
+          >
+            <option>책임비 높은 순</option>
+            <option>만남시간 빠른 순</option>
+            <option>최신순</option>
+          </select>
+
+          <Link
+            to="/posts/new"
+            className="flex items-center gap-2 rounded-xl bg-[#d84315] px-6 py-2.5 font-semibold text-white shadow-md transition-all hover:bg-[#bf360c] hover:shadow-lg"
+          >
+            <Plus size={20} />
+            게시글 작성
+          </Link>
         </div>
+      </div>
 
-        <div className="flex items-center justify-between mb-6">
-          <div />
+      {error && (
+        <div className="mb-6 flex items-start gap-2 rounded-lg border border-[#ef5350] bg-[#ffebee] px-4 py-3">
+          <AlertCircle size={18} className="mt-0.5 text-[#c62828]" />
+          <span className="text-sm text-[#c62828]">{error}</span>
+        </div>
+      )}
 
-          <div className="flex items-center gap-4">
-            <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="px-4 py-2 border border-[#e0e0e0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#d84315] focus:border-transparent"
-            >
-              <option>책임비 높은 순</option>
-              <option>만남시간 임박 순</option>
-              <option>최신순</option>
-            </select>
-
+      {loading ? (
+        <div className="space-y-3">
+          {[1, 2, 3, 4, 5, 6].map((n) => (
+            <div key={n} className="h-28 animate-pulse rounded-xl border border-[#e0e0e0] bg-white p-5">
+              <div className="mb-4 h-5 w-1/4 rounded bg-gray-200" />
+              <div className="mb-2 h-4 w-2/3 rounded bg-gray-200" />
+              <div className="h-4 w-1/2 rounded bg-gray-200" />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {sortedPosts.length === 0 ? (
+            <div className="rounded-xl border border-[#e0e0e0] bg-white p-10 text-center text-[#9e9e9e]">
+              {myPostsOnly ? '내가 작성한 게시글이 없습니다.' : '모집중인 게시글이 없습니다.'}
+            </div>
+          ) : sortedPosts.map((post) => (
             <Link
-                to="/posts/new"
-                className="flex items-center gap-2 px-6 py-2.5 bg-[#d84315] text-white rounded-xl font-semibold hover:bg-[#bf360c] transition-all shadow-md hover:shadow-lg"
+              key={post.postId}
+              to={`/posts/${post.postId}`}
+              className="block rounded-xl border border-[#e0e0e0] bg-white p-5 transition-all hover:border-[#d84315] hover:shadow-md"
             >
-              <Plus size={20} />
-              게시글 작성
+              <div className="flex items-center justify-between gap-5">
+                <div className="min-w-0 flex-1">
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="rounded bg-[#e8f5e9] px-2.5 py-1 text-xs font-semibold text-[#2e7d32]">
+                      {statusLabels[post.status] || post.status}
+                    </span>
+                    <span className="text-xs text-[#9e9e9e]">{getTimeAgo(post.createdAt || post.createAt)}</span>
+                  </div>
+
+                  <h3 className="mb-3 truncate text-lg font-bold text-[#212121]">
+                    {post.placeName} 같이 먹어요
+                  </h3>
+
+                  <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-[#616161]">
+                    <span className="flex items-center gap-1.5">
+                      <MapPin size={16} className="text-[#d84315]" />
+                      {post.placeName}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Clock size={16} className="text-[#d84315]" />
+                      {new Date(post.meetAt).toLocaleDateString()} {formatTime(post.meetAt)}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <User size={16} className="text-[#d84315]" />
+                      {post.authorNickname}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Thermometer size={16} className="text-[#d84315]" />
+                      {formatMannerTemperature(post.authorMannerTemperature)}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Users size={16} className="text-[#d84315]" />
+                      {formatParticipantCount(post.currentApplicants, post.maxApplicants)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex w-32 shrink-0 flex-col items-end border-l border-[#f0f0f0] pl-5">
+                  <span className="text-xs font-semibold text-[#9e9e9e]">책임비</span>
+                  <span className="mt-1 text-2xl font-bold text-[#d84315]">
+                    {post.authorDeposit.toLocaleString()}P
+                  </span>
+                </div>
+              </div>
             </Link>
-          </div>
+          ))}
         </div>
+      )}
 
-        {error && (
-            <div className="mb-6 bg-[#ffebee] border border-[#ef5350] rounded-lg px-4 py-3 flex items-start gap-2">
-              <AlertCircle size={18} className="text-[#c62828] mt-0.5" />
-              <span className="text-[#c62828] text-sm">{error}</span>
-            </div>
-        )}
-
-        {loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3, 4, 5, 6].map((n) => (
-                  <div key={n} className="h-28 rounded-xl border border-[#e0e0e0] bg-white p-5 animate-pulse">
-                    <div className="mb-4 h-5 w-1/4 rounded bg-gray-200"></div>
-                    <div className="mb-2 h-4 w-2/3 rounded bg-gray-200"></div>
-                    <div className="h-4 w-1/2 rounded bg-gray-200"></div>
-                  </div>
-              ))}
-            </div>
-        ) : (
-            <div className="space-y-3">
-              {sortedPosts.length === 0 ? (
-                  <div className="rounded-xl border border-[#e0e0e0] bg-white p-10 text-center text-[#9e9e9e]">
-                    {myPostsOnly ? '내가 작성한 모집중 게시글이 없습니다.' : '모집중인 게시글이 없습니다.'}
-                  </div>
-              ) : sortedPosts.map((post) => (
-                  <Link
-                      key={post.postId}
-                      to={`/posts/${post.postId}`}
-                      className="block rounded-xl border border-[#e0e0e0] bg-white p-5 transition-all hover:border-[#d84315] hover:shadow-md"
-                  >
-                    <div className="flex items-center justify-between gap-5">
-                      <div className="min-w-0 flex-1">
-                        <div className="mb-2 flex items-center gap-2">
-                          <span
-                              className="rounded bg-[#e8f5e9] px-2.5 py-1 text-xs font-semibold text-[#2e7d32]"
-                          >
-                            모집중
-                          </span>
-                          <span className="text-xs text-[#9e9e9e]">{getTimeAgo(post.createAt)}</span>
-                        </div>
-
-                        <h3 className="mb-3 truncate text-lg font-bold text-[#212121]">
-                          {post.placeName} 같이 먹어요
-                        </h3>
-
-                        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-[#616161]">
-                          <span className="flex items-center gap-1.5">
-                            <MapPin size={16} className="text-[#d84315]" />
-                            {post.placeName}
-                          </span>
-                          <span className="flex items-center gap-1.5">
-                            <Clock size={16} className="text-[#d84315]" />
-                            {new Date(post.meetAt).toLocaleDateString()} {formatTime(post.meetAt)}
-                          </span>
-                          <span className="flex items-center gap-1.5">
-                            <User size={16} className="text-[#d84315]" />
-                            {post.authorNickname}
-                          </span>
-                          <span className="flex items-center gap-1.5">
-                            <Thermometer size={16} className="text-[#d84315]" />
-                            {formatMannerTemperature(post.authorMannerTemperature)}
-                          </span>
-                          <span className="flex items-center gap-1.5">
-                            <Users size={16} className="text-[#d84315]" />
-                            {formatParticipantCount(post.currentApplicants, post.maxApplicants)}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex w-32 shrink-0 flex-col items-end border-l border-[#f0f0f0] pl-5">
-                        <span className="text-xs font-semibold text-[#9e9e9e]">책임비</span>
-                        <span className="mt-1 text-2xl font-bold text-[#d84315]">
-                          {post.authorDeposit.toLocaleString()}P
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-              ))}
-            </div>
-        )}
-
+      {!myPostsOnly && totalPages > 1 && (
         <div className="mt-8 flex items-center justify-center gap-2">
-          <button 
+          <button
             disabled={page === 0}
-            onClick={() => setPage(p => p - 1)}
-            className="px-3 py-1.5 border border-[#e0e0e0] rounded text-sm hover:bg-[#f5f5f5] disabled:opacity-50"
+            onClick={() => setPage((prev) => prev - 1)}
+            className="rounded border border-[#e0e0e0] px-3 py-1.5 text-sm hover:bg-[#f5f5f5] disabled:opacity-50"
           >
             &lt;
           </button>
-          {[...Array(totalPages)].map((_, i) => (
+          {[...Array(totalPages)].map((_, index) => (
             <button
-              key={i}
-              onClick={() => setPage(i)}
-              className={`px-3 py-1.5 rounded text-sm ${
-                page === i ? 'bg-[#d84315] text-white' : 'border border-[#e0e0e0] hover:bg-[#f5f5f5]'
+              key={index}
+              onClick={() => setPage(index)}
+              className={`rounded px-3 py-1.5 text-sm ${
+                page === index ? 'bg-[#d84315] text-white' : 'border border-[#e0e0e0] hover:bg-[#f5f5f5]'
               }`}
             >
-              {i + 1}
+              {index + 1}
             </button>
           ))}
-          <button 
+          <button
             disabled={page >= totalPages - 1}
-            onClick={() => setPage(p => p + 1)}
-            className="px-3 py-1.5 border border-[#e0e0e0] rounded text-sm hover:bg-[#f5f5f5] disabled:opacity-50"
+            onClick={() => setPage((prev) => prev + 1)}
+            className="rounded border border-[#e0e0e0] px-3 py-1.5 text-sm hover:bg-[#f5f5f5] disabled:opacity-50"
           >
             &gt;
           </button>
         </div>
-      </div>
+      )}
+    </div>
   );
 }
 
-// 게시글 모집 인원은 등록자를 포함해서 현재/최대 형식으로 보여줍니다.
-// 예: 1:1 게시글은 1/2, 단체 게시글은 1/5처럼 표시됩니다.
+function formatTime(dateStr: string) {
+  return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function getTimeAgo(dateStr: string) {
+  const now = new Date();
+  const past = new Date(dateStr);
+  const diffMs = now.getTime() - past.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return '방금 전';
+  if (diffMins < 60) return `${diffMins}분 전`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}시간 전`;
+  return past.toLocaleDateString();
+}
+
 function formatParticipantCount(currentApplicants?: number, maxApplicants?: number) {
   const safeMax = maxApplicants && maxApplicants > 1 ? maxApplicants : 2;
   const safeCurrent = Math.min(currentApplicants && currentApplicants > 0 ? currentApplicants : 1, safeMax);
   return `${safeCurrent}/${safeMax}`;
 }
 
-// 작성자 매너온도는 소수점 1자리 온도 형식으로 표시합니다.
 function formatMannerTemperature(mannerTemperature?: number | null) {
   if (mannerTemperature === null || mannerTemperature === undefined) {
     return '36.5°C';

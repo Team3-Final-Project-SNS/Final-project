@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { Check, Camera } from 'lucide-react';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
-import { getMeetQrByPost, createQrScan, getMeetVerification } from '../../api/meetApi';
+import { getMeetQrByPost, createQrScan, getMeetVerification, ParticipantVerification } from '../../api/meetApi';
 import { getMatchDetail } from '../../api/matchApi';
 import { getUserMe } from '../../api/userApi';
 
@@ -24,13 +24,15 @@ export default function QRVerificationPage() {
   const [postId, setPostId] = useState<number | null>(null);
   const [step, setStep] = useState<'display' | 'scan' | 'success'>('display');
   const [qrToken, setQrToken] = useState('');
-  const [qrImageUrl, setQrImageUrl] = useState(''); // ✅ 추가: QR 이미지 base64
+  const [qrImageUrl, setQrImageUrl] = useState(''); // ??異붽?: QR ?대?吏 base64
   const [qrInput, setQrInput] = useState('');
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [scanError, setScanError] = useState('');
   const [loading, setLoading] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [cameraReady, setCameraReady] = useState(false);
+  const [authorNickname, setAuthorNickname] = useState('등록자');
+  const [verificationParticipants, setVerificationParticipants] = useState<ParticipantVerification[]>([]);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -39,11 +41,11 @@ export default function QRVerificationPage() {
 
   const matchId = Number(id);
 
-  // ───────────────────────────────────────────
-  // 현재 로그인 사용자 기준으로 등록자/신청자 역할 판별
-  // URL에 role이 없어도 올바른 화면을 보여준다.
-  // roleParam 유무와 관계없이 항상 match detail을 fetch해 postId를 저장한다.
-  // ───────────────────────────────────────────
+  // ???????????????????????????????????????????
+  // ?꾩옱 濡쒓렇???ъ슜??湲곗??쇰줈 ?깅줉???좎껌????븷 ?먮퀎
+  // URL??role???놁뼱???щ컮瑜??붾㈃??蹂댁뿬以??
+  // roleParam ?좊Т? 愿怨꾩뾾????긽 match detail??fetch??postId瑜???ν븳??
+  // ???????????????????????????????????????????
   useEffect(() => {
     const resolveRole = async () => {
       if (!matchId) return;
@@ -71,8 +73,8 @@ export default function QRVerificationPage() {
           setStep(resolvedRole === 'applicant' || tokenFromUrl ? 'scan' : 'display');
         }
       } catch (err) {
-        console.error('QR 역할 판별 실패:', err);
-        alert('매칭 정보를 확인할 수 없습니다.');
+        console.error('QR ??븷 ?먮퀎 ?ㅽ뙣:', err);
+        alert('留ㅼ묶 ?뺣낫瑜??뺤씤?????놁뒿?덈떎.');
         navigate('/matches');
       } finally {
         setLoading(false);
@@ -82,9 +84,9 @@ export default function QRVerificationPage() {
     resolveRole();
   }, [matchId, navigate, roleParam, searchParams]);
 
-  // ───────────────────────────────────────────
-  // 등록자: 마운트 시 QR 토큰 발급/조회
-  // ───────────────────────────────────────────
+  // ???????????????????????????????????????????
+  // ?깅줉?? 留덉슫????QR ?좏겙 諛쒓툒/議고쉶
+  // ???????????????????????????????????????????
   useEffect(() => {
     if (role !== 'author' || !postId) return;
 
@@ -96,15 +98,15 @@ export default function QRVerificationPage() {
 
         setQrToken(data.qrToken);
 
-        // 만료 시각 기준으로 남은 시간(초) 계산
+        // 留뚮즺 ?쒓컖 湲곗??쇰줈 ?⑥? ?쒓컙(珥? 怨꾩궛
         const expiresAt = new Date(data.qrExpiresAt).getTime();
         const now = new Date().getTime();
         const remainingSeconds = Math.floor((expiresAt - now) / 1000);
         setTimeRemaining(remainingSeconds > 0 ? remainingSeconds : 0);
 
       } catch (err: any) {
-        console.error('QR 발급 실패:', err.response?.data);
-        alert(err.response?.data?.message || 'QR 발급에 실패했습니다.');
+        console.error('QR 諛쒓툒 ?ㅽ뙣:', err.response?.data);
+        alert(err.response?.data?.message || 'QR 諛쒓툒???ㅽ뙣?덉뒿?덈떎.');
       } finally {
         setLoading(false);
       }
@@ -113,43 +115,43 @@ export default function QRVerificationPage() {
     fetchQr();
   }, [postId, role]);
 
-  // ───────────────────────────────────────────
-  // ✅ 추가: qrToken → QR 이미지 생성
-  // qrToken이 세팅되는 순간 QR 이미지로 변환
-  // ───────────────────────────────────────────
+  // ???????????????????????????????????????????
+  // ??異붽?: qrToken ??QR ?대?吏 ?앹꽦
+  // qrToken???명똿?섎뒗 ?쒓컙 QR ?대?吏濡?蹂??
+  // ???????????????????????????????????????????
   useEffect(() => {
-    // qrToken 없으면 실행 안 함
+    // qrToken ?놁쑝硫??ㅽ뻾 ????
     if (!qrToken) return;
 
     const generateQrImage = async () => {
       try {
-        // 신청자가 열 URL 생성 (qrToken을 쿼리 파라미터로 삽입)
-        // 이 URL을 QR로 만들면 신청자가 스캔 시 자동으로 해당 페이지로 이동
+        // ?좎껌?먭? ??URL ?앹꽦 (qrToken??荑쇰━ ?뚮씪誘명꽣濡??쎌엯)
+        // ??URL??QR濡?留뚮뱾硫??좎껌?먭? ?ㅼ틪 ???먮룞?쇰줈 ?대떦 ?섏씠吏濡??대룞
         const qrUrl = `${getQrBaseUrl()}/matches/${matchId}/qr?role=applicant&qrToken=${encodeURIComponent(qrToken)}`;
 
-        // qrcode 모듈로 URL → base64 이미지 변환
-        // toDataURL: canvas에 QR 그리고 PNG base64 문자열로 반환
+        // qrcode 紐⑤뱢濡?URL ??base64 ?대?吏 蹂??
+        // toDataURL: canvas??QR 洹몃━怨?PNG base64 臾몄옄?대줈 諛섑솚
         const imageUrl = await QRCode.toDataURL(qrUrl, {
-          width: 256,        // QR 이미지 크기 (픽셀)
-          margin: 2,         // QR 여백
+          width: 256,        // QR ?대?吏 ?ш린 (?쎌?)
+          margin: 2,         // QR ?щ갚
           color: {
-            dark: '#212121',  // QR 코드 색상 (어두운 부분)
-            light: '#ffffff', // 배경 색상
+            dark: '#212121',  // QR 肄붾뱶 ?됱긽 (?대몢??遺遺?
+            light: '#ffffff', // 諛곌꼍 ?됱긽
           },
         });
 
         setQrImageUrl(imageUrl);
       } catch (err) {
-        console.error('QR 이미지 생성 실패:', err);
+        console.error('QR ?대?吏 ?앹꽦 ?ㅽ뙣:', err);
       }
     };
 
     generateQrImage();
-  }, [qrToken, matchId]); // qrToken 바뀔 때마다 재생성
+  }, [qrToken, matchId]); // qrToken 諛붾??뚮쭏???ъ깮??
 
-  // ───────────────────────────────────────────
-  // 타이머: 1초마다 남은 시간 감소
-  // ───────────────────────────────────────────
+  // ???????????????????????????????????????????
+  // ??대㉧: 1珥덈쭏???⑥? ?쒓컙 媛먯냼
+  // ???????????????????????????????????????????
   useEffect(() => {
     if (timeRemaining <= 0) return;
 
@@ -166,10 +168,10 @@ export default function QRVerificationPage() {
     return () => clearInterval(timer);
   }, [timeRemaining]);
 
-  // ───────────────────────────────────────────
-  // 등록자용 인증 완료 polling - 1초마다 상태 조회
-  // 신청자가 QR 스캔 완료하면 등록자 화면도 자동으로 success로 전환
-  // ───────────────────────────────────────────
+  // ???????????????????????????????????????????
+  // ?깅줉?먯슜 ?몄쬆 ?꾨즺 polling - 1珥덈쭏???곹깭 議고쉶
+  // ?좎껌?먭? QR ?ㅼ틪 ?꾨즺?섎㈃ ?깅줉???붾㈃???먮룞?쇰줈 success濡??꾪솚
+  // ???????????????????????????????????????????
   useEffect(() => {
     if (role !== 'author' || !qrToken) return;
 
@@ -177,6 +179,8 @@ export default function QRVerificationPage() {
       try {
         const res = await getMeetVerification(matchId);
         const data = res.data.data;
+        setAuthorNickname(data.authorNickname || '등록자');
+        setVerificationParticipants(data.participants || []);
 
         if (data.verificationStatus === 'DONE') {
           setStep('success');
@@ -184,27 +188,27 @@ export default function QRVerificationPage() {
           setTimeout(() => navigate('/matches'), 2000);
         }
       } catch (err) {
-        console.error('인증 상태 조회 실패:', err);
+        console.error('?몄쬆 ?곹깭 議고쉶 ?ㅽ뙣:', err);
       }
     }, 1000);
 
     return () => clearInterval(intervalId);
   }, [matchId, role, qrToken]);
 
-  // 시간 포맷 변환 (초 → MM:SS)
+  // ?쒓컙 ?щ㎎ 蹂??(珥???MM:SS)
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // ───────────────────────────────────────────
-  // 신청자: QR 토큰 스캔 (직접 입력 or URL 자동 추출)
-  // ───────────────────────────────────────────
+  // ???????????????????????????????????????????
+  // ?좎껌?? QR ?좏겙 ?ㅼ틪 (吏곸젒 ?낅젰 or URL ?먮룞 異붿텧)
+  // ???????????????????????????????????????????
   const handleScan = async (tokenOverride?: string) => {
     const tokenToScan = tokenOverride ?? qrInput;
     if (!tokenToScan.trim()) {
-      setScanError('QR 토큰을 입력해주세요.');
+      setScanError('QR ?좏겙???낅젰?댁＜?몄슂.');
       return;
     }
 
@@ -217,7 +221,7 @@ export default function QRVerificationPage() {
       setTimeout(() => navigate('/matches'), 2000);
 
     } catch (err: any) {
-      setScanError(err.response?.data?.message || 'QR 인증에 실패했습니다.');
+      setScanError(err.response?.data?.message || 'QR ?몄쬆???ㅽ뙣?덉뒿?덈떎.');
     } finally {
       setLoading(false);
     }
@@ -257,7 +261,7 @@ export default function QRVerificationPage() {
         setCameraError('');
 
         if (!navigator.mediaDevices?.getUserMedia) {
-          setCameraError('이 브라우저에서는 카메라를 사용할 수 없습니다.');
+          setCameraError('??釉뚮씪?곗??먯꽌??移대찓?쇰? ?ъ슜?????놁뒿?덈떎.');
           return;
         }
 
@@ -324,7 +328,7 @@ export default function QRVerificationPage() {
         scanFrameRef.current = requestAnimationFrame(scanFrame);
       } catch (err) {
         console.error('Camera start failed', err);
-        setCameraError('카메라를 열 수 없습니다. 브라우저 카메라 권한을 허용해주세요.');
+        setCameraError('移대찓?쇰? ?????놁뒿?덈떎. 釉뚮씪?곗? 移대찓??沅뚰븳???덉슜?댁＜?몄슂.');
       }
     };
 
@@ -336,9 +340,9 @@ export default function QRVerificationPage() {
     };
   }, [role, step, matchId]);
 
-  // ───────────────────────────────────────────
-  // 신청자: QR URL로 진입하면 토큰 추출 후 바로 인증 요청
-  // ───────────────────────────────────────────
+  // ???????????????????????????????????????????
+  // ?좎껌?? QR URL濡?吏꾩엯?섎㈃ ?좏겙 異붿텧 ??諛붾줈 ?몄쬆 ?붿껌
+  // ???????????????????????????????????????????
   useEffect(() => {
     if (role !== 'applicant') return;
 
@@ -356,39 +360,39 @@ export default function QRVerificationPage() {
     return (
         <div className="max-w-2xl mx-auto">
           <div className="bg-white rounded-2xl shadow-lg p-8 text-center text-[#9e9e9e]">
-            QR 인증 정보를 확인하는 중...
+            QR ?몄쬆 ?뺣낫瑜??뺤씤?섎뒗 以?..
           </div>
         </div>
     );
   }
 
-  // ───────────────────────────────────────────
-  // 신청자 화면
-  // ───────────────────────────────────────────
+  // ???????????????????????????????????????????
+  // ?좎껌???붾㈃
+  // ???????????????????????????????????????????
   if (role === 'applicant') {
     return (
         <div className="max-w-2xl mx-auto">
           <div className="bg-white rounded-2xl shadow-lg p-8">
 
-            {/* 대기 화면 */}
+            {/* ?湲??붾㈃ */}
             {step === 'display' && (
                 <div className="text-center">
-                  <p className="text-[#616161] mb-6">상대방이 QR 코드를 표시할 때까지 기다려주세요...</p>
+                  <p className="text-[#616161] mb-6">?곷?諛⑹씠 QR 肄붾뱶瑜??쒖떆???뚭퉴吏 湲곕떎?ㅼ＜?몄슂...</p>
                   <button
                       onClick={() => setStep('scan')}
                       className="px-6 py-3 bg-[#d84315] text-white rounded-lg font-semibold hover:bg-[#bf360c] transition-colors"
                   >
-                    QR 스캔하기
+                    QR ?ㅼ틪?섍린
                   </button>
                 </div>
             )}
 
-            {/* QR 스캔 입력 화면 */}
+            {/* QR ?ㅼ틪 ?낅젰 ?붾㈃ */}
             {step === 'scan' && (
                 <>
-                  <h1 className="text-2xl font-bold text-[#212121] mb-2 text-center">QR 코드 스캔</h1>
+                  <h1 className="text-2xl font-bold text-[#212121] mb-2 text-center">QR 肄붾뱶 ?ㅼ틪</h1>
                   <p className="text-[#616161] text-center mb-8">
-                    상대방이 보여주는 QR 코드를 스캔하세요.
+                    ?곷?諛⑹씠 蹂댁뿬二쇰뒗 QR 肄붾뱶瑜??ㅼ틪?섏꽭??
                   </p>
 
                   <div className="relative mb-6 overflow-hidden rounded-2xl border-2 border-dashed border-[#e0e0e0] bg-[#111111]">
@@ -402,7 +406,7 @@ export default function QRVerificationPage() {
                     {!cameraReady && !cameraError && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#fafafa] text-center">
                           <Camera size={64} className="mx-auto mb-4 text-[#bdbdbd]" />
-                          <p className="text-[#9e9e9e]">카메라를 여는 중...</p>
+                          <p className="text-[#9e9e9e]">移대찓?쇰? ?щ뒗 以?..</p>
                         </div>
                     )}
                     {cameraReady && (
@@ -416,9 +420,9 @@ export default function QRVerificationPage() {
                     )}
                   </div>
 
-                  {/* QR 토큰 직접 입력 */}
+                  {/* QR ?좏겙 吏곸젒 ?낅젰 */}
                   <div className="text-center mb-6">
-                    <p className="text-sm text-[#9e9e9e] mb-3">토큰 직접 입력</p>
+                    <p className="text-sm text-[#9e9e9e] mb-3">?좏겙 吏곸젒 ?낅젰</p>
                     <div className="flex gap-2 max-w-md mx-auto">
                       <input
                           type="text"
@@ -432,29 +436,29 @@ export default function QRVerificationPage() {
                           disabled={loading}
                           className="px-6 py-3 bg-[#d84315] text-white rounded-lg font-semibold hover:bg-[#bf360c] transition-colors disabled:opacity-50"
                       >
-                        {loading ? '확인 중...' : '확인'}
+                        {loading ? '?뺤씤 以?..' : '?뺤씤'}
                       </button>
                     </div>
                   </div>
 
                   {scanError && (
                       <div className="bg-[#ffebee] border border-[#ef5350] rounded-lg px-4 py-3 text-center">
-                        <span className="text-[#c62828] text-sm">⚠️ {scanError}</span>
+                        <span className="text-[#c62828] text-sm">?좑툘 {scanError}</span>
                       </div>
                   )}
                 </>
             )}
 
-            {/* 인증 완료 화면 */}
+            {/* ?몄쬆 ?꾨즺 ?붾㈃ */}
             {step === 'success' && (
                 <div className="text-center py-12">
                   <div className="w-20 h-20 bg-[#4caf50] rounded-full flex items-center justify-center mx-auto mb-6">
                     <Check size={48} className="text-white" />
                   </div>
-                  <h2 className="text-2xl font-bold text-[#212121] mb-3">✅ 인증 완료!</h2>
-                  <p className="text-[#616161] mb-4">양측 인증이 모두 완료되었습니다.</p>
+                  <h2 className="text-2xl font-bold text-[#212121] mb-3">???몄쬆 ?꾨즺!</h2>
+                  <p className="text-[#616161] mb-4">?묒륫 ?몄쬆??紐⑤몢 ?꾨즺?섏뿀?듬땲??</p>
                   <div className="bg-[#e8f5e9] border border-[#4caf50] rounded-lg px-4 py-3 inline-block">
-                    <span className="text-[#2e7d32] text-sm font-semibold">포인트 반환 완료</span>
+                    <span className="text-[#2e7d32] text-sm font-semibold">?ъ씤??諛섑솚 ?꾨즺</span>
                   </div>
                 </div>
             )}
@@ -463,42 +467,70 @@ export default function QRVerificationPage() {
     );
   }
 
-  // ───────────────────────────────────────────
-  // 등록자 화면
-  // ───────────────────────────────────────────
+  // ???????????????????????????????????????????
+  // ?깅줉???붾㈃
+  // ???????????????????????????????????????????
   return (
       <div className="max-w-2xl mx-auto">
         <div className="bg-white rounded-2xl shadow-lg p-8">
-          <h1 className="text-2xl font-bold text-[#212121] mb-2 text-center">QR 코드 제시하기</h1>
+          <h1 className="text-2xl font-bold text-[#212121] mb-2 text-center">QR 肄붾뱶 ?쒖떆?섍린</h1>
           <p className="text-[#616161] text-center mb-8">
-            상대방에게 QR 코드를 보여주세요.<br />
-            상대방의 스캔이 만남을 인증합니다.
+            ?곷?諛⑹뿉寃?QR 肄붾뱶瑜?蹂댁뿬二쇱꽭??<br />
+            ?곷?諛⑹쓽 ?ㅼ틪??留뚮궓???몄쬆?⑸땲??
           </p>
 
           {loading ? (
-              <div className="text-center py-12 text-[#9e9e9e]">QR 토큰 발급 중...</div>
+              <div className="text-center py-12 text-[#9e9e9e]">QR ?좏겙 諛쒓툒 以?..</div>
           ) : (
               <>
-                {/* ✅ 변경: 텍스트 대신 QR 이미지 표시 */}
+                {/* ??蹂寃? ?띿뒪?????QR ?대?吏 ?쒖떆 */}
                 <div className="flex justify-center mb-6">
                   {qrImageUrl ? (
-                      // QR 이미지 생성 완료 → 이미지 표시
+                      // QR ?대?吏 ?앹꽦 ?꾨즺 ???대?吏 ?쒖떆
                       <img
                           src={qrImageUrl}
-                          alt="만남 인증 QR 코드"
+                          alt="留뚮궓 ?몄쬆 QR 肄붾뱶"
                           className="rounded-xl border border-[#e0e0e0]"
                       />
                   ) : (
-                      // QR 이미지 생성 중
+                      // QR ?대?吏 ?앹꽦 以?
                       <div className="w-64 h-64 bg-[#f5f5f5] rounded-xl flex items-center justify-center">
-                        <p className="text-[#9e9e9e] text-sm">QR 생성 중...</p>
+                        <p className="text-[#9e9e9e] text-sm">QR ?앹꽦 以?..</p>
                       </div>
                   )}
                 </div>
 
-                {/* 남은 유효시간 */}
+
+                <div className="mb-6 rounded-xl border border-[#e0e0e0] bg-[#fafafa] p-4">
+                  <h3 className="mb-3 text-sm font-bold text-[#212121]">만남 인증 현황</h3>
+                  <div className="mb-2 flex items-center justify-between rounded-lg bg-white px-3 py-2">
+                    <div>
+                      <p className="text-sm font-semibold text-[#212121]">{authorNickname}</p>
+                      <p className="text-xs text-[#9e9e9e]">등록자</p>
+                    </div>
+                    <span className="rounded-full bg-[#e8f5e9] px-3 py-1 text-xs font-bold text-[#2e7d32]">QR 표시 중</span>
+                  </div>
+                  <div className="space-y-2">
+                    {verificationParticipants.length > 0 ? verificationParticipants.map((participant) => (
+                      <div key={participant.matchId} className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+                        <div>
+                          <p className="text-sm font-semibold text-[#212121]">{participant.nickname || '알 수 없음'}</p>
+                          <p className="text-xs text-[#9e9e9e]">신청자</p>
+                        </div>
+                        <span className={`rounded-full px-3 py-1 text-xs font-bold ${participant.verified ? 'bg-[#e8f5e9] text-[#2e7d32]' : 'bg-[#f5f5f5] text-[#757575]'}`}>
+                          {participant.verified ? '스캔 완료' : '미인증'}
+                        </span>
+                      </div>
+                    )) : (
+                      <div className="rounded-lg border border-dashed border-[#e0e0e0] bg-white p-3 text-center text-sm text-[#9e9e9e]">
+                        아직 참여자 정보가 없습니다.
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {/* ?⑥? ?좏슚?쒓컙 */}
                 <div className="text-center mb-6">
-                  <p className="text-sm text-[#9e9e9e] mb-2">유효시간</p>
+                  <p className="text-sm text-[#9e9e9e] mb-2">?좏슚?쒓컙</p>
                   <p className={`text-4xl font-bold ${timeRemaining < 60 ? 'text-[#ef5350]' : 'text-[#d84315]'}`}>
                     {formatTime(timeRemaining)}
                   </p>
@@ -506,20 +538,20 @@ export default function QRVerificationPage() {
               </>
           )}
 
-          {/* success 화면 */}
+          {/* success ?붾㈃ */}
           {step === 'success' && (
               <div className="text-center py-8">
                 <div className="w-20 h-20 bg-[#4caf50] rounded-full flex items-center justify-center mx-auto mb-6">
                   <Check size={48} className="text-white" />
                 </div>
-                <h2 className="text-2xl font-bold text-[#212121] mb-3">✅ 인증 완료!</h2>
-                <p className="text-[#616161]">만남이 확인되었습니다. 포인트가 반환됩니다.</p>
+                <h2 className="text-2xl font-bold text-[#212121] mb-3">???몄쬆 ?꾨즺!</h2>
+                <p className="text-[#616161]">留뚮궓???뺤씤?섏뿀?듬땲?? ?ъ씤?멸? 諛섑솚?⑸땲??</p>
               </div>
           )}
 
           <div className="bg-[#fff3e0] border border-[#ff9800] rounded-lg p-4">
             <p className="text-sm text-[#ef6c00]">
-              ⏰ 신청자가 QR을 스캔하면 만남 인증이 완료됩니다.
+              ???좎껌?먭? QR???ㅼ틪?섎㈃ 留뚮궓 ?몄쬆???꾨즺?⑸땲??
             </p>
           </div>
         </div>

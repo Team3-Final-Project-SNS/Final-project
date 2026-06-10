@@ -20,6 +20,9 @@ export const getNotificationTargetPath = (notification: NotificationResponse) =>
       case 'MEET_COMPLETED':
       case 'REVIEW_DEADLINE_REMINDER':
         return `/matches?filter=COMPLETED&reviewMatchId=${relatedId}`;
+      case 'NO_SHOW_WARNING':
+      case 'NO_SHOW_CONFIRMED':
+        return `/me/inquiries?view=noShow&matchId=${relatedId}`;
       case 'PAYMENT_SUCCESS':
       case 'PAYMENT_FAILED':
       case 'PAYMENT_CANCEL_SUCCESS':

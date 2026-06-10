@@ -13,6 +13,23 @@ import { InquiryAnswerStatus, InquiryType } from '../../api/inquiryApi';
 const statusFilters: ('ALL' | InquiryAnswerStatus)[] = ['ALL', 'PENDING', 'READ', 'ANSWERED', 'WITHDRAWN'];
 const typeFilters: ('ALL' | InquiryType)[] = ['ALL', 'ACCOUNT', 'PAYMENT', 'MATCH', 'REPORT', 'USAGE', 'HISTORY', 'OTHER'];
 
+const statusLabels: Record<InquiryAnswerStatus, string> = {
+  PENDING: '접수 완료',
+  READ: '확인 중',
+  ANSWERED: '답변 완료',
+  WITHDRAWN: '취소',
+};
+
+const typeLabels: Record<InquiryType, string> = {
+  ACCOUNT: '계정/인증',
+  PAYMENT: '결제/포인트',
+  MATCH: '매칭 오류/장소 인증',
+  REPORT: '신고/부적절한 내용',
+  USAGE: '이용 방법/기능',
+  HISTORY: '이용 내역',
+  OTHER: '기타',
+};
+
 export default function AdminInquiriesPage() {
   const [searchParams] = useSearchParams();
   const requestedInquiryId = Number(searchParams.get('inquiryId'));
@@ -96,28 +113,27 @@ export default function AdminInquiriesPage() {
                 status === item ? 'bg-[#d84315] text-white' : 'border border-[#e0e0e0] bg-white text-[#616161]'
               }`}
             >
-              {item === 'ALL' ? '전체 상태' : item}
-            </button>
-          ))}
-        </div>
-        <div className="mb-6 flex flex-wrap gap-2">
-          {typeFilters.map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => setType(item)}
-              className={`rounded-full px-4 py-2 text-sm font-semibold ${
-                type === item ? 'bg-[#212121] text-white' : 'border border-[#e0e0e0] bg-white text-[#616161]'
-              }`}
-            >
-              {item === 'ALL' ? '전체 유형' : item}
+              {item === 'ALL' ? '전체 상태' : statusLabels[item]}
             </button>
           ))}
         </div>
 
         <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
           <section className="rounded-2xl border border-[#e0e0e0] bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-lg font-bold text-[#212121]">문의 목록</h2>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="text-lg font-bold text-[#212121]">문의 목록</h2>
+              <select
+                value={type}
+                onChange={(event) => setType(event.target.value as 'ALL' | InquiryType)}
+                className="h-10 rounded-lg border border-[#e0e0e0] bg-white px-3 text-sm font-semibold text-[#424242] outline-none focus:border-[#d84315]"
+              >
+                {typeFilters.map((item) => (
+                  <option key={item} value={item}>
+                    {item === 'ALL' ? '전체 유형' : typeLabels[item]}
+                  </option>
+                ))}
+              </select>
+            </div>
             {loading ? (
               <div className="py-12 text-center text-sm text-[#9e9e9e]">
                 <Loader2 className="mx-auto mb-3 animate-spin text-[#d84315]" />
@@ -134,9 +150,9 @@ export default function AdminInquiriesPage() {
                   >
                     <div className="mb-2 flex items-center justify-between gap-2">
                       <span className="rounded bg-[#fff3e0] px-2.5 py-1 text-xs font-bold text-[#ef6c00]">
-                        {item.answerStatus}
+                        {statusLabels[item.answerStatus]}
                       </span>
-                      <span className="text-xs text-[#9e9e9e]">{item.type}</span>
+                      <span className="text-xs text-[#9e9e9e]">{typeLabels[item.type]}</span>
                     </div>
                     <p className="font-bold text-[#212121]">{item.title}</p>
                     <p className="mt-1 text-xs text-[#757575]">{item.userNickname}</p>
@@ -158,6 +174,14 @@ export default function AdminInquiriesPage() {
                   <p className="mb-2 text-xs font-bold text-[#9e9e9e]">
                     {selected.userNickname} · {selected.userEmail} · {selected.universityName}
                   </p>
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    <span className="rounded bg-[#fff3e0] px-2.5 py-1 text-xs font-bold text-[#ef6c00]">
+                      {statusLabels[selected.answerStatus]}
+                    </span>
+                    <span className="rounded bg-[#f5f5f5] px-2.5 py-1 text-xs font-bold text-[#616161]">
+                      {typeLabels[selected.type]}
+                    </span>
+                  </div>
                   <h3 className="text-xl font-bold text-[#212121]">{selected.title}</h3>
                   <p className="mt-3 whitespace-pre-wrap rounded-xl bg-[#fafafa] p-4 text-sm leading-6 text-[#424242]">
                     {selected.content}

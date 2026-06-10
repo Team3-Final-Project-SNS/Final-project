@@ -16,6 +16,20 @@ export interface AdminUserItem {
   createdAt: string;
 }
 
+export interface AdminSuspendUserResponse {
+  userId: number;
+  status: AdminUserStatus;
+  reason: string;
+  suspendedAt: string;
+}
+
+export interface AdminReinstateUserResponse {
+  userId: number;
+  status: AdminUserStatus;
+  reason: string;
+  reinstatedAt: string;
+}
+
 export const getAdminUsers = (
   status?: AdminUserStatus,
   keyword?: string,
@@ -24,4 +38,14 @@ export const getAdminUsers = (
 ) =>
   axiosInstance.get<ApiResponse<PageResponse<AdminUserItem>>>("/api/v1/admin/users", {
     params: { status, keyword, page, size },
+  });
+
+export const suspendAdminUser = (userId: number, reason: string) =>
+  axiosInstance.patch<ApiResponse<AdminSuspendUserResponse>>(`/api/v1/admin/users/${userId}/suspend`, {
+    reason,
+  });
+
+export const reinstateAdminUser = (userId: number, reason: string) =>
+  axiosInstance.patch<ApiResponse<AdminReinstateUserResponse>>(`/api/v1/admin/users/${userId}/reinstate`, {
+    reason,
   });

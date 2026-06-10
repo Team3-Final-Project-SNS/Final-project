@@ -1,4 +1,4 @@
-import axiosInstance from './axiosInstance';
+﻿import axiosInstance from './axiosInstance';
 import { ApiResponse } from './authApi';
 import { PageResponse, PostStatus } from './postApi';
 
@@ -32,6 +32,12 @@ export interface AdminDeletePostResponse {
   deletedAt: string;
 }
 
+export interface AdminRestorePostResponse {
+  postId: number;
+  redepositedPoint: number;
+  restoredAt: string;
+}
+
 export const getAdminPosts = (
   universityId?: number,
   authorNickname?: string,
@@ -61,3 +67,6 @@ export const deleteAdminPost = (postId: number, reportId: number | null, reason:
       reason,
     },
   });
+
+export const restoreAdminPost = (postId: number) =>
+  axiosInstance.post<ApiResponse<AdminRestorePostResponse>>(`/api/v1/admin/posts/${postId}/restore`);

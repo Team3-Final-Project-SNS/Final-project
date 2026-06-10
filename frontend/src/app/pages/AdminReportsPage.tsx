@@ -6,6 +6,21 @@ import { ReportStatus } from '../../api/reportApi';
 
 const filters: ('ALL' | ReportStatus)[] = ['ALL', 'PENDING', 'ACCEPTED', 'REJECTED', 'WITHDRAWN'];
 
+const statusLabels: Record<ReportStatus, string> = {
+  PENDING: '처리 대기',
+  ACCEPTED: '채택',
+  REJECTED: '기각',
+  WITHDRAWN: '취소',
+};
+
+const reasonLabels: Record<string, string> = {
+  SPAM: '스팸',
+  OBSCENE: '음란/부적절',
+  FRAUD: '사기',
+  ABUSE: '욕설/괴롭힘',
+  OTHER: '기타',
+};
+
 export default function AdminReportsPage() {
   const [searchParams] = useSearchParams();
   const requestedReportId = Number(searchParams.get('reportId'));
@@ -81,7 +96,7 @@ export default function AdminReportsPage() {
               filter === item ? 'bg-[#d84315] text-white' : 'border border-[#e0e0e0] bg-white text-[#616161]'
             }`}
           >
-            {item === 'ALL' ? '전체' : item}
+            {item === 'ALL' ? '전체' : statusLabels[item]}
           </button>
         ))}
       </div>
@@ -104,9 +119,9 @@ export default function AdminReportsPage() {
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span className="rounded bg-[#fff3e0] px-2.5 py-1 text-xs font-bold text-[#ef6c00]">
-                    {report.status}
+                    {statusLabels[report.status]}
                   </span>
-                  <span className="text-sm font-bold text-[#212121]">{report.reason}</span>
+                  <span className="text-sm font-bold text-[#212121]">{reasonLabels[report.reason] || report.reason}</span>
                 </div>
                 <span className="text-xs text-[#9e9e9e]">{formatDateTime(report.createdAt)}</span>
               </div>
@@ -184,8 +199,8 @@ function ReportDetailModal({ report, onClose }: { report: AdminReportItem; onClo
         <div className="space-y-3 rounded-xl bg-[#fafafa] p-4 text-sm">
           <InfoRow label="신고자" value={report.reporterNickname} />
           <InfoRow label="대상 게시글" value={`#${report.targetId}`} />
-          <InfoRow label="신고 사유" value={report.reason} />
-          <InfoRow label="처리 상태" value={report.status} />
+          <InfoRow label="신고 사유" value={reasonLabels[report.reason] || report.reason} />
+          <InfoRow label="처리 상태" value={statusLabels[report.status]} />
           <InfoRow label="접수 시각" value={formatDateTime(report.createdAt)} />
         </div>
 

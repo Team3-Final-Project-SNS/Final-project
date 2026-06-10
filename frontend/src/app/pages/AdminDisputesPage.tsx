@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react';
-import { Loader2, MessageSquareText, Send } from 'lucide-react';
+﻿import { useEffect, useState } from 'react';
+import { AlertTriangle, Clock, Loader2, MessageSquareText, Send } from 'lucide-react';
 import { useSearchParams } from 'react-router';
 import {
   AdminDisputeDetail,
   AdminDisputeItem,
+  AdminNoShowCandidate,
   DisputeStatus,
   getAdminDispute,
   getAdminDisputes,
+  getAdminNoShowCandidates,
   judgeAdminDispute,
+  overrideAdminDisputeStatus,
 } from '../../api/adminDisputeApi';
 
 const filters: ('ALL' | DisputeStatus)[] = [
@@ -29,13 +32,34 @@ const statusLabels: Record<DisputeStatus, string> = {
   HOLD: '보류',
 };
 
+const verificationStatusLabels: Record<string, string> = {
+  PENDING: '장소 인증 대기',
+  VERIFIED: '장소 인증 완료',
+  DONE: '만남 완료',
+  HOST_NO_SHOW: '등록자 노쇼 예정',
+  GUEST_NO_SHOW: '신청자 노쇼 예정',
+  BOTH_NO_SHOW: '양측 노쇼 예정',
+  DISPUTE: '이의제기 검토 중',
+  NO_SHOW_CONFIRMED: '노쇼 확정',
+};
+
+const disputeTypeLabels: Record<string, string> = {
+  FUNERAL_CEREMONY: '경조사',
+  MEDICAL_EMERGENCY: '응급 상황',
+  PHONE_MALFUNCTION: '휴대폰 고장',
+  GPS_ERROR: 'GPS 인증 오류',
+  QR_ERROR: 'QR 코드 인식 오류',
+  ADMIN_OVERRIDE: '관리자 조정',
+};
+
 export default function AdminDisputesPage() {
   const [searchParams] = useSearchParams();
   const requestedDisputeId = Number(searchParams.get('disputeId'));
   const [items, setItems] = useState<AdminDisputeItem[]>([]);
+  const [noShowCandidates, setNoShowCandidates] = useState<AdminNoShowCandidate[]>([]);
   const [selected, setSelected] = useState<AdminDisputeDetail | null>(null);
   const [filter, setFilter] = useState<'ALL' | DisputeStatus>('SUBMITTED');
-  const [judgment, setJudgment] = useState<'ACCEPTED' | 'PARTIALLY_ACCEPTED' | 'REJECTED' | 'HOLD'>('ACCEPTED');
+  const [judgment, setJudgment] = useState<DisputeStatus>('ACCEPTED');
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -46,8 +70,12 @@ export default function AdminDisputesPage() {
     setLoading(true);
     setMessage('');
     try {
-      const response = await getAdminDisputes(filter === 'ALL' ? undefined : filter);
+      const [response, candidateResponse] = await Promise.all([
+        getAdminDisputes(filter === 'ALL' ? undefined : filter),
+        getAdminNoShowCandidates(),
+      ]);
       setItems(response.data.data.content);
+      setNoShowCandidates(candidateResponse.data.data.content);
     } catch (err: any) {
       setMessage(err.response?.data?.message || '이의제기 목록을 불러오지 못했습니다.');
     } finally {
@@ -61,6 +89,7 @@ export default function AdminDisputesPage() {
     try {
       const response = await getAdminDispute(disputeId);
       setSelected(response.data.data);
+      setJudgment(response.data.data.status === 'SUBMITTED' || response.data.data.status === 'UNDER_REVIEW' ? 'ACCEPTED' : response.data.data.status);
       setComment('');
     } catch (err: any) {
       setMessage(err.response?.data?.message || '이의제기 상세를 불러오지 못했습니다.');
@@ -79,27 +108,35 @@ export default function AdminDisputesPage() {
     }
   }, [requestedDisputeId]);
 
-  const handleJudge = async () => {
+  const canJudge = selected ? !['ACCEPTED', 'PARTIALLY_ACCEPTED', 'REJECTED'].includes(selected.status) : false;
+
+  const handleJudgeOrOverride = async () => {
     if (!selected || !comment.trim()) {
-      setMessage('판정 내용을 입력해주세요.');
+      setMessage('처리 내용을 입력해주세요.');
       return;
     }
 
     setSubmitting(true);
     setMessage('');
     try {
-      await judgeAdminDispute(selected.disputeId, judgment, comment.trim());
-      setMessage('이의제기 판정이 완료되었습니다.');
+      if (canJudge) {
+        await judgeAdminDispute(
+          selected.disputeId,
+          judgment as Extract<DisputeStatus, 'ACCEPTED' | 'PARTIALLY_ACCEPTED' | 'REJECTED' | 'HOLD'>,
+          comment.trim(),
+        );
+      } else {
+        await overrideAdminDisputeStatus(selected.disputeId, judgment, comment.trim());
+      }
+      setMessage(canJudge ? '이의제기 판정이 완료되었습니다.' : '이의제기 처리 상태를 수정했습니다.');
       await openDetail(selected.disputeId);
       await loadItems();
     } catch (err: any) {
-      setMessage(err.response?.data?.message || '이의제기 판정에 실패했습니다.');
+      setMessage(err.response?.data?.message || '이의제기 처리에 실패했습니다.');
     } finally {
       setSubmitting(false);
     }
   };
-
-  const canJudge = selected && !['ACCEPTED', 'PARTIALLY_ACCEPTED', 'REJECTED'].includes(selected.status);
 
   return (
     <div>
@@ -129,61 +166,91 @@ export default function AdminDisputesPage() {
         </div>
 
         <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
-          <section className="rounded-2xl border border-[#e0e0e0] bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-lg font-bold">이의제기 목록</h2>
-            {loading ? (
-              <div className="py-12 text-center text-sm text-[#9e9e9e]">
-                <Loader2 className="mx-auto mb-3 animate-spin text-[#d84315]" />
-                목록을 불러오는 중...
+          <section className="space-y-5">
+            <div className="rounded-2xl border border-[#e0e0e0] bg-white p-5 shadow-sm">
+              <h2 className="mb-4 text-lg font-bold">이의제기 목록</h2>
+              {loading ? (
+                <LoadingBlock label="목록을 불러오는 중..." />
+              ) : items.length ? (
+                <div className="space-y-2">
+                  {items.map((item) => (
+                    <button
+                      key={item.disputeId}
+                      type="button"
+                      onClick={() => openDetail(item.disputeId)}
+                      className={`w-full rounded-xl border p-4 text-left ${
+                        selected?.disputeId === item.disputeId
+                          ? 'border-[#d84315] bg-[#fff8f5]'
+                          : 'border-[#eeeeee] hover:border-[#d84315]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="rounded bg-[#fff3e0] px-2 py-1 text-xs font-bold text-[#e65100]">
+                          {statusLabels[item.status]}
+                        </span>
+                        <span className="text-xs text-[#9e9e9e]">#{item.disputeId}</span>
+                      </div>
+                      <p className="mt-3 font-bold">{item.applicantNickname}</p>
+                      <p className="mt-1 text-xs font-semibold text-[#9e9e9e]">매칭 #{item.matchId} · {formatDateTime(item.submittedAt)}</p>
+                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#757575]">{item.reason}</p>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <EmptyBlock label="표시할 이의제기가 없습니다." />
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-[#e0e0e0] bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="text-lg font-bold">노쇼 후보</h2>
+                <span className="text-xs font-semibold text-[#9e9e9e]">그룹 매칭 기준</span>
               </div>
-            ) : items.length ? (
-              <div className="space-y-2">
-                {items.map((item) => (
-                  <button
-                    key={item.disputeId}
-                    type="button"
-                    onClick={() => openDetail(item.disputeId)}
-                    className={`w-full rounded-xl border p-4 text-left ${
-                      selected?.disputeId === item.disputeId
-                        ? 'border-[#d84315] bg-[#fff8f5]'
-                        : 'border-[#eeeeee] hover:border-[#d84315]'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="rounded bg-[#fff3e0] px-2 py-1 text-xs font-bold text-[#e65100]">
-                        {statusLabels[item.status]}
-                      </span>
-                      <span className="text-xs text-[#9e9e9e]">#{item.disputeId}</span>
+              {loading ? (
+                <LoadingBlock label="노쇼 후보를 확인하는 중..." />
+              ) : noShowCandidates.length ? (
+                <div className="space-y-2">
+                  {noShowCandidates.map((candidate) => (
+                    <div key={candidate.matchId} className="rounded-xl border border-[#eeeeee] p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="rounded bg-[#ffebee] px-2 py-1 text-xs font-bold text-[#c62828]">
+                          {formatVerificationStatus(candidate.verificationStatus)}
+                        </span>
+                        <span className={`rounded px-2 py-1 text-xs font-bold ${candidate.hasDispute ? 'bg-[#fff3e0] text-[#e65100]' : 'bg-[#f5f5f5] text-[#757575]'}`}>
+                          {candidate.hasDispute ? '이의제기 접수' : '이의제기 없음'}
+                        </span>
+                      </div>
+                      <div className="mt-3 space-y-1 text-xs leading-5 text-[#616161]">
+                        <p className="font-bold text-[#212121]">매칭 #{candidate.matchId}</p>
+                        <p>등록자: {candidate.hostNickname}</p>
+                        <p>신청자: {candidate.guestNickname}</p>
+                        <p className="flex items-center gap-1"><Clock size={13} />만남: {formatDateTime(candidate.meetAt)}</p>
+                        <p className="flex items-center gap-1"><AlertTriangle size={13} />확정 예정: {formatOptionalDate(candidate.disputeDeadline)}</p>
+                      </div>
                     </div>
-                    <p className="mt-3 font-bold">{item.applicantNickname}</p>
-                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#757575]">{item.reason}</p>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-[#e0e0e0] p-8 text-center text-sm text-[#9e9e9e]">
-                표시할 이의제기가 없습니다.
-              </div>
-            )}
+                  ))}
+                </div>
+              ) : (
+                <EmptyBlock label="현재 노쇼 후보가 없습니다." />
+              )}
+            </div>
           </section>
 
           <section className="rounded-2xl border border-[#e0e0e0] bg-white p-6 shadow-sm">
             <h2 className="mb-5 text-xl font-bold">이의제기 상세</h2>
             {detailLoading ? (
-              <div className="py-16 text-center text-sm text-[#9e9e9e]">
-                <Loader2 className="mx-auto mb-3 animate-spin text-[#d84315]" />
-                상세 내용을 불러오는 중...
-              </div>
+              <LoadingBlock label="상세 내용을 불러오는 중..." />
             ) : selected ? (
               <div>
                 <div className="space-y-2 rounded-xl bg-[#fafafa] p-4">
-                  <InfoRow label="신청자" value={selected.applicantNickname} />
+                  <InfoRow label="이의제기자" value={selected.applicantNickname} />
                   <InfoRow label="관련 매칭" value={`#${selected.matchId}`} />
-                  <InfoRow label="이의제기 유형" value={selected.disputeType} />
+                  <InfoRow label="이의제기 유형" value={disputeTypeLabels[selected.disputeType] || selected.disputeType} />
                   <InfoRow label="처리 상태" value={statusLabels[selected.status]} />
-                  <InfoRow label="인증 상태" value={selected.verificationStatus} />
+                  <InfoRow label="인증 상태" value={formatVerificationStatus(selected.verificationStatus)} />
                   <InfoRow label="등록자 인증" value={formatOptionalDate(selected.authorPlaceVerifiedAt)} />
-                  <InfoRow label="신청자 인증" value={formatOptionalDate(selected.applicantPlaceVerifiedAt)} />
+                  <InfoRow label="해당 신청자 인증" value={formatOptionalDate(selected.applicantPlaceVerifiedAt)} />
+                  <InfoRow label="제출 시각" value={formatDateTime(selected.submittedAt)} />
                 </div>
 
                 <DetailSection title="제출 사유">{selected.reason}</DetailSection>
@@ -208,45 +275,41 @@ export default function AdminDisputesPage() {
                   </div>
                 </div>
 
-                {canJudge && (
-                  <div className="mt-6 border-t border-[#eeeeee] pt-5">
-                    <h3 className="mb-3 text-sm font-bold text-[#616161]">판정 처리</h3>
-                    <select
-                      value={judgment}
-                      onChange={(event) => setJudgment(event.target.value as typeof judgment)}
-                      className="mb-3 h-11 w-full rounded-lg border border-[#e0e0e0] bg-white px-3 text-sm"
+                <div className="mt-6 border-t border-[#eeeeee] pt-5">
+                  <h3 className="mb-3 text-sm font-bold text-[#616161]">{canJudge ? '판정 처리' : '처리 수정'}</h3>
+                  <select
+                    value={judgment}
+                    onChange={(event) => setJudgment(event.target.value as DisputeStatus)}
+                    className="mb-3 h-11 w-full rounded-lg border border-[#e0e0e0] bg-white px-3 text-sm"
+                  >
+                    <option value="ACCEPTED">수용</option>
+                    <option value="PARTIALLY_ACCEPTED">부분 수용</option>
+                    <option value="REJECTED">기각</option>
+                    <option value="HOLD">보류 및 추가 증빙 요청</option>
+                  </select>
+                  <textarea
+                    value={comment}
+                    onChange={(event) => setComment(event.target.value)}
+                    rows={5}
+                    maxLength={1000}
+                    placeholder="판정 내용 또는 처리 수정 사유를 입력하세요"
+                    className="w-full resize-none rounded-lg border border-[#e0e0e0] p-3 text-sm focus:border-[#d84315] focus:outline-none"
+                  />
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      type="button"
+                      disabled={submitting}
+                      onClick={handleJudgeOrOverride}
+                      className="inline-flex items-center gap-2 rounded-lg bg-[#d84315] px-5 py-3 text-sm font-bold text-white disabled:opacity-60"
                     >
-                      <option value="ACCEPTED">수용</option>
-                      <option value="PARTIALLY_ACCEPTED">부분 수용</option>
-                      <option value="REJECTED">기각</option>
-                      <option value="HOLD">보류 및 추가 증빙 요청</option>
-                    </select>
-                    <textarea
-                      value={comment}
-                      onChange={(event) => setComment(event.target.value)}
-                      rows={5}
-                      maxLength={1000}
-                      placeholder="판정 내용 또는 추가 증빙 요청 내용을 입력하세요."
-                      className="w-full resize-none rounded-lg border border-[#e0e0e0] p-3 text-sm focus:border-[#d84315] focus:outline-none"
-                    />
-                    <div className="mt-3 flex justify-end">
-                      <button
-                        type="button"
-                        disabled={submitting}
-                        onClick={handleJudge}
-                        className="inline-flex items-center gap-2 rounded-lg bg-[#d84315] px-5 py-3 text-sm font-bold text-white disabled:opacity-60"
-                      >
-                        {submitting ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
-                        판정 등록
-                      </button>
-                    </div>
+                      {submitting ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
+                      {canJudge ? '판정 등록' : '처리 수정'}
+                    </button>
                   </div>
-                )}
+                </div>
               </div>
             ) : (
-              <div className="rounded-xl border border-dashed border-[#e0e0e0] p-12 text-center text-sm text-[#9e9e9e]">
-                이의제기를 선택하면 상세 내용이 표시됩니다.
-              </div>
+              <EmptyBlock label="이의제기를 선택하면 상세 내용이 표시됩니다." />
             )}
           </section>
         </div>
@@ -273,15 +336,37 @@ function DetailSection({ title, children }: { title: string; children: React.Rea
   );
 }
 
+function LoadingBlock({ label }: { label: string }) {
+  return (
+    <div className="py-12 text-center text-sm text-[#9e9e9e]">
+      <Loader2 className="mx-auto mb-3 animate-spin text-[#d84315]" />
+      {label}
+    </div>
+  );
+}
+
+function EmptyBlock({ label }: { label: string }) {
+  return (
+    <div className="rounded-xl border border-dashed border-[#e0e0e0] p-8 text-center text-sm text-[#9e9e9e]">
+      {label}
+    </div>
+  );
+}
+
 function formatOptionalDate(value: string | null) {
   return value ? formatDateTime(value) : '미인증';
 }
 
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString('ko-KR', {
-    month: 'numeric',
-    day: 'numeric',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function formatVerificationStatus(value: string) {
+  return verificationStatusLabels[value] ?? value;
 }

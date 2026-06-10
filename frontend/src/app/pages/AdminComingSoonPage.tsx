@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router';
 import { ArrowLeft, Hammer } from 'lucide-react';
 
 const pageTitles: Record<string, string> = {
-  '/admin/payments': '주문 결제 관리',
+  '/admin/payments': '결제 내역 관리',
   '/admin/faq': 'FAQ',
 };
 

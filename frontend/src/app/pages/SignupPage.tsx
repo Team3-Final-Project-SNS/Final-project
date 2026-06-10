@@ -7,10 +7,10 @@ import { getUniversities, UniversityResponse } from '../../api/univApi';
 type SignupStep = 'email' | 'info' | 'complete';
 
 const TERM_ITEMS = [
-  { termVersion: 'v1.0-service', label: '서비스 이용약관 동의', required: true },
-  { termVersion: 'v1.0-privacy', label: '개인정보 처리방침 동의', required: true },
-  { termVersion: 'v1.0-location', label: '위치기반 서비스 이용약관 동의', required: true },
-  { termVersion: 'v1.0-marketing', label: '마케팅 정보 수신 동의', required: false },
+  { termVersion: 'v1.0-service', label: '서비스 이용약관 동의', required: true, path: '/terms/service' },
+  { termVersion: 'v1.0-privacy', label: '개인정보 처리방침 동의', required: true, path: '/terms/privacy' },
+  { termVersion: 'v1.0-location', label: '위치기반 서비스 이용약관 동의', required: true, path: '/terms/location' },
+  { termVersion: 'v1.0-marketing', label: '마케팅 정보 수신 동의', required: false, path: '/terms/marketing' },
 ];
 
 export default function SignupPage() {
@@ -437,17 +437,28 @@ export default function SignupPage() {
                       <span className="text-sm font-semibold text-[#212121] group-hover:text-[#d84315]">전체 동의</span>
                     </label>
                     {TERM_ITEMS.map((term) => (
-                        <label key={term.termVersion} className="flex items-start gap-3 cursor-pointer group">
-                          <input
-                              type="checkbox"
-                              checked={hasAgreed(term.termVersion)}
-                              onChange={(e) => handleTermChange(term.termVersion, e.target.checked)}
-                              className="mt-1 w-4 h-4 text-[#d84315] border-[#e0e0e0] rounded focus:ring-[#d84315]"
-                          />
-                          <span className="text-sm text-[#424242] group-hover:text-[#212121]">
-                            [{term.required ? '필수' : '선택'}] {term.label}
-                          </span>
-                        </label>
+                        <div key={term.termVersion} className="flex items-start justify-between gap-3">
+                          <label className="flex min-w-0 flex-1 items-start gap-3 cursor-pointer group">
+                            <input
+                                type="checkbox"
+                                checked={hasAgreed(term.termVersion)}
+                                onChange={(e) => handleTermChange(term.termVersion, e.target.checked)}
+                                className="mt-1 w-4 h-4 text-[#d84315] border-[#e0e0e0] rounded focus:ring-[#d84315]"
+                            />
+                            <span className="text-sm text-[#424242] group-hover:text-[#212121]">
+                              [{term.required ? '필수' : '선택'}] {term.label}
+                            </span>
+                          </label>
+                          <Link
+                              to={term.path}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="shrink-0 text-xs font-bold text-[#d84315] underline-offset-2 hover:underline"
+                              onClick={(event) => event.stopPropagation()}
+                          >
+                            자세히 보기
+                          </Link>
+                        </div>
                     ))}
                     <p className="text-[10px] text-[#9e9e9e] mt-2 pl-7">Policy Version: v1.0.0</p>
                   </div>

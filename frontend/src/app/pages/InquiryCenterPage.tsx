@@ -83,6 +83,7 @@ export default function InquiryCenterPage() {
   const [disputeType, setDisputeType] = useState<DisputeType>('GPS_ERROR');
   const [disputeReason, setDisputeReason] = useState('');
   const isNoShowView = view === 'noShow';
+  const isRequestedNoShowMatchLocked = isNoShowView && Boolean(requestedNoShowMatchId);
 
   const openInquiryForm = () => {
     setError('');
@@ -115,7 +116,7 @@ export default function InquiryCenterPage() {
       setTotalPages(res.data.data.totalPages || 1);
     } catch (err) {
       console.error('Failed to load inquiries', err);
-      setError('문의 내역을 불러오지 못했습니다.');
+      setError(isNoShowView ? '노쇼 이의제기 접수 내역을 불러오지 못했습니다.' : '문의 내역을 불러오지 못했습니다.');
     } finally {
       setLoading(false);
     }
@@ -141,7 +142,9 @@ export default function InquiryCenterPage() {
             (match) => String(match.matchId) === requestedNoShowMatchId,
         );
         setSelectedNoShowMatchId(
-            requestedMatch
+            requestedNoShowMatchId
+                ? String(requestedNoShowMatchId)
+                : requestedMatch
                 ? String(requestedMatch.matchId)
                 : nextMatches[0]
                     ? String(nextMatches[0].matchId)
@@ -166,7 +169,7 @@ export default function InquiryCenterPage() {
       setSelected(res.data.data);
     } catch (err) {
       console.error('Failed to load inquiry detail', err);
-      setError('문의 상세 내용을 불러오지 못했습니다.');
+      setError(isNoShowView ? '노쇼 이의제기 상세 내용을 불러오지 못했습니다.' : '문의 상세 내용을 불러오지 못했습니다.');
     } finally {
       setDetailLoading(false);
     }
@@ -237,7 +240,7 @@ export default function InquiryCenterPage() {
   };
 
   const handleCancel = async (inquiryId: number) => {
-    if (!confirm('접수된 문의를 취소하시겠습니까?')) {
+    if (!confirm(isNoShowView ? '접수한 노쇼 이의제기를 취소하시겠습니까?' : '접수한 문의를 취소하시겠습니까?')) {
       return;
     }
 
@@ -245,11 +248,11 @@ export default function InquiryCenterPage() {
     setSuccess('');
     try {
       await cancelInquiry(inquiryId);
-      setSuccess('문의가 취소되었습니다.');
+      setSuccess(isNoShowView ? '노쇼 이의제기 접수가 취소되었습니다.' : '문의가 취소되었습니다.');
       setSelected(null);
       await loadInquiries(page);
     } catch (err: any) {
-      setError(err.response?.data?.message || '문의 취소에 실패했습니다.');
+      setError(err.response?.data?.message || (isNoShowView ? '노쇼 이의제기 접수 취소에 실패했습니다.' : '문의 취소에 실패했습니다.'));
     }
   };
 
@@ -330,18 +333,27 @@ export default function InquiryCenterPage() {
                     <select
                       value={selectedNoShowMatchId}
                       onChange={(event) => setSelectedNoShowMatchId(event.target.value)}
-                      className="w-full rounded-lg border border-[#e0e0e0] bg-white px-3 py-2 text-sm focus:border-[#d84315] focus:outline-none focus:ring-2 focus:ring-[#fff3e0]"
+                      disabled={isRequestedNoShowMatchLocked}
+                      className="w-full rounded-lg border border-[#e0e0e0] bg-white px-3 py-2 text-sm focus:border-[#d84315] focus:outline-none focus:ring-2 focus:ring-[#fff3e0] disabled:bg-[#f5f5f5] disabled:text-[#757575]"
                     >
                       {noShowMatches.map((match) => (
                         <option key={match.matchId} value={match.matchId}>
                           {formatDateTime(match.meetAt)} · {match.placeName} · {match.opponentNickname}
                         </option>
                       ))}
+                      {isRequestedNoShowMatchLocked && !noShowMatches.some((match) => String(match.matchId) === selectedNoShowMatchId) && (
+                        <option value={selectedNoShowMatchId}>선택된 노쇼 매칭 #{selectedNoShowMatchId}</option>
+                      )}
                     </select>
                   ) : (
                     <div className="rounded-lg border border-dashed border-[#e0e0e0] bg-[#fafafa] px-3 py-3 text-sm text-[#9e9e9e]">
                       이의제기 가능한 노쇼 매칭이 없습니다.
                     </div>
+                  )}
+                  {isRequestedNoShowMatchLocked && (
+                    <p className="mt-2 text-xs font-semibold text-[#d84315]">
+                      알림에서 연결된 매칭으로 자동 지정되어 변경할 수 없습니다.
+                    </p>
                   )}
                 </div>
                 <div>
@@ -428,9 +440,9 @@ export default function InquiryCenterPage() {
 
         <section className="space-y-4">
           <div className="rounded-2xl border border-[#e0e0e0] bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-lg font-bold text-[#212121]">내 문의 내역</h2>
+            <h2 className="mb-4 text-lg font-bold text-[#212121]">{isNoShowView ? '노쇼 이의제기 접수 내역' : '내 문의 내역'}</h2>
             {loading ? (
-              <div className="py-10 text-center text-sm text-[#9e9e9e]">문의 내역을 불러오는 중...</div>
+              <div className="py-10 text-center text-sm text-[#9e9e9e]">{isNoShowView ? '노쇼 이의제기 접수 내역을 불러오는 중...' : '문의 내역을 불러오는 중...'}</div>
             ) : items.length > 0 ? (
               <div className="space-y-2">
                 {items.map((item) => (
@@ -453,7 +465,7 @@ export default function InquiryCenterPage() {
               </div>
             ) : (
               <div className="rounded-xl border border-dashed border-[#e0e0e0] p-8 text-center text-sm text-[#9e9e9e]">
-                접수한 문의가 없습니다.
+                {isNoShowView ? '접수한 노쇼 이의제기가 없습니다.' : '접수한 문의가 없습니다.'}
               </div>
             )}
           </div>
@@ -463,7 +475,7 @@ export default function InquiryCenterPage() {
           )}
 
           <div className="rounded-2xl border border-[#e0e0e0] bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-lg font-bold text-[#212121]">문의 상세</h2>
+            <h2 className="mb-4 text-lg font-bold text-[#212121]">{isNoShowView ? '노쇼 이의제기 상세' : '문의 상세'}</h2>
             {detailLoading ? (
               <div className="py-10 text-center text-sm text-[#9e9e9e]">상세 내용을 불러오는 중...</div>
             ) : selected ? (
@@ -498,14 +510,14 @@ export default function InquiryCenterPage() {
                     className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-4 py-2.5 text-sm font-bold text-red-500 transition-colors hover:bg-red-50"
                   >
                     <Trash2 size={16} />
-                    문의 취소
+                    {isNoShowView ? '이의제기 접수 취소' : '문의 취소'}
                   </button>
                 )}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-center text-sm text-[#9e9e9e]">
                 <MessageSquare className="mb-3 text-[#d84315]" size={32} />
-                문의를 선택하면 상세 내용과 답변을 볼 수 있습니다.
+                {isNoShowView ? '노쇼 이의제기를 선택하면 상세 내용과 답변을 볼 수 있습니다.' : '문의를 선택하면 상세 내용과 답변을 볼 수 있습니다.'}
               </div>
             )}
           </div>

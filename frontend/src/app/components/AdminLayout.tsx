@@ -23,7 +23,7 @@ const menuItems = [
   { to: '/admin/inquiries', label: '고객 문의 관리', icon: MessageSquare },
   { to: '/admin/disputes', label: '이의제기 관리', icon: Gavel },
   { to: '/admin/users', label: '유저 목록', icon: Users },
-  { to: '/admin/payments', label: '주문 결제 관리', icon: CreditCard },
+  { to: '/admin/payments', label: '결제 내역 관리', icon: CreditCard },
   { to: '/admin/faq', label: 'FAQ', icon: FileQuestion },
 ];
 
@@ -32,7 +32,7 @@ const bottomItems = [
   { to: '/admin/reports', label: '신고관리', icon: ClipboardList },
   { to: '/admin/inquiries', label: '고객문의', icon: MessageSquare },
   { to: '/admin/disputes', label: '이의제기', icon: Gavel },
-  { to: '/admin/payments', label: '결제관리', icon: CreditCard },
+  { to: '/admin/payments', label: '결제내역', icon: CreditCard },
 ];
 
 export default function AdminLayout() {
