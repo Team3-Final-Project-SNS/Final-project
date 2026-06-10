@@ -5,6 +5,8 @@ import com.example.team3final.domain.ai.common.enums.AiCallStatus;
 import com.example.team3final.domain.ai.common.enums.AiErrorType;
 import com.example.team3final.domain.ai.common.enums.AiFeature;
 import com.example.team3final.domain.ai.common.repository.AiCallMetricRepository;
+import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +17,7 @@ public class AiCallMetricServiceImpl implements AiCallMetricService {
     private static final int MAX_ERROR_MESSAGE_LENGTH = 500;
 
     private final AiCallMetricRepository aiCallMetricRepository;
+    private final MeterRegistry meterRegistry;
 
     /**
      * AI 호출 결과를 AiCallMetric으로 저장합니다.
@@ -58,6 +61,79 @@ public class AiCallMetricServiceImpl implements AiCallMetricService {
                         .errorMessage(truncate(errorMessage))
                         .build()
         );
+
+        recordPrometheusMetrics(feature, model, promptTokens, completionTokens, totalTokens, latencyMs, status, errorType);
+    }
+
+    private void recordPrometheusMetrics(
+            AiFeature feature,
+            String model,
+            Integer promptTokens,
+            Integer completionTokens,
+            Integer totalTokens,
+            Long latencyMs,
+            AiCallStatus status,
+            AiErrorType errorType
+    ) {
+        String metricPrefix = metricPrefix(feature);
+        if (metricPrefix == null) {
+            return;
+        }
+
+        String modelTag = safeTag(model);
+        String statusTag = status == null ? "UNKNOWN" : status.name();
+        String errorTypeTag = errorType == null ? "NONE" : errorType.name();
+
+        meterRegistry.counter(
+                metricPrefix + ".call",
+                "model", modelTag,
+                "status", statusTag
+        ).increment();
+
+        incrementCounter(metricPrefix + ".tokens", totalTokens, "model", modelTag);
+        incrementCounter(metricPrefix + ".prompt.tokens", promptTokens, "model", modelTag);
+        incrementCounter(metricPrefix + ".completion.tokens", completionTokens, "model", modelTag);
+
+        if (latencyMs != null && latencyMs >= 0) {
+            DistributionSummary.builder(metricPrefix + ".latency.ms")
+                    .baseUnit("milliseconds")
+                    .description(feature.name() + " AI response latency in milliseconds")
+                    .tags("model", modelTag, "status", statusTag)
+                    .publishPercentileHistogram()
+                    .register(meterRegistry)
+                    .record(latencyMs);
+        }
+
+        if (status == AiCallStatus.FAILED || status == AiCallStatus.FALLBACK || errorType != null) {
+            meterRegistry.counter(
+                    metricPrefix + ".error",
+                    "model", modelTag,
+                    "status", statusTag,
+                    "error_type", errorTypeTag
+            ).increment();
+        }
+    }
+
+    private String metricPrefix(AiFeature feature) {
+        if (feature == AiFeature.MATCHING) {
+            return "ai.matching";
+        }
+        if (feature == AiFeature.SUPPORT) {
+            return "ai.support";
+        }
+        return null;
+    }
+
+    private void incrementCounter(String name, Integer amount, String... tags) {
+        if (amount == null || amount <= 0) {
+            return;
+        }
+
+        meterRegistry.counter(name, tags).increment(amount);
+    }
+
+    private String safeTag(String value) {
+        return value == null || value.isBlank() ? "UNKNOWN" : value;
     }
 
     /**

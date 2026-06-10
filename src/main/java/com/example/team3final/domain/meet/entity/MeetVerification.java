@@ -84,18 +84,6 @@ public class MeetVerification {
     @Column(name = "no_show_decided_at")
     private LocalDateTime noShowDecidedAt;
 
-    // 30분 전 알림 발송 여부 (중복 발송 방지)
-    @Column(name = "reminder30_sent", nullable = false)
-    private boolean reminder30Sent = false;
-
-    // 15분 전 알림 발송 여부 (중복 발송 방지)
-    @Column(name = "reminder15_sent", nullable = false)
-    private boolean reminder15Sent = false;
-
-    // 만남 임박 알림 발송 여부 (중복 발송 방지)
-    @Column(name = "imminent_sent", nullable = false)
-    private boolean imminentSent = false;
-
     // 노쇼 예정 알림 발송 여부 (중복 발송 방지)
     @Column(name = "no_show_warning_sent", nullable = false)
     private boolean noShowWarningSent = false;
@@ -210,10 +198,12 @@ public class MeetVerification {
     }
 
     // 연장 수락
+    // 그룹 연장은 같은 Post의 모든 활성 MeetVerification에 전파
+    // 따라서 호출된 모든 MV에 동일한 extendedMeetAt을 세팅
     public void acceptExtension(LocalDateTime meetAt, long extensionMinutes) {
         this.extensionStatus = ExtensionStatus.ACCEPTED;
         this.isExtended = true;
-        this.extendedMeetAt = meetAt.plusMinutes(extensionMinutes); // 원래 약속 시간에서 + 10분
+        this.extendedMeetAt = meetAt.plusMinutes(extensionMinutes);
     }
 
     // QR 만료 시각 10분 연장 (수락 시 함께 호출)
@@ -246,28 +236,13 @@ public class MeetVerification {
                 && LocalDateTime.now().isAfter(this.extensionRequestedAt.plusMinutes(timeoutMinutes));
     }
 
-    // 30분 전 알림 발송 완료 처리
-    public void markReminder30Sent() {
-        this.reminder30Sent = true;
-    }
-
-    // 15분 전 알림 발송 완료 처리
-    public void markReminder15Sent() {
-        this.reminder15Sent = true;
-    }
-
-    // 임박 알림 발송 완료 처리
-    public void markImminentSent() {
-        this.imminentSent = true;
-    }
-
     /**
      * [이의제기 접수] 노쇼 예정 상태에서 이의제기 접수 시 호출
      * - 현재 노쇼 상태를 disputedFromStatus에 백업하고 DISPUTE로 전환
-     * - 이후 판정 결과에 따라 아래 3개 메소드 중 하나로 처리됨:
-     *   REJECTED          → rejectDispute()
-     *   PARTIALLY_ACCEPTED → partiallyAcceptDispute()
-     *   ACCEPTED          → completeByDispute()
+     * - 이후 판정 결과에 따라 처리됨:
+     *   ACCEPTED           → completeByDispute()
+     *   PARTIALLY_ACCEPTED → confirmNoShowByAdmin()
+     *   REJECTED           → rejectDispute() 후 confirmNoShowByAdmin()
      */
     public void markDispute() {
         // 노쇼 예정 상태(HOST/GUEST/BOTH_NO_SHOW)가 아니면 이의제기 불가
@@ -315,24 +290,6 @@ public class MeetVerification {
     }
 
     /**
-     * [부분 수용 - PARTIALLY_ACCEPTED] 이의제기 부분 수용 시 호출
-     * - 정책: 응급실/장례식 등 불가피한 사유로 실제 만남이 이루어지지 않은 경우
-     * - 노쇼가 아닌 매칭 취소로 처리 → 예치 포인트 50% 반환
-     * - "만남은 없었지만 정상적인 취소 사유가 인정된" 케이스
-     */
-    public void partiallyAcceptDispute() {
-        // DISPUTE 상태에서만 호출 가능
-        if (this.status != VerificationStatus.DISPUTE) {
-            throw new IllegalStateException("이의제기 검토 중 상태에서만 부분 수용 처리할 수 있습니다.");
-        }
-
-        // 노쇼가 아닌 취소로 상태 전환 (포인트 50% 반환은 Service에서 처리)
-        this.status = VerificationStatus.NO_SHOW_CANCELLED;
-        // 백업 필드 초기화
-        this.disputedFromStatus = null;
-    }
-
-    /**
      * [수용 - ACCEPTED] 이의제기 수용 시 호출
      * - 정책: 실제 만남은 있었으나 서비스 오류(GPS/QR 인식 오류 등)로 인증만 실패한 경우
      * - 만남 완료(DONE)로 처리 → 예치 포인트 100% 반환
@@ -362,5 +319,14 @@ public class MeetVerification {
     // 노쇼 확정 알림 발송 완료 처리
     public void markNoShowConfirmedSent() {
         this.noShowConfirmedSent = true;
+    }
+
+
+    // 관리자 판정으로 노쇼가 최종 확정된 경우 호출
+    // 실제 만남이 없었다면 노쇼 자체는 맞음, 다만 관리자 판정값에 따라 포인트 반환 비율만 달라짐
+    public void confirmNoShowByAdmin() {
+        this.status = VerificationStatus.NO_SHOW_CONFIRMED;
+        this.isMeetVerified = false;
+        this.disputedFromStatus = null;
     }
 }

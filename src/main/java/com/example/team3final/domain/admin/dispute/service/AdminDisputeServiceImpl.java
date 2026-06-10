@@ -21,9 +21,6 @@ import com.example.team3final.domain.meet.entity.MeetVerification;
 import com.example.team3final.domain.meet.enums.VerificationStatus;
 import com.example.team3final.domain.meet.service.MeetVerificationService;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
-import com.example.team3final.domain.post.dto.response.PostMatchInfoDto;
-import com.example.team3final.domain.post.service.PostService;
-import com.example.team3final.domain.user.service.UserPointService;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -47,8 +44,6 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
     private final MatchService matchService;
     private final MeetVerificationService meetVerificationService;
     private final ChatService chatService;
-    private final PostService postService;
-    private final UserPointService userPointService;
     private final NotificationPublisher notificationPublisher;
     private final StringRedisTemplate redisTemplate;
 
@@ -167,41 +162,55 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
         // 매칭 정보 조회
         Match match = matchService.getMatchById(dispute.getMatchId());
 
-        // Post 정보 조회
-        PostMatchInfoDto postMatchInfo = postService.getPostMatchInfo(match.getPostId());
-
-        // submitterId = authorId 이면 등록자, 아니면 신청자
-        boolean submitterIsAuthor = dispute.getSubmitterId().equals(postMatchInfo.authorId());
-
-        // 이의제기자의 예치금 결정
-        int deposited = submitterIsAuthor ? postMatchInfo.authorDeposit() : match.getApplicantDeposit();
-
         // 판정 결과에 따른 포인트 처리
         int refundedPoint = switch (requestDto.getStatus()) {
 
             case ACCEPTED -> {
-                // 전액 100% 반환
-                userPointService.refundPoint(dispute.getSubmitterId(), deposited, dispute.getMatchId());
+                // ACCEPTED:
+                // - 관리자가 이의제기를 완전히 수용
+                // - 노쇼가 아니라고 판단
+                // - 포인트 정산과 Match 완료 처리는 Match 도메인에 위임
                 dispute.process(DisputeStatus.ACCEPTED, adminId, requestDto.getComment());
-                yield deposited;
+
+                yield matchService.completeSingleMatchByDispute(
+                        dispute.getMatchId(),
+                        dispute.getSubmitterId()
+                );
             }
 
             case PARTIALLY_ACCEPTED -> {
-                // 50%만 반환
-                userPointService.partialRefundPoint(dispute.getSubmitterId(), deposited, dispute.getMatchId());
+                // PARTIALLY_ACCEPTED:
+                // - 노쇼는 맞음
+                // - 다만 이의제기자의 사유가 일부 인정됨
+                // - 포인트 정산과 Match 노쇼 상태 확정은 Match 도메인에 위임
                 dispute.process(DisputeStatus.PARTIALLY_ACCEPTED, adminId, requestDto.getComment());
-                yield deposited / 2;
+
+                MeetVerification meetVerification =
+                        meetVerificationService.getByMatchId(dispute.getMatchId());
+
+                VerificationStatus restoredStatus = meetVerification.getDisputedFromStatus();
+
+                yield matchService.markNoShowByDispute(
+                        dispute.getMatchId(),
+                        restoredStatus,
+                        dispute.getSubmitterId()
+                );
             }
 
             case REJECTED -> {
-                // 반환값 없음
+                // REJECTED:
+                // - 이의제기 기각
+                // - 기존 노쇼 상태 그대로 확정
+                // - 일반 노쇼 확정이므로 Match 도메인의 기존 markNoShow 메서드들이 정산까지 처리
                 dispute.process(DisputeStatus.REJECTED, adminId, requestDto.getComment());
                 yield 0;
             }
 
             case HOLD -> {
-                // 보류 : 포인트 처리 없음,
-                // holdAt 기록 -> 재이의제기 24시간 카운팅 시작
+                // HOLD:
+                // - 최종 판단 보류
+                // - 포인트 정산 없음
+                // - Match / MeetVerification 상태 전이 없음
                 dispute.hold(adminId, requestDto.getComment());
                 yield 0;
             }
@@ -210,7 +219,7 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
         };
 
         // HOLD는 전용 알림 발송 (24시간 이내 행동 유도 메시지)
-        applyDisputeJudgment(dispute, requestDto.getStatus(), match, postMatchInfo, submitterIsAuthor);
+        applyDisputeJudgment(dispute, requestDto.getStatus(), match);
 
         if (requestDto.getStatus() == DisputeStatus.HOLD) {
             // 24. 이의제기 보류 알림 - 이의제기 신청자에게
@@ -232,151 +241,87 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
         return AdminJudgeDisputeResponseDto.of(dispute, refundedPoint);
     }
 
-    // 각 판정에 맞게 인증 상태, 매칭 상태, 게시글 상태, 채팅방 상태 정리 메서드
+    // 각 판정에 맞게 MeetVerification 상태와 채팅방 상태를 정리한다.
+    // 포인트 정산과 Match 상태 변경은 Match 도메인에 위임한다.
     private void applyDisputeJudgment(
             Dispute dispute,
             DisputeStatus judgment,
-            Match match,
-            PostMatchInfoDto postMatchInfo,
-            boolean submitterIsAuthor) {
+            Match match
+    ) {
 
-        // 보류(HOLD) 상태면 추가 처리 없이 스킵
         if (judgment == DisputeStatus.HOLD) {
             return;
         }
 
-        // 이의제기 대상 매칭의 인증 정보를 조회
-        MeetVerification meetVerification = meetVerificationService.getByMatchId(dispute.getMatchId());
+        MeetVerification meetVerification =
+                meetVerificationService.getByMatchId(dispute.getMatchId());
 
-        // ── 부분 수용(PARTIALLY_ACCEPTED) ──────────────────────────────────────
-        // 정책: 응급실/장례식 등 불가피한 사유 → 실제 만남 없음 → 매칭 취소 → 예치금 50% 반환
-        // 포인트 50% 반환은 judgeDispute()의 PARTIALLY_ACCEPTED 분기에서 이미 처리됨
+        Long postId = match.getPostId();
+
+        if (judgment == DisputeStatus.ACCEPTED) {
+
+            // ACCEPTED:
+            // - 노쇼가 아니라고 인정
+            // - Match 상태 변경과 포인트 정산은 judgeDispute()에서 MatchService에 위임함
+            // - 여기서는 MeetVerification만 DONE 처리
+            meetVerification.completeByDispute();
+
+            return;
+        }
+
         if (judgment == DisputeStatus.PARTIALLY_ACCEPTED) {
 
             VerificationStatus restoredStatus = meetVerification.getDisputedFromStatus();
 
-            if (restoredStatus == VerificationStatus.BOTH_NO_SHOW) {
-                // 상대방도 노쇼 당사자 → 노쇼 예정 상태로 전환 + 이의제기 기회 부여
-                // 상대방 포인트 처리 없음
-                if (submitterIsAuthor) {
-                    // 등록자가 이의제기자 → 신청자 GUEST_NO_SHOW 예정 상태로 전환
-                    meetVerification.markApplicantNoShow();
-                    notificationPublisher.sendNoShowWarning(
-                            match.getApplicantId(), dispute.getMatchId());
-                } else {
-                    // 신청자가 이의제기자 → 등록자 HOST_NO_SHOW 예정 상태로 전환
-                    meetVerification.markAuthorNoShow();
-                    notificationPublisher.sendNoShowWarning(
-                            postMatchInfo.authorId(), dispute.getMatchId());
-                }
-                // Match → DISPUTED 유지 (상대방 이의제기 대기 상태)
+            // PARTIALLY_ACCEPTED:
+            // - 노쇼 자체는 맞음
+            // - Match 상태 변경과 포인트 정산은 judgeDispute()에서 MatchService에 위임함
+            // - 여기서는 MeetVerification만 노쇼 확정 상태로 정리
+            meetVerification.confirmNoShowByAdmin();
 
-            } else {
-                // HOST_NO_SHOW 또는 GUEST_NO_SHOW → 상대방은 피해자 → 전액 환불
-                Long opponentId = submitterIsAuthor
-                        ? match.getApplicantId()
-                        : postMatchInfo.authorId();
-                int opponentDeposit = submitterIsAuthor
-                        ? match.getApplicantDeposit()
-                        : postMatchInfo.authorDeposit();
-                userPointService.refundPoint(opponentId, opponentDeposit, dispute.getMatchId());
+            if (restoredStatus == VerificationStatus.GUEST_NO_SHOW) {
+                chatService.markGuestNoShow(postId, match.getApplicantId());
 
-                meetVerification.partiallyAcceptDispute();
-                matchService.markNoShowByDisputeWithoutPointSettlement(
-                        dispute.getMatchId(), restoredStatus);
+            } else if (restoredStatus == VerificationStatus.HOST_NO_SHOW
+                    || restoredStatus == VerificationStatus.BOTH_NO_SHOW) {
+                chatService.makeReadOnlyChatRoom(postId);
             }
 
-            chatService.makeReadOnlyChatRoom(match.getPostId());
             return;
         }
 
-        // ── 기각(REJECTED) ──────────────────────────────────────────────────────
-        // 정책: 사유 불충분 → 노쇼 확정 → 예치 포인트 전액 몰수
         if (judgment == DisputeStatus.REJECTED) {
 
-            // 백업해둔 원래 노쇼 상태(HOST/GUEST/BOTH_NO_SHOW)를 복원
+            // REJECTED:
+            // - 이의제기 기각
+            // - 기존 노쇼 상태 그대로 확정
+            // - 일반 노쇼 확정이므로 Match 도메인의 기존 메서드가 포인트 정산까지 처리
             VerificationStatus restoredStatus = meetVerification.rejectDispute();
 
-            // 복원된 노쇼 상태에 따라 포인트 몰수 대상자 확정
             if (restoredStatus == VerificationStatus.HOST_NO_SHOW) {
-                // 등록자가 노쇼 → 등록자 포인트 몰수
+
                 matchService.markAuthorNoShow(dispute.getMatchId());
 
+                meetVerificationService.confirmNoShowByPost(postId);
+
+                chatService.makeReadOnlyChatRoom(postId);
+
             } else if (restoredStatus == VerificationStatus.GUEST_NO_SHOW) {
-                // 신청자가 노쇼 → 신청자 포인트 몰수
+
                 matchService.markApplicantNoShow(dispute.getMatchId());
 
+                meetVerification.confirmNoShowByAdmin();
+
+                chatService.markGuestNoShow(postId, match.getApplicantId());
+
             } else if (restoredStatus == VerificationStatus.BOTH_NO_SHOW) {
-                // 양쪽 모두 노쇼 → 양쪽 포인트 몰수
+
                 matchService.markBothNoShow(dispute.getMatchId());
+
+                meetVerification.confirmNoShowByAdmin();
+
+                chatService.makeReadOnlyChatRoom(postId);
             }
-
-            // 인증 상태를 최종 노쇼 확정으로 변경
-            meetVerification.confirmNoShow();
-
-            // 노쇼로 종결된 매칭이므로 채팅방을 읽기 전용으로 전환
-            chatService.makeReadOnlyChatRoom(match.getPostId());
-
-            return;
-        }
-
-        // ── 수용(ACCEPTED) ──────────────────────────────────────────────────────
-        // 정책: 실제 만남은 있었으나 서비스 오류(GPS/QR 인식 오류 등)로 인증만 실패한 경우
-        // → 만남 완료(DONE)로 처리 → 예치 포인트 100% 반환
-        // 제출자 보증금 100% 반환은 judgeDispute()의 ACCEPTED 분기에서 이미 처리됨
-        if (dispute.getDisputeType().isMatchCancelType()) {
-
-            VerificationStatus restoredStatus = meetVerification.getDisputedFromStatus();
-
-            if (restoredStatus == VerificationStatus.BOTH_NO_SHOW) {
-                // 상대방도 노쇼 당사자 → 노쇼 예정 상태로 전환 + 이의제기 기회 부여
-                // 상대방 포인트 처리 없음
-                if (submitterIsAuthor) {
-                    meetVerification.markApplicantNoShow();
-                    notificationPublisher.sendNoShowWarning(
-                            match.getApplicantId(), dispute.getMatchId());
-                } else {
-                    meetVerification.markAuthorNoShow();
-                    notificationPublisher.sendNoShowWarning(
-                            postMatchInfo.authorId(), dispute.getMatchId());
-                }
-                // Match → DISPUTED 유지 (상대방 이의제기 대기 상태)
-
-            } else {
-                // HOST_NO_SHOW 또는 GUEST_NO_SHOW → 상대방은 피해자 → 전액 환불
-                Long opponentId = submitterIsAuthor
-                        ? match.getApplicantId()
-                        : postMatchInfo.authorId();
-                int opponentDeposit = submitterIsAuthor
-                        ? match.getApplicantDeposit()
-                        : postMatchInfo.authorDeposit();
-                userPointService.refundPoint(opponentId, opponentDeposit, dispute.getMatchId());
-
-                meetVerification.partiallyAcceptDispute();
-                matchService.cancelMatchByDispute(dispute.getMatchId());
-            }
-
-            chatService.makeReadOnlyChatRoom(match.getPostId());
-        } else {
-            // GPS/QR/스마트폰 오류 → 실제 만남은 있었음 → 만남 완료 처리
-            // 제출자 100% 환불은 judgeDispute()에서 이미 처리됨
-            // 상대방 예치금도 전액 환불
-            Long opponentId = submitterIsAuthor
-                    ? match.getApplicantId()
-                    : postMatchInfo.authorId();
-            int opponentDeposit = submitterIsAuthor
-                    ? match.getApplicantDeposit()
-                    : postMatchInfo.authorDeposit();
-            userPointService.refundPoint(opponentId, opponentDeposit, dispute.getMatchId());
-
-            // MeetVerification → DONE (만남 완료 인정)
-            meetVerification.completeByDispute();
-
-            // Match/Post → COMPLETED
-            matchService.completeMatchByDispute(dispute.getMatchId());
-
-            // 채팅방 2시간 후 비활성화 예약
-            chatService.scheduleChatRoomDeactivation(match.getPostId());
         }
     }
 
