@@ -57,6 +57,21 @@ export interface MeetExtensionResponse {
     expiresAt: string | null;
 }
 
+export interface AcceptMeetExtensionResponse {
+    matchId: number;
+    extensionStatus: ExtensionStatus;
+    originalMeetAt: string;
+    extendedMeetAt: string;
+    isExtended: boolean;
+    extendedAt: string;
+}
+
+export interface RejectMeetExtensionResponse {
+    matchId: number;
+    extensionStatus: ExtensionStatus;
+    rejectedAt: string;
+}
+
 export type LocationRole = 'AUTHOR' | 'APPLICANT';
 
 export interface SingleLocationResponse {
@@ -102,6 +117,16 @@ export const createMeetExtension = (matchId: number) => {
 // 만남 시간 연장 상태 조회
 export const getMeetExtension = (matchId: number) => {
     return axiosInstance.get<ApiResponse<MeetExtensionResponse>>(`/api/v1/matches/${matchId}/extension`);
+};
+
+// 만남 시간 연장 수락
+export const acceptMeetExtension = (matchId: number) => {
+    return axiosInstance.patch<ApiResponse<AcceptMeetExtensionResponse>>(`/api/v1/matches/${matchId}/extension/accept`);
+};
+
+// 만남 시간 연장 거절
+export const rejectMeetExtension = (matchId: number) => {
+    return axiosInstance.patch<ApiResponse<RejectMeetExtensionResponse>>(`/api/v1/matches/${matchId}/extension/reject`);
 };
 
 // ────────────────────────────────────────
