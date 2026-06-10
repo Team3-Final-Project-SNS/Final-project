@@ -89,8 +89,6 @@ dependencies {
     implementation 'org.springframework.ai:spring-ai-tika-document-reader'
     runtimeOnly 'org.postgresql:postgresql'
 
-
-
     // 포트원 V2 서버 SDK (JVM) — 결제 조회/취소/웹훅 검증
     // (작성 시점 0.12.0. 의존성 충돌 시 :all classifier 의 shading 버전 사용)
     implementation 'io.portone:server-sdk:0.12.0'
@@ -110,6 +108,9 @@ dependencies {
 
     // jakarta.persistence-api: @Entity 등 JPA 어노테이션 인식에 필요
     annotationProcessor 'jakarta.persistence:jakarta.persistence-api'
+
+    // Swagger
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6'
 }
 
 dependencyManagement {
