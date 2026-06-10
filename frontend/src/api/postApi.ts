@@ -1,7 +1,7 @@
 import axiosInstance from "./axiosInstance";
 import { ApiResponse } from "./authApi";
 
-export type PostStatus = "OPEN" | "MATCHED" | "COMPLETED" | "CANCELLED";
+export type PostStatus = "OPEN" | "MATCHED" | "COMPLETED" | "CANCELLED" | "EXPIRED";
 
 export interface PostItemResponse {
     postId: number;
