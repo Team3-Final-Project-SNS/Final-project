@@ -1,47 +1,21 @@
-import { useState, useEffect, useRef } from 'react';
-import { useParams, Link, useLocation } from 'react-router';
-import { ArrowLeft, Send, MapPin, Loader2, AlertCircle, Clock, Check } from 'lucide-react';
-import { getChatMessages, ChatMessageResponse } from '@/api/chatApi';
-import { getMatchDetail, GetMatchResponse, getMyMatches } from '@/api/matchApi';
-import {
-  createMeetExtension,
-  getMeetExtension,
-  acceptMeetExtension,
-  rejectMeetExtension,
-  MeetExtensionResponse,
-} from '@/api/meetApi';
-import { getUserMe } from '@/api/userApi';
-import { setExtendedMeetAt } from '@/store/matchStore';
-import SockJS from 'sockjs-client';
+﻿import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useParams } from 'react-router';
+import { AlertCircle, ArrowLeft, Check, Clock, Loader2, MapPin, Send, Users, X } from 'lucide-react';
 import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
+import { ChatMemberResponse, ChatMessageResponse, getChatMembers, getChatMessages } from '@/api/chatApi';
+import { getMatchDetail, GetMatchResponse, getMyMatches } from '@/api/matchApi';
+import { acceptMeetExtension, createMeetExtension, getMeetExtension, MeetExtensionResponse, rejectMeetExtension } from '@/api/meetApi';
+import { getUserMe } from '@/api/userApi';
 import { getAccessToken } from '@/api/axiosInstance';
+import { setExtendedMeetAt } from '@/store/matchStore';
 
-const formatMessageDate = (value: string) =>
-    new Date(value).toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: 'numeric',
-      day: 'numeric',
-    });
+const toChronologicalMessages = (messages: ChatMessageResponse[]) => [...messages].reverse();
 
-const formatMessageTime = (value: string) =>
-    new Date(value).toLocaleTimeString('ko-KR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-
-const toChronologicalMessages = (messages: ChatMessageResponse[]) =>
-    [...messages].reverse();
-
-const mergeMessages = (
-    currentMessages: ChatMessageResponse[],
-    latestMessages: ChatMessageResponse[],
-) => {
+const mergeMessages = (currentMessages: ChatMessageResponse[], latestMessages: ChatMessageResponse[]) => {
   const messageMap = new Map<number, ChatMessageResponse>();
-
   currentMessages.forEach((item) => messageMap.set(item.messageId, item));
   latestMessages.forEach((item) => messageMap.set(item.messageId, item));
-
   return [...messageMap.values()].sort((a, b) => a.messageId - b.messageId);
 };
 
@@ -53,21 +27,11 @@ const resolveMatchIdByChatRoomId = async (chatRoomId: number) => {
     const response = await getMyMatches(undefined, page, size);
     const data = response.data.data;
     const matchedRoom = data.content
-        .filter((item) => item.chatRoomId === chatRoomId)
-        .sort((a, b) => {
-          if (a.status === 'MATCHED' && b.status !== 'MATCHED') return -1;
-          if (a.status !== 'MATCHED' && b.status === 'MATCHED') return 1;
-          return new Date(b.matchedAt).getTime() - new Date(a.matchedAt).getTime();
-        })[0];
+      .filter((item) => item.chatRoomId === chatRoomId)
+      .sort((a, b) => new Date(b.matchedAt).getTime() - new Date(a.matchedAt).getTime())[0];
 
-    if (matchedRoom) {
-      return matchedRoom.matchId;
-    }
-
-    if (!data.hasNext) {
-      return null;
-    }
-
+    if (matchedRoom) return matchedRoom.matchId;
+    if (!data.hasNext) return null;
     page += 1;
   }
 
@@ -79,6 +43,7 @@ export default function ChatPage() {
   const location = useLocation();
   const routeChatRoomId = roomId ? Number(roomId) : null;
   const routeMatchId = id ? Number(id) : null;
+
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<ChatMessageResponse[]>([]);
   const [matchInfo, setMatchInfo] = useState<GetMatchResponse | null>(null);
@@ -92,12 +57,14 @@ export default function ChatPage() {
   const [extensionLoading, setExtensionLoading] = useState(false);
   const [extensionInfo, setExtensionInfo] = useState<MeetExtensionResponse | null>(null);
   const [extensionActionLoading, setExtensionActionLoading] = useState(false);
+  const [members, setMembers] = useState<ChatMemberResponse[]>([]);
+  const [membersOpen, setMembersOpen] = useState(false);
+  const [membersLoading, setMembersLoading] = useState(false);
 
   const stompClient = useRef<Client | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isCancelledMatch = matchInfo?.status === 'CANCELLED';
 
-  // 초기 데이터 로드 (매칭 정보 + 메시지 히스토리)
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -108,29 +75,16 @@ export default function ChatPage() {
         let nextMatchInfo: GetMatchResponse | null = null;
 
         if (!currentMatchId && currentChatRoomId) {
-          try {
-            currentMatchId = await resolveMatchIdByChatRoomId(currentChatRoomId);
-          } catch (roomLookupError) {
-            console.error('Failed to resolve match from chat room', roomLookupError);
-          }
+          currentMatchId = await resolveMatchIdByChatRoomId(currentChatRoomId);
         }
 
         if (currentMatchId) {
-          try {
-            const matchRes = await getMatchDetail(currentMatchId);
-            nextMatchInfo = matchRes.data.data;
-            currentChatRoomId = currentChatRoomId ?? nextMatchInfo.chatRoomId;
-          } catch (matchLookupError) {
-            if (!currentChatRoomId) {
-              throw matchLookupError;
-            }
-            console.error('Failed to load match detail for chat room', matchLookupError);
-          }
+          const matchRes = await getMatchDetail(currentMatchId);
+          nextMatchInfo = matchRes.data.data;
+          currentChatRoomId = currentChatRoomId ?? nextMatchInfo.chatRoomId;
         }
 
-        if (!currentChatRoomId) {
-          throw new Error('CHAT_ROOM_NOT_FOUND');
-        }
+        if (!currentChatRoomId) throw new Error('CHAT_ROOM_NOT_FOUND');
 
         const [historyRes, userRes] = await Promise.all([
           getChatMessages(currentChatRoomId),
@@ -143,23 +97,20 @@ export default function ChatPage() {
         setMatchInfo(nextMatchInfo);
         setChatRoomId(currentChatRoomId);
         setCurrentUserId(userRes.data.data.userId);
-      } catch (err: any) {
-        setError('채팅 정보를 불러오는데 실패했습니다.');
+      } catch (err) {
         console.error(err);
+        setError('채팅방 정보를 불러오지 못했습니다.');
       } finally {
         setLoading(false);
       }
     };
+
     fetchData();
   }, [routeChatRoomId, routeMatchId, location.state?.matchId]);
 
-  // 웹소켓 연결
   useEffect(() => {
-    if (!chatRoomId) return;
-
-    if (matchInfo?.status === 'CANCELLED') {
+    if (!chatRoomId || isCancelledMatch) {
       setConnected(false);
-      setError('');
       return;
     }
 
@@ -170,11 +121,11 @@ export default function ChatPage() {
       return;
     }
 
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
     const socket = new SockJS(`${baseUrl}/ws/chat?token=${encodeURIComponent(accessToken)}`);
     const client = new Client({
       webSocketFactory: () => socket,
-      debug: (str) => console.log(str),
+      debug: (value) => console.log(value),
       onConnect: () => {
         setConnected(true);
         setError('');
@@ -185,29 +136,22 @@ export default function ChatPage() {
             newMessage.senderId === currentUserId ? newMessage : { ...newMessage, isRead: true },
           ]);
         });
-        client.subscribe('/user/queue/errors', (payload) => {
-          setError(payload.body);
-        });
+        client.subscribe('/user/queue/errors', (payload) => setError(payload.body));
       },
-      onStompError: (frame) => {
-        console.error('Broker reported error: ' + frame.headers['message']);
+      onStompError: () => {
         setConnected(false);
         setError('채팅 연결 중 오류가 발생했습니다.');
       },
-      onWebSocketClose: () => {
-        setConnected(false);
-      },
+      onWebSocketClose: () => setConnected(false),
     });
 
     client.activate();
     stompClient.current = client;
 
     return () => {
-      if (stompClient.current) {
-        stompClient.current.deactivate();
-      }
+      client.deactivate();
     };
-  }, [chatRoomId, currentUserId, matchInfo?.status]);
+  }, [chatRoomId, currentUserId, isCancelledMatch]);
 
   useEffect(() => {
     if (!chatRoomId || currentUserId === null) return;
@@ -225,42 +169,52 @@ export default function ChatPage() {
     return () => window.clearInterval(intervalId);
   }, [chatRoomId, currentUserId]);
 
-  // 연장 상태 폴링 — MATCHED 상태일 때만 3초마다 조회
   useEffect(() => {
     if (!matchInfo || matchInfo.status !== 'MATCHED') return;
 
-    const matchId = matchInfo.matchId;
-
     const fetchExtension = async () => {
       try {
-        const res = await getMeetExtension(matchId);
+        const res = await getMeetExtension(matchInfo.matchId);
         setExtensionInfo(res.data.data);
       } catch {
-        // 폴링 실패는 무시
+        // 시간 연장 상태 조회 실패는 채팅 사용을 막지 않습니다.
       }
     };
 
     fetchExtension();
-    const intervalId = setInterval(fetchExtension, 3000);
-    return () => clearInterval(intervalId);
+    const intervalId = window.setInterval(fetchExtension, 3000);
+    return () => window.clearInterval(intervalId);
   }, [matchInfo]);
 
-  // 자동 스크롤
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
 
-  const handleSend = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleOpenMembers = async () => {
+    if (!chatRoomId) return;
+
+    setMembersOpen(true);
+    setMembersLoading(true);
+    try {
+      const res = await getChatMembers(chatRoomId);
+      setMembers(res.data.data);
+    } catch (err: any) {
+      setError(err.response?.data?.message || '참여자 목록을 불러오지 못했습니다.');
+    } finally {
+      setMembersLoading(false);
+    }
+  };
+
+  const handleSend = (event: React.FormEvent) => {
+    event.preventDefault();
     if (isCancelledMatch || !message.trim() || !chatRoomId || !stompClient.current?.connected) return;
 
     stompClient.current.publish({
       destination: `/pub/chat/rooms/${chatRoomId}`,
       body: JSON.stringify({ content: message }),
     });
-
     setMessage('');
   };
 
@@ -270,7 +224,6 @@ export default function ChatPage() {
     try {
       setExtensionLoading(true);
       const res = await createMeetExtension(matchInfo.matchId);
-      // 요청 성공 시 즉시 REQUESTED 상태로 UI 반영 (폴링 전 공백 방지)
       setExtensionInfo({ ...res.data.data, isMyRequest: true });
     } catch (err: any) {
       alert(err.response?.data?.message || '시간 연장 요청에 실패했습니다.');
@@ -288,7 +241,7 @@ export default function ChatPage() {
       setExtendedMeetAt(matchInfo.matchId, res.data.data.extendedMeetAt);
       setExtensionInfo((prev) => prev ? { ...prev, extensionStatus: 'ACCEPTED' } : prev);
     } catch (err: any) {
-      alert(err.response?.data?.message || '수락에 실패했습니다.');
+      alert(err.response?.data?.message || '시간 연장 수락에 실패했습니다.');
     } finally {
       setExtensionActionLoading(false);
     }
@@ -302,7 +255,7 @@ export default function ChatPage() {
       await rejectMeetExtension(matchInfo.matchId);
       setExtensionInfo((prev) => prev ? { ...prev, extensionStatus: 'REJECTED' } : prev);
     } catch (err: any) {
-      alert(err.response?.data?.message || '거절에 실패했습니다.');
+      alert(err.response?.data?.message || '시간 연장 거절에 실패했습니다.');
     } finally {
       setExtensionActionLoading(false);
     }
@@ -310,10 +263,10 @@ export default function ChatPage() {
 
   const loadMore = async () => {
     if (!hasNext || !cursor || !chatRoomId) return;
+
     try {
       const res = await getChatMessages(chatRoomId, cursor);
-      const olderMessages = toChronologicalMessages(res.data.data.content);
-      setMessages((prev) => [...olderMessages, ...prev]);
+      setMessages((prev) => [...toChronologicalMessages(res.data.data.content), ...prev]);
       setCursor(res.data.data.nextCursor);
       setHasNext(res.data.data.hasNext);
     } catch (err) {
@@ -321,249 +274,162 @@ export default function ChatPage() {
     }
   };
 
-  // 시간 연장 버튼 활성화 조건: NONE 또는 EXPIRED 상태일 때만 요청 가능
-  const canRequestExtension =
-      !extensionInfo ||
-      extensionInfo.extensionStatus === 'NONE' ||
-      extensionInfo.extensionStatus === 'EXPIRED';
-
-  // 신청자 여부: 현재 로그인한 유저가 applicant일 때만 시간 연장 버튼 노출
+  const canRequestExtension = !extensionInfo || extensionInfo.extensionStatus === 'NONE' || extensionInfo.extensionStatus === 'EXPIRED';
   const isApplicant = currentUserId !== null && matchInfo !== null && currentUserId === matchInfo.applicantId;
 
-  if (loading) return (
+  if (loading) {
+    return (
       <div className="flex flex-col items-center justify-center py-20">
-        <Loader2 className="animate-spin text-[#d84315] mb-4" size={40} />
+        <Loader2 className="mb-4 animate-spin text-[#d84315]" size={40} />
         <p className="text-[#616161]">채팅방에 입장하는 중...</p>
       </div>
-  );
+    );
+  }
 
   return (
-      <div className="max-w-3xl mx-auto h-[calc(100vh-12rem)] flex flex-col">
-        {/* 채팅방 헤더 */}
-        <div className="bg-white border border-[#e0e0e0] rounded-t-2xl p-5 flex items-center justify-between shadow-sm">
-          <div className="flex items-center gap-3">
-            <Link to="/matches" className="text-[#616161] hover:text-[#d84315]">
-              <ArrowLeft size={20} />
-            </Link>
-            <div>
-              <h2 className="font-semibold text-[#212121]">{matchInfo ? `${matchInfo.placeName} 만남` : '채팅'}</h2>
-              <p className="text-xs text-[#9e9e9e]">
-                {matchInfo?.placeName} · {matchInfo?.meetAt ? new Date(matchInfo.meetAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex gap-2">
-            {/* 웹소켓 연결 상태 표시 */}
-            {!connected && (
-                <span className="text-xs text-red-500 flex items-center gap-1">
-              <AlertCircle size={12} /> 연결 끊김
-            </span>
-            )}
-            {/* 장소 인증 버튼 */}
-            {matchInfo ? (
-                <>
-                  <Link
-                      to={`/matches/${matchInfo.matchId}/place-verification`}
-                      className="px-5 py-2.5 bg-[#d84315] text-white rounded-xl text-sm font-semibold hover:bg-[#bf360c] transition-all shadow-md flex items-center gap-2"
-                  >
-                    <MapPin size={16} />
-                    장소 인증
-                  </Link>
-                  {isApplicant && (
-                    <button
-                        type="button"
-                        onClick={handleExtendMeetTime}
-                        disabled={extensionLoading || !canRequestExtension}
-                        className="px-5 py-2.5 bg-white border border-[#d84315] text-[#d84315] rounded-xl text-sm font-semibold hover:bg-[#fff3e0] transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {extensionLoading ? <Loader2 size={16} className="animate-spin" /> : <Clock size={16} />}
-                      시간 연장
-                    </button>
-                  )}
-                </>
-            ) : (
-                <button
-                    type="button"
-                    disabled
-                    className="px-5 py-2.5 bg-[#e0e0e0] text-white rounded-xl text-sm font-semibold shadow-md flex items-center gap-2"
-                >
-                  <MapPin size={16} />
-                  장소 인증
-                </button>
-            )}
+    <div className="mx-auto flex h-[calc(100vh-12rem)] max-w-3xl flex-col">
+      <div className="flex items-center justify-between rounded-t-2xl border border-[#e0e0e0] bg-white p-5 shadow-sm">
+        <div className="flex items-center gap-3">
+          <Link to="/matches" className="text-[#616161] hover:text-[#d84315]"><ArrowLeft size={20} /></Link>
+          <div>
+            <h2 className="font-semibold text-[#212121]">{matchInfo ? `${matchInfo.placeName} 만남` : '채팅'}</h2>
+            <p className="text-xs text-[#9e9e9e]">
+              {matchInfo?.placeName} · {matchInfo?.meetAt ? new Date(matchInfo.meetAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+            </p>
           </div>
         </div>
 
-        {/* 에러 배너 */}
-        {error && (
-            <div className="bg-[#ffebee] border-x border-b border-[#ef5350] px-4 py-3 flex items-start gap-2 text-sm text-[#c62828]">
-              <AlertCircle size={16} className="mt-0.5 shrink-0" />
-              <span>{error}</span>
-            </div>
-        )}
-
-        {/* 연장 상태 배너 */}
-        {extensionInfo && extensionInfo.extensionStatus !== 'NONE' && matchInfo?.status === 'MATCHED' && (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {chatRoomId && (
+            <button type="button" onClick={handleOpenMembers} className="flex items-center gap-2 rounded-xl border border-[#e0e0e0] bg-white px-3 py-2.5 text-sm font-semibold text-[#616161] shadow-sm transition-all hover:border-[#d84315] hover:text-[#d84315]" title="참여자 목록" aria-label="참여자 목록">
+              <Users size={16} />
+            </button>
+          )}
+          {!connected && <span className="flex items-center gap-1 text-xs text-red-500"><AlertCircle size={12} /> 연결 끊김</span>}
+          {matchInfo ? (
             <>
-              {/* 상대방이 요청 → 수락/거절 배너 */}
-              {extensionInfo.extensionStatus === 'REQUESTED' && !extensionInfo.isMyRequest && (
-                  <div className="bg-[#fff3e0] border-x border-b border-[#ff9800] px-4 py-3 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-sm text-[#e65100]">
-                      <Clock size={16} className="shrink-0" />
-                      <span>
-                        <strong>{extensionInfo.requesterNickname}</strong>님이 만남 시간 10분 연장을 요청했습니다.
-                      </span>
-                    </div>
-                    <div className="flex gap-2 shrink-0">
-                      <button
-                          onClick={handleAcceptExtension}
-                          disabled={extensionActionLoading}
-                          className="px-3 py-1.5 bg-[#4caf50] text-white text-xs font-semibold rounded-lg hover:bg-[#43a047] transition-colors disabled:opacity-50"
-                      >
-                        {extensionActionLoading ? <Loader2 size={12} className="animate-spin" /> : '수락'}
-                      </button>
-                      <button
-                          onClick={handleRejectExtension}
-                          disabled={extensionActionLoading}
-                          className="px-3 py-1.5 bg-white border border-[#ef5350] text-[#ef5350] text-xs font-semibold rounded-lg hover:bg-[#ffebee] transition-colors disabled:opacity-50"
-                      >
-                        거절
-                      </button>
-                    </div>
-                  </div>
-              )}
-
-              {/* 내가 요청 → 대기 중 배너 */}
-              {extensionInfo.extensionStatus === 'REQUESTED' && extensionInfo.isMyRequest && (
-                  <div className="bg-[#e3f2fd] border-x border-b border-[#2196f3] px-4 py-3 flex items-center gap-2 text-sm text-[#1565c0]">
-                    <Clock size={16} className="shrink-0" />
-                    <span>연장 요청을 보냈습니다. 상대방의 응답을 기다리는 중...</span>
-                  </div>
-              )}
-
-              {/* 수락됨 → 양측에 새 약속시간 표시 */}
-              {extensionInfo.extensionStatus === 'ACCEPTED' && (
-                  <div className="bg-[#e8f5e9] border-x border-b border-[#4caf50] px-4 py-3 flex items-center gap-2 text-sm text-[#2e7d32]">
-                    <Check size={16} className="shrink-0" />
-                    <span>
-                      만남 시간이 10분 연장되었습니다. 새 약속시간:{' '}
-                      <strong>
-                        {new Date(extensionInfo.expectedMeetAt).toLocaleTimeString('ko-KR', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </strong>
-                    </span>
-                  </div>
-              )}
-
-              {/* 거절됨 → 요청자에게만 표시 */}
-              {extensionInfo.extensionStatus === 'REJECTED' && extensionInfo.isMyRequest && (
-                  <div className="bg-[#ffebee] border-x border-b border-[#ef5350] px-4 py-3 flex items-center gap-2 text-sm text-[#c62828]">
-                    <AlertCircle size={16} className="shrink-0" />
-                    <span>상대방이 시간 연장 요청을 거절했습니다.</span>
-                  </div>
-              )}
-
-              {/* 만료됨 → 요청자에게만 표시 */}
-              {extensionInfo.extensionStatus === 'EXPIRED' && extensionInfo.isMyRequest && (
-                  <div className="bg-[#f5f5f5] border-x border-b border-[#bdbdbd] px-4 py-3 flex items-center gap-2 text-sm text-[#757575]">
-                    <AlertCircle size={16} className="shrink-0" />
-                    <span>연장 요청이 5분 타임아웃으로 만료되었습니다. 다시 요청할 수 있습니다.</span>
-                  </div>
+              <Link to={`/matches/${matchInfo.matchId}/place-verification`} className="flex items-center gap-2 rounded-xl bg-[#d84315] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#bf360c]">
+                <MapPin size={16} />장소 인증
+              </Link>
+              {isApplicant && (
+                <button type="button" onClick={handleExtendMeetTime} disabled={extensionLoading || !canRequestExtension} className="flex items-center gap-2 rounded-xl border border-[#d84315] bg-white px-5 py-2.5 text-sm font-semibold text-[#d84315] shadow-sm transition-all hover:bg-[#fff3e0] disabled:cursor-not-allowed disabled:opacity-50">
+                  {extensionLoading ? <Loader2 size={16} className="animate-spin" /> : <Clock size={16} />}
+                  시간 연장
+                </button>
               )}
             </>
-        )}
+          ) : (
+            <button type="button" disabled className="flex items-center gap-2 rounded-xl bg-[#e0e0e0] px-5 py-2.5 text-sm font-semibold text-white shadow-md"><MapPin size={16} />장소 인증</button>
+          )}
+        </div>
+      </div>
 
-        {/* 메시지 목록 영역 */}
-        <div
-            className="flex-1 bg-white border-x border-[#e0e0e0] p-4 overflow-y-auto"
-            ref={scrollRef}
-        >
-          <div className="space-y-4">
-            {/* 이전 메시지 더 불러오기 버튼 */}
-            {hasNext && (
-                <button
-                    onClick={loadMore}
-                    className="w-full py-2 text-xs text-[#9e9e9e] hover:text-[#d84315] transition-colors"
-                >
-                  이전 메시지 불러오기
-                </button>
-            )}
+      {error && <Banner tone="error">{error}</Banner>}
+      {extensionInfo && extensionInfo.extensionStatus !== 'NONE' && matchInfo?.status === 'MATCHED' && (
+        <ExtensionBanner
+          extensionInfo={extensionInfo}
+          loading={extensionActionLoading}
+          onAccept={handleAcceptExtension}
+          onReject={handleRejectExtension}
+        />
+      )}
 
-            {messages.map((msg, idx) => {
-              const isMe = currentUserId !== null && msg.senderId === currentUserId;
-
-              const date = formatMessageDate(msg.createdAt);
-              const showDate = idx === 0 || formatMessageDate(messages[idx - 1].createdAt) !== date;
-
-              return (
-                  <div key={msg.messageId} className="space-y-2">
-                    {/* 날짜 구분선 */}
-                    {showDate && (
-                        <div className="text-center text-xs font-semibold text-[#9e9e9e] my-5">{date}</div>
-                    )}
-
-                    <div className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                      {!isMe ? (
-                          <div className="max-w-[78%]">
-                            <div className="mb-1 ml-1 text-xs font-semibold text-[#616161]">
-                              {msg.senderNickname}
-                            </div>
-                            <div className="flex items-end gap-2">
-                              <div className="rounded-2xl rounded-tl-sm bg-[#f5f5f5] px-4 py-2.5 text-[#212121] shadow-sm">
-                                <p className="break-words text-sm leading-relaxed">{msg.content}</p>
-                              </div>
-                              <span className="shrink-0 text-[11px] text-[#9e9e9e]">
-                                {formatMessageTime(msg.createdAt)}
-                              </span>
-                            </div>
-                          </div>
-                      ) : (
-                          <div className="flex max-w-[78%] items-end justify-end gap-2">
-                            <div className="flex shrink-0 flex-col items-end gap-0.5 text-[11px]">
-                              <span className={msg.isRead ? 'text-[#bdbdbd]' : 'font-semibold text-[#d84315]'}>
-                                {msg.isRead ? '읽음' : '안읽음'}
-                              </span>
-                              <span className="text-[#9e9e9e]">
-                                {formatMessageTime(msg.createdAt)}
-                              </span>
-                            </div>
-                            <div className="rounded-2xl rounded-tr-sm bg-[#d84315] px-4 py-2.5 text-white shadow-sm">
-                              <p className="break-words text-sm leading-relaxed">{msg.content}</p>
-                            </div>
-                          </div>
-                      )}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto border-x border-[#e0e0e0] bg-white p-4">
+        <div className="space-y-4">
+          {hasNext && <button onClick={loadMore} className="w-full py-2 text-xs text-[#9e9e9e] hover:text-[#d84315]">이전 메시지 불러오기</button>}
+          {messages.map((msg, index) => {
+            const previous = messages[index - 1];
+            const showDate = !previous || formatMessageDate(previous.createdAt) !== formatMessageDate(msg.createdAt);
+            const isMine = msg.senderId === currentUserId;
+            return (
+              <div key={msg.messageId}>
+                {showDate && <div className="my-5 text-center text-xs font-semibold text-[#9e9e9e]">{formatMessageDate(msg.createdAt)}</div>}
+                <div className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[75%] ${isMine ? 'text-right' : 'text-left'}`}>
+                    {!isMine && <p className="mb-1 text-xs font-semibold text-[#757575]">{msg.senderNickname}</p>}
+                    <div className={`rounded-2xl px-4 py-3 text-sm leading-6 ${isMine ? 'bg-[#d84315] text-white' : 'bg-[#f5f5f5] text-[#212121]'}`}>{msg.content}</div>
+                    <div className="mt-1 flex items-center justify-end gap-2 text-[11px]">
+                      {isMine && <span className={msg.isRead ? 'text-[#bdbdbd]' : 'font-semibold text-[#d84315]'}>{msg.isRead ? '읽음' : '안읽음'}</span>}
+                      <span className="text-[#9e9e9e]">{formatMessageTime(msg.createdAt)}</span>
                     </div>
                   </div>
-              );
-            })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <form onSubmit={handleSend} className="flex items-center gap-3 rounded-b-2xl border border-[#e0e0e0] bg-white p-5 shadow-sm">
+        <input type="text" value={message} onChange={(event) => setMessage(event.target.value)} placeholder={isCancelledMatch ? '취소된 매칭의 이전 대화만 조회할 수 있습니다.' : connected ? '메시지를 입력하세요...' : '연결 중입니다...'} disabled={isCancelledMatch || !connected} className="flex-1 rounded-lg border border-[#e0e0e0] px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#d84315]" />
+        <button type="submit" disabled={isCancelledMatch || !connected || !message.trim()} className="flex items-center gap-2 rounded-xl bg-[#d84315] px-6 py-3 font-semibold text-white shadow-md transition-all hover:bg-[#bf360c] hover:shadow-lg disabled:bg-[#e0e0e0]"><Send size={18} />전송</button>
+      </form>
+
+      {membersOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold text-[#d84315]">채팅방 참여자</p>
+                <h3 className="text-lg font-bold text-[#212121]">현재 참여 중인 사용자</h3>
+              </div>
+              <button type="button" onClick={() => setMembersOpen(false)} className="rounded-full p-2 text-[#757575] hover:bg-[#f5f5f5] hover:text-[#212121]"><X size={18} /></button>
+            </div>
+            {membersLoading ? (
+              <div className="py-8 text-center text-sm text-[#9e9e9e]"><Loader2 className="mx-auto mb-2 animate-spin text-[#d84315]" size={20} />참여자 목록을 불러오는 중...</div>
+            ) : members.length > 0 ? (
+              <div className="space-y-2">
+                {members.map((member) => (
+                  <div key={member.userId} className="flex items-center justify-between rounded-xl border border-[#eeeeee] px-4 py-3">
+                    <span className="font-semibold text-[#212121]">{member.nickname || '탈퇴한 사용자'}</span>
+                    <span className="text-xs text-[#9e9e9e]">참여 중</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-[#e0e0e0] p-6 text-center text-sm text-[#9e9e9e]">표시할 참여자가 없습니다.</div>
+            )}
           </div>
         </div>
-
-        {/* 메시지 입력 폼 */}
-        <form
-            onSubmit={handleSend}
-            className="bg-white border border-[#e0e0e0] rounded-b-2xl p-5 flex items-center gap-3 shadow-sm"
-        >
-          <input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder={isCancelledMatch ? "취소된 매칭의 이전 대화만 조회할 수 있습니다." : connected ? "메시지를 입력하세요..." : "연결 중입니다..."}
-              disabled={isCancelledMatch || !connected}
-              className="flex-1 px-4 py-3 border border-[#e0e0e0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#d84315] focus:border-transparent"
-          />
-          <button
-              type="submit"
-              disabled={isCancelledMatch || !connected || !message.trim()}
-              className="px-6 py-3 bg-[#d84315] text-white rounded-xl font-semibold hover:bg-[#bf360c] transition-all shadow-md hover:shadow-lg flex items-center gap-2 disabled:bg-[#e0e0e0]"
-          >
-            <Send size={18} />
-            전송
-          </button>
-        </form>
-      </div>
+      )}
+    </div>
   );
+}
+
+function ExtensionBanner({ extensionInfo, loading, onAccept, onReject }: { extensionInfo: MeetExtensionResponse; loading: boolean; onAccept: () => void; onReject: () => void }) {
+  if (extensionInfo.extensionStatus === 'REQUESTED' && !extensionInfo.isMyRequest) {
+    return (
+      <div className="flex items-center justify-between gap-3 border-x border-b border-[#ff9800] bg-[#fff3e0] px-4 py-3">
+        <div className="flex items-center gap-2 text-sm text-[#e65100]"><Clock size={16} /><span><strong>{extensionInfo.requesterNickname}</strong>님이 만남 시간 10분 연장을 요청했습니다.</span></div>
+        <div className="flex gap-2">
+          <button onClick={onAccept} disabled={loading} className="rounded-lg bg-[#4caf50] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">수락</button>
+          <button onClick={onReject} disabled={loading} className="rounded-lg border border-[#ef5350] bg-white px-3 py-1.5 text-xs font-semibold text-[#ef5350] disabled:opacity-50">거절</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (extensionInfo.extensionStatus === 'REQUESTED' && extensionInfo.isMyRequest) return <Banner tone="info">연장 요청을 보냈습니다. 상대방의 응답을 기다리는 중...</Banner>;
+  if (extensionInfo.extensionStatus === 'ACCEPTED') return <Banner tone="success"><Check size={16} />만남 시간이 10분 연장되었습니다.</Banner>;
+  if (extensionInfo.extensionStatus === 'REJECTED' && extensionInfo.isMyRequest) return <Banner tone="error">상대방이 시간 연장 요청을 거절했습니다.</Banner>;
+  if (extensionInfo.extensionStatus === 'EXPIRED' && extensionInfo.isMyRequest) return <Banner tone="muted">연장 요청이 만료되었습니다. 다시 요청할 수 있습니다.</Banner>;
+  return null;
+}
+
+function Banner({ children, tone }: { children: React.ReactNode; tone: 'error' | 'info' | 'success' | 'muted' }) {
+  const classes = {
+    error: 'border-[#ef5350] bg-[#ffebee] text-[#c62828]',
+    info: 'border-[#2196f3] bg-[#e3f2fd] text-[#1565c0]',
+    success: 'border-[#4caf50] bg-[#e8f5e9] text-[#2e7d32]',
+    muted: 'border-[#bdbdbd] bg-[#f5f5f5] text-[#757575]',
+  }[tone];
+  return <div className={`flex items-center gap-2 border-x border-b px-4 py-3 text-sm ${classes}`}>{children}</div>;
+}
+
+function formatMessageDate(value: string) {
+  return new Date(value).toLocaleDateString('ko-KR', { year: 'numeric', month: 'numeric', day: 'numeric' });
+}
+
+function formatMessageTime(value: string) {
+  return new Date(value).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: true });
 }
