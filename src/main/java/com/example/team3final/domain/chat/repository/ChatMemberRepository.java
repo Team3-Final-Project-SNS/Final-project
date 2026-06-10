@@ -26,8 +26,8 @@ public interface ChatMemberRepository extends JpaRepository<ChatMember, Long> {
     // 특정 채팅방에 해당 유저가 존재하는지 확인
     boolean existsByChatRoomIdAndUserId(Long chatRoomId, Long userId);
 
-    // 신청자 매칭 취소 시 해당 참여자만 채팅방에서 제거
-    void deleteByChatRoomIdAndUserId(Long chatRoomId, Long userId);
+    // leftAt이 null인 현재 참여 중인 멤버만 조회
+    List<ChatMember> findByChatRoomIdAndLeftAtIsNull(Long chatRoomId);
 
     // 특정 채팅방에서 특정 유저의 멤버 상태를 NO_SHOW로 변경
     // GUEST 노쇼 판정 시 호출 — 삭제 대신 상태 변경으로 처리
