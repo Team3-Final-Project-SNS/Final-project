@@ -17,23 +17,15 @@ import com.example.team3final.domain.post.dto.response.PostMatchInfoDto;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.service.PostService;
-import com.example.team3final.domain.report.service.ReportService;
-import com.example.team3final.domain.review.service.ReviewAvoidanceService;
 import com.example.team3final.domain.review.util.ReviewRedisZSetKeys;
 import com.example.team3final.domain.user.dto.response.UserInfoDto;
 import com.example.team3final.domain.user.service.UserPointService;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
-import org.redisson.api.RLock;
-import org.redisson.api.RedissonClient;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -42,7 +34,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -51,200 +42,18 @@ import java.util.stream.Collectors;
 public class MatchServiceImpl implements MatchService{
 
     private final MatchRepository matchRepository;
+    private final MatchCreateService matchCreateService;
     private final ChatService chatService;
     private final UserPointService userPointService;
     private final UserService userService;
     private final PostService postService;
     private final NotificationPublisher notificationPublisher;  // 알림 발송용
-    private final ReviewAvoidanceService reviewAvoidanceService;
     private final StringRedisTemplate redisTemplate; // ZSet 예약용
-    private final ReportService reportService;
     private final UserLocationCleanupService userLocationCleanupService;
-    private final RedissonClient redissonClient;
-
-    @Autowired
-    @Lazy
-    private MatchServiceImpl self;
-
-    @Value("${match.lock.group-wait-ms:500}")
-    // @Value: application.yml에서 값 주입, 없으면 기본값 500 사용
-    private long groupLockWaitMs;
-
-    private static final String MATCH_LOCK_KEY = "match:lock:post:";
-    private static final long REDIS_LOCK_LEASE_SECONDS = 5;
 
     @Override
     public CreateMatchResponseDto createMatch(Long postId, Long applicantId) {
-
-        String lockKey = MATCH_LOCK_KEY + postId;
-        RLock lock = redissonClient.getLock(lockKey);
-
-        boolean acquired = false;
-        CreateMatchResponseDto result = null; // 알림 발송에 필요한 정보 보관용
-
-        try {
-            Post post = postService.getPostById(postId);
-            long waitTime = (post.getMaxApplicants() == 2) ? 0L : groupLockWaitMs;
-            acquired = lock.tryLock(waitTime, REDIS_LOCK_LEASE_SECONDS * 1000, TimeUnit.MILLISECONDS);
-
-            if (!acquired) {
-                throw new MatchException(ErrorCode.MATCH_ALREADY_MATCHED);
-            }
-
-            // DB 작업만 트랜잭션 안에서 처리 (알림 발송 제외)
-            result = self.createMatchInTransaction(postId, applicantId);
-            return result;
-
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new MatchException(ErrorCode.MATCH_ALREADY_MATCHED);
-        } finally {
-            if (acquired && lock.isHeldByCurrentThread()) {
-                lock.unlock();
-            }
-                // ✅ 락 해제 후 알림 발송
-                // → Kafka 대기 시간(3초×2)이 락 점유 시간에서 완전히 제거됨
-                // → 다음 스레드가 락을 빠르게 획득 가능 → 단체 매칭 순차 처리 보장
-                // result가 null이면 createMatchInTransaction()에서 예외 발생한 것
-                // → 매칭 실패 케이스이므로 알림 발송 불필요
-                if (result != null) {
-                    notificationPublisher.sendMatchApplied(result.authorId(), result.matchId());
-                    notificationPublisher.sendMatchConfirmed(result.applicantId(), result.matchId());
-                }
-            }
-
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public CreateMatchResponseDto createMatchInTransaction(Long postId, Long applicantId) {
-
-        Post post = postService.getPostWithPessimisticLock(postId);
-
-        // 1. 본인 소유 게시글 신청 차단
-        if (post.getAuthorId().equals(applicantId)) {
-            throw new MatchException(ErrorCode.MATCH_SELF_APPLY);
-        }
-
-        // 다시 만나고 싶지 않아요 관계가 있으면 목록에서 보이지 않아야 하고,
-        // postId를 직접 알아도 신청할 수 없어야 하므로 매칭 생성 단계에서 한 번 더 차단합니다.
-        if (reviewAvoidanceService.existsAvoidRelation(applicantId, post.getAuthorId())) {
-            throw new MatchException(ErrorCode.MATCH_AVOIDED_USER);
-        }
-
-        // 2. 게시글 상태 검증
-        if (post.getStatus() == PostStatus.MATCHED) {
-            throw new MatchException(ErrorCode.MATCH_ALREADY_MATCHED);
-        }
-        if (post.getStatus() == PostStatus.CANCELLED) {
-            throw new MatchException(ErrorCode.MATCH_POST_CLOSED);
-        }
-        if (post.getStatus() != PostStatus.OPEN) {
-            throw new MatchException(ErrorCode.MATCH_POST_CLOSED);
-        }
-
-        // 신고 접수 중인 게시글 차단
-        boolean isUnderReport = reportService.existsPendingReport(post.getId());
-        if (isUnderReport) {
-            throw new MatchException(ErrorCode.MATCH_POST_UNDER_REPORT);
-        }
-
-        // 2-1. 중복 신청 차단 (같은 게시글에 같은 사용자 두 번 신청 불가)
-        // MATCHED 상태인 경우만 중복으로 판단
-        // 기획서: "Post 상태 OPEN (재신청 가능)" → CANCELLED된 매칭은 재신청 허용
-        if (matchRepository.existsByPostIdAndApplicantIdAndStatus(
-                postId, applicantId, MatchStatus.MATCHED)) {
-            throw new MatchException(ErrorCode.MATCH_DUPLICATE_APPLY);
-        }
-
-        // 2-2. 활성 매칭 정원 검증 (그룹 매칭 지원)
-        if (post.isFull()) {
-            throw new MatchException(ErrorCode.MATCH_ALREADY_MATCHED);
-        }
-
-        // 3. 신청자 포인트 차감 — 잔액 부족 시 예외 → 트랜잭션 전체 롤백
-        // matchId는 아직 생성 전이라 null
-        userPointService.deductPoint(applicantId, post.getAuthorDeposit(), null);
-
-        Match match = Match.builder()
-                .postId(postId)
-                .applicantId(applicantId)
-                .applicantDeposit(post.getAuthorDeposit())
-                .build();
-        Match savedMatch = matchRepository.save(match);
-
-        // 참여 인원 증가
-        post.increaseCurrentApplicants();
-
-        // 첫 신청 즉시 채팅방 생성 (정원 관계없이)
-        // 채팅방이 없으면 생성, 있으면 기존 채팅방에 멤버만 추가
-        Long chatRoomId = null;
-        if (!chatService.existsChatRoomByPostId(postId)) {
-            // 첫 번째 신청자 → HOST(등록자) + GUEST(신청자) 채팅방 생성
-            chatRoomId = chatService.createChatRoom(
-                    postId,
-                    post.getAuthorId(),
-                    applicantId
-            );
-        } else {
-            // 두 번째 이후 신청자 → 기존 채팅방에 GUEST로 추가
-            chatService.addChatMember(postId, applicantId);
-            chatRoomId = chatService.getChatRoomIdByPostId(postId);
-        }
-
-       // 정원이 다 찼을 때만 게시글 상태 MATCHED로 변경
-        if (post.isFull()) {
-            post.match();
-        }
-
-        // 양측 닉네임 조회
-        String authorNickname = userService.getUserInfo(post.getAuthorId()).nickname();
-        String applicantNickname = userService.getUserInfo(applicantId).nickname();
-
-        // 만남 알림 ZSet 예약 (30분/15분/5분 전)
-        // score = 알림 발송할 Unix Timestamp
-        // member = matchId (스케줄러가 꺼내서 알림 발송에 사용)
-        LocalDateTime meetAt = post.getMeetAt();
-        LocalDateTime now = LocalDateTime.now();
-        ZoneOffset KST = ZoneOffset.ofHours(9);
-        String postIdStr = String.valueOf(postId);
-        String matchIdStr = String.valueOf(savedMatch.getId());
-
-        // 30분 전 알림 예약
-        if (now.isBefore(meetAt.minusMinutes(30))) {
-            double score30 = meetAt.minusMinutes(30).toEpochSecond(KST);
-            redisTemplate.opsForZSet().add(MeetRedisZSetKeys.REMINDER_30_HOST, postIdStr, score30);
-            redisTemplate.opsForZSet().add(MeetRedisZSetKeys.REMINDER_30_GUEST, matchIdStr, score30);
-        }
-
-        // 15분 전 알림 예약
-        if (now.isBefore(meetAt.minusMinutes(15))) {
-            double score15 = meetAt.minusMinutes(15).toEpochSecond(KST);
-            redisTemplate.opsForZSet().add(MeetRedisZSetKeys.REMINDER_15_HOST, postIdStr, score15);
-            redisTemplate.opsForZSet().add(MeetRedisZSetKeys.REMINDER_15_GUEST, matchIdStr, score15);
-        }
-
-        // 임박 알림 예약 (5분 전)
-        if (now.isBefore(meetAt.minusMinutes(5))) {
-            double score5 = meetAt.minusMinutes(5).toEpochSecond(KST);
-            redisTemplate.opsForZSet().add(MeetRedisZSetKeys.REMINDER_IMMINENT_HOST, postIdStr, score5);
-            redisTemplate.opsForZSet().add(MeetRedisZSetKeys.REMINDER_IMMINENT_GUEST, matchIdStr, score5);
-        }
-
-        // 10분 경과 알림 예약
-        if (now.isBefore(meetAt.plusMinutes(10))) {
-            double scoreOverdue = meetAt.plusMinutes(10).toEpochSecond(KST);
-            redisTemplate.opsForZSet().add(MeetRedisZSetKeys.REMINDER_OVERDUE_HOST, postIdStr, scoreOverdue);
-            redisTemplate.opsForZSet().add(MeetRedisZSetKeys.REMINDER_OVERDUE_GUEST, matchIdStr, scoreOverdue);
-        }
-
-        return CreateMatchResponseDto.of(
-                savedMatch,
-                post.getAuthorId(),
-                post.getAuthorDeposit(),
-                authorNickname,
-                applicantNickname,
-                chatRoomId
-        );
+        return matchCreateService.createMatch(postId, applicantId);
     }
 
     @Override
