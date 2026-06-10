@@ -174,7 +174,7 @@ export default function AdminHomePage() {
 
   return (
     <div className="mx-auto max-w-screen-xl">
-      <div className="mb-7 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="mb-7 flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#fff3e0]">
@@ -191,10 +191,11 @@ export default function AdminHomePage() {
           type="button"
           onClick={loadDashboard}
           disabled={loading}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#e0e0e0] bg-white px-4 text-sm font-bold text-[#616161] hover:border-[#d84315] hover:text-[#d84315] disabled:opacity-60"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#e0e0e0] bg-white text-[#616161] hover:border-[#d84315] hover:text-[#d84315] disabled:opacity-60"
+          title="새로고침"
+          aria-label="대시보드 새로고침"
         >
           <RefreshCcw className={loading ? 'animate-spin' : ''} size={16} />
-          새로고침
         </button>
       </div>
 
