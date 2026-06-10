@@ -318,6 +318,9 @@ export default function ChatPage() {
       extensionInfo.extensionStatus === 'NONE' ||
       extensionInfo.extensionStatus === 'EXPIRED';
 
+  // 신청자 여부: 현재 로그인한 유저가 applicant일 때만 시간 연장 버튼 노출
+  const isApplicant = currentUserId !== null && matchInfo !== null && currentUserId === matchInfo.applicantId;
+
   if (loading) return (
       <div className="flex flex-col items-center justify-center py-20">
         <Loader2 className="animate-spin text-[#d84315] mb-4" size={40} />
@@ -358,15 +361,17 @@ export default function ChatPage() {
                     <MapPin size={16} />
                     장소 인증
                   </Link>
-                  <button
-                      type="button"
-                      onClick={handleExtendMeetTime}
-                      disabled={extensionLoading || !canRequestExtension}
-                      className="px-5 py-2.5 bg-white border border-[#d84315] text-[#d84315] rounded-xl text-sm font-semibold hover:bg-[#fff3e0] transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {extensionLoading ? <Loader2 size={16} className="animate-spin" /> : <Clock size={16} />}
-                    시간 연장
-                  </button>
+                  {isApplicant && (
+                    <button
+                        type="button"
+                        onClick={handleExtendMeetTime}
+                        disabled={extensionLoading || !canRequestExtension}
+                        className="px-5 py-2.5 bg-white border border-[#d84315] text-[#d84315] rounded-xl text-sm font-semibold hover:bg-[#fff3e0] transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {extensionLoading ? <Loader2 size={16} className="animate-spin" /> : <Clock size={16} />}
+                      시간 연장
+                    </button>
+                  )}
                 </>
             ) : (
                 <button
