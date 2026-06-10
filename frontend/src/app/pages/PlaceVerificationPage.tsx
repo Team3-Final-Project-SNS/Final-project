@@ -292,7 +292,7 @@ export default function PlaceVerificationPage() {
                 const verData = verRes.data.data;
                 setVerificationStatus({
                     authorVerified: verData.authorPlaceVerifiedAt !== null,
-                    applicantVerified: verData.applicantPlaceVerifiedAt !== null,
+                    applicantVerified: verData.participants?.find(p => p.matchId === Number(id))?.verified ?? false,
                 });
 
                 if (verData.verificationStatus === 'DONE') {
