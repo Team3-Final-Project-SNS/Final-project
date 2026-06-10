@@ -16,8 +16,8 @@ public interface MeetVerificationService {
             PlaceVerificationRequestDto requestDto
     );
 
-    // QR 토큰 발급/조회
-    QrResponseDto getMeetQr(Long userId, Long matchId);
+    // 등록자가 Post 기준 공통 QR을 조회
+    QrResponseDto getMeetQrByPost(Long userId, Long postId);
 
     // QR 스캔
     QrScanResponseDto createQrScan(Long userId, Long matchId, QrScanRequestDto requestDto);

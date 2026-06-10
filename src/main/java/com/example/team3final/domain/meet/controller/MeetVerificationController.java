@@ -15,13 +15,13 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/matches")
+@RequestMapping("/api/v1")
 public class MeetVerificationController {
 
     private final MeetVerificationService meetVerificationService;
 
     // GPS 장소 인증 API
-    @PostMapping("/{matchId}/place-verification")
+    @PostMapping("/matches/{matchId}/place-verification")
     public ResponseEntity<ApiResponseDto<PlaceVerificationResponseDto>> createPlaceVerification(
             @PathVariable Long matchId,
             @AuthenticationPrincipal UserDetailsImpl userDetails,
@@ -33,18 +33,18 @@ public class MeetVerificationController {
     }
 
     // QR 토큰 발급/조회
-    @GetMapping("/{matchId}/qr")
-    public ResponseEntity<ApiResponseDto<QrResponseDto>> getMeetQr(
-            @PathVariable Long matchId,
+    @GetMapping("/posts/{postId}/qr")
+    public ResponseEntity<ApiResponseDto<QrResponseDto>> getMeetQrByPost(
+            @PathVariable Long postId,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
 
         Long userId = userDetails.getUserId();
         return ResponseEntity.ok(ApiResponseDto.success(
-                meetVerificationService.getMeetQr(userId, matchId)));
+                meetVerificationService.getMeetQrByPost(userId, postId)));
     }
 
     // QR 스캔
-    @PostMapping("/{matchId}/qr/scan")
+    @PostMapping("/matches/{matchId}/qr/scan")
     public ResponseEntity<ApiResponseDto<QrScanResponseDto>> createQrScan(
             @PathVariable Long matchId,
             @AuthenticationPrincipal UserDetailsImpl userDetails,
@@ -56,7 +56,7 @@ public class MeetVerificationController {
     }
 
     // QR 인증 상태 조회
-    @GetMapping("/{matchId}/verification")
+    @GetMapping("/matches/{matchId}/verification")
     public ResponseEntity<ApiResponseDto<MeetVerificationResponseDto>> getMeetVerification(
             @PathVariable Long matchId,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
@@ -67,7 +67,7 @@ public class MeetVerificationController {
     }
 
     // 만남 시간 연장 요청
-    @PostMapping("/{matchId}/extension/request")
+    @PostMapping("/matches/{matchId}/extension/request")
     public ResponseEntity<ApiResponseDto<CreateMeetExtensionResponseDto>> createMeetExtension(
             @PathVariable Long matchId,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
@@ -78,7 +78,7 @@ public class MeetVerificationController {
     }
 
     // 만남 시간 연장 수락
-    @PatchMapping("/{matchId}/extension/accept")
+    @PatchMapping("/matches/{matchId}/extension/accept")
     public ResponseEntity<ApiResponseDto<AcceptMeetExtensionResponseDto>> acceptMeetExtension(
             @PathVariable Long matchId,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
@@ -88,7 +88,7 @@ public class MeetVerificationController {
     }
 
     // 만남 시간 연장 거절
-    @PatchMapping("/{matchId}/extension/reject")
+    @PatchMapping("/matches/{matchId}/extension/reject")
     public ResponseEntity<ApiResponseDto<RejectMeetExtensionResponseDto>> rejectMeetExtension(
             @PathVariable Long matchId,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
@@ -98,7 +98,7 @@ public class MeetVerificationController {
     }
 
     // 만남 시간 연장 상태 조회
-    @GetMapping("/{matchId}/extension")
+    @GetMapping("/matches/{matchId}/extension")
     public ResponseEntity<ApiResponseDto<GetMeetExtensionResponseDto>> getMeetExtension(
             @PathVariable Long matchId,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {

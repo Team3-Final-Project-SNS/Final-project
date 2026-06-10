@@ -1,20 +1,23 @@
 package com.example.team3final.domain.meet.dto.response;
 
-import com.example.team3final.domain.meet.entity.MeetVerification;
-
 import java.time.LocalDateTime;
 
+// 등록자 QR 조회 응답 DTO
+// 그룹 만남에서는 QR이 Match 단위가 아니라 Post 단위로 공유
 public record QrResponseDto (
 
-        Long matchId,
+        Long postId,
         String qrToken,
-        LocalDateTime expiresAt
+        LocalDateTime qrExpiresAt
 ) {
-    public static QrResponseDto of(Long matchId, MeetVerification meetVerification) {
+    public static QrResponseDto of(
+            Long postId,
+            String qrToken,
+            LocalDateTime qrExpiresAt) {
         return new QrResponseDto(
-                matchId,
-                meetVerification.getQrToken(),
-                meetVerification.getQrExpiresAt()
+                postId,
+                qrToken,
+                qrExpiresAt
         );
     }
 }
