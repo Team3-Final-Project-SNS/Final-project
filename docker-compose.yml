@@ -105,21 +105,61 @@ services:
 
   prometheus:
     image: prom/prometheus
+    container_name: hankkipot-prometheus
     ports:
       - "9090:9090"
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    restart: always
+
+  loki:
+    image: grafana/loki:3.4.2
+    container_name: hankkipot-loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+    command:
+      - "-config.file=/etc/loki/loki-config.yml"
+    restart: always
+
+  alloy:
+    image: grafana/alloy:v1.7.5
+    container_name: hankkipot-alloy
+    ports:
+      - "12345:12345"
+    volumes:
+      - ./monitoring/alloy-config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command:
+      - "run"
+      - "--server.http.listen-addr=0.0.0.0:12345"
+      - "/etc/alloy/config.alloy"
+    depends_on:
+      - loki
+      - kafka
     restart: always
 
   grafana:
     image: grafana/grafana
+    container_name: hankkipot-grafana
     ports:
       - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
     restart: always
     depends_on:
       - prometheus
+      - loki
 
   frontend:
     build:
@@ -144,3 +184,6 @@ volumes:
   mysql_data:
   redis_data:
   rag_postgres_data:
+  prometheus_data:
+  loki_data:
+  grafana_data:
