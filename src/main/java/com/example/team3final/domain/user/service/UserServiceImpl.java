@@ -6,7 +6,6 @@ import com.example.team3final.domain.pointTransaction.entity.PointTransaction;
 import com.example.team3final.domain.pointTransaction.enums.PointSource;
 import com.example.team3final.domain.pointTransaction.enums.PointTransactionType;
 import com.example.team3final.domain.pointTransaction.repository.PointTransactionRepository;
-import com.example.team3final.domain.post.cache.PostCachePolicy;
 import com.example.team3final.domain.user.dto.request.UpdateUserRequestDto;
 import com.example.team3final.domain.user.dto.response.AdminUserInfoDto;
 import com.example.team3final.domain.user.dto.response.GetUserResponseDto;
@@ -17,7 +16,6 @@ import com.example.team3final.domain.user.enums.Gender;
 import com.example.team3final.domain.user.enums.UserStatus;
 import com.example.team3final.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -382,6 +381,28 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
 
         user.updateMannerTemperature(mannerTemperature);
+    }
+
+    // 매너온도 갱신 - 비관락 적용 버전
+    @Override
+    @Transactional
+    public void updateMannerTemperatureWithLock(Long userId, BigDecimal averageScoreDelta, BigDecimal mannerWeight) {
+        // 비관적으로 조회 - 이 트랜잭션이 커밋될 때까지 다른 스레드가 이 행을 수정 불가
+        User user = userRepository.findByIdWithPessimisticLock(userId)
+                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
+
+        // 락이 걸린 상태에서 현재 온도를 읽어 직접 계산
+        BigDecimal currentTemperature = user.getMannerTemperature();
+        BigDecimal changed = currentTemperature
+                .add(averageScoreDelta.multiply(mannerWeight))
+                .setScale(1, RoundingMode.HALF_UP);
+
+        // 0도 이하 -> 0, 99도 초과 -> 99로 클램핑
+        BigDecimal clamped = changed
+                .max(BigDecimal.ZERO)
+                .min(new BigDecimal("99.0"));
+
+        user.updateMannerTemperature(clamped);
     }
 
     // 사용자의 현재 매너온도 조회
