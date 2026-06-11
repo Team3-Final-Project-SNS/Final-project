@@ -23,7 +23,6 @@ interface Position {
 }
 
 const USER_VISIBLE_RADIUS_METERS = 50;
-const PLACE_VERIFICATION_ALLOWED_RADIUS_METERS = 60;
 
 export default function PlaceVerificationPage() {
   const { id } = useParams();
@@ -171,7 +170,7 @@ export default function PlaceVerificationPage() {
       meetingPlace.longitude,
     );
     setDistance(nextDistance);
-    setIsWithinRange(nextDistance <= PLACE_VERIFICATION_ALLOWED_RADIUS_METERS);
+    setIsWithinRange(nextDistance <= USER_VISIBLE_RADIUS_METERS);
 
     if (kakaoMapAvailable && mapRef.current && window.kakao?.maps) {
       const position = new window.kakao.maps.LatLng(currentPosition.latitude, currentPosition.longitude);
@@ -259,7 +258,6 @@ export default function PlaceVerificationPage() {
   }
 
   const allVerified = authorVerified && verificationParticipants.length > 0 && verificationParticipants.every((item) => item.verified);
-  const visibleDistance = distance === null ? null : Math.min(distance, USER_VISIBLE_RADIUS_METERS);
 
   return (
     <div className="mx-auto max-w-2xl p-4">
@@ -313,13 +311,13 @@ export default function PlaceVerificationPage() {
             <div className="mb-2 flex items-center justify-between">
               <span className="text-sm text-[#616161]">현재 거리</span>
               <span className={`text-lg font-bold ${isWithinRange ? 'text-[#4caf50]' : 'text-[#ef5350]'}`}>
-                {visibleDistance?.toFixed(1)}m / {USER_VISIBLE_RADIUS_METERS}m
+                {distance.toFixed(1)}m / {USER_VISIBLE_RADIUS_METERS}m
               </span>
             </div>
             <div className="relative h-3 w-full overflow-hidden rounded-full bg-[#e0e0e0]">
               <div
                 className={`h-full transition-all duration-300 ${isWithinRange ? 'bg-[#4caf50]' : 'bg-[#ef5350]'}`}
-                style={{ width: `${Math.min(((visibleDistance ?? 0) / USER_VISIBLE_RADIUS_METERS) * 100, 100)}%` }}
+                style={{ width: `${Math.min((distance / USER_VISIBLE_RADIUS_METERS) * 100, 100)}%` }}
               />
             </div>
           </div>
