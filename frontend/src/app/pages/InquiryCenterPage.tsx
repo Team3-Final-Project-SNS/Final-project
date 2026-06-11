@@ -14,9 +14,6 @@ import {
 import {
   createDispute,
   DisputeType,
-  GetMatchesItemResponse,
-  getMyMatches,
-  MatchStatus,
 } from '../../api/matchApi';
 import AdminFloatingChatbot from '../components/AdminFloatingChatbot';
 
@@ -30,7 +27,6 @@ const inquiryTypes: { value: InquiryType; label: string }[] = [
   { value: 'OTHER', label: '기타' },
 ];
 
-const noShowStatuses: MatchStatus[] = ['AUTHOR_NO_SHOW', 'APPLICANT_NO_SHOW', 'BOTH_NO_SHOW'];
 
 const disputeTypes: { value: DisputeType; label: string }[] = [
   { value: 'FUNERAL_CEREMONY', label: '(경)조사' },
@@ -57,6 +53,8 @@ const statusClasses: Record<InquiryAnswerStatus, string> = {
 export default function InquiryCenterPage() {
   const [searchParams] = useSearchParams();
   const requestedNoShowMatchId = searchParams.get('matchId');
+  const requestedNoShowMatchIdNumber = Number(requestedNoShowMatchId);
+  const hasRequestedNoShowMatchId = Number.isInteger(requestedNoShowMatchIdNumber) && requestedNoShowMatchIdNumber > 0;
   const requestedInquiryId = searchParams.get('inquiryId');
   const [view, setView] = useState<'menu' | 'inquiry' | 'noShow'>(
       searchParams.get('view') === 'noShow'
@@ -77,13 +75,9 @@ export default function InquiryCenterPage() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [type, setType] = useState<InquiryType>('OTHER');
-  const [noShowMatches, setNoShowMatches] = useState<GetMatchesItemResponse[]>([]);
-  const [noShowLoading, setNoShowLoading] = useState(false);
-  const [selectedNoShowMatchId, setSelectedNoShowMatchId] = useState('');
   const [disputeType, setDisputeType] = useState<DisputeType>('GPS_ERROR');
   const [disputeReason, setDisputeReason] = useState('');
   const isNoShowView = view === 'noShow';
-  const isRequestedNoShowMatchLocked = isNoShowView && Boolean(requestedNoShowMatchId);
 
   const openInquiryForm = () => {
     setError('');
@@ -126,40 +120,6 @@ export default function InquiryCenterPage() {
     loadInquiries(page);
   }, [page]);
 
-  useEffect(() => {
-    if (view !== 'noShow') {
-      return;
-    }
-
-    const loadNoShowMatches = async () => {
-      setNoShowLoading(true);
-      setError('');
-      try {
-        const responses = await Promise.all(noShowStatuses.map((status) => getMyMatches(status, 0, 20)));
-        const nextMatches = responses.flatMap((res) => res.data.data.content);
-        setNoShowMatches(nextMatches);
-        const requestedMatch = nextMatches.find(
-            (match) => String(match.matchId) === requestedNoShowMatchId,
-        );
-        setSelectedNoShowMatchId(
-            requestedNoShowMatchId
-                ? String(requestedNoShowMatchId)
-                : requestedMatch
-                ? String(requestedMatch.matchId)
-                : nextMatches[0]
-                    ? String(nextMatches[0].matchId)
-                    : '',
-        );
-      } catch (err) {
-        console.error('Failed to load no-show matches', err);
-        setError('노쇼 처리된 매칭을 불러오지 못했습니다.');
-      } finally {
-        setNoShowLoading(false);
-      }
-    };
-
-    loadNoShowMatches();
-  }, [view, requestedNoShowMatchId]);
 
   const handleSelect = async (inquiryId: number) => {
     setDetailLoading(true);
@@ -213,8 +173,8 @@ export default function InquiryCenterPage() {
 
   const handleNoShowDisputeSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!selectedNoShowMatchId) {
-      setError('이의제기할 매칭을 선택해주세요.');
+    if (!hasRequestedNoShowMatchId) {
+      setError('matchId가 없어 노쇼 이의제기를 접수할 수 없습니다.');
       return;
     }
     if (!disputeReason.trim()) {
@@ -226,7 +186,7 @@ export default function InquiryCenterPage() {
     setError('');
     setSuccess('');
     try {
-      await createDispute(Number(selectedNoShowMatchId), {
+      await createDispute(requestedNoShowMatchIdNumber, {
         disputeType,
         reason: disputeReason.trim(),
       });
@@ -325,36 +285,13 @@ export default function InquiryCenterPage() {
               <form onSubmit={handleNoShowDisputeSubmit} className="space-y-4">
                 <div>
                   <label className="mb-1 block text-xs font-bold text-[#757575]">이의제기 매칭</label>
-                  {noShowLoading ? (
-                    <div className="rounded-lg border border-[#e0e0e0] bg-[#fafafa] px-3 py-2 text-sm text-[#757575]">
-                      노쇼 매칭을 불러오는 중...
-                    </div>
-                  ) : noShowMatches.length > 0 ? (
-                    <select
-                      value={selectedNoShowMatchId}
-                      onChange={(event) => setSelectedNoShowMatchId(event.target.value)}
-                      disabled={isRequestedNoShowMatchLocked}
-                      className="w-full rounded-lg border border-[#e0e0e0] bg-white px-3 py-2 text-sm focus:border-[#d84315] focus:outline-none focus:ring-2 focus:ring-[#fff3e0] disabled:bg-[#f5f5f5] disabled:text-[#757575]"
-                    >
-                      {noShowMatches.map((match) => (
-                        <option key={match.matchId} value={match.matchId}>
-                          {formatDateTime(match.meetAt)} · {match.placeName} · {match.opponentNickname}
-                        </option>
-                      ))}
-                      {isRequestedNoShowMatchLocked && !noShowMatches.some((match) => String(match.matchId) === selectedNoShowMatchId) && (
-                        <option value={selectedNoShowMatchId}>선택된 노쇼 매칭 #{selectedNoShowMatchId}</option>
-                      )}
-                    </select>
-                  ) : (
-                    <div className="rounded-lg border border-dashed border-[#e0e0e0] bg-[#fafafa] px-3 py-3 text-sm text-[#9e9e9e]">
-                      이의제기 가능한 노쇼 매칭이 없습니다.
-                    </div>
-                  )}
-                  {isRequestedNoShowMatchLocked && (
-                    <p className="mt-2 text-xs font-semibold text-[#d84315]">
-                      알림에서 연결된 매칭으로 자동 지정되어 변경할 수 없습니다.
-                    </p>
-                  )}
+                  <div className={`rounded-lg border px-3 py-3 text-sm font-semibold ${
+                    hasRequestedNoShowMatchId
+                      ? 'border-[#e0e0e0] bg-[#fafafa] text-[#424242]'
+                      : 'border-dashed border-[#ef9a9a] bg-[#ffebee] text-[#c62828]'
+                  }`}>
+                    {hasRequestedNoShowMatchId ? `연결된 매칭 #${requestedNoShowMatchId}` : '연결된 매칭 정보가 없습니다.'}
+                  </div>
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-bold text-[#757575]">이의제기 사유</label>
@@ -383,7 +320,7 @@ export default function InquiryCenterPage() {
                 </div>
                 <button
                   type="submit"
-                  disabled={submitting || noShowLoading || noShowMatches.length === 0}
+                  disabled={submitting || !hasRequestedNoShowMatchId || !disputeReason.trim()}
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#d84315] px-4 py-3 text-sm font-bold text-white shadow-md transition-colors hover:bg-[#bf360c] disabled:opacity-60"
                 >
                   {submitting ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
