@@ -71,9 +71,9 @@ management:
 
 otp:
   expire-seconds: ${OTP_EXPIRE_SECONDS}
-  cooldown-seconds: ${OTP_COOLDOWN_SECONDS}
   max-resend-count: ${OTP_MAX_RESEND_COUNT}
   resend-window-seconds: ${OTP_RESEND_WINDOW_SECONDS}
+  max-attempts: ${OTP_MAX_ATTEMPTS}
 
 jwt:
   secret-key: ${JWT_SECRET_KEY}
