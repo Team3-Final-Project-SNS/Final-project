@@ -1,0 +1,506 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: Hankkipot Loki Alerts
+    folder: Hankkipot Alerts
+    interval: 1m
+    rules:
+      - uid: hankkipot-spring-error-logs
+        title: Spring ERROR logs detected
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: loki
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: A
+              expr: sum(count_over_time({job="spring-app"} |= "ERROR" [5m]))
+              queryType: range
+              maxDataPoints: 43200
+              intervalMs: 1000
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                    params: []
+        noDataState: OK
+        execErrState: Error
+        for: 0m
+        labels:
+          severity: warning
+          domain: backend
+          source: loki
+        annotations:
+          summary: Spring Boot ERROR log detected
+          description: Spring Boot app emitted at least one ERROR log in the last 5 minutes.
+
+      - uid: hankkipot-kafka-dlq-dlt
+        title: Kafka DLQ or DLT message detected
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: loki
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: A
+              expr: sum(count_over_time({job="kafka-dead-letter"}[5m]))
+              queryType: range
+              maxDataPoints: 43200
+              intervalMs: 1000
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                    params: []
+        noDataState: OK
+        execErrState: Error
+        for: 0m
+        labels:
+          severity: critical
+          domain: kafka
+          source: loki
+        annotations:
+          summary: Kafka DLQ/DLT message detected
+          description: At least one Kafka dead-letter message was consumed by Alloy in the last 5 minutes.
+
+  - orgId: 1
+    name: Hankkipot Prometheus Alerts
+    folder: Hankkipot Alerts
+    interval: 1m
+    rules:
+      - uid: hankkipot-app-down
+        title: Application DOWN
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: A
+              expr: min(up{job="spring-boot-app"})
+              range: true
+              instant: false
+              maxDataPoints: 43200
+              intervalMs: 1000
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: lt
+                    params:
+                      - 1
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                    params: []
+        noDataState: Alerting
+        execErrState: Error
+        for: 1m
+        labels:
+          severity: critical
+          domain: backend
+          source: prometheus
+        annotations:
+          summary: Spring Boot app is down
+          description: Prometheus cannot scrape the Spring Boot actuator target.
+
+      - uid: hankkipot-api-5xx
+        title: API 5xx detected
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: A
+              expr: sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m]))
+              range: true
+              instant: false
+              maxDataPoints: 43200
+              intervalMs: 1000
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                    params: []
+        noDataState: OK
+        execErrState: Error
+        for: 0m
+        labels:
+          severity: critical
+          domain: api
+          source: prometheus
+        annotations:
+          summary: API 5xx response detected
+          description: At least one 5xx response was observed by Spring actuator metrics in the last 5 minutes.
+
+      - uid: hankkipot-payment-5xx
+        title: Payment API 5xx detected
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: A
+              expr: sum(rate(http_server_requests_seconds_count{uri=~"/api/v1/payments.*|/api/v1/admin/payments.*",status=~"5.."}[5m]))
+              range: true
+              instant: false
+              maxDataPoints: 43200
+              intervalMs: 1000
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                    params: []
+        noDataState: OK
+        execErrState: Error
+        for: 0m
+        labels:
+          severity: critical
+          domain: payment
+          source: prometheus
+        annotations:
+          summary: Payment API 5xx response detected
+          description: Payment related endpoint returned at least one 5xx response in the last 5 minutes.
+
+      - uid: hankkipot-ai-5xx
+        title: AI API 5xx detected
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: A
+              expr: sum(rate(http_server_requests_seconds_count{uri=~"/api/v1/ai.*|/api/v1/admin/ai.*",status=~"5.."}[5m]))
+              range: true
+              instant: false
+              maxDataPoints: 43200
+              intervalMs: 1000
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                    params: []
+        noDataState: OK
+        execErrState: Error
+        for: 0m
+        labels:
+          severity: warning
+          domain: ai
+          source: prometheus
+        annotations:
+          summary: AI API 5xx response detected
+          description: AI related endpoint returned at least one 5xx response in the last 5 minutes.
+
+      - uid: hankkipot-ai-token-spike
+        title: AI token usage spike
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: A
+              expr: sum(increase({__name__=~"ai_(matching|support)_tokens_total"}[5m]))
+              range: true
+              instant: false
+              maxDataPoints: 43200
+              intervalMs: 1000
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params:
+                      - 5000
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                    params: []
+        noDataState: OK
+        execErrState: Error
+        for: 0m
+        labels:
+          severity: warning
+          domain: ai
+          source: prometheus
+        annotations:
+          summary: AI token usage spike detected
+          description: Matching/Support AI consumed more than 5000 tokens in the last 5 minutes.
+
+      - uid: hankkipot-db-connection-pending
+        title: DB connection pending detected
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: A
+              expr: max(hikaricp_connections_pending)
+              range: true
+              instant: false
+              maxDataPoints: 43200
+              intervalMs: 1000
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                    params: []
+        noDataState: OK
+        execErrState: Error
+        for: 1m
+        labels:
+          severity: warning
+          domain: database
+          source: prometheus
+        annotations:
+          summary: DB connection pending detected
+          description: HikariCP has pending connection requests for at least 1 minute.
