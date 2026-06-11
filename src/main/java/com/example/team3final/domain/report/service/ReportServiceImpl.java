@@ -113,16 +113,17 @@ public class ReportServiceImpl implements ReportService {
     @Transactional
     public void acceptReport(Long reportId, Long adminId) {
 
-        Report report = reportRepository.findById(reportId)
-                .orElseThrow(() -> new ReportException(ErrorCode.REPORT_NOT_FOUND));
+        // 조건부 UPDATE — PENDING인 경우에만 ACCEPTED로 전환 (원자적)
+        //    두 관리자가 동시에 호출해도 DB가 한 건만 처리함
+        int updated = reportRepository.acceptIfPending(reportId, adminId);
 
-        // 이미 처리된 신고 확인
-        if (report.isProcessed()) {
+        // 영향받은 행이 0이면 이미 처리된 신고 -> 예외
+        if (updated == 0) {
             throw new ReportException(ErrorCode.REPORT_ALREADY_PROCESSED);
         }
 
-        // 채택 처리
-        report.accept(adminId);
+        Report report = reportRepository.findById(reportId)
+                .orElseThrow(() -> new ReportException(ErrorCode.REPORT_NOT_FOUND));
 
         LocalDateTime startOfMonth = LocalDateTime.now().withDayOfMonth(1)
                 // 이번 달 1일 00:00:00
@@ -207,16 +208,15 @@ public class ReportServiceImpl implements ReportService {
     @Transactional
     public void rejectReport(Long reportId, Long adminId) {
 
-        Report report = reportRepository.findById(reportId)
-                .orElseThrow(() -> new ReportException(ErrorCode.REPORT_NOT_FOUND));
+        // PENDING인 경우에만 REJECTED로 전환
+        int updated = reportRepository.rejectIfPending(reportId, adminId);
 
-        // 이미 처리된 신고 확인
-        if (report.isProcessed()) {
+        if (updated == 0) {
             throw new ReportException(ErrorCode.REPORT_ALREADY_PROCESSED);
         }
 
-        // 기각 처리
-        report.reject(adminId);
+        Report report = reportRepository.findById(reportId)
+                .orElseThrow(() -> new ReportException(ErrorCode.REPORT_NOT_FOUND));
 
         // 신고자(신고를 한 사람)의 기각 누적 횟수 조회
         int rejectedCount = reportRepository.countByReporterIdAndStatus(
