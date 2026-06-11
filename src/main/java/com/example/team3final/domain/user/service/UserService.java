@@ -107,6 +107,12 @@ public interface UserService {
     // 현재 매너 온도 조회
     BigDecimal getMannerTemperature(Long userId);
 
+    // 매너온도 갱신 — 비관락 적용 버전 (그룹 매칭 동시 후기 제출 시 Lost Update 방지)
+    // ReviewServiceImpl.updateAuthorMannerTemperatureByMeetingAverage()에서 호출
+    // averageScoreDelta: 이전 평균과 현재 평균의 차이값
+    // mannerWeight:      점수 → 온도 변환 가중치 (현재 0.5)
+    void updateMannerTemperatureWithLock(Long userId, BigDecimal averageScoreDelta, BigDecimal mannerWeight);
+
     // 닉네임 검색으로 유저 ID 목록 조회
     List<Long> getUserIdsByNickname(String nickname);
 }

@@ -60,7 +60,7 @@ public class UserPointServiceImpl implements UserPointService{
     // 결제 충전 — paid_point로
     @Override
     public int chargePoint(Long userId, int amount, Long paymentId) {
-        User user = getUserOrThrow(userId);
+        User user = getUserOrThrowWithLock(userId); // 결제 완료 후 paid_point 적립 — 동시 충전 요청에서도 정합성 보장을 위해 비관락 사용
         user.addPaidPoint(amount);
         // paymentId를 matchId 자리에 넣을지, PointTransaction 스키마에 paymentId 컬럼을 추가할지 결정
         saveTransaction(userId, paymentId, amount,
@@ -72,7 +72,7 @@ public class UserPointServiceImpl implements UserPointService{
     // 결제 취소 시 회수
     @Override
     public int withdrawChargedPoint(Long userId, int amount, Long paymentId) {
-        User user = getUserOrThrow(userId);
+        User user = getUserOrThrowWithLock(userId); // 결제 취소 시 paid_point 회수 — 동시 취소 요청(이론적으로 드물지만)에 대비해 비관락 사용
         // withdrawPaid(): 현재 paidPoint 잔액 한도 내에서만 회수
         // 이미 책임비로 사용된 paidPoint는 회수 불가 → min(paidPoint, 요청금액)
         int actual = user.withdrawPaid(amount);

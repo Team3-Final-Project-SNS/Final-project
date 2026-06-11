@@ -5,6 +5,7 @@ import com.example.team3final.domain.report.enums.ReportStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -64,4 +65,26 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
     // targetId: 신고 대상 엔티티 ID (여기서는 postId)
     // ReportStatus.PENDING: 아직 관리자가 처리하지 않은 신고
     boolean existsByTargetIdAndStatus(Long targetId, ReportStatus status);
+
+    @Modifying(clearAutomatically = true)
+    @Query("""
+        UPDATE Report r
+        SET r.status = 'ACCEPTED',
+            r.adminId = :adminId,
+            r.processedAt = CURRENT_TIMESTAMP
+        WHERE r.id = :reportId
+          AND r.status = 'PENDING'
+        """)
+    int acceptIfPending(@Param("reportId") Long reportId, @Param("adminId") Long adminId);
+
+    @Modifying(clearAutomatically = true)
+    @Query("""
+        UPDATE Report r
+        SET r.status = 'REJECTED',
+            r.adminId = :adminId,
+            r.processedAt = CURRENT_TIMESTAMP
+        WHERE r.id = :reportId
+          AND r.status = 'PENDING'
+        """)
+    int rejectIfPending(@Param("reportId") Long reportId, @Param("adminId") Long adminId);
 }

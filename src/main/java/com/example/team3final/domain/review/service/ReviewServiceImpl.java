@@ -25,6 +25,7 @@ import com.example.team3final.domain.user.dto.response.UserInfoDto;
 import com.example.team3final.domain.user.service.UserPointService;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -113,6 +114,7 @@ public class ReviewServiceImpl implements ReviewService {
         Match match = matchService.getMatchById(matchId);
         PostMatchInfoDto post = postService.getPostMatchInfo(match.getPostId());
 
+        // 1차 방어: 애플리케이션 레벨 중복 체크
         validateReviewCreatable(match, post, writerId);
 
         List<ReviewGoodTag> goodTags = distinct(request.goodTags());
@@ -124,13 +126,22 @@ public class ReviewServiceImpl implements ReviewService {
         BigDecimal previousMeetingAverageScore = calculateMeetingAverageScore(postMatchIds);
         int tagScoreDelta = calculateTagScoreDelta(goodTags, badTags);
 
-        Review review = reviewRepository.save(
-                Review.builder()
-                        .matchId(match.getId())
-                        .writerId(writerId)
-                        .tagScoreDelta(tagScoreDelta)
-                        .build()
-        );
+        // 2차 방어: DB UNIQUE 제약 (match_id, writer_id)
+        // 동시 요청이 1차 체크를 둘 다 통과해도 하나만 저장됨
+        // DataIntegrityViolationException → REVIEW_ALREADY_EXISTS로 변환하여 500 방지
+        Review review;
+        try {
+            review = reviewRepository.save(
+                    Review.builder()
+                            .matchId(match.getId())
+                            .writerId(writerId)
+                            .tagScoreDelta(tagScoreDelta)
+                            .build()
+            );
+        } catch (DataIntegrityViolationException e) {
+            // UNIQUE 제약 위반 = 동시 요청에서 이미 다른 스레드가 먼저 저장한 케이스
+            throw new ReviewException(ErrorCode.REVIEW_ALREADY_EXISTS);
+        }
 
         saveGoodTags(review.getId(), goodTags);
         saveBadTags(review.getId(), badTags);
@@ -149,11 +160,10 @@ public class ReviewServiceImpl implements ReviewService {
             reviewAvoidanceService.createAvoidRelation(writerId, authorId, review.getId());
         }
 
-        updateAuthorMannerTemperatureByMeetingAverage(
-                authorId,
-                previousMeetingAverageScore,
-                calculateMeetingAverageScore(postMatchIds)
-        );
+        // 매너온도 갱신 — 비관락 버전으로 교체
+        BigDecimal currentMeetingAverageScore = calculateMeetingAverageScore(postMatchIds);
+        BigDecimal averageScoreDelta = currentMeetingAverageScore.subtract(previousMeetingAverageScore);
+        userService.updateMannerTemperatureWithLock(authorId, averageScoreDelta, MANNER_WEIGHT);
 
         // 12. 매너 온도 상승 알림 - 후기로 인한 매너온도 반영자에게
         notificationPublisher.sendMannerTemperatureChanged(authorId);

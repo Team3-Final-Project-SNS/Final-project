@@ -17,6 +17,7 @@ import com.example.team3final.domain.chat.util.ChatRedisZSetKeys;
 import com.example.team3final.domain.user.dto.response.UserInfoDto;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -49,16 +51,15 @@ public class ChatServiceImpl implements ChatService {
     @Override
     public Long createChatRoom(Long postId, Long authorId, Long applicantId) {
 
-        // 이미 채팅방이 있으면 생성 안 함
-        if (chatRoomRepository.findByPostId(postId).isPresent()) {
-            throw new ChatException(ErrorCode.CHAT_ROOM_ALREADY_EXISTS);
+        Optional<ChatRoom> existing = chatRoomRepository.findByPostId(postId);
+        if (existing.isPresent()) {
+            return existing.get().getId();
         }
 
         // 채팅방 생성
-        ChatRoom chatRoom = ChatRoom.builder()
-                .postId(postId)
-                .build();
-        ChatRoom savedChatRoom = chatRoomRepository.save(chatRoom);
+        try {
+            ChatRoom chatRoom = ChatRoom.builder().postId(postId).build();
+            ChatRoom savedChatRoom = chatRoomRepository.save(chatRoom);
 
         // 참여자 등록 (HOST: 등록자, GUEST: 신청자)
         chatMemberRepository.save(
@@ -78,6 +79,11 @@ public class ChatServiceImpl implements ChatService {
 
         // TODO: 고도화 시 카프카로 교체 예정 → 해당 라인 삭제될 예정
         return savedChatRoom.getId();
+    } catch (DataIntegrityViolationException e) {
+            return chatRoomRepository.findByPostId(postId)
+                    .map(ChatRoom::getId)
+                    .orElseThrow(() -> new ChatException(ErrorCode.CHAT_ROOM_NOT_FOUND));
+        }
     }
 
     // 채팅방 즉시 비활성화 - 취소/노쇼 시 내부 호출
