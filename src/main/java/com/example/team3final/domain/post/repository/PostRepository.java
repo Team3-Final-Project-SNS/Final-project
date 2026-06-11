@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-public interface PostRepository extends JpaRepository<Post, Long> {
+public interface PostRepository extends JpaRepository<Post, Long>, PostRepositoryCustom {
 
     // AI_report 관리자 콘솔 챗봇의 대시보드 요약용 읽기 전용 집계입니다.
     long countByStatus(PostStatus status);
@@ -66,34 +66,6 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     // status 조건 없이 학교 필터만 적용한 게시글 조회 (전체 상태 조회용)
     // getPosts()에서 status가 null일 때 사용
     Page<Post> findByAuthorIdIn(List<Long> authorIds, Pageable pageable);
-
-    // 관리자 게시글 목록 조회 — 전체 대학 조회 시 사용 (universityId 필터 없을 때)
-    @Query("""
-        SELECT p FROM Post p
-        WHERE (:status IS NULL OR p.status = :status)
-          AND (:keyword IS NULL OR p.placeName LIKE %:keyword%)
-        ORDER BY p.createdAt DESC
-        """)
-    Page<Post> findAllForAdmin(
-            @Param("status") PostStatus status,
-            @Param("keyword") String keyword,
-            Pageable pageable
-    );
-
-    // 관리자 게시글 목록 조회 — 특정 대학 필터 시 사용 (universityId 있을 때 해당 대학 작성자 ID 목록으로 조회)
-    @Query("""
-        SELECT p FROM Post p
-        WHERE p.authorId IN :authorIds
-          AND (:status IS NULL OR p.status = :status)
-          AND (:keyword IS NULL OR p.placeName LIKE %:keyword%)
-        ORDER BY p.createdAt DESC
-        """)
-    Page<Post> findAllForAdminByAuthorIds(
-            @Param("authorIds") List<Long> authorIds,
-            @Param("status") PostStatus status,
-            @Param("keyword") String keyword,
-            Pageable pageable
-    );
 
     // 만료 처리 전 대상 게시글 조회 (알림 발송용)
     // 벌크 UPDATE는 어떤 게시글이 바뀌었는지 알 수 없으므로 UPDATE 전에 따로 조회
