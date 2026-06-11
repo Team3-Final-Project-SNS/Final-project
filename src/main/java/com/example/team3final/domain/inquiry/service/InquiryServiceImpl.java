@@ -28,6 +28,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.util.Objects;
 
 @Service
@@ -44,6 +45,7 @@ public class InquiryServiceImpl implements InquiryService {
     private final ApplicationEventPublisher applicationEventPublisher;
 
     private static final int MAX_DAILY_INQUIRY_COUNT = 20;
+    private static final Duration COOLDOWN_DURATION = Duration.ofMinutes(1);
     private static final String DAILY_COUNT_KEY_PREFIX = "inquiry:daily:";
     private static final String COOLDOWN_KEY_PREFIX = "inquiry:cooldown:";
 
@@ -80,6 +82,11 @@ public class InquiryServiceImpl implements InquiryService {
         Inquiry savedInquiry = inquiryRepository.save(inquiry);
 
         // Redis 업데이트
+        // 쿨다운 키는 즉시 생성 (다음 요청 차단용)
+        String cooldownKey = COOLDOWN_KEY_PREFIX + userId;
+        stringRedisTemplate.opsForValue().set(cooldownKey, "1", COOLDOWN_DURATION);
+
+        // 일일 카운터 증가는 커밋 후 이벤트로 처리
         applicationEventPublisher.publishEvent(new InquiryCreatedEvent(userId));
 
         // 33. 문의 접수 알림 - 활성 관리자 모두에게
