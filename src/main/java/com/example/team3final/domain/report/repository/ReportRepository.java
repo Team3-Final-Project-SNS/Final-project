@@ -66,7 +66,7 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
     // ReportStatus.PENDING: 아직 관리자가 처리하지 않은 신고
     boolean existsByTargetIdAndStatus(Long targetId, ReportStatus status);
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("""
         UPDATE Report r
         SET r.status = 'ACCEPTED',
@@ -77,7 +77,7 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
         """)
     int acceptIfPending(@Param("reportId") Long reportId, @Param("adminId") Long adminId);
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("""
         UPDATE Report r
         SET r.status = 'REJECTED',
