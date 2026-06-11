@@ -106,7 +106,6 @@ export default function PlaceVerificationPage() {
       const center = new window.kakao.maps.LatLng(meetingPlace.latitude, meetingPlace.longitude);
       const map = new window.kakao.maps.Map(mapContainerRef.current, { center, level: 3 });
       mapRef.current = map;
-      new window.kakao.maps.Marker({ map, position: center });
       new window.kakao.maps.Circle({
         map,
         center,
@@ -163,7 +162,12 @@ export default function PlaceVerificationPage() {
     if (kakaoMapAvailable && mapRef.current && window.kakao?.maps) {
       const position = new window.kakao.maps.LatLng(currentPosition.latitude, currentPosition.longitude);
       if (!myMarkerRef.current) {
-        myMarkerRef.current = new window.kakao.maps.Marker({ map: mapRef.current, position });
+        myMarkerRef.current = createLocationOverlay({
+          map: mapRef.current,
+          position,
+          color: '#4f7df3',
+          label: '내 위치',
+        });
       } else {
         myMarkerRef.current.setPosition(position);
       }
@@ -189,9 +193,11 @@ export default function PlaceVerificationPage() {
 
           if (kakaoMapAvailable && mapRef.current && window.kakao?.maps) {
             opponentMarkerRefs.current.forEach((marker) => marker.setMap(null));
-            opponentMarkerRefs.current = locations.map((location) => new window.kakao.maps.Marker({
+            opponentMarkerRefs.current = locations.map((location) => createLocationOverlay({
               map: mapRef.current,
               position: new window.kakao.maps.LatLng(location.latitude, location.longitude),
+              color: '#ff8a3d',
+              label: '상대방 위치',
             }));
           }
         }
@@ -285,6 +291,10 @@ export default function PlaceVerificationPage() {
 
         {distance !== null && (
           <div className="mb-6">
+            <div className="mb-3 flex items-center justify-center gap-5 text-xs font-semibold text-[#616161]">
+              <LegendDot color="#4f7df3" label="나" />
+              <LegendDot color="#ff8a3d" label="상대방" />
+            </div>
             <div className="mb-2 flex items-center justify-between">
               <span className="text-sm text-[#616161]">현재 거리</span>
               <span className={`text-lg font-bold ${isWithinRange ? 'text-[#4caf50]' : 'text-[#ef5350]'}`}>
@@ -357,6 +367,48 @@ export default function PlaceVerificationPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function createLocationOverlay({
+  map,
+  position,
+  color,
+  label,
+}: {
+  map: any;
+  position: any;
+  color: string;
+  label: string;
+}) {
+  const markerElement = document.createElement('div');
+  markerElement.setAttribute('aria-label', label);
+  markerElement.style.width = '14px';
+  markerElement.style.height = '14px';
+  markerElement.style.borderRadius = '9999px';
+  markerElement.style.backgroundColor = color;
+  markerElement.style.border = '2px solid #ffffff';
+  markerElement.style.boxShadow = '0 1px 4px rgba(33, 33, 33, 0.28)';
+  markerElement.style.boxSizing = 'border-box';
+
+  return new window.kakao.maps.CustomOverlay({
+    map,
+    position,
+    content: markerElement,
+    xAnchor: 0.5,
+    yAnchor: 0.5,
+  });
+}
+
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className="inline-block h-3 w-3 shrink-0 rounded-full border-2 border-white shadow-sm"
+        style={{ backgroundColor: color }}
+      />
+      <span>{label}</span>
+    </span>
   );
 }
 
