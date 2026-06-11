@@ -12,7 +12,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.util.TimeZone;
 
-@EnableJpaAuditing
 @EnableConfigurationProperties
 @EnableScheduling      // 스케줄러 활성화
 @EnableAsync           // 알림 발송 (NotificationPublisher) 비동기 처리 활성화
