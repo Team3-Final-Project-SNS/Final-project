@@ -14,12 +14,14 @@ import com.example.team3final.domain.inquiry.dto.response.GetOneInquiryResponseD
 import com.example.team3final.domain.inquiry.entity.Inquiry;
 import com.example.team3final.domain.inquiry.enums.InquiryAnswerStatus;
 import com.example.team3final.domain.inquiry.enums.InquiryType;
+import com.example.team3final.domain.inquiry.event.InquiryCreatedEvent;
 import com.example.team3final.domain.inquiry.repository.InquiryRepository;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.enums.UserStatus;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -27,8 +29,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Service
@@ -42,6 +42,7 @@ public class InquiryServiceImpl implements InquiryService {
     private final InquiryAnswerRepository inquiryAnswerRepository; // ← AdminInquiryAnswerService 대신 Repository 직접 주입 (순환참조 방지)
     private final AdminService adminService;
     private final NotificationPublisher notificationPublisher;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     private static final int MAX_DAILY_INQUIRY_COUNT = 20;
     private static final Duration COOLDOWN_DURATION = Duration.ofMinutes(1);
@@ -81,7 +82,12 @@ public class InquiryServiceImpl implements InquiryService {
         Inquiry savedInquiry = inquiryRepository.save(inquiry);
 
         // Redis 업데이트
-        updateRedisAfterCreate(userId);
+        // 쿨다운 키는 즉시 생성 (다음 요청 차단용)
+        String cooldownKey = COOLDOWN_KEY_PREFIX + userId;
+        stringRedisTemplate.opsForValue().set(cooldownKey, "1", COOLDOWN_DURATION);
+
+        // 일일 카운터 증가는 커밋 후 이벤트로 처리
+        applicationEventPublisher.publishEvent(new InquiryCreatedEvent(userId));
 
         // 33. 문의 접수 알림 - 활성 관리자 모두에게
         adminService.getActiveAdminIds().forEach(
@@ -185,27 +191,5 @@ public class InquiryServiceImpl implements InquiryService {
         if (count >= MAX_DAILY_INQUIRY_COUNT) {
             throw new InquiryException(ErrorCode.INQUIRY_DAILY_LIMIT_EXCEEDED);
         }
-    }
-
-    // 문의 접수 성공 후 Redis 업데이트
-    private void updateRedisAfterCreate(Long userId) {
-        String dailyKey = DAILY_COUNT_KEY_PREFIX + userId;
-        String cooldownKey = COOLDOWN_KEY_PREFIX + userId;
-
-        // 오늘 자정까지 남은 시간 계산
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime midnight = LocalDate.now().plusDays(1).atStartOfDay();
-        Duration timeUntilMidnight = Duration.between(now, midnight);
-
-        // 하루 카운트 +1
-        Long newCount = stringRedisTemplate.opsForValue().increment(dailyKey);
-
-        // 첫 문의일 때만 TTL 설정
-        if (Long.valueOf(1).equals(newCount)) {
-            stringRedisTemplate.expire(dailyKey, timeUntilMidnight);
-        }
-
-        // 쿨다운 키 생성 (TTL 1분)
-        stringRedisTemplate.opsForValue().set(cooldownKey, "1", COOLDOWN_DURATION);
     }
 }
