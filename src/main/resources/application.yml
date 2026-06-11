@@ -160,14 +160,3 @@ app:
 
     metrics:
       enabled: ${AI_METRICS_ENABLED}
-
-springdoc:
-  swagger-ui:
-    path: /swagger-ui.html          # Swagger UI 접근 경로 (기본값과 동일)
-    operations-sorter: alpha        # API 목록을 알파벳순으로 정렬
-    tags-sorter: alpha              # 태그(컨트롤러 그룹)도 알파벳순 정렬
-    display-request-duration: true  # 각 API 호출 소요 시간 표시
-  api-docs:
-    path: /v3/api-docs              # OpenAPI JSON 명세 경로 (기본값과 동일)
-  default-consumes-media-type: application/json
-  default-produces-media-type: application/json
