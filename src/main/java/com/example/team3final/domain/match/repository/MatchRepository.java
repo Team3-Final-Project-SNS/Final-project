@@ -45,4 +45,12 @@ public interface MatchRepository extends JpaRepository<Match, Long>, MatchReposi
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT m FROM Match m WHERE m.id = :matchId")
     Optional<Match> findByIdWithLock(@Param("matchId") Long matchId);
+
+    // 사용자가 당사자인 전체 매칭 ID 목록 조회 (등록자 또는 신청자)
+    @Query("""
+        SELECT m.id FROM Match m
+        JOIN Post p ON m.postId = p.id
+        WHERE p.authorId = :userId OR m.applicantId = :userId
+        """)
+    List<Long> findAllMatchIdsByUserId(@Param("userId") Long userId);
 }

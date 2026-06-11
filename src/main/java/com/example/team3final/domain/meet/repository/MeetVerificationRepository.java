@@ -58,4 +58,10 @@ public interface MeetVerificationRepository extends JpaRepository<MeetVerificati
                 ORDER BY mv.id ASC
             """)
     List<MeetVerification> findAllByMatchIdInWithLock(@Param("matchIds") List<Long> matchIds);
+
+    // 사용자 노쇼 예정 매칭 목록 조회 — matchId 목록 + 노쇼 상태 필터
+    List<MeetVerification> findAllByMatchIdInAndStatusIn(
+            List<Long> matchIds,
+            List<VerificationStatus> statuses
+    );
 }
