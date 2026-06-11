@@ -13,7 +13,15 @@ import java.time.LocalDateTime;
 
 @Getter
 @Entity
-@Table(name = "chat_rooms")
+@Table(
+        name = "chat_rooms",
+        uniqueConstraints = {
+            @UniqueConstraint(
+                    name = "uq_chat_rooms_post_id",
+                    columnNames = {"post_id"}
+            )
+        }
+)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ChatRoom extends BaseTimeEntity {
 
