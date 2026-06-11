@@ -14,7 +14,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 
-public interface UserRepository extends JpaRepository<User, Long> {
+public interface UserRepository extends JpaRepository<User, Long>, UserRepositoryCustom {
 
     // AI_report 관리자 콘솔 챗봇의 대시보드 요약용 읽기 전용 집계입니다.
     long countByStatus(UserStatus status);
@@ -30,23 +30,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     // 특정 상태를 제외하고 이메일 존재 여부 확인 (탈퇴한 이메일은 false 반환 -> 재가입 허용)
     boolean existsByEmailAndStatusNot(String email, UserStatus status);
-
-    // Admin 유저 목록 조회 (이름 / 닉네임 / 이메일 통합 검색)
-    @Query("""
-        SELECT u
-        FROM User u
-        WHERE (:status IS NULL OR u.status = :status)
-        AND (
-            :keyword IS NULL
-            OR u.name LIKE %:keyword%
-            OR u.nickname LIKE %:keyword%
-            OR u.email LIKE %:keyword%
-        )
-        """)
-    // :status 가 null이면 상태 필터를 건너뛰고 전체 상태 조회
-    // :keyword 가 null이면 키워드 필터를 건너뜀
-    // keyword 가 있으면 name / nickname / email 중 하나라도 부분일치하면 매칭
-    Page<User> findAllByForAdmin(@Param("status") UserStatus status, @Param("keyword") String keyword, Pageable pageable);
 
     // 같은 학교(universityId)에 속한 활성 유저(ACTIVE) ID 목록 조회
     // - ACTIVE 조건: 탈퇴(WITHDRAWN), 정지(SUSPENDED) 유저는 게시글 목록에서 제외
