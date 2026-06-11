@@ -1,0 +1,55 @@
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "app_logs" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/?hankkipot-app"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    target_label  = "container"
+  }
+}
+
+loki.source.docker "app" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.app_logs.output
+  labels     = {job = "spring-app"}
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.source.kafka "dead_letters" {
+  brokers                = ["kafka:29092"]
+  topics                 = ["notifications.dlq", "notifications.DLT", "chat-messages.dlq", "chat-messages.DLT"]
+  group_id               = "loki-dead-letter-monitor"
+  labels                 = {job = "kafka-dead-letter"}
+  forward_to             = [loki.write.local.receiver]
+  relabel_rules          = loki.relabel.kafka_dead_letters.rules
+  use_incoming_timestamp = true
+}
+
+loki.relabel "kafka_dead_letters" {
+  forward_to = [loki.write.local.receiver]
+
+  rule {
+    source_labels = ["__meta_kafka_topic"]
+    target_label  = "topic"
+  }
+
+  rule {
+    source_labels = ["__meta_kafka_partition"]
+    target_label  = "partition"
+  }
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
