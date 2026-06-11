@@ -151,8 +151,9 @@ services:
     ports:
       - "3000:3000"
     environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD}
+      GRAFANA_N8N_WEBHOOK_URL: ${GRAFANA_N8N_WEBHOOK_URL}
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -160,6 +161,28 @@ services:
     depends_on:
       - prometheus
       - loki
+      - n8n
+
+  n8n:
+    image: n8nio/n8n:1.118.2
+    container_name: hankkipot-n8n
+    ports:
+      - "5678:5678"
+    environment:
+      TZ: Asia/Seoul
+      GENERIC_TIMEZONE: Asia/Seoul
+      N8N_HOST: ${N8N_HOST_PROD}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: ${N8N_PROTOCOL_PROD}
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL_PROD}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_RUNNERS_ENABLED: "true"
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    restart: unless-stopped
 
   frontend:
     build:
@@ -187,3 +210,4 @@ volumes:
   prometheus_data:
   loki_data:
   grafana_data:
+  n8n_data:
