@@ -10,8 +10,8 @@ import org.springframework.stereotype.Component;
 @Getter
 @Setter
 public class OtpProperties {
-    private int maxResendCount = 3;
+    private int maxResendCount = 5;
     private long expireSeconds = 300;
-    private long cooldownSeconds = 60;
     private long resendWindowSeconds = 3600;
+    private int maxAttempts = 5;
 }

@@ -31,6 +31,7 @@ import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
@@ -53,7 +54,6 @@ public class AuthServiceImpl implements AuthService{
     private final PasswordEncoder passwordEncoder;
 
     private static final String REFRESH_TOKEN_KEY_PREFIX = "refresh:";
-    private static final int MAX_OTP_ATTEMPTS = 5;
 
     private final AuthProperties authProperties; // 회원정보시 약관 동의
 
@@ -62,32 +62,21 @@ public class AuthServiceImpl implements AuthService{
     public OtpResponseDto sendEmailOtp(OtpRequestDto request) {
         String email = request.getEmail();
 
-//        // 1. .ac.kr 도메인 검증
-//        if (!email.endsWith(".ac.kr")) {
-//            throw new AuthException(ErrorCode.AUTH_INVALID_EMAIL_DOMAIN);
-//        }
 
-        // 2. 등록된 학교 도메인인지 검증 (Service to Service)
+        // 1. 등록된 학교 도메인인지 검증 (Service to Service)
         String emailDomain = email.substring(email.indexOf("@") + 1);
         boolean isRegisteredUniversity = universityService.isRegisteredActiveUniversity(emailDomain);
         if (!isRegisteredUniversity) {
             throw new AuthException(ErrorCode.AUTH_UNREGISTERED_UNIVERSITY);
         }
 
-        // 3. 이미 가입된 이메일인지 검증 (Service to Service)
+        // 2. 이미 가입된 이메일인지 검증 (Service to Service)
         boolean isAlreadyRegistered = userService.isEmailAlreadyRegistered(email);
         if (isAlreadyRegistered) {
             throw new AuthException(ErrorCode.AUTH_ALREADY_REGISTERED_EMAIL);
         }
 
-        // 4. 재발송 쿨다운 체크 (1분 내 재발송 불가)
-        String cooldownKey = OtpRedisKeyUtil.cooldownKey(email);
-        Boolean isCooldown = redisTemplate.hasKey(cooldownKey);
-        if (isCooldown) {
-            throw new AuthException(ErrorCode.OTP_COOLDOWN);
-        }
-
-        // 5. 시간 내 최대 재발송 횟수 체크 (1시간 내 3회)
+        // 4. 일일 최대 재발송 횟수 체크 (1시간 내 5회)
         String resendCountKey = OtpRedisKeyUtil.resendCountKey(email);
         String countStr = redisTemplate.opsForValue().get(resendCountKey);
         int currentCount = (countStr == null) ? 0 : Integer.parseInt(countStr);
@@ -95,7 +84,7 @@ public class AuthServiceImpl implements AuthService{
             throw new AuthException(ErrorCode.OTP_SEND_TOO_MANY);
         }
 
-        // 6. OTP 생성 및 Redis 저장
+        // 5. OTP 생성 및 Redis 저장
         String otpCode = OtpGenerator.generator();
         String otpKey = OtpRedisKeyUtil.otpCodeKey(email);
         redisTemplate.opsForValue().set(
@@ -104,14 +93,7 @@ public class AuthServiceImpl implements AuthService{
                 Duration.ofSeconds(otpProperties.getExpireSeconds())
         );
 
-        // 7. 쿨다운 키 저장 (1분 동안 재발송 불가)
-        redisTemplate.opsForValue().set(
-                cooldownKey,
-                "1",
-                Duration.ofSeconds(otpProperties.getCooldownSeconds())
-        );
-
-        // 8. 발송 횟수 증가 및 TTL 설정
+        // 7. 발송 횟수 증가 및 TTL 설정
         if (currentCount == 0) {
             redisTemplate.opsForValue().set(
                     resendCountKey,
@@ -122,10 +104,10 @@ public class AuthServiceImpl implements AuthService{
             redisTemplate.opsForValue().increment(resendCountKey);
         }
 
-        // 9. 이메일 비동기 발송
+        // 8. 이메일 비동기 발송
         otpService.sendOtp(email, otpCode);
 
-        // 10. 응답 반환
+        // 9. 응답 반환
         return new OtpResponseDto(otpProperties.getExpireSeconds());
     }
 
@@ -140,7 +122,7 @@ public class AuthServiceImpl implements AuthService{
         String attemptsStr = redisTemplate.opsForValue().get(attemptsKey);
         int attempts = (attemptsStr == null) ? 0 : Integer.parseInt(attemptsStr);
 
-        if (attempts >= MAX_OTP_ATTEMPTS) {
+        if (attempts >= otpProperties.getMaxAttempts()) {
             throw new AuthException(ErrorCode.OTP_MAX_ATTEMPTS_EXCEEDED);
         }
 

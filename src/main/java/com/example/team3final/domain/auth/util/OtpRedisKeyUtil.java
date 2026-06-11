@@ -8,12 +8,7 @@ public class OtpRedisKeyUtil {
         return "otp:code:" + email;
     }
 
-    // 1분 내 재발송 방지키 (TTL : 60초)
-    public static String cooldownKey(String email) {
-        return "otp:cooldown:" + email;
-    }
-
-    // 1시간 내 최대 3회 제한키 (TTL : 1h)
+    // 하루 최대 5회 제한키 (TTL : 1h)
     public static String resendCountKey(String email) {
         return "otp:resend:count:" + email;
     }
