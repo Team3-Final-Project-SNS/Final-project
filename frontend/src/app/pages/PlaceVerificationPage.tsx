@@ -9,6 +9,7 @@ import {
   updateMyLocation,
 } from '@/api/meetApi';
 import { getMatchDetail } from '@/api/matchApi';
+import { getUserMe } from '@/api/userApi';
 
 declare global {
   interface Window {
@@ -20,6 +21,8 @@ interface Position {
   latitude: number;
   longitude: number;
 }
+
+const USER_VISIBLE_RADIUS_METERS = 50;
 
 export default function PlaceVerificationPage() {
   const { id } = useParams();
@@ -44,20 +47,27 @@ export default function PlaceVerificationPage() {
   const [authorNickname, setAuthorNickname] = useState('등록자');
   const [authorVerified, setAuthorVerified] = useState(false);
   const [verificationParticipants, setVerificationParticipants] = useState<ParticipantVerification[]>([]);
+  const [isCurrentUserAuthor, setIsCurrentUserAuthor] = useState<boolean | null>(null);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const myMarkerRef = useRef<any>(null);
   const opponentMarkerRefs = useRef<any[]>([]);
 
-  const applyVerificationData = (data: Awaited<ReturnType<typeof getMeetVerification>>['data']['data']) => {
+  const applyVerificationData = (
+    data: Awaited<ReturnType<typeof getMeetVerification>>['data']['data'],
+    currentUserIsAuthor = isCurrentUserAuthor,
+  ) => {
     setAuthorNickname(data.authorNickname || '등록자');
     setAuthorVerified(data.authorPlaceVerifiedAt !== null);
     setVerificationParticipants(data.participants || []);
 
     const myParticipant = data.participants?.find((participant) => participant.matchId === matchId);
-    if (data.authorPlaceVerifiedAt || myParticipant?.verified) {
-      setIsVerified(true);
+    if (currentUserIsAuthor !== null) {
+      const nextIsVerified = currentUserIsAuthor
+        ? data.authorPlaceVerifiedAt !== null
+        : myParticipant?.verified === true;
+      setIsVerified(nextIsVerified);
     }
 
     if (data.verificationStatus === 'DONE') {
@@ -71,11 +81,14 @@ export default function PlaceVerificationPage() {
     const fetchInitialData = async () => {
       setLoading(true);
       try {
-        const [matchRes, verificationRes] = await Promise.all([
+        const [matchRes, verificationRes, userRes] = await Promise.all([
           getMatchDetail(matchId),
           getMeetVerification(matchId),
+          getUserMe(),
         ]);
         const match = matchRes.data.data;
+        const currentUserIsAuthor = userRes.data.data.userId === match.authorId;
+        setIsCurrentUserAuthor(currentUserIsAuthor);
         setMeetingPlace({
           name: match.placeName,
           time: new Date(match.meetAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
@@ -83,7 +96,7 @@ export default function PlaceVerificationPage() {
           longitude: match.placeLng,
         });
         setChatRoomId(match.chatRoomId);
-        applyVerificationData(verificationRes.data.data);
+        applyVerificationData(verificationRes.data.data, currentUserIsAuthor);
       } catch (err) {
         console.error('Failed to load place verification data', err);
       } finally {
@@ -109,7 +122,7 @@ export default function PlaceVerificationPage() {
       new window.kakao.maps.Circle({
         map,
         center,
-        radius: 60,
+        radius: USER_VISIBLE_RADIUS_METERS,
         strokeWeight: 2,
         strokeColor: '#d84315',
         strokeOpacity: 0.8,
@@ -157,7 +170,7 @@ export default function PlaceVerificationPage() {
       meetingPlace.longitude,
     );
     setDistance(nextDistance);
-    setIsWithinRange(nextDistance <= 60);
+    setIsWithinRange(nextDistance <= USER_VISIBLE_RADIUS_METERS);
 
     if (kakaoMapAvailable && mapRef.current && window.kakao?.maps) {
       const position = new window.kakao.maps.LatLng(currentPosition.latitude, currentPosition.longitude);
@@ -209,7 +222,7 @@ export default function PlaceVerificationPage() {
     poll();
     const intervalId = window.setInterval(poll, 3000);
     return () => window.clearInterval(intervalId);
-  }, [matchId, currentPosition, kakaoMapAvailable]);
+  }, [matchId, currentPosition, kakaoMapAvailable, isCurrentUserAuthor]);
 
   const handleVerify = async () => {
     if (!isWithinRange || !currentPosition) return;
@@ -298,13 +311,13 @@ export default function PlaceVerificationPage() {
             <div className="mb-2 flex items-center justify-between">
               <span className="text-sm text-[#616161]">현재 거리</span>
               <span className={`text-lg font-bold ${isWithinRange ? 'text-[#4caf50]' : 'text-[#ef5350]'}`}>
-                {distance.toFixed(1)}m / 60m
+                {distance.toFixed(1)}m / {USER_VISIBLE_RADIUS_METERS}m
               </span>
             </div>
             <div className="relative h-3 w-full overflow-hidden rounded-full bg-[#e0e0e0]">
               <div
                 className={`h-full transition-all duration-300 ${isWithinRange ? 'bg-[#4caf50]' : 'bg-[#ef5350]'}`}
-                style={{ width: `${Math.min((distance / 60) * 100, 100)}%` }}
+                style={{ width: `${Math.min((distance / USER_VISIBLE_RADIUS_METERS) * 100, 100)}%` }}
               />
             </div>
           </div>
