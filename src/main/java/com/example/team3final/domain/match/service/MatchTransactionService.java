@@ -109,7 +109,7 @@ public class MatchTransactionService {
         // 5. 참여 인원 증가
         post.increaseCurrentApplicants();
 
-        // 7. 채팅방 생성 또는 기존 채팅방에 멤버 추가
+        // 6. 채팅방 생성 또는 기존 채팅방에 멤버 추가
         Long chatRoomId;
         if (!chatService.existsChatRoomByPostId(postId)) {
             // 첫 번째 신청자 → HOST + GUEST 채팅방 신규 생성
@@ -120,16 +120,16 @@ public class MatchTransactionService {
             chatRoomId = chatService.getChatRoomIdByPostId(postId);
         }
 
-        // 8. 정원이 다 찼을 때만 게시글 상태를 MATCHED로 전환
+        // 7. 정원이 다 찼을 때만 게시글 상태를 MATCHED로 전환
         if (post.isFull()) {
             post.match();
         }
 
-        // 9. 응답 DTO에 필요한 닉네임 조회
+        // 8. 응답 DTO에 필요한 닉네임 조회
         String authorNickname = userService.getUserInfo(post.getAuthorId()).nickname();
         String applicantNickname = userService.getUserInfo(applicantId).nickname();
 
-        // 10. 만남 알림 ZSet 예약 (30분/15분/5분 전, 10분 경과)
+        // 9. 만남 알림 ZSet 예약 (30분/15분/5분 전, 10분 경과)
         LocalDateTime meetAt = post.getMeetAt();
         LocalDateTime now = LocalDateTime.now();
         ZoneOffset KST = ZoneOffset.ofHours(9);
