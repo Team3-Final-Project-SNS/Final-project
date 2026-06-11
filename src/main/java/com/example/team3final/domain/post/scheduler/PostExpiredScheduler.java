@@ -4,6 +4,7 @@ import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.repository.PostRepository;
+import com.example.team3final.domain.user.service.UserPointService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -27,6 +28,7 @@ public class PostExpiredScheduler {
 
     private final PostRepository postRepository;
     private final NotificationPublisher notificationPublisher;
+    private final UserPointService userPointService;
 
     /**
      * 매시 정각에 OPEN 상태인 만료 게시글을 EXPIRED로 일괄 전환
@@ -59,11 +61,21 @@ public class PostExpiredScheduler {
                 now                 // AND meet_at < now
         );
 
-        // 40. 게시글 만료 알림 - 게시글 작성자에게
+        // 만료된 게시글 각각에 대해 알림 발송 + 포인트 환불 처리
         for (Post post : expiredTargets) {
+            // 40. 게시글 만료 알림 - 게시글 작성자에게
             notificationPublisher.sendPostExpired(post.getAuthorId(), post.getId());
+
+            // 작성자 authorDeposit 전액 환불 (신규 추가)
+            if (post.getAuthorDeposit() > 0) {
+                userPointService.refundPoint(
+                        post.getAuthorId(),     // 환불 대상: 게시글 작성자
+                        post.getAuthorDeposit(),// 환불 금액: 예치했던 책임비 전액
+                        post.getId()            // 참조 ID: Match 없으므로 postId로 대체
+                );
+            }
         }
 
-        log.info("[PostExpiredScheduler] 만료 처리 완료 - {}건 EXPIRED 전환", expiredCount);
+        log.info("[PostExpiredScheduler] 만료 처리 완료 - {}건 EXPIRED 전환, 포인트 환불 처리", expiredCount);
     }
 }
