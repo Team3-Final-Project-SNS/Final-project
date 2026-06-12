@@ -20,6 +20,7 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     // 로그인 시 자동 호출
     @Override
+    @Transactional
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
 
         // 이메일로 유저 조회

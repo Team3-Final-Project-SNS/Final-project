@@ -285,7 +285,7 @@ public class AuthServiceImpl implements AuthService{
         redisTemplate.opsForValue().set(
                 REFRESH_TOKEN_KEY_PREFIX + savedUser.getEmail(),
                 refreshToken,
-                Duration.ofMillis(14L * 24 * 60 * 60 * 1000) // 14일 (ms 단위)
+                Duration.ofMillis(jwtProvider.getRefreshTokenValidityTime())
         );
 
         // refresh_token HttpOnly 쿠키 발급
@@ -314,8 +314,8 @@ public class AuthServiceImpl implements AuthService{
                     new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
             );
         } catch (DisabledException e) {
-            // CustomUserDetailsService에서 disabled=true로 설정된 경우 (정지된 계정)
-            throw new AuthException(ErrorCode.USER_SUSPENDED);
+            // DisabledException = 탈퇴 계정 시도
+            throw new AuthException(ErrorCode.USER_WITHDRAWN);
         } catch (BadCredentialsException e) {
             // 이메일 또는 비밀번호가 틀린 경우
             throw new AuthException(ErrorCode.AUTH_LOGIN_FAIL);
@@ -333,7 +333,7 @@ public class AuthServiceImpl implements AuthService{
         redisTemplate.opsForValue().set(
                 REFRESH_TOKEN_KEY_PREFIX + user.getEmail(),
                 refreshToken,
-                Duration.ofMillis(14L * 24 * 60 * 60 * 1000) // 14일
+                Duration.ofMillis(jwtProvider.getRefreshTokenValidityTime())
         );
 
         // Refresh Token을 HttpOnly 쿠키로 응답에 추가
@@ -379,7 +379,7 @@ public class AuthServiceImpl implements AuthService{
         redisTemplate.opsForValue().set(
                 REFRESH_TOKEN_KEY_PREFIX + email,
                 newRefreshToken,
-                Duration.ofMillis(14L * 24 * 60 * 60 * 1000)
+                Duration.ofMillis(jwtProvider.getRefreshTokenValidityTime())
         );
 
         // 7. 새 Refresh Token 쿠키로 재전송
@@ -441,7 +441,7 @@ public class AuthServiceImpl implements AuthService{
         cookie.setHttpOnly(true);
         cookie.setSecure(true);
         cookie.setPath("/");
-        cookie.setMaxAge(14 * 24 * 60 * 60); // 1209600초 (14일) 고정
+        cookie.setMaxAge((int) (jwtProvider.getRefreshTokenValidityTime() / 1000));
         response.addCookie(cookie);
     }
 
