@@ -36,8 +36,8 @@ export default function LoginPage() {
   };
 
   return (
-      <div className="min-h-screen bg-[#fafafa] flex">
-        <div className="w-1/2 bg-[#212121] flex flex-col items-center justify-center p-12">
+      <div className="flex min-h-[100dvh] bg-white lg:bg-[#fafafa]">
+        <div className="hidden w-1/2 flex-col items-center justify-center bg-[#212121] p-12 lg:flex">
           <h1 className="text-5xl font-bold text-[#d84315] mb-4">한끼팟</h1>
           <p className="text-[#e0e0e0] text-lg mb-12">학교 친구와 함께하는</p>
           <p className="text-[#e0e0e0] text-lg">한 끼 식사 매칭 서비스</p>
@@ -64,12 +64,17 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="w-1/2 bg-white flex items-center justify-center p-12">
-          <div className="w-full max-w-md">
+        <div className="flex w-full items-center justify-center bg-white px-5 py-8 sm:px-8 lg:w-1/2 lg:p-12">
+          <div className="w-full max-w-[420px]">
+            <div className="mb-8 rounded-2xl bg-[#212121] px-5 py-6 text-center shadow-sm lg:hidden">
+              <h1 className="mb-2 text-3xl font-bold text-[#d84315]">한끼팟</h1>
+              <p className="text-sm font-semibold text-[#eeeeee]">학교 친구와 함께하는 한 끼 식사 매칭 서비스</p>
+            </div>
+
             <button
                 type="button"
                 onClick={() => navigate('/')}
-                className="mb-8 inline-flex items-center gap-2 text-sm font-semibold text-[#616161] transition-colors hover:text-[#d84315]"
+                className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-[#616161] transition-colors hover:text-[#d84315] lg:mb-8"
             >
               <ArrowLeft size={18} />
               홈으로 돌아가기
