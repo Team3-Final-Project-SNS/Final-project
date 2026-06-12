@@ -67,28 +67,29 @@ public class DisputeServiceImpl implements DisputeService {
         // 4. 만남 인증 정보 조회
         MeetVerificationResponseDto meet = meetVerificationService.getMeetVerification(userId, matchId);
 
-        // 5. 노쇼 예정 상태 검증
+        // 5. 현재 인증 상태 확인
         VerificationStatus status = meet.verificationStatus();
         boolean isNoShow = status == VerificationStatus.HOST_NO_SHOW
                 || status == VerificationStatus.GUEST_NO_SHOW
                 || status == VerificationStatus.BOTH_NO_SHOW;
-
-        if (!isNoShow) {
-            throw new DisputeException(ErrorCode.DISPUTE_NOT_NO_SHOW);
-        }
 
         // 6. 중복 제출 검증
         if (disputeRepository.existsByMatchIdAndSubmitterId(matchId, userId)) {
             throw new DisputeException(ErrorCode.DISPUTE_ALREADY_SUBMITTED);
         }
 
-        // 7. 24시간 제한 검증
+        // 7. 노쇼 예정 상태 검증
+        if (!isNoShow) {
+            throw new DisputeException(ErrorCode.DISPUTE_NOT_NO_SHOW);
+        }
+
+        // 8. 24시간 제한 검증
         LocalDateTime decidedAt = meet.noShowDecidedAt();
         if (decidedAt == null || Duration.between(decidedAt, LocalDateTime.now()).toHours() >= 24L) {
                 throw new DisputeException(ErrorCode.DISPUTE_DEADLINE_EXCEEDED);
         }
 
-        // 8. 저장
+        // 9. 저장
         // evidenceUrl은 S3도입 전까지 null로 고정
         Dispute dispute = Dispute.builder()
                 .matchId(matchId)

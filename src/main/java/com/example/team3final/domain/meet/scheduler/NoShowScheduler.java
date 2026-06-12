@@ -28,9 +28,16 @@ public class NoShowScheduler {
         meetVerificationService.judgeQrNoShow();
     }
 
-    // 노쇼 확정 판정: 10분마다 실행
-    // _NO_SHOW 상태가 된 지 24시간이 지난 건 확정 처리
-    @Scheduled(cron = "0 0/10 * * * *")
+//    // 노쇼 확정 판정: 10분마다 실행
+//    // _NO_SHOW 상태가 된 지 24시간이 지난 건 확정 처리
+//    @Scheduled(cron = "0 0/10 * * * *")
+//    public void judgeNoShowConfirmed() {
+//        log.info("[NoShowScheduler] 노쇼 확정 판정 실행");
+//        meetVerificationService.judgeNoShowConfirmed();
+//    }
+
+    // ===== 변경 (테스트용 — 배포 전 위에 주석처리된 메서드 원복 필요) =====
+    @Scheduled(cron = "0 * * * * *")  // 1분마다
     public void judgeNoShowConfirmed() {
         log.info("[NoShowScheduler] 노쇼 확정 판정 실행");
         meetVerificationService.judgeNoShowConfirmed();
