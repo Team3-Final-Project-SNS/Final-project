@@ -1,28 +1,21 @@
 package com.example.team3final.domain.chat;
 
-import com.example.team3final.common.config.JpaAuditingConfig;
-import com.example.team3final.common.config.QueryDslConfig;
 import com.example.team3final.domain.chat.entity.ChatRoom;
 import com.example.team3final.domain.chat.enums.ChatRoomType;
 import com.example.team3final.domain.chat.repository.ChatRoomRepository;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 
 import static org.assertj.core.api.Assertions.*;
 
-@DataJpaTest
-@Import({JpaAuditingConfig.class, QueryDslConfig.class})
+@SpringBootTest
 @ActiveProfiles("test")
-@Transactional(propagation = Propagation.NOT_SUPPORTED)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @DisplayName("채팅방 중복 생성 방지 테스트")
 class ChatRoomDuplicateTest {
@@ -89,7 +82,8 @@ class ChatRoomDuplicateTest {
 
         // when & then — UNIQUE 제약 위반 → DataIntegrityViolationException
         assertThatThrownBy(() -> chatRoomRepository.saveAndFlush(duplicate))
-                .isInstanceOf(DataIntegrityViolationException.class);
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("uq_chat_rooms_post_id");
     }
 
     // ====================================================================
