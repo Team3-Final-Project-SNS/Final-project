@@ -441,7 +441,6 @@ public class AuthServiceImpl implements AuthService{
         cookie.setHttpOnly(true);
         cookie.setSecure(true);
         cookie.setPath("/");
-        cookie.setMaxAge((int) (jwtProvider.getRefreshTokenValidityTime() / 1000));
         response.addCookie(cookie);
     }
 

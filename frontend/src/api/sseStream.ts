@@ -1,4 +1,9 @@
-import { getAccessToken } from './axiosInstance';
+import { refresh } from './authApi';
+import {
+  clearAccessToken,
+  getAccessToken,
+  setAccessToken,
+} from './axiosInstance';
 
 type StreamPostOptions<TBody> = {
   path: string;
@@ -10,20 +15,34 @@ type StreamPostOptions<TBody> = {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
 export async function streamPost<TBody>({ path, body, admin = false, onChunk }: StreamPostOptions<TBody>) {
-  const token = admin
+  let token = admin
       ? sessionStorage.getItem('adminAccessToken')
       : getAccessToken();
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'ngrok-skip-browser-warning': 'true',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(body),
-  });
+  if (!token) {
+    redirectToLogin(admin);
+    throw new Error('로그인이 필요합니다.');
+  }
+
+  let response = await sendStreamRequest(path, body, token);
+
+  if (!admin && (response.status === 401 || response.status === 403)) {
+    try {
+      const refreshResponse = await refresh();
+      token = refreshResponse.data.data.accessToken;
+      setAccessToken(token);
+      response = await sendStreamRequest(path, body, token);
+    } catch {
+      clearAccessToken();
+      redirectToLogin(false);
+      throw new Error('로그인이 만료되었습니다.');
+    }
+  }
+
+  if (admin && (response.status === 401 || response.status === 403)) {
+    redirectToLogin(true);
+    throw new Error('관리자 로그인이 만료되었습니다.');
+  }
 
   if (!response.ok) {
     throw new Error(await resolveErrorMessage(response));
@@ -60,6 +79,27 @@ export async function streamPost<TBody>({ path, body, admin = false, onChunk }: 
   }
 
   return answer;
+}
+
+function sendStreamRequest<TBody>(
+  path: string,
+  body: TBody,
+  token: string,
+) {
+  return fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function redirectToLogin(admin: boolean) {
+  window.location.href = admin ? '/admin/login' : '/login';
 }
 
 function parseSseChunk(chunk: string) {
