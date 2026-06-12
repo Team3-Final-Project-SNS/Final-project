@@ -51,12 +51,7 @@ public class UserDetailsImpl implements UserDetails {
     // 만료된 정지 - 로그인은 허용, 실제 복구는 loadUserByUsername이 처리
     @Override
     public boolean isEnabled() {
-        if (status == UserStatus.ACTIVE) {
-            return true;
-        }
-        return status == UserStatus.SUSPENDED
-                && suspendedUntil != null
-                && LocalDateTime.now().isAfter(suspendedUntil);
+        return status != UserStatus.WITHDRAWN;
     }
 
 }

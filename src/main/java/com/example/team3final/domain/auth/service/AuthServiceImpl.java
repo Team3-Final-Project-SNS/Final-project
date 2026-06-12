@@ -314,8 +314,8 @@ public class AuthServiceImpl implements AuthService{
                     new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
             );
         } catch (DisabledException e) {
-            // CustomUserDetailsService에서 disabled=true로 설정된 경우 (정지된 계정)
-            throw new AuthException(ErrorCode.USER_SUSPENDED);
+            // DisabledException = 탈퇴 계정 시도
+            throw new AuthException(ErrorCode.USER_WITHDRAWN);
         } catch (BadCredentialsException e) {
             // 이메일 또는 비밀번호가 틀린 경우
             throw new AuthException(ErrorCode.AUTH_LOGIN_FAIL);
