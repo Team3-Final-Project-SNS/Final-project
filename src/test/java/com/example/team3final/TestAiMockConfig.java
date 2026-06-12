@@ -6,6 +6,7 @@ import com.example.team3final.domain.ai.report.service.AiReportService;
 import com.example.team3final.domain.ai.support.service.AiSupportService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 
 import static org.mockito.Mockito.mock;
@@ -15,6 +16,7 @@ import static org.mockito.Mockito.mock;
 public class TestAiMockConfig {
 
     @Bean
+    @Primary
     public AiMatchingService aiMatchingServiceImpl() {
         return mock(AiMatchingService.class);
     }
