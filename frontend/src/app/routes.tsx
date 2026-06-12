@@ -36,6 +36,7 @@ import TermsOfServicePage from "./pages/terms/TermsOfServicePage";
 import PrivacyPolicyPage from "./pages/terms/PrivacyPolicyPage";
 import LocationTermsPage from "./pages/terms/LocationTermsPage";
 import MarketingConsentPage from "./pages/terms/MarketingConsentPage";
+import RequireAuth from "./components/RequireAuth";
 
 export const router = createBrowserRouter([
   {
@@ -43,25 +44,73 @@ export const router = createBrowserRouter([
     Component: HomePage,
   },
   {
-    path: "/app",
-    Component: Layout,
+    Component: RequireAuth,
     children: [
-      { path: "posts", Component: PostListPage },
-      { path: "posts/new", Component: PostCreatePage },
-      { path: "posts/:id/edit", Component: PostCreatePage },
-      { path: "posts/:id", Component: PostDetailPage },
-      { path: "posts/:id/delete-reason", Component: DeletedPostReasonPage },
-      { path: "matches", Component: MatchesPage },
-      { path: "matches/:id", Component: MatchDetailPage },
-      { path: "ai/matching", Component: MatchingAiChatPage },
-      { path: "chat/:roomId", Component: ChatPage },
-      { path: "me", Component: MyInfoPage },
-      { path: "me/edit", Component: MyInfoEditPage },
-      { path: "me/points", Component: PointTransactionsPage },
-      { path: "me/matches", Component: MyMatchResultsPage },
-      { path: "me/inquiries", Component: InquiryCenterPage },
-      { path: "me/reports", Component: ReportCenterPage },
-      { path: "matches/:id/qr", Component: QRVerificationPage },
+      {
+        path: "/app",
+        Component: Layout,
+        children: [
+          { path: "posts", Component: PostListPage },
+          { path: "posts/new", Component: PostCreatePage },
+          { path: "posts/:id/edit", Component: PostCreatePage },
+          { path: "posts/:id", Component: PostDetailPage },
+          { path: "posts/:id/delete-reason", Component: DeletedPostReasonPage },
+          { path: "matches", Component: MatchesPage },
+          { path: "matches/:id", Component: MatchDetailPage },
+          { path: "ai/matching", Component: MatchingAiChatPage },
+          { path: "chat/:roomId", Component: ChatPage },
+          { path: "me", Component: MyInfoPage },
+          { path: "me/edit", Component: MyInfoEditPage },
+          { path: "me/points", Component: PointTransactionsPage },
+          { path: "me/matches", Component: MyMatchResultsPage },
+          { path: "me/inquiries", Component: InquiryCenterPage },
+          { path: "me/reports", Component: ReportCenterPage },
+          { path: "matches/:id/qr", Component: QRVerificationPage },
+        ],
+      },
+      {
+        path: "/matches",
+        Component: Layout,
+        children: [
+          { index: true, Component: MatchesPage },
+          { path: ":id", Component: MatchDetailPage },
+          { path: ":id/place-verification", Component: PlaceVerificationPage },
+          { path: ":id/qr", Component: QRVerificationPage },
+        ],
+      },
+      {
+        path: "/payments",
+        Component: Layout,
+        children: [
+          { index: true, Component: PaymentPage },
+        ],
+      },
+      {
+        path: "/ai",
+        Component: Layout,
+        children: [
+          { path: "matching", Component: MatchingAiChatPage },
+        ],
+      },
+      {
+        path: "/chat/:roomId",
+        Component: Layout,
+        children: [
+          { index: true, Component: ChatPage },
+        ],
+      },
+      {
+        path: "/me",
+        Component: Layout,
+        children: [
+          { index: true, Component: MyInfoPage },
+          { path: "edit", Component: MyInfoEditPage },
+          { path: "points", Component: PointTransactionsPage },
+          { path: "matches", Component: MyMatchResultsPage },
+          { path: "inquiries", Component: InquiryCenterPage },
+          { path: "reports", Component: ReportCenterPage },
+        ],
+      },
     ],
   },
   {
@@ -73,49 +122,6 @@ export const router = createBrowserRouter([
       { path: ":id/edit", Component: PostCreatePage },
       { path: ":id", Component: PostDetailPage },
       { path: ":id/delete-reason", Component: DeletedPostReasonPage },
-    ],
-  },
-  {
-    path: "/matches",
-    Component: Layout,
-    children: [
-      { index: true, Component: MatchesPage },
-      { path: ":id", Component: MatchDetailPage },
-      { path: ":id/place-verification", Component: PlaceVerificationPage },
-      { path: ":id/qr", Component: QRVerificationPage },
-    ],
-  },
-  {
-    path: "/payments",
-    Component: Layout,
-    children: [
-      { index: true, Component: PaymentPage },
-    ],
-  },
-  {
-    path: "/ai",
-    Component: Layout,
-    children: [
-      { path: "matching", Component: MatchingAiChatPage },
-    ],
-  },
-  {
-    path: "/chat/:roomId",
-    Component: Layout,
-    children: [
-      { index: true, Component: ChatPage },
-    ],
-  },
-  {
-    path: "/me",
-    Component: Layout,
-    children: [
-      { index: true, Component: MyInfoPage },
-      { path: "edit", Component: MyInfoEditPage },
-      { path: "points", Component: PointTransactionsPage },
-      { path: "matches", Component: MyMatchResultsPage },
-      { path: "inquiries", Component: InquiryCenterPage },
-      { path: "reports", Component: ReportCenterPage },
     ],
   },
   {
