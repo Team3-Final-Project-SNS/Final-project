@@ -122,9 +122,9 @@ export default function AdminPostsPage() {
     setRestoringId(post.postId);
     setMessage('');
     try {
-      await restoreAdminPost(post.postId);
-      setMessage('게시글을 복구했습니다.');
-      setPosts((prev) => prev.map((item) => item.postId === post.postId ? { ...item, status: 'OPEN' as PostStatus } : item));
+      const response = await restoreAdminPost(post.postId);
+      setMessage(`게시글을 복구했습니다. ${response.data.data.redepositedPoint.toLocaleString()}P가 재차감되었습니다.`);
+      await loadPosts(page);
     } catch (err: any) {
       setMessage(err.response?.data?.message || '게시글 복구에 실패했습니다.');
     } finally {

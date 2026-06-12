@@ -29,6 +29,11 @@ export default function PlaceVerificationPage() {
   const navigate = useNavigate();
   const matchId = Number(id);
 
+  const blockCancelledParticipant = () => {
+    alert('매칭 취소자는 인증 페이지에 접근할 수 없습니다.');
+    navigate('/matches', { replace: true });
+  };
+
   const [meetingPlace, setMeetingPlace] = useState<{
     name: string;
     time: string;
@@ -97,8 +102,12 @@ export default function PlaceVerificationPage() {
         });
         setChatRoomId(match.chatRoomId);
         applyVerificationData(verificationRes.data.data, currentUserIsAuthor);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to load place verification data', err);
+        const code = err.response?.data?.code;
+        if (code === 'MATCH_002' || code === 'CHAT_002' || code === 'CHAT_004') {
+          blockCancelledParticipant();
+        }
       } finally {
         setLoading(false);
       }
@@ -214,8 +223,12 @@ export default function PlaceVerificationPage() {
             }));
           }
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to refresh verification status', err);
+        const code = err.response?.data?.code;
+        if (code === 'MATCH_002' || code === 'CHAT_002' || code === 'CHAT_004') {
+          blockCancelledParticipant();
+        }
       }
     };
 

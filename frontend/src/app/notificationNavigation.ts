@@ -2,12 +2,24 @@ import { NotificationResponse } from '../api/notificationApi';
 
 export const getNotificationTargetPath = (notification: NotificationResponse) => {
   const { type, domain, relatedId } = notification;
+  const title = notification.title || '';
+  const content = notification.content || '';
+  const isPostDeleteNotification =
+    type === 'POST_DELETED' ||
+    (type === 'SYSTEM' &&
+      Boolean(relatedId) &&
+      (title.includes('삭제') || content.includes('삭제')) &&
+      (content.includes('게시글') || content.includes('게시물') || content.includes('게시')));
 
   if (type === 'CHAT_MEMBER_LEFT') {
     return null;
   }
 
   if (relatedId) {
+    if (isPostDeleteNotification) {
+      return `/posts/${relatedId}/delete-reason`;
+    }
+
     switch (type) {
       case 'DISPUTE_SUBMITTED':
         return `/admin/disputes?disputeId=${relatedId}`;

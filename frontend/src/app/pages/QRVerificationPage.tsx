@@ -41,6 +41,11 @@ export default function QRVerificationPage() {
 
   const matchId = Number(id);
 
+  const blockCancelledParticipant = () => {
+    alert('매칭 취소자는 인증 페이지에 접근할 수 없습니다.');
+    navigate('/matches', { replace: true });
+  };
+
   // ???????????????????????????????????????????
   // ?꾩옱 濡쒓렇???ъ슜??湲곗??쇰줈 ?깅줉???좎껌????븷 ?먮퀎
   // URL??role???놁뼱???щ컮瑜??붾㈃??蹂댁뿬以??
@@ -72,8 +77,13 @@ export default function QRVerificationPage() {
           setRole(resolvedRole);
           setStep(resolvedRole === 'applicant' || tokenFromUrl ? 'scan' : 'display');
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('QR ??븷 ?먮퀎 ?ㅽ뙣:', err);
+        const code = err.response?.data?.code;
+        if (code === 'MATCH_002' || code === 'CHAT_002' || code === 'CHAT_004') {
+          blockCancelledParticipant();
+          return;
+        }
         alert('留ㅼ묶 ?뺣낫瑜??뺤씤?????놁뒿?덈떎.');
         navigate('/matches');
       } finally {
