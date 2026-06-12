@@ -24,11 +24,14 @@ import com.example.team3final.domain.post.dto.response.PostInfoDto;
 import com.example.team3final.domain.post.service.PostService;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -36,6 +39,7 @@ import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -68,8 +72,13 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     private static final long EXTENSION_TIMEOUT_MINUTES = 5;
     // 연장 시간 : 1회 10분
     private static final long EXTENSION_MINUTES = 10;
-    // 노쇼 확정까지 이의제기 가능 시간: 24시간
-    private static final long NO_SHOW_CONFIRM_HOURS = 24;
+
+//    // 노쇼 확정까지 이의제기 가능 시간: 24시간
+//    private static final long NO_SHOW_CONFIRM_HOURS = 24;
+
+    // ===== 변경 (테스트용 — 배포 전 24시간으로 원복 필요) =====
+    private static final long NO_SHOW_CONFIRM_MINUTES = 10;
+
     // 5초마다 위치 업데이트 정책을 기준으로 안전 여유 값 15초
     private static final long LOCATION_FRESHNESS_SECONDS = 15;
     // GPS 오차범위 고려한 노쇼 범위 (정책 50m + 오차 10m)
@@ -690,79 +699,154 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
     @Transactional
     public void judgeNoShowConfirmed() {
 
-        // 노쇼 확정 기준 시각 계산
-        // noShowDecidedAt이 이 시각보다 이전인 건 = 24시간이 지난 건
-        LocalDateTime deadline = LocalDateTime.now().minusHours(NO_SHOW_CONFIRM_HOURS);
+//        LocalDateTime deadline =
+//                LocalDateTime.now().minusHours(NO_SHOW_CONFIRM_HOURS);
 
-        // NO_SHOW 상태이면서 noShowDecidedAt이 24시간 이전인 건 전체 조회
-        List<MeetVerification> noShowList = meetVerificationRepository
-                .findAllByStatusInAndNoShowDecidedAtBefore(NO_SHOW_STATUSES, deadline);
+        // ===== 변경 (테스트용 — 배포 전 원복 필요) =====
+        LocalDateTime deadline = LocalDateTime.now().minusMinutes(NO_SHOW_CONFIRM_MINUTES);
 
-        // 처리할 건이 없으면 조기 종료
+        List<MeetVerification> noShowList =
+                meetVerificationRepository
+                        .findAllByStatusInAndNoShowDecidedAtBefore(
+                                NO_SHOW_STATUSES,
+                                deadline
+                        );
+
         if (noShowList.isEmpty()) {
             return;
         }
 
-        // matchId 목록 추출
         List<Long> matchIds = noShowList.stream()
                 .map(MeetVerification::getMatchId)
                 .toList();
 
-        // Match + Post 벌크 조회 (N+1 방지)
+        log.info("[노쇼확정] 배치 시작 - deadline={}, matchIds={}",
+                deadline, matchIds);
+
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCompletion(int status) {
+                        if (status == TransactionSynchronization.STATUS_COMMITTED) {
+                            log.info(
+                                    "[노쇼확정] 트랜잭션 COMMIT - matchIds={}",
+                                    matchIds
+                            );
+                        } else {
+                            log.error(
+                                    "[노쇼확정] 트랜잭션 ROLLBACK - matchIds={}",
+                                    matchIds
+                            );
+                        }
+                    }
+                }
+        );
+
         BulkMatchContext bulk = loadBulkMatchContext(matchIds);
 
-        // 관리자가 아직 검토 중인 이의제기가 있는 matchId Set 조회
-        Set<Long> activeDisputeMatchIds = disputeQueryService.getMatchIdsWithActiveDispute(matchIds);
+        Set<Long> activeDisputeMatchIds =
+                disputeQueryService.getMatchIdsWithActiveDispute(matchIds);
 
         for (MeetVerification meetVerification : noShowList) {
 
             Long matchId = meetVerification.getMatchId();
 
-            // 이의제기가 아직 검토 중인 건은 확정 처리 대상에서 제외
-            // 관리자가 ACCEPTED / REJECTED 판정을 내릴 때까지 24시간 타이머를 멈춤
-            // 판정이 나면 AdminDisputeService에서 직접 confirmNoShow()를 호출
-            if (activeDisputeMatchIds.contains(matchId)) {
-                continue;
-            }
+            try {
+                log.info(
+                        "[노쇼확정] 처리 시작 - matchId={}, status={}, sent={}",
+                        matchId,
+                        meetVerification.getStatus(),
+                        meetVerification.isNoShowConfirmedSent()
+                );
 
-            // 데이터 정합성 방어 — Match 또는 Post 정보가 없으면 해당 건만 스킵
-            MatchInfoDto matchInfoDto = bulk.matchInfoMap().get(matchId);
-            if (matchInfoDto == null) continue;
-
-            PostInfoDto postInfoDto = bulk.postInfoMap().get(matchInfoDto.postId());
-            if (postInfoDto == null) continue;
-
-            VerificationStatus status = meetVerification.getStatus();
-
-            // 발송 플래그 확인 → 중복 발송 방지
-            if (!meetVerification.isNoShowConfirmedSent()) {
-                // 노쇼 상태에 따라 Match 도메인에 확정 처리 위임
-                if (status == VerificationStatus.BOTH_NO_SHOW) {
-                    // 17. 노쇼 확정 알림 - 관련 사용자 양측에게
-                    // 양측 모두 노쇼 확정 — 양측 예치금 전부 몰수
-                    matchService.markBothNoShow(matchId);
-                    notificationPublisher.sendNoShowConfirmed(postInfoDto.authorId(), matchId);
-                    notificationPublisher.sendNoShowConfirmed(matchInfoDto.applicantId(), matchId);
-
-                } else if (status == VerificationStatus.GUEST_NO_SHOW) {
-                    // 17. 노쇼 확정 알림 - 관련 사용자 양측에게
-                    // 신청자만 노쇼 확정 — 신청자 예치금 몰수 + 등록자 환급
-                    matchService.markApplicantNoShow(matchId);
-                    notificationPublisher.sendNoShowConfirmed(matchInfoDto.applicantId(), matchId);
-
-                } else if (status == VerificationStatus.HOST_NO_SHOW) {
-                    // 17. 노쇼 확정 알림 - 관련 사용자 양측에게
-                    // 등록자만 노쇼 확정 — 등록자 예치금 몰수 + 신청자 환급
-                    matchService.markAuthorNoShow(matchId);
-                    notificationPublisher.sendNoShowConfirmed(postInfoDto.authorId(), matchId);
+                if (activeDisputeMatchIds.contains(matchId)) {
+                    log.info(
+                            "[노쇼확정] 이의제기 검토 중 스킵 - matchId={}",
+                            matchId
+                    );
+                    continue;
                 }
 
-                // 알림 발송 완료 플래그 저장
-                meetVerification.markNoShowConfirmedSent();
-            }
+                MatchInfoDto matchInfoDto =
+                        bulk.matchInfoMap().get(matchId);
 
-            // 처리 완료 — 다음 배치에서 중복 실행 방지
-            meetVerification.confirmNoShow();
+                if (matchInfoDto == null) {
+                    log.warn(
+                            "[노쇼확정] Match 정보 없음 - matchId={}",
+                            matchId
+                    );
+                    continue;
+                }
+
+                PostInfoDto postInfoDto =
+                        bulk.postInfoMap().get(matchInfoDto.postId());
+
+                if (postInfoDto == null) {
+                    log.warn(
+                            "[노쇼확정] Post 정보 없음 - matchId={}, postId={}",
+                            matchId,
+                            matchInfoDto.postId()
+                    );
+                    continue;
+                }
+
+                VerificationStatus status = meetVerification.getStatus();
+
+                if (!meetVerification.isNoShowConfirmedSent()) {
+
+                    if (status == VerificationStatus.BOTH_NO_SHOW) {
+                        matchService.markBothNoShow(matchId);
+
+                        notificationPublisher.sendNoShowConfirmed(
+                                postInfoDto.authorId(),
+                                matchId
+                        );
+                        notificationPublisher.sendNoShowConfirmed(
+                                matchInfoDto.applicantId(),
+                                matchId
+                        );
+
+                    } else if (status == VerificationStatus.GUEST_NO_SHOW) {
+                        matchService.markApplicantNoShow(matchId);
+
+                        notificationPublisher.sendNoShowConfirmed(
+                                matchInfoDto.applicantId(),
+                                matchId
+                        );
+
+                    } else if (status == VerificationStatus.HOST_NO_SHOW) {
+                        matchService.markAuthorNoShow(matchId);
+
+                        notificationPublisher.sendNoShowConfirmed(
+                                postInfoDto.authorId(),
+                                matchId
+                        );
+                    }
+
+                    meetVerification.markNoShowConfirmedSent();
+                }
+
+                meetVerification.confirmNoShow();
+
+                log.info(
+                        "[노쇼확정] 처리 완료(커밋 전) - matchId={}, status={}, sent={}",
+                        matchId,
+                        meetVerification.getStatus(),
+                        meetVerification.isNoShowConfirmedSent()
+                );
+
+            } catch (Exception e) {
+                log.error(
+                        "[노쇼확정] 처리 실패 - matchId={}, status={}, exception={}, message={}",
+                        matchId,
+                        meetVerification.getStatus(),
+                        e.getClass().getSimpleName(),
+                        e.getMessage(),
+                        e
+                );
+
+                throw e;
+            }
         }
     }
 
