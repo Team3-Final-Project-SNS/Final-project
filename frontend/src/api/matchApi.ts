@@ -88,9 +88,37 @@ export interface CreateDisputeRequest {
 export interface CreateDisputeResponse {
     disputeId: number;
     matchId: number;
+    disputeType: DisputeType;
     status: string;
+    submittedAt: string;
 }
 
 // 노쇼 이의제기 제출
 export const createDispute = (matchId: number, request: CreateDisputeRequest) =>
     axiosInstance.post<ApiResponse<CreateDisputeResponse>>(`/api/v1/matches/${matchId}/disputes`, request);
+
+export type DisputeStatus = "SUBMITTED" | "UNDER_REVIEW" | "ACCEPTED" | "PARTIALLY_ACCEPTED" | "REJECTED" | "HOLD";
+
+export interface DisputeResponse {
+    disputeId: number;
+    matchId: number;
+    disputeType: DisputeType;
+    reason: string;
+    status: DisputeStatus;
+    adminComment: string | null;
+    submittedAt: string;
+    processedAt: string | null;
+    holdDeadlineAt: string | null;
+}
+
+export interface NoShowMatchResponse {
+    matchId: number;
+    verificationStatus: string;
+    noShowDecidedAt: string;
+}
+
+export const getMyNoShowMatches = () =>
+    axiosInstance.get<ApiResponse<NoShowMatchResponse[]>>("/api/v1/matches/me/no-show");
+
+export const getMyDispute = (matchId: number) =>
+    axiosInstance.get<ApiResponse<DisputeResponse>>(`/api/v1/matches/${matchId}/disputes/me`);

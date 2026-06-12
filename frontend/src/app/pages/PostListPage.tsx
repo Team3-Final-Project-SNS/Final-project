@@ -168,7 +168,7 @@ export default function PostListPage() {
                   </div>
 
                   <h3 className="mb-3 truncate text-lg font-bold text-[#212121]">
-                    {post.placeName} 같이 먹어요
+                    {post.placeName} 에서 만나요
                   </h3>
 
                   <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-[#616161]">

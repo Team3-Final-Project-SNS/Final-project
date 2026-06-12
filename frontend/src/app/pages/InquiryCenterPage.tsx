@@ -13,7 +13,10 @@ import {
 } from '../../api/inquiryApi';
 import {
   createDispute,
+  DisputeResponse,
   DisputeType,
+  getMyDispute,
+  getMyNoShowMatches,
 } from '../../api/matchApi';
 import AdminFloatingChatbot from '../components/AdminFloatingChatbot';
 
@@ -36,19 +39,29 @@ const disputeTypes: { value: DisputeType; label: string }[] = [
   { value: 'QR_ERROR', label: 'QR 코드 인식 오류' },
 ];
 
-const statusLabels: Record<InquiryAnswerStatus, string> = {
+const statusLabels: Partial<Record<InquiryAnswerStatus, string>> = {
   PENDING: '접수됨',
   READ: '확인 중',
   ANSWERED: '답변 완료',
   WITHDRAWN: '취소됨',
 };
 
-const statusClasses: Record<InquiryAnswerStatus, string> = {
+const statusClasses: Partial<Record<InquiryAnswerStatus, string>> = {
   PENDING: 'bg-[#fff3e0] text-[#ef6c00]',
   READ: 'bg-[#e3f2fd] text-[#1565c0]',
   ANSWERED: 'bg-[#e8f5e9] text-[#2e7d32]',
   WITHDRAWN: 'bg-[#f5f5f5] text-[#757575]',
 };
+
+const getInquiryStatusLabel = (status: InquiryAnswerStatus) =>
+  status === 'IN_PROGRESS'
+    ? statusLabels.READ || status
+    : statusLabels[status] || status;
+
+const getInquiryStatusClass = (status: InquiryAnswerStatus) =>
+  status === 'IN_PROGRESS'
+    ? statusClasses.READ || ''
+    : statusClasses[status] || 'bg-[#f5f5f5] text-[#757575]';
 
 export default function InquiryCenterPage() {
   const [searchParams] = useSearchParams();
@@ -65,6 +78,8 @@ export default function InquiryCenterPage() {
   );
   const [items, setItems] = useState<InquiryListItem[]>([]);
   const [selected, setSelected] = useState<InquiryDetail | null>(null);
+  const [disputeItems, setDisputeItems] = useState<DisputeResponse[]>([]);
+  const [selectedDispute, setSelectedDispute] = useState<DisputeResponse | null>(null);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -86,6 +101,7 @@ export default function InquiryCenterPage() {
     setTitle('');
     setContent('');
     setSelected(null);
+    setSelectedDispute(null);
     setView('inquiry');
   };
 
@@ -98,10 +114,40 @@ export default function InquiryCenterPage() {
     setDisputeType('GPS_ERROR');
     setDisputeReason('');
     setSelected(null);
+    setSelectedDispute(null);
     setView('noShow');
   };
 
+  const loadDisputes = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const noShowRes = await getMyNoShowMatches();
+      const results = await Promise.allSettled(
+        noShowRes.data.data.map((match) => getMyDispute(match.matchId)),
+      );
+      const disputes = results
+        .filter((result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof getMyDispute>>> => result.status === 'fulfilled')
+        .map((result) => result.value.data.data)
+        .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+
+      setDisputeItems(disputes);
+      setTotalPages(1);
+      setPage(0);
+    } catch (err) {
+      console.error('Failed to load disputes', err);
+      setError('노쇼 이의제기 접수 내역을 불러오지 못했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const loadInquiries = async (nextPage = page) => {
+    if (isNoShowView) {
+      await loadDisputes();
+      return;
+    }
+
     setLoading(true);
     setError('');
     try {
@@ -118,15 +164,32 @@ export default function InquiryCenterPage() {
 
   useEffect(() => {
     loadInquiries(page);
-  }, [page]);
+  }, [page, view]);
 
 
   const handleSelect = async (inquiryId: number) => {
+    if (isNoShowView) {
+      setDetailLoading(true);
+      setError('');
+      try {
+        const res = await getMyDispute(inquiryId);
+        setSelectedDispute(res.data.data);
+        setSelected(null);
+      } catch (err) {
+        console.error('Failed to load dispute detail', err);
+        setError('노쇼 이의제기 상세 내용을 불러오지 못했습니다.');
+      } finally {
+        setDetailLoading(false);
+      }
+      return;
+    }
+
     setDetailLoading(true);
     setError('');
     try {
       const res = await getInquiry(inquiryId);
       setSelected(res.data.data);
+      setSelectedDispute(null);
     } catch (err) {
       console.error('Failed to load inquiry detail', err);
       setError(isNoShowView ? '노쇼 이의제기 상세 내용을 불러오지 못했습니다.' : '문의 상세 내용을 불러오지 못했습니다.');
@@ -186,11 +249,24 @@ export default function InquiryCenterPage() {
     setError('');
     setSuccess('');
     try {
-      await createDispute(requestedNoShowMatchIdNumber, {
+      const response = await createDispute(requestedNoShowMatchIdNumber, {
         disputeType,
         reason: disputeReason.trim(),
       });
+      const submittedReason = disputeReason.trim();
       setDisputeReason('');
+      await loadDisputes();
+      setSelectedDispute({
+        disputeId: response.data.data.disputeId,
+        matchId: response.data.data.matchId,
+        disputeType: response.data.data.disputeType,
+        reason: submittedReason,
+        status: response.data.data.status as DisputeResponse['status'],
+        adminComment: null,
+        submittedAt: response.data.data.submittedAt,
+        processedAt: null,
+        holdDeadlineAt: null,
+      });
       setSuccess('노쇼 이의제기가 접수되었습니다.');
     } catch (err: any) {
       setError(err.response?.data?.message || '노쇼 이의제기 접수에 실패했습니다.');
@@ -380,6 +456,32 @@ export default function InquiryCenterPage() {
             <h2 className="mb-4 text-lg font-bold text-[#212121]">{isNoShowView ? '노쇼 이의제기 접수 내역' : '내 문의 내역'}</h2>
             {loading ? (
               <div className="py-10 text-center text-sm text-[#9e9e9e]">{isNoShowView ? '노쇼 이의제기 접수 내역을 불러오는 중...' : '문의 내역을 불러오는 중...'}</div>
+            ) : isNoShowView ? (
+              disputeItems.length > 0 ? (
+                <div className="space-y-2">
+                  {disputeItems.map((item) => (
+                    <button
+                      key={item.disputeId}
+                      type="button"
+                      onClick={() => handleSelect(item.matchId)}
+                      className="w-full rounded-xl border border-[#eeeeee] p-4 text-left transition-colors hover:border-[#d84315] hover:bg-[#fffaf7]"
+                    >
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <span className="rounded bg-[#fff3e0] px-2.5 py-1 text-xs font-bold text-[#ef6c00]">
+                          {disputeStatusLabel(item.status)}
+                        </span>
+                        <span className="text-xs text-[#9e9e9e]">{formatDateTime(item.submittedAt)}</span>
+                      </div>
+                      <p className="font-bold text-[#212121]">매칭 #{item.matchId} 노쇼 이의제기</p>
+                      <p className="mt-1 text-xs font-semibold text-[#757575]">{disputeTypeLabel(item.disputeType)}</p>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-[#e0e0e0] p-8 text-center text-sm text-[#9e9e9e]">
+                  접수한 노쇼 이의제기가 없습니다.
+                </div>
+              )
             ) : items.length > 0 ? (
               <div className="space-y-2">
                 {items.map((item) => (
@@ -390,8 +492,8 @@ export default function InquiryCenterPage() {
                     className="w-full rounded-xl border border-[#eeeeee] p-4 text-left transition-colors hover:border-[#d84315] hover:bg-[#fffaf7]"
                   >
                     <div className="mb-2 flex items-center justify-between gap-3">
-                      <span className={`rounded px-2.5 py-1 text-xs font-bold ${statusClasses[item.answerStatus]}`}>
-                        {statusLabels[item.answerStatus]}
+                      <span className={`rounded px-2.5 py-1 text-xs font-bold ${getInquiryStatusClass(item.answerStatus)}`}>
+                        {getInquiryStatusLabel(item.answerStatus)}
                       </span>
                       <span className="text-xs text-[#9e9e9e]">{formatDateTime(item.createdAt)}</span>
                     </div>
@@ -415,12 +517,38 @@ export default function InquiryCenterPage() {
             <h2 className="mb-4 text-lg font-bold text-[#212121]">{isNoShowView ? '노쇼 이의제기 상세' : '문의 상세'}</h2>
             {detailLoading ? (
               <div className="py-10 text-center text-sm text-[#9e9e9e]">상세 내용을 불러오는 중...</div>
+            ) : isNoShowView && selectedDispute ? (
+              <div className="space-y-4">
+                <div>
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <span className="rounded bg-[#fff3e0] px-2.5 py-1 text-xs font-bold text-[#ef6c00]">
+                      {disputeStatusLabel(selectedDispute.status)}
+                    </span>
+                    <span className="text-xs font-semibold text-[#757575]">매칭 #{selectedDispute.matchId}</span>
+                  </div>
+                  <h3 className="text-xl font-bold text-[#212121]">{disputeTypeLabel(selectedDispute.disputeType)}</h3>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#616161]">{selectedDispute.reason}</p>
+                  <p className="mt-3 text-xs text-[#9e9e9e]">접수일 {formatDateTime(selectedDispute.submittedAt)}</p>
+                </div>
+
+                {selectedDispute.adminComment ? (
+                  <div className="rounded-xl bg-[#f8fbf8] p-4">
+                    <p className="mb-2 text-sm font-bold text-[#2e7d32]">관리자 답변</p>
+                    <p className="whitespace-pre-wrap text-sm leading-6 text-[#424242]">{selectedDispute.adminComment}</p>
+                    {selectedDispute.processedAt && <p className="mt-3 text-xs text-[#9e9e9e]">{formatDateTime(selectedDispute.processedAt)}</p>}
+                  </div>
+                ) : (
+                  <div className="rounded-xl bg-[#fafafa] p-4 text-sm text-[#757575]">
+                    아직 관리자 답변이 등록되지 않았습니다.
+                  </div>
+                )}
+              </div>
             ) : selected ? (
               <div className="space-y-4">
                 <div>
                   <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <span className={`rounded px-2.5 py-1 text-xs font-bold ${statusClasses[selected.answerStatus]}`}>
-                      {statusLabels[selected.answerStatus]}
+                    <span className={`rounded px-2.5 py-1 text-xs font-bold ${getInquiryStatusClass(selected.answerStatus)}`}>
+                      {getInquiryStatusLabel(selected.answerStatus)}
                     </span>
                     <span className="text-xs font-semibold text-[#757575]">{typeLabel(selected.type)}</span>
                   </div>
@@ -528,6 +656,23 @@ function Pagination({ page, totalPages, onChange }: { page: number; totalPages: 
 
 function typeLabel(type: InquiryType) {
   return inquiryTypes.find((item) => item.value === type)?.label || type;
+}
+
+function disputeTypeLabel(type: DisputeType) {
+  return disputeTypes.find((item) => item.value === type)?.label || type;
+}
+
+function disputeStatusLabel(status: DisputeResponse['status']) {
+  const labels: Record<DisputeResponse['status'], string> = {
+    SUBMITTED: '접수 완료',
+    UNDER_REVIEW: '검토 중',
+    ACCEPTED: '수용',
+    PARTIALLY_ACCEPTED: '일부 수용',
+    REJECTED: '기각',
+    HOLD: '보류',
+  };
+
+  return labels[status] || status;
 }
 
 function formatDateTime(value: string) {

@@ -479,6 +479,7 @@ export default function PostCreatePage() {
                         ))}
                         <input
                             type="number"
+                            step={100}
                             placeholder="직접입력"
                             value={points}
                             onChange={(e) => setPoints(Number(e.target.value))}

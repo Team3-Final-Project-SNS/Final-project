@@ -10,6 +10,7 @@ import {
   ReviewGoodTag,
   ReviewItem,
 } from '../../api/reviewApi';
+import { applyExtendedMeetAt } from '../../store/matchStore';
 
 type FilterStatus = '전체' | MatchStatus;
 
@@ -109,7 +110,7 @@ export default function MyMatchResultsPage() {
           setCurrentUserId(userId);
         }
 
-        setMatches(nextMatches);
+        setMatches(applyExtendedMeetAt(nextMatches));
         setTotalPages(matchRes.data.data.totalPages || 1);
 
         const completedMatches = nextMatches.filter((match) => match.status === 'COMPLETED');

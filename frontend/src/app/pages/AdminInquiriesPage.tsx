@@ -10,15 +10,20 @@ import {
 } from '../../api/adminInquiryApi';
 import { InquiryAnswerStatus, InquiryType } from '../../api/inquiryApi';
 
-const statusFilters: ('ALL' | InquiryAnswerStatus)[] = ['ALL', 'PENDING', 'READ', 'ANSWERED', 'WITHDRAWN'];
+const statusFilters: ('ALL' | InquiryAnswerStatus)[] = ['ALL', 'PENDING', 'ANSWERED', 'WITHDRAWN'];
 const typeFilters: ('ALL' | InquiryType)[] = ['ALL', 'ACCOUNT', 'PAYMENT', 'MATCH', 'REPORT', 'USAGE', 'HISTORY', 'OTHER'];
 
-const statusLabels: Record<InquiryAnswerStatus, string> = {
+const statusLabels: Partial<Record<InquiryAnswerStatus, string>> = {
   PENDING: '접수 완료',
   READ: '확인 중',
   ANSWERED: '답변 완료',
   WITHDRAWN: '취소',
 };
+
+const getInquiryStatusLabel = (status: InquiryAnswerStatus) =>
+  status === 'READ' || status === 'IN_PROGRESS'
+    ? statusLabels.PENDING || status
+    : statusLabels[status] || status;
 
 const typeLabels: Record<InquiryType, string> = {
   ACCOUNT: '계정/인증',
@@ -113,7 +118,7 @@ export default function AdminInquiriesPage() {
                 status === item ? 'bg-[#d84315] text-white' : 'border border-[#e0e0e0] bg-white text-[#616161]'
               }`}
             >
-              {item === 'ALL' ? '전체 상태' : statusLabels[item]}
+              {item === 'ALL' ? '전체 상태' : getInquiryStatusLabel(item)}
             </button>
           ))}
         </div>
@@ -150,7 +155,7 @@ export default function AdminInquiriesPage() {
                   >
                     <div className="mb-2 flex items-center justify-between gap-2">
                       <span className="rounded bg-[#fff3e0] px-2.5 py-1 text-xs font-bold text-[#ef6c00]">
-                        {statusLabels[item.answerStatus]}
+                        {getInquiryStatusLabel(item.answerStatus)}
                       </span>
                       <span className="text-xs text-[#9e9e9e]">{typeLabels[item.type]}</span>
                     </div>
@@ -176,7 +181,7 @@ export default function AdminInquiriesPage() {
                   </p>
                   <div className="mb-3 flex flex-wrap gap-2">
                     <span className="rounded bg-[#fff3e0] px-2.5 py-1 text-xs font-bold text-[#ef6c00]">
-                      {statusLabels[selected.answerStatus]}
+                      {getInquiryStatusLabel(selected.answerStatus)}
                     </span>
                     <span className="rounded bg-[#f5f5f5] px-2.5 py-1 text-xs font-bold text-[#616161]">
                       {typeLabels[selected.type]}

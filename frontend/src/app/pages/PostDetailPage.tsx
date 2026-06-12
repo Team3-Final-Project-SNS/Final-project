@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
 import { ArrowLeft, MapPin, Clock, User, AlertCircle, Loader2, Flag } from 'lucide-react';
-import { getPost, GetPostResponse } from '../../api/postApi';
+import { getDeletedPostReason, getPost, GetPostResponse } from '../../api/postApi';
 import axiosInstance from '../../api/axiosInstance'; // 임시로 matchApi 대신 사용 (아직 안만듦)
 import { createReport, ReportReason } from '../../api/reportApi';
 
@@ -31,6 +31,16 @@ export default function PostDetailPage() {
         setPost(postRes.data.data);
         setUserPoints(userRes.data.data.point);
       } catch (err: any) {
+        if (err.response?.status === 404 && Number(id) > 0) {
+          try {
+            await getDeletedPostReason(Number(id));
+            navigate(`/posts/${id}/delete-reason`, { replace: true });
+            return;
+          } catch {
+            // No delete reason is available, so keep the existing not-found handling.
+          }
+        }
+
         setError('게시글을 불러오는데 실패했습니다.');
         console.error(err);
       } finally {
@@ -229,8 +239,8 @@ export default function PostDetailPage() {
         </div>
 
         {showMatchModal && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/35 p-4 backdrop-blur-sm">
+              <div className="w-full max-w-md rounded-2xl border border-[#eeeeee] bg-white p-6 shadow-2xl">
                 <h2 className="text-xl font-bold text-[#212121] mb-4">매칭 신청 확인</h2>
                 <p className="text-[#616161] mb-6">
                   정말 신청하시겠습니까? {post.authorDeposit.toLocaleString()}P가 예치되며, 만남 완료 시 반환됩니다.

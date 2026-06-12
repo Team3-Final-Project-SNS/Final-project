@@ -41,7 +41,8 @@ export type NotificationType =
     | "POST_EXPIRING_SOON"
     | "POST_EXPIRED"
     | "POST_DELETED"
-    | "POST_RESTORED";
+    | "POST_RESTORED"
+    | "SYSTEM";
 
 export type NotificationDomain =
     | "MATCH"

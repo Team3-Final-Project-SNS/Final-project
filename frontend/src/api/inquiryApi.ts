@@ -3,7 +3,7 @@ import { ApiResponse } from "./authApi";
 import { PageResponse } from "./postApi";
 
 export type InquiryType = "ACCOUNT" | "HISTORY" | "MATCH" | "OTHER" | "PAYMENT" | "REPORT" | "USAGE";
-export type InquiryAnswerStatus = "PENDING" | "READ" | "ANSWERED" | "WITHDRAWN";
+export type InquiryAnswerStatus = "PENDING" | "READ" | "IN_PROGRESS" | "ANSWERED" | "CLOSED" | "WITHDRAWN";
 
 export interface CreateInquiryRequest {
   title: string;
@@ -58,4 +58,4 @@ export const getInquiry = (inquiryId: number) =>
   axiosInstance.get<ApiResponse<InquiryDetail>>(`/api/v1/inquiries/${inquiryId}`);
 
 export const cancelInquiry = (inquiryId: number) =>
-  axiosInstance.delete<ApiResponse<CancelInquiryResponse>>(`/api/v1/inquiries/${inquiryId}`);
+  axiosInstance.patch<ApiResponse<CancelInquiryResponse>>(`/api/v1/inquiries/${inquiryId}/cancel`);
