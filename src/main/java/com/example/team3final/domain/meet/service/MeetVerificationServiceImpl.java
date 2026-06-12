@@ -723,8 +723,25 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
         log.info("[노쇼확정] 배치 시작 - deadline={}, matchIds={}",
                 deadline, matchIds);
 
+        // ===== Kafka 발행 대상 리스트 — DB 커밋 후 발행하기 위해 모아둠 =====
+        List<NoShowConfirmedNotificationTarget> notificationTargets = new ArrayList<>();
+
+        // ===== afterCommit()에서 Kafka 발행 + afterCompletion()에서 COMMIT/ROLLBACK 로그 =====
         TransactionSynchronizationManager.registerSynchronization(
                 new TransactionSynchronization() {
+
+                    @Override
+                    public void afterCommit() {
+                        // DB 커밋 성공 후에만 Kafka 알림 발행
+                        for (NoShowConfirmedNotificationTarget target : notificationTargets) {
+                            notificationPublisher.sendNoShowConfirmed(
+                                    target.userId(),
+                                    target.matchId()
+                            );
+                        }
+                        log.info("[노쇼확정] 알림 발행 완료 - targets={}", notificationTargets);
+                    }
+
                     @Override
                     public void afterCompletion(int status) {
                         if (status == TransactionSynchronization.STATUS_COMMITTED) {
@@ -794,35 +811,33 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
 
                 if (!meetVerification.isNoShowConfirmedSent()) {
 
+                    // Kafka 발행을 afterCommit()으로 미뤄서 DB 롤백 시 알림 중복 발송 방지
                     if (status == VerificationStatus.BOTH_NO_SHOW) {
                         matchService.markBothNoShow(matchId);
 
-                        notificationPublisher.sendNoShowConfirmed(
-                                postInfoDto.authorId(),
-                                matchId
+                        notificationTargets.add(
+                                new NoShowConfirmedNotificationTarget(postInfoDto.authorId(), matchId)
                         );
-                        notificationPublisher.sendNoShowConfirmed(
-                                matchInfoDto.applicantId(),
-                                matchId
+                        notificationTargets.add(
+                                new NoShowConfirmedNotificationTarget(matchInfoDto.applicantId(), matchId)
                         );
 
                     } else if (status == VerificationStatus.GUEST_NO_SHOW) {
                         matchService.markApplicantNoShow(matchId);
 
-                        notificationPublisher.sendNoShowConfirmed(
-                                matchInfoDto.applicantId(),
-                                matchId
+                        notificationTargets.add(
+                                new NoShowConfirmedNotificationTarget(matchInfoDto.applicantId(), matchId)
                         );
 
                     } else if (status == VerificationStatus.HOST_NO_SHOW) {
                         matchService.markAuthorNoShow(matchId);
 
-                        notificationPublisher.sendNoShowConfirmed(
-                                postInfoDto.authorId(),
-                                matchId
+                        notificationTargets.add(
+                                new NoShowConfirmedNotificationTarget(postInfoDto.authorId(), matchId)
                         );
                     }
 
+                    // sent 플래그는 트랜잭션 안에서 DB에 저장 (커밋되어야 의미 있음)
                     meetVerification.markNoShowConfirmedSent();
                 }
 
@@ -849,6 +864,13 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             }
         }
     }
+
+    // ===== 노쇼 확정 알림 발행 대상 record =====
+    // afterCommit()에서 Kafka 발행 시 사용
+    private record NoShowConfirmedNotificationTarget(
+            Long userId,
+            Long matchId
+    ) { }
 
     // 특정 Post에 속한 노쇼/이의제기 상태 MeetVerification들을 관리자 노쇼 확정 상태로 일괄 정리
     // 등록자 노쇼처럼 Post 전체 책임이 확정되는 경우 사용
