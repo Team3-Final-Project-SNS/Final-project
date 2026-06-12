@@ -1,19 +1,15 @@
 package com.example.team3final.domain.report;
 
-import com.example.team3final.common.config.JpaAuditingConfig;
-import com.example.team3final.common.config.QueryDslConfig;
 import com.example.team3final.domain.report.entity.Report;
 import com.example.team3final.domain.report.enums.ReportStatus;
 import com.example.team3final.domain.report.enums.ReportReason;
 import com.example.team3final.domain.report.repository.ReportRepository;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 
@@ -24,8 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DataJpaTest
-@Import({JpaAuditingConfig.class, QueryDslConfig.class})
+@SpringBootTest
 @ActiveProfiles("test")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @DisplayName("신고 포상금 중복 지급 방지 테스트")
@@ -150,7 +145,6 @@ class ReportRewardIdempotencyTest {
 
     @Test
     @Order(4)
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @DisplayName("동시에 여러 관리자가 같은 신고를 채택 시도하면 정확히 1번만 처리되어야 한다")
     void acceptIfPending_concurrent_onlyOneSucceeds() throws InterruptedException {
 
