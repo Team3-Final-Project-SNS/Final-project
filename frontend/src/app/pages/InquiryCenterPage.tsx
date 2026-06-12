@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { AlertCircle, ArrowLeft, FileText, Loader2, MessageSquare, Send, Siren, Trash2 } from 'lucide-react';
 import { useSearchParams } from 'react-router';
+import { toast } from 'sonner';
+import { useAuthStatus } from '@/store/authStatusStore';
 import {
   cancelInquiry,
   createInquiry,
@@ -103,11 +105,15 @@ export default function InquiryCenterPage() {
   const [disputeType, setDisputeType] = useState<DisputeType>('GPS_ERROR');
   const [disputeReason, setDisputeReason] = useState('');
   const isNoShowView = view === 'noShow';
+  const { isSuspended } = useAuthStatus();
+  const visibleInquiryTypes = isSuspended
+    ? inquiryTypes.filter((item) => item.value === 'ACCOUNT')
+    : inquiryTypes;
 
   const openInquiryForm = () => {
     setError('');
     setSuccess('');
-    setType('OTHER');
+    setType(isSuspended ? 'ACCOUNT' : 'OTHER');
     setTitle('');
     setContent('');
     setSelected(null);
@@ -116,6 +122,13 @@ export default function InquiryCenterPage() {
   };
 
   const openNoShowObjectionForm = () => {
+    if (isSuspended) {
+      toast.warning('정지된 계정입니다. 문의하기로 이의를 제기해 주세요.');
+      setView('inquiry');
+      setType('ACCOUNT');
+      return;
+    }
+
     setError('');
     setSuccess('');
     setType('MATCH');
@@ -173,8 +186,20 @@ export default function InquiryCenterPage() {
   };
 
   useEffect(() => {
+    if (isSuspended && view === 'noShow') {
+      setView('inquiry');
+      setType('ACCOUNT');
+      return;
+    }
+
     loadInquiries(page);
-  }, [page, view]);
+  }, [page, view, isSuspended]);
+
+  useEffect(() => {
+    if (isSuspended && type !== 'ACCOUNT') {
+      setType('ACCOUNT');
+    }
+  }, [isSuspended, type]);
 
 
   const handleSelect = async (inquiryId: number) => {
@@ -229,10 +254,11 @@ export default function InquiryCenterPage() {
     setError('');
     setSuccess('');
     try {
-      const res = await createInquiry({ title: title.trim(), content: content.trim(), type: isNoShowView ? 'MATCH' : type });
+      const submitType = isSuspended ? 'ACCOUNT' : isNoShowView ? 'MATCH' : type;
+      const res = await createInquiry({ title: title.trim(), content: content.trim(), type: submitType });
       setTitle('');
       setContent('');
-      setType(isNoShowView ? 'MATCH' : 'OTHER');
+      setType(isSuspended ? 'ACCOUNT' : isNoShowView ? 'MATCH' : 'OTHER');
       setSuccess(isNoShowView ? '노쇼 이의제기가 접수되었습니다.' : '문의가 접수되었습니다.');
       await loadInquiries(0);
       setPage(0);
@@ -318,7 +344,10 @@ export default function InquiryCenterPage() {
             <button
               type="button"
               onClick={openNoShowObjectionForm}
-              className="group rounded-2xl border border-[#e0e0e0] bg-white p-7 text-left shadow-sm transition-all hover:border-[#d84315] hover:shadow-md"
+              aria-disabled={isSuspended}
+              className={`group rounded-2xl border border-[#e0e0e0] bg-white p-7 text-left shadow-sm transition-all hover:border-[#d84315] hover:shadow-md ${
+                isSuspended ? 'cursor-not-allowed opacity-45' : ''
+              }`}
             >
               <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[#ffebee] text-[#d84315]">
                 <Siren size={24} />
@@ -417,12 +446,17 @@ export default function InquiryCenterPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="mb-1 block text-xs font-bold text-[#757575]">문의 유형</label>
+                {isSuspended && (
+                  <p className="mb-2 rounded-md bg-[#fff8e1] px-3 py-2 text-xs font-semibold text-[#6d4c41]">
+                    정지된 계정은 계정/인증 문의만 접수할 수 있습니다.
+                  </p>
+                )}
                 <select
                   value={type}
                   onChange={(event) => setType(event.target.value as InquiryType)}
                   className="w-full rounded-lg border border-[#e0e0e0] bg-white px-3 py-2 text-sm focus:border-[#d84315] focus:outline-none focus:ring-2 focus:ring-[#fff3e0]"
                 >
-                  {inquiryTypes.map((item) => (
+                  {visibleInquiryTypes.map((item) => (
                     <option key={item.value} value={item.value}>
                       {item.label}
                     </option>

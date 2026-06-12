@@ -1,5 +1,7 @@
 import axios from "axios";
 import type { AxiosRequestConfig } from "axios";
+import { toast } from "sonner";
+import { clearAuthStatus } from "@/store/authStatusStore";
 
 // ─────────────────────────────────────────────
 // 토큰 없이 접근 가능한 공개 엔드포인트 목록
@@ -35,6 +37,7 @@ export const setAccessToken = (token: string) => {
 export const getAccessToken = () => accessTokenMemory;
 export const clearAccessToken = () => {
     accessTokenMemory = null;
+    clearAuthStatus();
 };
 
 // ─────────────────────────────────────────────
@@ -175,6 +178,11 @@ axiosInstance.interceptors.response.use(
             } finally {
                 isRefreshing = false;
             }
+        }
+
+        const errorCode = error.response?.data?.code;
+        if (error.response?.status === 403 && (errorCode === "SUSPENDED_001" || errorCode === "SUSPENDED_002")) {
+            toast.error("정지된 계정입니다. 문의하기로 이의를 제기해 주세요.");
         }
 
         console.error("API 에러:", error.response?.data);

@@ -16,6 +16,8 @@ interface MobileLoggedInNavigationProps {
   onMarkAllRead: () => void;
   onLoadMore: () => void;
   onLogout: () => void;
+  isSuspended?: boolean;
+  onSuspendedMenuClick?: () => void;
 }
 
 const menuItems = [
@@ -48,6 +50,8 @@ export default function MobileLoggedInNavigation({
   onMarkAllRead,
   onLoadMore,
   onLogout,
+  isSuspended = false,
+  onSuspendedMenuClick,
 }: MobileLoggedInNavigationProps) {
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -76,6 +80,13 @@ export default function MobileLoggedInNavigation({
       return location.pathname === '/';
     }
     return location.pathname.startsWith(path);
+  };
+  const isAllowedForSuspended = (path: string) => path === '/me' || path.startsWith('/me/inquiries');
+  const isDisabledForSuspended = (path: string) => isSuspended && !isAllowedForSuspended(path);
+
+  const handleSuspendedClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    onSuspendedMenuClick?.();
   };
 
   return (
@@ -208,7 +219,11 @@ export default function MobileLoggedInNavigation({
                       <Link
                           key={item.to}
                           to={item.to}
-                          className="flex h-12 items-center border-b border-[#f1f1f1] px-2 text-sm text-[#333333]"
+                          onClick={isDisabledForSuspended(item.to) ? handleSuspendedClick : undefined}
+                          aria-disabled={isDisabledForSuspended(item.to)}
+                          className={`flex h-12 items-center border-b border-[#f1f1f1] px-2 text-sm text-[#333333] ${
+                              isDisabledForSuspended(item.to) ? 'cursor-not-allowed opacity-45' : ''
+                          }`}
                       >
                         {item.label}
                       </Link>
@@ -234,9 +249,11 @@ export default function MobileLoggedInNavigation({
                 <Link
                     key={item.to}
                     to={item.to}
+                    onClick={isDisabledForSuspended(item.to) ? handleSuspendedClick : undefined}
+                    aria-disabled={isDisabledForSuspended(item.to)}
                     className={`flex flex-col items-center justify-center gap-1 text-[10px] ${
                         active ? 'font-bold text-[#d84315]' : 'text-[#757575]'
-                    }`}
+                    } ${isDisabledForSuspended(item.to) ? 'cursor-not-allowed opacity-45' : ''}`}
                 >
                   <Icon size={20} />
                   {item.label}

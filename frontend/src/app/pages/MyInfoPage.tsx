@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { AlertCircle, Loader2, LogOut, User } from 'lucide-react';
+import { toast } from 'sonner';
 import { logout } from '@/api/authApi';
 import { getUserMe, GetUserResponse } from '@/api/userApi';
 import { clearAccessToken } from '@/api/axiosInstance';
+import { setUserStatus, useAuthStatus } from '@/store/authStatusStore';
 
 export default function MyInfoPage() {
   const navigate = useNavigate();
@@ -11,6 +13,11 @@ export default function MyInfoPage() {
   const [mannerTemperature, setMannerTemperature] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { isSuspended } = useAuthStatus();
+  const handleSuspendedLinkClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    toast.warning('정지된 계정입니다. 문의하기로 이의를 제기해 주세요.');
+  };
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -20,6 +27,7 @@ export default function MyInfoPage() {
         const res = await getUserMe();
         const me = res.data.data;
         setUser(me);
+        setUserStatus(me.status);
         setMannerTemperature(me.mannerTemperature);
       } catch (err) {
         console.error('Failed to load user info', err);
@@ -62,6 +70,8 @@ export default function MyInfoPage() {
           <div className="flex items-center gap-2">
             <Link
                 to="/me/edit"
+                onClick={isSuspended ? handleSuspendedLinkClick : undefined}
+                aria-disabled={isSuspended}
                 className="rounded-lg border border-[#d84315] bg-white px-4 py-2 text-sm font-semibold text-[#d84315] transition-colors hover:bg-[#fff3e0]"
             >
               내정보 수정하기
@@ -113,24 +123,32 @@ export default function MyInfoPage() {
                 <div className="flex flex-wrap justify-end gap-2 p-5">
                   <Link
                       to="/me/points"
+                      onClick={isSuspended ? handleSuspendedLinkClick : undefined}
+                      aria-disabled={isSuspended}
                       className="rounded-lg border border-[#d84315] bg-white px-5 py-2.5 text-sm font-semibold text-[#d84315] transition-colors hover:bg-[#fff3e0]"
                   >
                     포인트 거래 내역 조회
                   </Link>
                   <Link
                       to="/payments"
+                      onClick={isSuspended ? handleSuspendedLinkClick : undefined}
+                      aria-disabled={isSuspended}
                       className="rounded-lg border border-[#d84315] bg-white px-5 py-2.5 text-sm font-semibold text-[#d84315] transition-colors hover:bg-[#fff3e0]"
                   >
                     내 결제 보기
                   </Link>
                   <Link
                       to="/me/matches"
+                      onClick={isSuspended ? handleSuspendedLinkClick : undefined}
+                      aria-disabled={isSuspended}
                       className="rounded-lg border border-[#d84315] bg-white px-5 py-2.5 text-sm font-semibold text-[#d84315] transition-colors hover:bg-[#fff3e0]"
                   >
                     내 매칭 결과 보기
                   </Link>
                   <Link
                       to="/posts?mine=1"
+                      onClick={isSuspended ? handleSuspendedLinkClick : undefined}
+                      aria-disabled={isSuspended}
                       className="rounded-lg bg-[#d84315] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#bf360c]"
                   >
                     내가 작성한 게시물 보기

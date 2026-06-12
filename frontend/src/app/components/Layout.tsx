@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router';
 import { User, Bell, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
 import { logout } from '@/api/authApi';
 import { getUserMe } from '@/api/userApi';
 import { clearAccessToken, getAccessToken } from '@/api/axiosInstance';
+import { isSuspendedAllowedPath, setUserStatus, useAuthStatus } from '@/store/authStatusStore';
 import {
   getNotifications,
   getUnreadNotificationCount,
@@ -27,6 +29,8 @@ export default function Layout() {
   const [notificationNextCursor, setNotificationNextCursor] = useState<number | null>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
   const notificationReadInFlightRef = useRef(new Set<number>());
+  const { isSuspended } = useAuthStatus();
+  const suspendedToastMessage = '정지된 계정입니다. 문의하기로 이의를 제기해 주세요.';
 
   const isActive = (path: string) => {
     return location.pathname.startsWith(path);
@@ -42,11 +46,16 @@ export default function Layout() {
       }
 
       try {
-        const [userRes, unreadRes] = await Promise.all([
-          getUserMe(),
-          getUnreadNotificationCount(),
-        ]);
+        const userRes = await getUserMe();
         setPoint(userRes.data.data.point);
+        setUserStatus(userRes.data.data.status);
+
+        if (userRes.data.data.status === 'SUSPENDED') {
+          setUnreadCount(0);
+          return;
+        }
+
+        const unreadRes = await getUnreadNotificationCount();
         setUnreadCount(unreadRes.data.data.unreadCount);
       } catch (err) {
         console.error('Failed to load header data', err);
@@ -61,6 +70,15 @@ export default function Layout() {
       window.removeEventListener('focus', fetchMyPoint);
     };
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (!isSuspended || isSuspendedAllowedPath(location.pathname)) {
+      return;
+    }
+
+    toast.warning(suspendedToastMessage);
+    navigate('/me', { replace: true });
+  }, [isSuspended, location.pathname, navigate]);
 
   useEffect(() => {
     setNotificationOpen(false);
@@ -95,6 +113,11 @@ export default function Layout() {
   }, [notificationOpen]);
 
   const handleNotificationToggle = async () => {
+    if (isSuspended) {
+      toast.warning(suspendedToastMessage);
+      return;
+    }
+
     const nextOpen = !notificationOpen;
     setNotificationOpen(nextOpen);
 
@@ -196,6 +219,19 @@ export default function Layout() {
     }
   };
 
+  const handleSuspendedMenuClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!isSuspended) {
+      return;
+    }
+
+    event.preventDefault();
+    toast.warning(suspendedToastMessage);
+  };
+
+  const isSuspendedLinkDisabled = (path: string) => isSuspended && !isSuspendedAllowedPath(path);
+  const getSuspendedLinkClass = (path: string) =>
+    isSuspendedLinkDisabled(path) ? 'cursor-not-allowed opacity-45' : '';
+
   return (
       <div className="min-h-screen bg-gradient-to-br from-[#fff7ed] via-[#f7fbff] to-[#eaf7f1] pb-[68px] md:pb-0">
         <MobileLoggedInNavigation
@@ -211,6 +247,8 @@ export default function Layout() {
             onMarkAllRead={handleMarkAllNotificationsRead}
             onLoadMore={handleLoadMoreNotifications}
             onLogout={handleLogout}
+            isSuspended={isSuspended}
+            onSuspendedMenuClick={() => toast.warning(suspendedToastMessage)}
         />
 
         <header className="sticky top-0 z-50 hidden border-b border-[#e0e0e0] bg-white md:block">
@@ -222,19 +260,25 @@ export default function Layout() {
             <nav className="flex items-center gap-8">
               <Link
                   to="/posts"
-                  className={`text-sm ${isActive('/posts') ? 'text-[#d84315] font-semibold' : 'text-[#424242]'}`}
+                  onClick={isSuspendedLinkDisabled('/posts') ? handleSuspendedMenuClick : undefined}
+                  aria-disabled={isSuspendedLinkDisabled('/posts')}
+                  className={`text-sm ${isActive('/posts') ? 'text-[#d84315] font-semibold' : 'text-[#424242]'} ${getSuspendedLinkClass('/posts')}`}
               >
                 게시글
               </Link>
               <Link
                   to="/matches"
-                  className={`text-sm ${isActive('/matches') ? 'text-[#d84315] font-semibold' : 'text-[#424242]'}`}
+                  onClick={isSuspendedLinkDisabled('/matches') ? handleSuspendedMenuClick : undefined}
+                  aria-disabled={isSuspendedLinkDisabled('/matches')}
+                  className={`text-sm ${isActive('/matches') ? 'text-[#d84315] font-semibold' : 'text-[#424242]'} ${getSuspendedLinkClass('/matches')}`}
               >
                 매칭
               </Link>
               <Link
                   to="/payments"
-                  className={`text-sm ${isActive('/payments') ? 'text-[#d84315] font-semibold' : 'text-[#424242]'}`}
+                  onClick={isSuspendedLinkDisabled('/payments') ? handleSuspendedMenuClick : undefined}
+                  aria-disabled={isSuspendedLinkDisabled('/payments')}
+                  className={`text-sm ${isActive('/payments') ? 'text-[#d84315] font-semibold' : 'text-[#424242]'} ${getSuspendedLinkClass('/payments')}`}
               >
                 결제
               </Link>
@@ -246,7 +290,9 @@ export default function Layout() {
               </Link>
               <Link
                   to="/ai/matching"
-                  className={`flex items-center gap-1 text-sm ${isActive('/ai/matching') ? 'text-[#d84315] font-semibold' : 'text-[#424242]'}`}
+                  onClick={isSuspendedLinkDisabled('/ai/matching') ? handleSuspendedMenuClick : undefined}
+                  aria-disabled={isSuspendedLinkDisabled('/ai/matching')}
+                  className={`flex items-center gap-1 text-sm ${isActive('/ai/matching') ? 'text-[#d84315] font-semibold' : 'text-[#424242]'} ${getSuspendedLinkClass('/ai/matching')}`}
               >
                 <Sparkles size={15} />
                 AI 추천
@@ -358,6 +404,18 @@ export default function Layout() {
         </header>
 
         <main className="max-w-screen-lg mx-auto px-4 py-6">
+          {isSuspended && (
+              <div className="mb-5 flex flex-col gap-3 rounded-lg border border-[#ffcc80] bg-[#fff8e1] px-4 py-3 text-sm text-[#5d4037] sm:flex-row sm:items-center sm:justify-between">
+                <span>계정이 정지된 상태입니다. 문의하기를 통해 이의를 제기할 수 있습니다.</span>
+                <button
+                    type="button"
+                    onClick={() => navigate('/me/inquiries')}
+                    className="inline-flex shrink-0 items-center justify-center rounded-md bg-[#d84315] px-3 py-2 text-xs font-bold text-white hover:bg-[#bf360c]"
+                >
+                  문의하기
+                </button>
+              </div>
+          )}
           <Outlet />
         </main>
       </div>
