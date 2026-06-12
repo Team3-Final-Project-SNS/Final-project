@@ -245,16 +245,20 @@ public class MeetVerification {
      *   REJECTED           → rejectDispute() 후 confirmNoShowByAdmin()
      */
     public void markDispute() {
-        // 노쇼 예정 상태(HOST/GUEST/BOTH_NO_SHOW)가 아니면 이의제기 불가
+        // 1. 이미 이의제기가 제출된 상태인지 먼저 검사
+        if (this.status == VerificationStatus.DISPUTE) {
+            throw new IllegalStateException("이미 이의제기가 제출된 매칭입니다.");
+        }
+
+        // 2. 노쇼 예정 상태(HOST/GUEST/BOTH_NO_SHOW)가 아니면 이의제기 불가
         if (this.status != VerificationStatus.HOST_NO_SHOW
                 && this.status != VerificationStatus.GUEST_NO_SHOW
                 && this.status != VerificationStatus.BOTH_NO_SHOW) {
-            throw new IllegalStateException("노쇼 예정 상태에서만 이의제기 상태로 전환할 수 있습니다.");
+            throw new IllegalStateException("노쇼 예정 상태에서만 이의제기를 신청할 수 있습니다.");
         }
 
-        // 원래 노쇼 상태를 백업 (판정 후 복원 또는 참조용)
+        // 3. 원래 노쇼 상태를 백업 및 상태 전환
         this.disputedFromStatus = this.status;
-        // 이의제기 검토 중 상태로 전환
         this.status = VerificationStatus.DISPUTE;
     }
 
