@@ -364,11 +364,13 @@ function RecommendationIntro({
   message: string;
   reasons: string[];
 }) {
+  const readableMessage = cleanupAiSpacing(message);
+
   return (
       <div className="mb-3 rounded-2xl bg-[#fffaf4] px-3 py-2.5">
         <div className="min-w-0">
           <p className="whitespace-pre-wrap text-sm leading-6 text-[#3d2b22]">
-            {message}
+            {readableMessage}
           </p>
           {reasons.length > 0 && (
               <div className="mt-2 rounded-xl bg-white/75 px-3 py-2">
@@ -492,10 +494,35 @@ function getRecommendationReasons(
 function cleanupRecommendationReason(reason?: string) {
   if (!reason) return '';
 
-  return reason
+  const cleaned = reason
       .replace(/^이유\s*:\s*/i, '')
       .replace(/신청\s*가능합니다\.?$/g, '')
       .trim();
+
+  return cleanupAiSpacing(cleaned);
+}
+
+function cleanupAiSpacing(text: string) {
+  return text
+      .replace(/요청하신조건/g, '요청하신 조건')
+      .replace(/조건에맞는/g, '조건에 맞는')
+      .replace(/모집글을(\d+)개/g, '모집글을 $1개')
+      .replace(/(\d+)개찾았어요/g, '$1개 찾았어요')
+      .replace(/중식메뉴/g, '중식 메뉴')
+      .replace(/중국음식/g, '중국 음식')
+      .replace(/가벼운식사/g, '가벼운 식사')
+      .replace(/저녁시간대/g, '저녁 시간대')
+      .replace(/점심시간대/g, '점심 시간대')
+      .replace(/아침시간대/g, '아침 시간대')
+      .replace(/빠르게식사/g, '빠르게 식사')
+      .replace(/편한분위기/g, '편한 분위기')
+      .replace(/책임비가낮/g, '책임비가 낮')
+      .replace(/부담이적/g, '부담이 적')
+      .replace(/찾는조건/g, '찾는 조건')
+      .replace(/조건과맞아요/g, '조건과 맞아요')
+      .replace(/시간대와가까워요/g, '시간대와 가까워요')
+      .replace(/추천해요/g, '추천해요')
+      .replace(/([.!?。])(?=\S)/g, '$1 ');
 }
 
 function parseRecommendationCards(content: string): ParsedRecommendation[] {

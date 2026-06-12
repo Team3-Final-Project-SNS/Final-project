@@ -121,6 +121,9 @@ public class AiCallMetricServiceImpl implements AiCallMetricService {
         if (feature == AiFeature.SUPPORT) {
             return "ai.support";
         }
+        if (feature == AiFeature.REPORT) {
+            return "ai.report";
+        }
         return null;
     }
 
