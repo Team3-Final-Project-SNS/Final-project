@@ -43,7 +43,7 @@ class PostControllerTest {
     private ObjectMapper objectMapper;
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("게시글 생성 API - 201 반환")
     @WithMockCustomUser
     void createPost_ApiTest() throws Exception {
         // given
@@ -71,7 +71,7 @@ class PostControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("게시글 목록 조회 API - 200 반환")
     @WithMockCustomUser
     void getPosts_ApiTest() throws Exception {
         // given
@@ -84,7 +84,7 @@ class PostControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("게시글 상세 조회 API - 200 반환")
     @WithMockCustomUser
     void getPost_ApiTest() throws Exception {
         // given
@@ -97,7 +97,7 @@ class PostControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("게시글 수정 API - 200 반환")
     @WithMockCustomUser
     void updatePost_ApiTest() throws Exception {
         // given
@@ -120,7 +120,7 @@ class PostControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("게시글 삭제 API - 200 반환")
     @WithMockCustomUser
     void deletePost_ApiTest() throws Exception {
         // given
@@ -133,7 +133,7 @@ class PostControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("삭제 게시글 사유 조회 API - 200반환")
     @WithMockCustomUser
     void getDeletedPostReason_ApiTest() throws Exception {
         // given

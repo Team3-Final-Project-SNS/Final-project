@@ -1,7 +1,9 @@
 package com.example.team3final;
 
+import org.mockito.Mockito;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
+import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,6 +23,7 @@ import static org.mockito.Mockito.when;
 public class TestRedisMockConfig {
 
     @Bean
+    @Primary
     public RedissonClient redissonClient() {
         RedissonClient redissonClient = mock(RedissonClient.class);
         Map<String, ReentrantLock> locks = new ConcurrentHashMap<>();
@@ -52,7 +55,8 @@ public class TestRedisMockConfig {
     }
 
     @Bean
+    @Primary
     public StringRedisTemplate stringRedisTemplate() {
-        return mock(StringRedisTemplate.class);
+        return mock(StringRedisTemplate.class, Mockito.RETURNS_DEEP_STUBS);
     }
 }

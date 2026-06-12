@@ -43,7 +43,7 @@ class PaymentControllerTest {
     private ObjectMapper objectMapper;
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("결제 생성 API - 201 반환")
     @WithMockCustomUser
     void createPayment_ApiTest() throws Exception {
         // given
@@ -64,7 +64,7 @@ class PaymentControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("결제 검증 API - 200 반환")
     @WithMockCustomUser
     void verifyPayment_ApiTest() throws Exception {
         // given
@@ -81,7 +81,7 @@ class PaymentControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("결제 목록 조회 API - 200 반환")
     @WithMockCustomUser
     void getPayments_ApiTest() throws Exception {
         // given
@@ -94,7 +94,7 @@ class PaymentControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("결제 취소 API - 200 반환")
     @WithMockCustomUser
     void cancelPayment_ApiTest() throws Exception {
         // given
@@ -107,7 +107,7 @@ class PaymentControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("결제 실패 처리 API - 200 반환")
     @WithMockCustomUser
     void failPayment_ApiTest() throws Exception {
         // given
