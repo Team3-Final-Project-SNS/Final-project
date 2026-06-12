@@ -49,6 +49,7 @@ public class AdminInquiryAnswerServiceImpl implements AdminInquiryAnswerService 
 
     // 관리자 문의 상세 조회
     @Override
+    @Transactional
     public AdminGetInquiryResponseDto getInquiry(Long adminId, Long inquiryId) {
 
         // 어드민 존재 여부 검증
@@ -57,6 +58,9 @@ public class AdminInquiryAnswerServiceImpl implements AdminInquiryAnswerService 
 
         // 문의 단건 조회
         Inquiry inquiry = inquiryService.getInquiryById(inquiryId);
+
+        // 관리자가 상세 조회하는 순간 PENDING → READ 자동 전환
+        inquiry.markAsRead();
 
         // 작성자 정보 조회 (nickname, email, universityId)
         AdminUserInfoDto userInfoDto = userService.getAdminUserInfo(inquiry.getUserId());

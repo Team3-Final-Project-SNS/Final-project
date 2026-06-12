@@ -76,13 +76,18 @@ public class AuthServiceImpl implements AuthService{
             throw new AuthException(ErrorCode.AUTH_ALREADY_REGISTERED_EMAIL);
         }
 
-        // 4. 일일 최대 재발송 횟수 체크 (1시간 내 5회)
+        // 3. 일일 최대 재발송 횟수 체크 (1시간 내 5회)
         String resendCountKey = OtpRedisKeyUtil.resendCountKey(email);
         String countStr = redisTemplate.opsForValue().get(resendCountKey);
         int currentCount = (countStr == null) ? 0 : Integer.parseInt(countStr);
         if (currentCount >= otpProperties.getMaxResendCount()) {
             throw new AuthException(ErrorCode.OTP_SEND_TOO_MANY);
         }
+
+        // 4. 새 OTP 발송 시 이전 실패 횟수 초기화
+        // 유저가 재발송 요청을 하면 기존 시도 횟수를 리셋해서 새 OTP로 다시 5번 시도 가능하게 함
+        String attemptsKey = OtpRedisKeyUtil.attemptsKey(email);
+        redisTemplate.delete(attemptsKey);
 
         // 5. OTP 생성 및 Redis 저장
         String otpCode = OtpGenerator.generator();
