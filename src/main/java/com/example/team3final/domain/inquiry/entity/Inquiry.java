@@ -72,4 +72,11 @@ public class Inquiry extends BaseTimeEntity {
     public void answer() {
         this.answerStatus = InquiryAnswerStatus.ANSWERED;
     }
+
+    // 관리자가 상세 조회하는 순간 PENDING → READ 자동 전환
+    public void markAsRead() {
+        if (this.answerStatus == InquiryAnswerStatus.PENDING) {
+            this.answerStatus = InquiryAnswerStatus.READ;
+        }
+    }
 }
