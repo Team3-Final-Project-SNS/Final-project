@@ -53,15 +53,25 @@ const statusClasses: Partial<Record<InquiryAnswerStatus, string>> = {
   WITHDRAWN: 'bg-[#f5f5f5] text-[#757575]',
 };
 
+const statusDisplayLabels: Partial<Record<InquiryAnswerStatus, string>> = {
+  PENDING: '접수완료',
+  READ: '열람',
+  IN_PROGRESS: '열람',
+  ANSWERED: '답변완료',
+};
+
+const statusDisplayClasses: Partial<Record<InquiryAnswerStatus, string | undefined>> = {
+  PENDING: statusClasses.PENDING,
+  READ: statusClasses.READ,
+  IN_PROGRESS: statusClasses.READ,
+  ANSWERED: statusClasses.ANSWERED,
+};
+
 const getInquiryStatusLabel = (status: InquiryAnswerStatus) =>
-  status === 'IN_PROGRESS'
-    ? statusLabels.READ || status
-    : statusLabels[status] || status;
+  statusDisplayLabels[status] || statusLabels[status] || status;
 
 const getInquiryStatusClass = (status: InquiryAnswerStatus) =>
-  status === 'IN_PROGRESS'
-    ? statusClasses.READ || ''
-    : statusClasses[status] || 'bg-[#f5f5f5] text-[#757575]';
+  statusDisplayClasses[status] || statusClasses[status] || 'bg-[#f5f5f5] text-[#757575]';
 
 export default function InquiryCenterPage() {
   const [searchParams] = useSearchParams();

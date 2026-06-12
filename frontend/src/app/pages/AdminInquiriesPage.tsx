@@ -10,7 +10,7 @@ import {
 } from '../../api/adminInquiryApi';
 import { InquiryAnswerStatus, InquiryType } from '../../api/inquiryApi';
 
-const statusFilters: ('ALL' | InquiryAnswerStatus)[] = ['ALL', 'PENDING', 'ANSWERED', 'WITHDRAWN'];
+const statusFilters: ('ALL' | InquiryAnswerStatus)[] = ['ALL', 'PENDING', 'READ', 'ANSWERED', 'WITHDRAWN'];
 const typeFilters: ('ALL' | InquiryType)[] = ['ALL', 'ACCOUNT', 'PAYMENT', 'MATCH', 'REPORT', 'USAGE', 'HISTORY', 'OTHER'];
 
 const statusLabels: Partial<Record<InquiryAnswerStatus, string>> = {
@@ -20,10 +20,26 @@ const statusLabels: Partial<Record<InquiryAnswerStatus, string>> = {
   WITHDRAWN: '취소',
 };
 
+const statusDisplayLabels: Partial<Record<InquiryAnswerStatus, string>> = {
+  PENDING: '접수완료',
+  READ: '열람',
+  IN_PROGRESS: '열람',
+  ANSWERED: '답변완료',
+};
+
+const statusDisplayClasses: Partial<Record<InquiryAnswerStatus, string>> = {
+  PENDING: 'bg-[#fff3e0] text-[#ef6c00]',
+  READ: 'bg-[#e3f2fd] text-[#1565c0]',
+  IN_PROGRESS: 'bg-[#e3f2fd] text-[#1565c0]',
+  ANSWERED: 'bg-[#e8f5e9] text-[#2e7d32]',
+  WITHDRAWN: 'bg-[#f5f5f5] text-[#757575]',
+};
+
 const getInquiryStatusLabel = (status: InquiryAnswerStatus) =>
-  status === 'READ' || status === 'IN_PROGRESS'
-    ? statusLabels.PENDING || status
-    : statusLabels[status] || status;
+  statusDisplayLabels[status] || statusLabels[status] || status;
+
+const getInquiryStatusClass = (status: InquiryAnswerStatus) =>
+  statusDisplayClasses[status] || 'bg-[#f5f5f5] text-[#757575]';
 
 const typeLabels: Record<InquiryType, string> = {
   ACCOUNT: '계정/인증',
@@ -74,6 +90,13 @@ export default function AdminInquiriesPage() {
     try {
       const res = await getAdminInquiry(inquiryId);
       setSelected(res.data.data);
+      setItems((previousItems) =>
+        previousItems.map((item) =>
+          item.inquiryId === inquiryId
+            ? { ...item, answerStatus: res.data.data.answerStatus }
+            : item,
+        ),
+      );
       setAnswer('');
     } catch (err: any) {
       setMessage(err.response?.data?.message || '문의 상세를 불러오지 못했습니다.');
@@ -154,7 +177,7 @@ export default function AdminInquiriesPage() {
                     className="w-full rounded-xl border border-[#eeeeee] p-4 text-left hover:border-[#d84315] hover:bg-[#fffaf7]"
                   >
                     <div className="mb-2 flex items-center justify-between gap-2">
-                      <span className="rounded bg-[#fff3e0] px-2.5 py-1 text-xs font-bold text-[#ef6c00]">
+                      <span className={`rounded px-2.5 py-1 text-xs font-bold ${getInquiryStatusClass(item.answerStatus)}`}>
                         {getInquiryStatusLabel(item.answerStatus)}
                       </span>
                       <span className="text-xs text-[#9e9e9e]">{typeLabels[item.type]}</span>
@@ -180,7 +203,7 @@ export default function AdminInquiriesPage() {
                     {selected.userNickname} · {selected.userEmail} · {selected.universityName}
                   </p>
                   <div className="mb-3 flex flex-wrap gap-2">
-                    <span className="rounded bg-[#fff3e0] px-2.5 py-1 text-xs font-bold text-[#ef6c00]">
+                    <span className={`rounded px-2.5 py-1 text-xs font-bold ${getInquiryStatusClass(selected.answerStatus)}`}>
                       {getInquiryStatusLabel(selected.answerStatus)}
                     </span>
                     <span className="rounded bg-[#f5f5f5] px-2.5 py-1 text-xs font-bold text-[#616161]">
