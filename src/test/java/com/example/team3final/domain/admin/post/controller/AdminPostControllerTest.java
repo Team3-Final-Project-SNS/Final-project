@@ -1,6 +1,7 @@
 package com.example.team3final.domain.admin.post.controller;
 
 import com.example.team3final.common.dto.response.PageResponseDto;
+import com.example.team3final.domain.admin.post.dto.response.AdminGetPostsResponseDto;
 import com.example.team3final.domain.admin.post.service.AdminPostService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
@@ -39,11 +40,11 @@ class AdminPostControllerTest {
     private ObjectMapper objectMapper;
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("관리자 게시글 목록 조회 API test")
     @WithMockAdmin
     void getPosts_ApiTest() throws Exception {
         // given
-        PageResponseDto response = PageResponseDto.from(new PageImpl<>(List.of()));
+        PageResponseDto<AdminGetPostsResponseDto> response = PageResponseDto.from(new PageImpl<>(List.of()));
         given(adminPostService.getPosts(anyLong(), any(), any(), any(), any(), any())).willReturn(response);
 
         // when & then
@@ -53,7 +54,7 @@ class AdminPostControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("관리자 게시글 강제 삭제 API test")
     @WithMockAdmin
     void deletePost_ApiTest() throws Exception {
         // given
@@ -68,7 +69,7 @@ class AdminPostControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("관리자 게시글 상세 조회 API test")
     @WithMockAdmin
     void getPost_ApiTest() throws Exception {
         // given
@@ -81,7 +82,7 @@ class AdminPostControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("관리자 게시글 복구 API test")
     @WithMockAdmin
     void restorePost_ApiTest() throws Exception {
         // given

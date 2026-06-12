@@ -37,7 +37,7 @@ class UserLocationControllerTest {
     private ObjectMapper objectMapper;
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("위치 조회 API test")
     @WithMockCustomUser
     void getLocations_ApiTest() throws Exception {
         // given
@@ -52,7 +52,7 @@ class UserLocationControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("내 위치 업데이트 API test")
     @WithMockCustomUser
     void updateMyLocation_ApiTest() throws Exception {
         // given

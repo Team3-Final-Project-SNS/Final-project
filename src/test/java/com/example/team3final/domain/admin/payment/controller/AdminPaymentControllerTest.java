@@ -37,7 +37,7 @@ class AdminPaymentControllerTest {
     private ObjectMapper objectMapper;
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("관리자 결제 내역 조회 API test")
     @WithMockAdmin
     void getPayments_ApiTest() throws Exception {
         // given

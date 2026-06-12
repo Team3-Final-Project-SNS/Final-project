@@ -20,7 +20,7 @@ class UserLocationCleanupServiceTest {
     private UserLocationRepository userLocationRepository;
 
     @Test
-    @DisplayName("deleteLocationsByMatchId deletes locations by match id")
+    @DisplayName("위치 정보 삭제 - 성공")
     void deleteLocationsByMatchId_Success() {
         // when
         userLocationCleanupService.deleteLocationsByMatchId(1L);

@@ -41,7 +41,7 @@ class MeetVerificationControllerTest {
     private ObjectMapper objectMapper;
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("만남 시간 연장 요청 API test")
     @WithMockCustomUser
     void createMeetExtension_ApiTest() throws Exception {
         // given
@@ -66,7 +66,7 @@ class MeetVerificationControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("GPS 장소 인증 API test")
     @WithMockCustomUser
     void createPlaceVerification_ApiTest() throws Exception {
         // given
@@ -81,7 +81,7 @@ class MeetVerificationControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("QR 발급/조회 API test")
     @WithMockCustomUser
     void getMeetQrByPost_ApiTest() throws Exception {
         // given
@@ -94,7 +94,7 @@ class MeetVerificationControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("QR 스캔 API test")
     @WithMockCustomUser
     void createQrScan_ApiTest() throws Exception {
         // given
@@ -109,7 +109,7 @@ class MeetVerificationControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("만남 인증 상태 조회 API test")
     @WithMockCustomUser
     void getMeetVerification_ApiTest() throws Exception {
         // given
@@ -122,7 +122,7 @@ class MeetVerificationControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("만남 시간 연장 상태 조회 API test")
     @WithMockCustomUser
     void getMeetExtension_ApiTest() throws Exception {
         // given
@@ -147,7 +147,7 @@ class MeetVerificationControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("만남 시간 연장 수락 API test")
     @WithMockCustomUser
     void acceptMeetExtension_ApiTest() throws Exception {
         // given
@@ -160,7 +160,7 @@ class MeetVerificationControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("만남 시간 연장 거절 API test")
     @WithMockCustomUser
     void rejectMeetExtension_ApiTest() throws Exception {
         // given

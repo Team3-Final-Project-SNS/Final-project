@@ -36,7 +36,7 @@ class AdminMeetVerificationControllerTest {
     private ObjectMapper objectMapper;
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("관리자 노쇼 후보군 목록 조회 API test")
     @WithMockAdmin
     void getNoShowCandidates_ApiTest() throws Exception {
         // given
