@@ -42,7 +42,7 @@ public class MeetReminderScheduler {
                 MeetRedisZSetKeys.REMINDER_30_HOST,
                 "30분 전",
                 15,
-                (authorId, postId) -> notificationPublisher.sendMeetReminder30(authorId, postId)
+                (authorId, matchId) -> notificationPublisher.sendMeetReminder30(authorId, matchId)
         );
 
         // GUEST: matchId 기준으로 신청자별 각각 발송
@@ -62,7 +62,7 @@ public class MeetReminderScheduler {
                 MeetRedisZSetKeys.REMINDER_15_HOST,
                 "15분 전",
                 5,
-                (authorId, postId) -> notificationPublisher.sendMeetReminder15(authorId, postId)
+                (authorId, matchId) -> notificationPublisher.sendMeetReminder15(authorId, matchId)
         );
 
         sendGuestReminder(
@@ -82,7 +82,7 @@ public class MeetReminderScheduler {
                 MeetRedisZSetKeys.REMINDER_IMMINENT_HOST,
                 "임박",
                 0,
-                (authorId, postId) -> notificationPublisher.sendMeetImminent(authorId, postId)
+                (authorId, matchId) -> notificationPublisher.sendMeetImminent(authorId, matchId)
         );
 
         sendGuestReminder(
@@ -147,7 +147,18 @@ public class MeetReminderScheduler {
                 continue;
             }
 
-            notifier.send(post.getAuthorId(), postId);
+            // postId → matchId 변환
+            List<Long> matchIds = matchService.getMatchIdsByPostId(postId);
+
+            // 매칭이 없으면 아직 신청자가 없는 게시글이므로 알림 발송 스킵
+            if (matchIds.isEmpty()) {
+                log.warn("[MeetReminderScheduler] {} HOST 알림 스킵 - matchId 없음 postId: {}", label, postId);
+                continue;
+            }
+
+            // 1:1 매칭이므로 첫 번째 matchId 사용
+            Long matchId = matchIds.get(0);
+            notifier.send(post.getAuthorId(), matchId);
         }
     }
 
@@ -191,10 +202,10 @@ public class MeetReminderScheduler {
 
     // ── 함수형 인터페이스 ─────────────────────────────────────────────────
 
-    // HOST 알림 발송: (authorId, postId)
+    // HOST 알림 발송: (authorId, matchId)
     @FunctionalInterface
     private interface HostNotifier {
-        void send(Long authorId, Long postId);
+        void send(Long authorId, Long matchId);
     }
 
     // GUEST 알림 발송: (applicantId, matchId)
