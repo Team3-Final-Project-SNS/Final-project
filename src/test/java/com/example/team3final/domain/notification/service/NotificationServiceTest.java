@@ -1,6 +1,8 @@
 package com.example.team3final.domain.notification.service;
 
 import com.example.team3final.common.dto.response.CursorResponseDto;
+import com.example.team3final.common.exception.ErrorCode;
+import com.example.team3final.common.exception.NotificationException;
 import com.example.team3final.domain.notification.dto.response.GetUnreadCountResponseDto;
 import com.example.team3final.domain.notification.dto.response.UpdateAllNotificationsReadResponseDto;
 import com.example.team3final.domain.notification.dto.response.UpdateNotificationReadResponseDto;
@@ -24,9 +26,10 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationServiceTest {
@@ -57,6 +60,51 @@ class NotificationServiceTest {
     }
 
     @Test
+    @DisplayName("알림 목록 조회 - 요청 크기가 50을 넘으면 50으로 제한한다")
+    void getNotifications_LimitsPageSizeToFifty() {
+        given(notificationRepository.findByReceiverTypeAndReceiverIdAndIdLessThan(
+                any(), anyLong(), anyLong(), any(Pageable.class)))
+                .willReturn(List.of());
+
+        notificationService.getNotifications(NotificationReceiverType.USER, 1L, null, 100);
+
+        verify(notificationRepository).findByReceiverTypeAndReceiverIdAndIdLessThan(
+                eq(NotificationReceiverType.USER),
+                eq(1L),
+                eq(Long.MAX_VALUE),
+                argThat(pageable -> pageable.getPageSize() == 51)
+        );
+    }
+
+    @Test
+    @DisplayName("알림 목록 조회 - 다음 페이지가 있으면 요청 크기만 반환하고 커서를 제공한다")
+    void getNotifications_HasNextPage() {
+        Notification first = createNotification(3L, 1L);
+        Notification second = createNotification(2L, 1L);
+        Notification extra = createNotification(1L, 1L);
+        given(notificationRepository.findByReceiverTypeAndReceiverIdAndIdLessThan(
+                any(), anyLong(), anyLong(), any(Pageable.class)))
+                .willReturn(List.of(first, second, extra));
+
+        CursorResponseDto<?> result =
+                notificationService.getNotifications(NotificationReceiverType.USER, 1L, null, 2);
+
+        assertThat(result.content()).hasSize(2);
+        assertThat(result.hasNext()).isTrue();
+        assertThat(result.nextCursor()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("알림 목록 조회 - 0 이하 커서는 거부한다")
+    void getNotifications_InvalidCursor() {
+        assertNotificationError(
+                () -> notificationService.getNotifications(NotificationReceiverType.USER, 1L, 0L, 20),
+                ErrorCode.NOTIFICATION_INVALID_CURSOR
+        );
+        verifyNoInteractions(notificationRepository);
+    }
+
+    @Test
     @DisplayName("전체 알림 읽음 처리 - 성공")
     void updateAllNotificationsRead_Success() {
         given(notificationRepository.markAllAsRead(eq(NotificationReceiverType.USER), eq(1L), any()))
@@ -79,6 +127,44 @@ class NotificationServiceTest {
 
         assertThat(result.notificationId()).isEqualTo(10L);
         assertThat(result.isRead()).isTrue();
+        assertThat(result.readAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("단건 알림 읽음 처리 - 알림이 없으면 실패")
+    void updateNotificationRead_NotFound() {
+        given(notificationRepository.findById(10L)).willReturn(Optional.empty());
+
+        assertNotificationError(
+                () -> notificationService.updateNotificationRead(NotificationReceiverType.USER, 1L, 10L),
+                ErrorCode.NOTIFICATION_NOT_FOUND
+        );
+    }
+
+    @Test
+    @DisplayName("단건 알림 읽음 처리 - 다른 수신자의 알림이면 실패")
+    void updateNotificationRead_Forbidden() {
+        given(notificationRepository.findById(10L))
+                .willReturn(Optional.of(createNotification(10L, 2L)));
+
+        assertNotificationError(
+                () -> notificationService.updateNotificationRead(NotificationReceiverType.USER, 1L, 10L),
+                ErrorCode.NOTIFICATION_FORBIDDEN
+        );
+    }
+
+    @Test
+    @DisplayName("단건 알림 읽음 처리 - 이미 읽은 알림은 읽은 시각을 유지한다")
+    void updateNotificationRead_AlreadyReadIsIdempotent() {
+        Notification notification = createNotification(10L, 1L);
+        notification.markAsRead();
+        var originalReadAt = notification.getReadAt();
+        given(notificationRepository.findById(10L)).willReturn(Optional.of(notification));
+
+        UpdateNotificationReadResponseDto result =
+                notificationService.updateNotificationRead(NotificationReceiverType.USER, 1L, 10L);
+
+        assertThat(result.readAt()).isEqualTo(originalReadAt);
     }
 
     @Test
@@ -114,5 +200,12 @@ class NotificationServiceTest {
                 .build();
         ReflectionTestUtils.setField(notification, "id", id);
         return notification;
+    }
+
+    private void assertNotificationError(Runnable action, ErrorCode errorCode) {
+        assertThatThrownBy(action::run)
+                .isInstanceOf(NotificationException.class)
+                .extracting("errorCode")
+                .isEqualTo(errorCode);
     }
 }

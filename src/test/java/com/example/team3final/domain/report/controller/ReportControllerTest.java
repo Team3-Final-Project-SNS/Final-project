@@ -1,5 +1,7 @@
 package com.example.team3final.domain.report.controller;
 
+import com.example.team3final.common.exception.ErrorCode;
+import com.example.team3final.common.exception.ReportException;
 import com.example.team3final.domain.report.dto.request.CreateReportRequestDto;
 import com.example.team3final.domain.report.dto.response.CreateReportResponseDto;
 import com.example.team3final.domain.report.enums.ReportReason;
@@ -53,5 +55,60 @@ class ReportControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.code").value("SUCCESS"));
+    }
+
+    @Test
+    @DisplayName("신고 생성 API - 신고 대상 ID가 없으면 400")
+    @WithMockCustomUser
+    void createReport_TargetIdRequired() throws Exception {
+        CreateReportRequestDto request = new CreateReportRequestDto(null, ReportReason.ABUSE, "DETAIL");
+
+        mockMvc.perform(post("/api/v1/reports")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("Validation Failed"));
+    }
+
+    @Test
+    @DisplayName("신고 생성 API - 신고 사유가 없으면 400")
+    @WithMockCustomUser
+    void createReport_ReasonRequired() throws Exception {
+        CreateReportRequestDto request = new CreateReportRequestDto(100L, null, "DETAIL");
+
+        mockMvc.perform(post("/api/v1/reports")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("Validation Failed"));
+    }
+
+    @Test
+    @DisplayName("신고 생성 API - 상세 내용이 500자를 넘으면 400")
+    @WithMockCustomUser
+    void createReport_DetailTooLong() throws Exception {
+        CreateReportRequestDto request =
+                new CreateReportRequestDto(100L, ReportReason.ABUSE, "a".repeat(501));
+
+        mockMvc.perform(post("/api/v1/reports")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("상세 내용은 500자 이하여야 합니다."));
+    }
+
+    @Test
+    @DisplayName("신고 생성 API - 중복 신고 예외를 409로 반환한다")
+    @WithMockCustomUser
+    void createReport_AlreadyReported() throws Exception {
+        CreateReportRequestDto request = new CreateReportRequestDto(100L, ReportReason.ABUSE, "DETAIL");
+        given(reportService.createReport(anyLong(), any()))
+                .willThrow(new ReportException(ErrorCode.REPORT_ALREADY_REPORTED));
+
+        mockMvc.perform(post("/api/v1/reports")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("REPORT_005"));
     }
 }

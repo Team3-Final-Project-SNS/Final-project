@@ -1,6 +1,8 @@
 package com.example.team3final.domain.chat.service;
 
 import com.example.team3final.common.dto.response.CursorResponseDto;
+import com.example.team3final.common.exception.ChatException;
+import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.domain.chat.dto.response.ChatMemberResponseDto;
 import com.example.team3final.domain.chat.dto.response.ChatMessageResponseDto;
 import com.example.team3final.domain.chat.entity.ChatMember;
@@ -22,6 +24,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
@@ -31,9 +34,10 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ChatServiceTest {
@@ -83,6 +87,44 @@ class ChatServiceTest {
     }
 
     @Test
+    @DisplayName("채팅방 생성 - 이미 존재하면 기존 채팅방 ID를 반환한다")
+    void createChatRoom_ExistingRoomIsIdempotent() {
+        given(chatRoomRepository.findByPostId(100L))
+                .willReturn(Optional.of(createChatRoom(10L, 100L)));
+
+        Long result = chatService.createChatRoom(100L, 1L, 2L);
+
+        assertThat(result).isEqualTo(10L);
+        verify(chatRoomRepository, never()).save(any());
+        verifyNoInteractions(chatMemberRepository);
+    }
+
+    @Test
+    @DisplayName("채팅방 생성 - 동시 생성 충돌 시 먼저 생성된 채팅방 ID를 반환한다")
+    void createChatRoom_RecoversFromDuplicateInsert() {
+        ChatRoom existingRoom = createChatRoom(10L, 100L);
+        given(chatRoomRepository.findByPostId(100L))
+                .willReturn(Optional.empty(), Optional.of(existingRoom));
+        given(chatRoomRepository.save(any(ChatRoom.class)))
+                .willThrow(new DataIntegrityViolationException("duplicate"));
+
+        Long result = chatService.createChatRoom(100L, 1L, 2L);
+
+        assertThat(result).isEqualTo(10L);
+        verifyNoInteractions(chatMemberRepository);
+    }
+
+    @Test
+    @DisplayName("채팅방 생성 - 충돌 후 채팅방을 찾지 못하면 실패한다")
+    void createChatRoom_DuplicateInsertButRoomMissing() {
+        given(chatRoomRepository.findByPostId(100L)).willReturn(Optional.empty());
+        given(chatRoomRepository.save(any(ChatRoom.class)))
+                .willThrow(new DataIntegrityViolationException("duplicate"));
+
+        assertChatError(() -> chatService.createChatRoom(100L, 1L, 2L), ErrorCode.CHAT_ROOM_NOT_FOUND);
+    }
+
+    @Test
     @DisplayName("채팅방 즉시 비활성화 - 성공")
     void deactivateChatRoom_Success() {
         ChatRoom room = createChatRoom(10L, 100L);
@@ -96,6 +138,16 @@ class ChatServiceTest {
     }
 
     @Test
+    @DisplayName("채팅방 즉시 비활성화 - 채팅방이 없으면 실패한다")
+    void deactivateChatRoom_NotFound() {
+        given(chatRoomRepository.findByPostId(100L)).willReturn(Optional.empty());
+
+        assertChatError(() -> chatService.deactivateChatRoom(100L), ErrorCode.CHAT_ROOM_NOT_FOUND);
+
+        verifyNoInteractions(redisTemplate);
+    }
+
+    @Test
     @DisplayName("채팅방 비활성화 예약 - 성공")
     void scheduleChatRoomDeactivation_Success() {
         ChatRoom room = createChatRoom(10L, 100L);
@@ -106,6 +158,14 @@ class ChatServiceTest {
 
         assertThat(room.getDeactivatedAt()).isNotNull();
         verify(zSetOperations).add(anyString(), eq("10"), anyDouble());
+    }
+
+    @Test
+    @DisplayName("채팅방 비활성화 예약 - 채팅방이 없으면 실패한다")
+    void scheduleChatRoomDeactivation_NotFound() {
+        given(chatRoomRepository.findByPostId(100L)).willReturn(Optional.empty());
+
+        assertChatError(() -> chatService.scheduleChatRoomDeactivation(100L), ErrorCode.CHAT_ROOM_NOT_FOUND);
     }
 
     @Test
@@ -129,6 +189,94 @@ class ChatServiceTest {
     }
 
     @Test
+    @DisplayName("채팅 메시지 조회 - 페이지 크기가 50을 넘으면 거부한다")
+    void getChatMessages_InvalidPageSize() {
+        assertChatError(() -> chatService.getChatMessages(10L, 1L, 1L, 51),
+                ErrorCode.CHAT_INVALID_PAGE_SIZE);
+        verifyNoInteractions(chatRoomRepository);
+    }
+
+    @Test
+    @DisplayName("채팅 메시지 조회 - 0 이하 커서는 거부한다")
+    void getChatMessages_InvalidCursor() {
+        assertChatError(() -> chatService.getChatMessages(10L, 1L, 0L, 20),
+                ErrorCode.CHAT_INVALID_CURSOR);
+        verifyNoInteractions(chatRoomRepository);
+    }
+
+    @Test
+    @DisplayName("채팅 메시지 조회 - 채팅방이 없으면 실패한다")
+    void getChatMessages_RoomNotFound() {
+        given(chatRoomRepository.findById(10L)).willReturn(Optional.empty());
+
+        assertChatError(() -> chatService.getChatMessages(10L, 1L, 1L, 20),
+                ErrorCode.CHAT_ROOM_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("채팅 메시지 조회 - 비활성화된 채팅방은 접근할 수 없다")
+    void getChatMessages_DeactivatedRoom() {
+        ChatRoom room = createChatRoom(10L, 100L);
+        room.deactivateNow();
+        given(chatRoomRepository.findById(10L)).willReturn(Optional.of(room));
+
+        assertChatError(() -> chatService.getChatMessages(10L, 1L, 1L, 20),
+                ErrorCode.CHAT_ROOM_DEACTIVATED);
+    }
+
+    @Test
+    @DisplayName("채팅 메시지 조회 - 참여자가 아니면 실패한다")
+    void getChatMessages_NotParticipant() {
+        given(chatRoomRepository.findById(10L))
+                .willReturn(Optional.of(createChatRoom(10L, 100L)));
+        given(chatMemberRepository.findByChatRoomIdAndUserId(10L, 1L))
+                .willReturn(Optional.empty());
+
+        assertChatError(() -> chatService.getChatMessages(10L, 1L, 1L, 20),
+                ErrorCode.CHAT_NOT_PARTICIPANT);
+    }
+
+    @Test
+    @DisplayName("채팅 메시지 조회 - 퇴장한 멤버는 입장 시각과 퇴장 시각 사이 메시지만 조회한다")
+    void getChatMessages_LeftMemberUsesBoundedQuery() {
+        ChatMember member = createChatMember(1L, 10L, 1L, ChatMemberRole.GUEST);
+        member.markNoShow();
+        given(chatRoomRepository.findById(10L))
+                .willReturn(Optional.of(createChatRoom(10L, 100L)));
+        given(chatMemberRepository.findByChatRoomIdAndUserId(10L, 1L))
+                .willReturn(Optional.of(member));
+        given(chatMessageRepository.findByChatRoomIdAndIdLessThanAndCreatedAtBetweenOrderByIdDesc(
+                eq(10L), eq(100L), eq(member.getCreatedAt()), eq(member.getLeftAt()), any(PageRequest.class)))
+                .willReturn(List.of());
+        given(userService.getUserInfos(List.of())).willReturn(Map.of());
+
+        chatService.getChatMessages(10L, 1L, 100L, 20);
+
+        verify(chatMessageRepository).findByChatRoomIdAndIdLessThanAndCreatedAtBetweenOrderByIdDesc(
+                eq(10L), eq(100L), eq(member.getCreatedAt()), eq(member.getLeftAt()),
+                argThat(pageable -> pageable.getPageSize() == 21));
+    }
+
+    @Test
+    @DisplayName("채팅 메시지 조회 - 자신이 보낸 메시지는 읽음 처리하지 않는다")
+    void getChatMessages_DoesNotMarkOwnMessageAsRead() {
+        ChatMember member = createChatMember(1L, 10L, 1L, ChatMemberRole.HOST);
+        ChatMessage ownMessage = createChatMessage(100L, 10L, 1L);
+        given(chatRoomRepository.findById(10L))
+                .willReturn(Optional.of(createChatRoom(10L, 100L)));
+        given(chatMemberRepository.findByChatRoomIdAndUserId(10L, 1L))
+                .willReturn(Optional.of(member));
+        given(chatMessageRepository.findByChatRoomIdAndIdLessThanAndCreatedAtAfterOrderByIdDesc(
+                eq(10L), eq(100L), any(LocalDateTime.class), any(PageRequest.class)))
+                .willReturn(List.of(ownMessage));
+        given(userService.getUserInfos(List.of(1L))).willReturn(Map.of(1L, userInfo(1L)));
+
+        chatService.getChatMessages(10L, 1L, 100L, 20);
+
+        assertThat(ownMessage.isRead()).isFalse();
+    }
+
+    @Test
     @DisplayName("게시글 ID로 채팅방 ID 조회 - 성공")
     void getChatRoomIdByPostId_Success() {
         given(chatRoomRepository.findByPostId(100L)).willReturn(Optional.of(createChatRoom(10L, 100L)));
@@ -149,6 +297,14 @@ class ChatServiceTest {
     }
 
     @Test
+    @DisplayName("게시글 ID 목록으로 채팅방 조회 - null 또는 빈 목록이면 저장소를 조회하지 않는다")
+    void getChatRoomIdsByPostIds_EmptyInput() {
+        assertThat(chatService.getChatRoomIdsByPostIds(null)).isEmpty();
+        assertThat(chatService.getChatRoomIdsByPostIds(List.of())).isEmpty();
+        verifyNoInteractions(chatRoomRepository);
+    }
+
+    @Test
     @DisplayName("관리자 채팅 메시지 조회 - 성공")
     void getChatMessagesForAdmin_Success() {
         ChatRoom room = createChatRoom(10L, 100L);
@@ -163,6 +319,14 @@ class ChatServiceTest {
     }
 
     @Test
+    @DisplayName("관리자 채팅 메시지 조회 - 채팅방이 없으면 실패한다")
+    void getChatMessagesForAdmin_RoomNotFound() {
+        given(chatRoomRepository.findById(10L)).willReturn(Optional.empty());
+
+        assertChatError(() -> chatService.getChatMessagesForAdmin(10L), ErrorCode.CHAT_ROOM_NOT_FOUND);
+    }
+
+    @Test
     @DisplayName("채팅 멤버 제거 - 성공")
     void removeChatMember_Success() {
         given(chatRoomRepository.findByPostId(100L)).willReturn(Optional.of(createChatRoom(10L, 100L)));
@@ -170,6 +334,14 @@ class ChatServiceTest {
         chatService.removeChatMember(100L, 2L);
 
         verify(chatMemberRepository).updateStatusAndLeftAt(eq(10L), eq(2L), eq(ChatMemberStatus.LEFT), any(LocalDateTime.class));
+    }
+
+    @Test
+    @DisplayName("채팅 멤버 제거 - 채팅방이 없으면 실패한다")
+    void removeChatMember_RoomNotFound() {
+        given(chatRoomRepository.findByPostId(100L)).willReturn(Optional.empty());
+
+        assertChatError(() -> chatService.removeChatMember(100L, 2L), ErrorCode.CHAT_ROOM_NOT_FOUND);
     }
 
     @Test
@@ -188,6 +360,26 @@ class ChatServiceTest {
     }
 
     @Test
+    @DisplayName("채팅 멤버 목록 조회 - 비활성화된 채팅방은 접근할 수 없다")
+    void getChatMembers_DeactivatedRoom() {
+        ChatRoom room = createChatRoom(10L, 100L);
+        room.deactivateNow();
+        given(chatRoomRepository.findById(10L)).willReturn(Optional.of(room));
+
+        assertChatError(() -> chatService.getChatMembers(10L, 1L), ErrorCode.CHAT_ROOM_DEACTIVATED);
+    }
+
+    @Test
+    @DisplayName("채팅 멤버 목록 조회 - 참여자가 아니면 실패한다")
+    void getChatMembers_NotParticipant() {
+        given(chatRoomRepository.findById(10L))
+                .willReturn(Optional.of(createChatRoom(10L, 100L)));
+        given(chatMemberRepository.existsByChatRoomIdAndUserId(10L, 1L)).willReturn(false);
+
+        assertChatError(() -> chatService.getChatMembers(10L, 1L), ErrorCode.CHAT_NOT_PARTICIPANT);
+    }
+
+    @Test
     @DisplayName("채팅 멤버 추가 - 성공")
     void addChatMember_Success() {
         given(chatRoomRepository.findByPostId(100L)).willReturn(Optional.of(createChatRoom(10L, 100L)));
@@ -196,6 +388,26 @@ class ChatServiceTest {
         chatService.addChatMember(100L, 2L);
 
         verify(chatMemberRepository).save(argThat(member -> member.getUserId().equals(2L)));
+    }
+
+    @Test
+    @DisplayName("채팅 멤버 추가 - 이미 참여 중이면 중복 저장하지 않는다")
+    void addChatMember_ExistingMemberIsIdempotent() {
+        given(chatRoomRepository.findByPostId(100L))
+                .willReturn(Optional.of(createChatRoom(10L, 100L)));
+        given(chatMemberRepository.existsByChatRoomIdAndUserId(10L, 2L)).willReturn(true);
+
+        chatService.addChatMember(100L, 2L);
+
+        verify(chatMemberRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("채팅 멤버 추가 - 채팅방이 없으면 실패한다")
+    void addChatMember_RoomNotFound() {
+        given(chatRoomRepository.findByPostId(100L)).willReturn(Optional.empty());
+
+        assertChatError(() -> chatService.addChatMember(100L, 2L), ErrorCode.CHAT_ROOM_NOT_FOUND);
     }
 
     @Test
@@ -211,6 +423,31 @@ class ChatServiceTest {
     }
 
     @Test
+    @DisplayName("게스트 노쇼 처리 - 멤버가 없으면 실패한다")
+    void markGuestNoShow_NotParticipant() {
+        given(chatRoomRepository.findByPostId(100L))
+                .willReturn(Optional.of(createChatRoom(10L, 100L)));
+        given(chatMemberRepository.findByChatRoomIdAndUserId(10L, 2L)).willReturn(Optional.empty());
+
+        assertChatError(() -> chatService.markGuestNoShow(100L, 2L), ErrorCode.CHAT_NOT_PARTICIPANT);
+    }
+
+    @Test
+    @DisplayName("게스트 노쇼 처리 - 이미 노쇼면 중복 갱신하지 않는다")
+    void markGuestNoShow_AlreadyNoShowIsIdempotent() {
+        ChatMember member = createChatMember(1L, 10L, 2L, ChatMemberRole.GUEST);
+        member.markNoShow();
+        given(chatRoomRepository.findByPostId(100L))
+                .willReturn(Optional.of(createChatRoom(10L, 100L)));
+        given(chatMemberRepository.findByChatRoomIdAndUserId(10L, 2L))
+                .willReturn(Optional.of(member));
+
+        chatService.markGuestNoShow(100L, 2L);
+
+        verify(chatMemberRepository, never()).updateStatusAndLeftAt(anyLong(), anyLong(), any(), any());
+    }
+
+    @Test
     @DisplayName("채팅방 읽기 전용 처리 - 성공")
     void makeReadOnlyChatRoom_Success() {
         ChatRoom room = createChatRoom(10L, 100L);
@@ -219,6 +456,19 @@ class ChatServiceTest {
         chatService.makeReadOnlyChatRoom(100L);
 
         assertThat(room.isReadOnly()).isTrue();
+    }
+
+    @Test
+    @DisplayName("채팅방 읽기 전용 처리 - 이미 읽기 전용이면 상태 변경을 반복하지 않는다")
+    void makeReadOnlyChatRoom_AlreadyReadOnlyIsIdempotent() {
+        ChatRoom room = createChatRoom(10L, 100L);
+        room.deactivateByNoShow();
+        given(chatRoomRepository.findByPostId(100L)).willReturn(Optional.of(room));
+
+        chatService.makeReadOnlyChatRoom(100L);
+
+        assertThat(room.isReadOnly()).isTrue();
+        assertThat(room.getDeactivatedAt()).isNull();
     }
 
     private ChatRoom createChatRoom(Long id, Long postId) {
@@ -253,5 +503,12 @@ class ChatServiceTest {
 
     private UserInfoDto userInfo(Long userId) {
         return new UserInfoDto(userId, "nickname" + userId, "major", "24", new BigDecimal("36.5"), 1L);
+    }
+
+    private void assertChatError(Runnable action, ErrorCode errorCode) {
+        assertThatThrownBy(action::run)
+                .isInstanceOf(ChatException.class)
+                .extracting("errorCode")
+                .isEqualTo(errorCode);
     }
 }
