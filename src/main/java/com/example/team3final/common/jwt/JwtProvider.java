@@ -3,6 +3,7 @@ package com.example.team3final.common.jwt;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
+import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -13,6 +14,7 @@ import java.util.Date;
 
 @Slf4j
 @Component
+@Getter
 public class JwtProvider {
 
     @Value("${jwt.secret-key}")
@@ -21,6 +23,7 @@ public class JwtProvider {
     @Value("${jwt.access-token-validity-time}")
     private long accessTokenValidityTime;
 
+    // ===== Refresh Token 유효시간 반환 (ms 단위) =====
     @Value("${jwt.refresh-token-validity-time}")
     private long refreshTokenValidityTime;
 
