@@ -49,6 +49,12 @@ public class MatchCreateService {
         try {
             Post post = postService.getPostById(postId);
 
+            // 락 획득 전에 본인 소유 체크를 먼저 수행
+            // → 락 경쟁 전에 빠르게 차단, 올바른 에러 코드 보장
+            if (post.getAuthorId().equals(applicantId)) {
+                throw new MatchException(ErrorCode.MATCH_SELF_APPLY);
+            }
+
             // 1:1 매칭: 즉시 실패(waitTime=0), 단체 매칭: 설정값만큼 대기
             long waitTime = (post.getMaxApplicants() == 2) ? 0L : groupLockWaitMs;
 
