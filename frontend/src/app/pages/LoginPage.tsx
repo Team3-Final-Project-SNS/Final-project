@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { ArrowLeft, School, HandHeart, Lock } from 'lucide-react';
 import { login } from '@/api/authApi';
+import { getUserMe } from '@/api/userApi';
 import { setAccessToken, clearAccessToken } from '@/api/axiosInstance';
+import { setUserStatus } from '@/store/authStatusStore';
+import { toast } from 'sonner';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -28,6 +31,16 @@ export default function LoginPage() {
       // setAccessToken: axiosInstance 모듈 변수에 저장 → 탭이 살아있는 동안 유지
       clearAccessToken();
       setAccessToken(accessToken);
+
+      const meRes = await getUserMe();
+      const { status } = meRes.data.data;
+      setUserStatus(status);
+
+      if (status === 'SUSPENDED') {
+        toast.warning('계정이 정지된 상태입니다. 문의하기를 통해 이의를 제기할 수 있습니다.');
+        navigate('/me');
+        return;
+      }
 
       navigate('/');
     } catch (err: any) {

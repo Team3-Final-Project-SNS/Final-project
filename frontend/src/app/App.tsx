@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { RouterProvider } from 'react-router';
 import { refresh } from '@/api/authApi';
 import { clearAccessToken, setAccessToken } from '@/api/axiosInstance';
+import { getUserMe } from '@/api/userApi';
+import { setUserStatus } from '@/store/authStatusStore';
+import { Toaster } from './components/ui/sonner';
 import { router } from './routes';
 
 export default function App() {
@@ -12,6 +15,8 @@ export default function App() {
       try {
         const res = await refresh();
         setAccessToken(res.data.data.accessToken);
+        const meRes = await getUserMe();
+        setUserStatus(meRes.data.data.status);
       } catch {
         clearAccessToken();
       } finally {
@@ -26,5 +31,10 @@ export default function App() {
     return null;
   }
 
-  return <RouterProvider router={router} />;
+  return (
+    <>
+      <RouterProvider router={router} />
+      <Toaster position="top-center" richColors />
+    </>
+  );
 }

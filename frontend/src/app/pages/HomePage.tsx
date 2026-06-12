@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Bell, Sparkles, Utensils, QrCode, Shield, User, Users } from 'lucide-react';
+import { toast } from 'sonner';
 import { logout } from '@/api/authApi';
 import { getUserMe } from '@/api/userApi';
 import { clearAccessToken, getAccessToken } from '@/api/axiosInstance';
+import { setUserStatus, useAuthStatus } from '@/store/authStatusStore';
 import {
   getNotifications,
   getUnreadNotificationCount,
@@ -27,6 +29,14 @@ export default function HomePage() {
   const [notificationNextCursor, setNotificationNextCursor] = useState<number | null>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
   const notificationReadInFlightRef = useRef(new Set<number>());
+  const { isSuspended } = useAuthStatus();
+  const suspendedToastMessage = '정지된 계정입니다. 문의하기로 이의를 제기해 주세요.';
+
+  const isSuspendedLinkDisabled = (path: string) => isSuspended && path !== '/me' && !path.startsWith('/me/inquiries');
+  const handleSuspendedMenuClick = (event?: React.MouseEvent<HTMLAnchorElement>) => {
+    event?.preventDefault();
+    toast.warning(suspendedToastMessage);
+  };
 
   useEffect(() => {
     const syncLoginState = async () => {
@@ -40,11 +50,16 @@ export default function HomePage() {
       }
 
       try {
-        const [userRes, unreadRes] = await Promise.all([
-          getUserMe(),
-          getUnreadNotificationCount(),
-        ]);
+        const userRes = await getUserMe();
         setPoint(userRes.data.data.point);
+        setUserStatus(userRes.data.data.status);
+
+        if (userRes.data.data.status === 'SUSPENDED') {
+          setUnreadCount(0);
+          return;
+        }
+
+        const unreadRes = await getUnreadNotificationCount();
         setUnreadCount(unreadRes.data.data.unreadCount);
       } catch (err) {
         console.error('Failed to load home header data', err);
@@ -101,6 +116,11 @@ export default function HomePage() {
   };
 
   const handleNotificationToggle = async () => {
+    if (isSuspended) {
+      toast.warning(suspendedToastMessage);
+      return;
+    }
+
     const nextOpen = !notificationOpen;
     setNotificationOpen(nextOpen);
 
@@ -209,6 +229,8 @@ export default function HomePage() {
                 onMarkAllRead={handleMarkAllNotificationsRead}
                 onLoadMore={handleLoadMoreNotifications}
                 onLogout={handleLogout}
+                isSuspended={isSuspended}
+                onSuspendedMenuClick={() => handleSuspendedMenuClick()}
             />
         )}
 
@@ -223,11 +245,11 @@ export default function HomePage() {
                     한끼팟
                   </Link>
                   <nav className="flex items-center gap-8">
-                    <Link to="/posts" className="text-sm text-[#424242] hover:text-[#d84315]">게시글</Link>
-                    <Link to="/matches" className="text-sm text-[#424242] hover:text-[#d84315]">매칭</Link>
-                    <Link to="/payments" className="text-sm text-[#424242] hover:text-[#d84315]">결제</Link>
+                    <Link to="/posts" onClick={isSuspendedLinkDisabled('/posts') ? handleSuspendedMenuClick : undefined} aria-disabled={isSuspendedLinkDisabled('/posts')} className={`text-sm text-[#424242] hover:text-[#d84315] ${isSuspendedLinkDisabled('/posts') ? 'cursor-not-allowed opacity-45' : ''}`}>게시글</Link>
+                    <Link to="/matches" onClick={isSuspendedLinkDisabled('/matches') ? handleSuspendedMenuClick : undefined} aria-disabled={isSuspendedLinkDisabled('/matches')} className={`text-sm text-[#424242] hover:text-[#d84315] ${isSuspendedLinkDisabled('/matches') ? 'cursor-not-allowed opacity-45' : ''}`}>매칭</Link>
+                    <Link to="/payments" onClick={isSuspendedLinkDisabled('/payments') ? handleSuspendedMenuClick : undefined} aria-disabled={isSuspendedLinkDisabled('/payments')} className={`text-sm text-[#424242] hover:text-[#d84315] ${isSuspendedLinkDisabled('/payments') ? 'cursor-not-allowed opacity-45' : ''}`}>결제</Link>
                     <Link to="/me/inquiries" className="text-sm text-[#424242] hover:text-[#d84315]">고객센터</Link>
-                    <Link to="/ai/matching" className="flex items-center gap-1 text-sm text-[#424242] hover:text-[#d84315]">
+                    <Link to="/ai/matching" onClick={isSuspendedLinkDisabled('/ai/matching') ? handleSuspendedMenuClick : undefined} aria-disabled={isSuspendedLinkDisabled('/ai/matching')} className={`flex items-center gap-1 text-sm text-[#424242] hover:text-[#d84315] ${isSuspendedLinkDisabled('/ai/matching') ? 'cursor-not-allowed opacity-45' : ''}`}>
                       <Sparkles size={15} />
                       AI 추천
                     </Link>
@@ -379,12 +401,16 @@ export default function HomePage() {
               <div className="grid grid-cols-2 gap-3 md:flex md:gap-4">
                 <Link
                     to="/posts"
+                    onClick={isSuspendedLinkDisabled('/posts') ? handleSuspendedMenuClick : undefined}
+                    aria-disabled={isSuspendedLinkDisabled('/posts')}
                     className="rounded-xl bg-[#d84315] px-3 py-4 text-center text-sm font-bold text-white shadow-lg transition-all hover:bg-[#bf360c] hover:shadow-xl md:px-8 md:text-lg md:hover:scale-105"
                 >
                   게시글 둘러보기
                 </Link>
                 <Link
                     to={isLoggedIn ? '/me/matches' : '/signup'}
+                    onClick={isLoggedIn && isSuspendedLinkDisabled('/me/matches') ? handleSuspendedMenuClick : undefined}
+                    aria-disabled={isLoggedIn && isSuspendedLinkDisabled('/me/matches')}
                     className="rounded-xl border-2 border-[#d84315] bg-white px-3 py-4 text-center text-sm font-bold text-[#d84315] transition-all hover:bg-[#fff3e0] md:px-8 md:text-lg"
                 >
                   {isLoggedIn ? '내 매칭 보기' : '회원가입'}
@@ -527,6 +553,8 @@ export default function HomePage() {
             </p>
             <Link
                 to={isLoggedIn ? '/posts' : '/signup'}
+                onClick={isLoggedIn && isSuspendedLinkDisabled('/posts') ? handleSuspendedMenuClick : undefined}
+                aria-disabled={isLoggedIn && isSuspendedLinkDisabled('/posts')}
                 className="inline-block px-10 py-4 bg-white text-[#d84315] rounded-xl font-bold text-lg hover:bg-[#f5f5f5] transition-all shadow-xl hover:shadow-2xl hover:scale-105"
             >
               {isLoggedIn ? '게시글 둘러보기 →' : '무료로 시작하기 →'}
