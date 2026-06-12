@@ -1,6 +1,5 @@
 package com.example.team3final.domain.dispute.controller;
 
-import com.example.team3final.domain.dispute.dto.request.CreateDisputeRequestDto;
 import com.example.team3final.domain.dispute.dto.response.CreateDisputeResponseDto;
 import com.example.team3final.domain.dispute.enums.DisputeStatus;
 import com.example.team3final.domain.dispute.enums.DisputeType;
@@ -11,13 +10,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import com.example.team3final.test.security.WithMockCustomUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -27,8 +27,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
-@AutoConfigureMockMvc
+@WebMvcTest(controllers = DisputeController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class DisputeControllerTest {
 
     @Autowired
@@ -44,18 +44,15 @@ class DisputeControllerTest {
     private ObjectMapper objectMapper;
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("이의제기 생성 API - 201 반환")
     @WithMockCustomUser
     void createDispute_ApiTest() throws Exception {
         // given
         Long matchId = 1L;
-        // CreateDisputeRequestDto doesn't have a constructor with args, or it's NoArgsConstructor
-        // Actually, looking at the code, it has @NoArgsConstructor. 
-        // I should use Reflection or a different way if there is no builder, 
-        // but let's assume I can write content as JSON directly.
         String requestJson = "{\"disputeType\":\"GPS_ERROR\", \"reason\":\"REASON\"}";
-        
-        CreateDisputeResponseDto response = new CreateDisputeResponseDto(1L, 1L, DisputeType.GPS_ERROR, DisputeStatus.SUBMITTED, LocalDateTime.now());
+
+        CreateDisputeResponseDto response = new CreateDisputeResponseDto(
+                1L, 1L, DisputeType.GPS_ERROR, DisputeStatus.SUBMITTED, LocalDateTime.now());
 
         given(disputeService.createDispute(anyLong(), anyLong(), any())).willReturn(response);
 
@@ -68,7 +65,7 @@ class DisputeControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("내 이의제기 조회 API - 200 반환")
     @WithMockCustomUser
     void getDispute_ApiTest() throws Exception {
         // given
@@ -81,11 +78,11 @@ class DisputeControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("노쇼 매칭 목록 조회 API - 200 반환")
     @WithMockCustomUser
     void getNoShowMatches_ApiTest() throws Exception {
         // given
-        given(meetVerificationService.getNoShowMatchesForUser(anyLong())).willReturn(java.util.List.of());
+        given(meetVerificationService.getNoShowMatchesForUser(anyLong())).willReturn(List.of());
 
         // when & then
         mockMvc.perform(get("/api/v1/matches/me/no-show"))
@@ -94,7 +91,7 @@ class DisputeControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("이의제기 재제출 API - 201 반환")
     @WithMockCustomUser
     void reCreateDispute_ApiTest() throws Exception {
         // given
