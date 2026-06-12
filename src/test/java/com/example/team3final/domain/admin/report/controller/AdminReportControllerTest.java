@@ -42,7 +42,7 @@ class AdminReportControllerTest {
     private ObjectMapper objectMapper;
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("관리자 신고 목록 조회 API test")
     @WithMockAdmin
     void getReports_ApiTest() throws Exception {
         // given
@@ -56,7 +56,7 @@ class AdminReportControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("관리자 신고 처리 API test")
     @WithMockAdmin
     void processReport_ApiTest() throws Exception {
         // given
@@ -75,7 +75,7 @@ class AdminReportControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("관리자 신고 상세 조회 API test")
     @WithMockAdmin
     void getReport_ApiTest() throws Exception {
         // given

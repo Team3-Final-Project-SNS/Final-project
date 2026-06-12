@@ -40,7 +40,7 @@ class AdminUserControllerTest {
     private ObjectMapper objectMapper;
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("관리자 유저 목록 조회 API test")
     @WithMockAdmin
     void getUsers_ApiTest() throws Exception {
         // given
@@ -54,7 +54,7 @@ class AdminUserControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("관리자 유저 계정 정지 API test")
     @WithMockAdmin
     void suspendUser_ApiTest() throws Exception {
         // given
@@ -69,7 +69,7 @@ class AdminUserControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("관리자 유저 계정 정지 해제 API test")
     @WithMockAdmin
     void reinstateUser_ApiTest() throws Exception {
         // given

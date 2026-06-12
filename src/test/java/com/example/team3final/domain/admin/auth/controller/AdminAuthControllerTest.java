@@ -35,7 +35,7 @@ class AdminAuthControllerTest {
     private ObjectMapper objectMapper;
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("관리자 로그인 API test")
     void login_ApiTest() throws Exception {
         // given
         AdminLoginRequestDto request = new AdminLoginRequestDto();

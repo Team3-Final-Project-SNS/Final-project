@@ -57,7 +57,7 @@ class AdminDisputeControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("관리자 이의제기 목록 조회 API test")
     void getDisputes_ApiTest() throws Exception {
         // given
         PageResponseDto<GetAdminDisputesResponseDto> response = PageResponseDto.from(new PageImpl<>(List.of()));
@@ -71,7 +71,7 @@ class AdminDisputeControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("관리자 이의제기 상세 조회 API test")
     void getDispute_ApiTest() throws Exception {
         // given
         GetAdminDisputeResponseDto response = new GetAdminDisputeResponseDto(1L, 1L, "nickname", null, "reason", null, null, null, null, null, List.of());
@@ -85,7 +85,7 @@ class AdminDisputeControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("관리자 이의제기 판정 API test")
     void judgeDispute_ApiTest() throws Exception {
         // given
         AdminJudgeDisputeRequestDto request = new AdminJudgeDisputeRequestDto();
@@ -107,7 +107,7 @@ class AdminDisputeControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("관리자 강제 상태 변경 API test")
     void overrideDisputeStatus_ApiTest() throws Exception {
         // given
         AdminOverrideDisputeStatusRequestDto request = new AdminOverrideDisputeStatusRequestDto();

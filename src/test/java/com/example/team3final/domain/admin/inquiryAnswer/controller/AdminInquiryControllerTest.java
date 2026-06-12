@@ -55,7 +55,7 @@ class AdminInquiryControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("관리자 고객 문의 목록 조회 API test")
     void getInquiries_ApiTest() throws Exception {
         // given
         PageResponseDto<AdminGetInquiriesResponseDto> response = PageResponseDto.from(new PageImpl<>(List.of()));
@@ -69,7 +69,7 @@ class AdminInquiryControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("관리자 고객 문의 상세 조회 API test")
     void getInquiry_ApiTest() throws Exception {
         // given
         AdminGetInquiryResponseDto response = new AdminGetInquiryResponseDto(1L, "nickname", "email", "univ", "title", "content", null, null, null, null);
@@ -83,7 +83,7 @@ class AdminInquiryControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("관리자 고객 문의 답변 생성 API test")
     void createAnswer_ApiTest() throws Exception {
         // given
         AdminCreateInquiryRequestDto request = new AdminCreateInquiryRequestDto("ANSWER");

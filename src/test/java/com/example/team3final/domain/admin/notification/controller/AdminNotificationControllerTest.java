@@ -54,7 +54,7 @@ class AdminNotificationControllerTest {
     }
 
     @Test
-    @DisplayName("API test")
+    @DisplayName("관리자 알람 목록 조회 API test")
     void getNotifications_ApiTest() throws Exception {
         // given
         CursorResponseDto<GetNotificationsResponseDto> response =
