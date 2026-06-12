@@ -247,7 +247,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     @Override
     public void sendNoShowWarning(Long userId, Long matchId) {
         publish(userId, NotificationType.NO_SHOW_WARNING,
-                "노쇼 예정 상태입니다.",
+                "매칭 #" + matchId + "노쇼 예정 상태입니다.",
                 "노쇼 예정 상태입니다. 24시간 내 이의제기가 없을 경우 예치 포인트가 차감됩니다.",
                 RelatedDomain.MEET, matchId);
     }
