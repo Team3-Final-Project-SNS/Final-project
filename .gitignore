@@ -37,6 +37,7 @@ out/
 .vscode/
 
 .env
+.pem
 
 application-local.yml
 application-docker.yml
