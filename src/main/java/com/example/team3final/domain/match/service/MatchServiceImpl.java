@@ -840,4 +840,13 @@ public class MatchServiceImpl implements MatchService{
     public List<Long> getAllMatchIdsByUserId(Long userId) {
         return matchRepository.findAllMatchIdsByUserId(userId);
     }
+
+    // postId 기준으로 현재 활성(MATCHED) 상태인 매칭의 ID를 조회한다.
+    // 사용처: MeetReminderScheduler에서 postId만 알고 있을 때 알림 relatedId로 쓸 matchId를 구하기 위함
+    @Override
+    public Optional<Long> getActiveMatchIdByPostId(Long postId) {
+        return matchRepository
+                .findFirstByPostIdAndStatusOrderByIdAsc(postId, MatchStatus.MATCHED)
+                .map(Match::getId);
+    }
 }
