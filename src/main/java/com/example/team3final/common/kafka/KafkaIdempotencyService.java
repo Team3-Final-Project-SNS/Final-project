@@ -50,4 +50,13 @@ public class KafkaIdempotencyService {
 
         return isFirst;
     }
+
+    // 처리 실패 시 멱등성 키 삭제
+    // 키를 지워야 재시도(retry) 때 isFirstProcessing()이 다시 true를 반환해서
+    // "이미 처리됨"으로 오인되지 않고 정상적으로 재처리됨
+    public void markFailed(String eventId) {
+        String key = KEY_PREFIX + eventId;
+        redisTemplate.delete(key);
+        log.warn("[Kafka 멱등성] 처리 실패 - 멱등성 키 삭제 - eventId: {}", eventId);
+    }
 }
