@@ -54,6 +54,26 @@ public class JwtProvider {
         return buildToken(email, refreshTokenValidityTime, "REFRESH");
     }
 
+    // ===== deviceId를 포함한 Refresh Token 생성 =====
+    public String generateRefreshToken(String email, String deviceId) {
+        Date now = new Date();
+        Date expiry = new Date(now.getTime() + refreshTokenValidityTime);
+
+        return Jwts.builder()
+                .subject(email)                    // 토큰 주인 (이메일)
+                .claim("type", "REFRESH")          // 토큰 타입
+                .claim("deviceId", deviceId)       // 디바이스 식별자 추가
+                .issuedAt(now)
+                .expiration(expiry)
+                .signWith(secretKey)               // 기존과 동일한 서명 키 사용
+                .compact();
+    }
+
+    // ===== 토큰에서 deviceId claim 추출 =====
+    public String getDeviceIdFromToken(String token) {
+        return (String) parseClaims(token).get("deviceId");
+    }
+
     // ===== Signup Token 생성 =====
     // subject: 이메일, 회원가입 진행 중에만 사용하는 임시 토큰
     public String generateSignupToken(String email) {
