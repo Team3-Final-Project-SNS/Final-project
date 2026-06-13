@@ -447,113 +447,133 @@ public class MatchServiceImpl implements MatchService{
             throw new MatchException(ErrorCode.MATCH_AFTER_MEET_TIME);
         }
 
-        // 환불/몰수 금액 계산 — 취소자 50% 반환, 상대방 100% 환급
+        // 취소자가 신청자(GUEST)인지 등록자(HOST)인지 판별
         boolean cancelerIsApplicant = match.isApplicant(userId);
 
+        // 응답 DTO 표시용 계산 (실제 포인트 처리 아님)
+        // 취소자 예치금의 50%는 환급, 나머지 50%는 몰수
         int cancelerDeposit = cancelerIsApplicant
                 ? match.getApplicantDeposit()
                 : post.getAuthorDeposit();
-        int opponentDeposit = cancelerIsApplicant
-                ? post.getAuthorDeposit()
-                : match.getApplicantDeposit();
-
-        int refundedPoint = cancelerDeposit / 2;
-        int forfeitedPoint = cancelerDeposit - refundedPoint;
-
-        // 취소자: 전체 예치금을 넘김 → partialRefundPoint가 내부에서 50% 계산
-        userPointService.partialRefundPoint(userId, cancelerDeposit, matchId);
-
-        // 상대방: 전액 환급
-        Long opponentId = cancelerIsApplicant ? post.getAuthorId() : match.getApplicantId();
-        userPointService.refundPoint(opponentId, opponentDeposit, matchId);
-
-        match.cancel();
-        post.decreaseCurrentApplicants(); // 참여 인원 감소
-
-        // 매칭 취소되면 장소 데이터 삭제
-        userLocationCleanupService.deleteLocationsByMatchId(matchId);
+        int refundedPoint = cancelerDeposit / 2;              // 취소자 환급분 (50%)
+        int forfeitedPoint = cancelerDeposit - refundedPoint; // 취소자 몰수분 (50%)
 
         if (cancelerIsApplicant) {
+            // ================================================================
             // GUEST(신청자) 취소
-            // 게시글이 MATCHED 상태였다면 OPEN으로 복구 (재신청 가능)
+            // 정책: 해당 GUEST 예치금만 50% 몰수, HOST 예치금은 건드리지 않음
+            //       나머지 신청자와 모임은 유지, 게시글 OPEN 복구
+            // ================================================================
+
+            // 1. 취소 GUEST만 50% 환급 (패널티 적용)
+            //    HOST 예치금 환불 없음 — 모임이 유지되므로 HOST 예치금은 계속 예치 상태
+            userPointService.partialRefundPoint(userId, match.getApplicantDeposit(), matchId);
+
+            // 2. 매칭 상태 CANCELLED로 변경 + 참여 인원 감소
+            match.cancel();
+            post.decreaseCurrentApplicants();
+
+            // 3. 취소 GUEST의 위치 데이터만 삭제
+            //    HOST와 다른 GUEST의 위치 데이터는 모임이 유지되므로 건드리지 않음
+            userLocationCleanupService.deleteLocationsByMatchId(matchId);
+
+            // 4. 게시글 MATCHED → OPEN 복구
+            //    정원이 미충족 상태로 돌아갔으므로 재신청 가능하도록 복구
             if (post.isMatched()) {
                 post.reopen();
             }
-            // 채팅방 상태 ACTIVE 유지 — 취소한 신청자만 ChatMember에서 제거
-            // 나머지 참여자(HOST + 다른 GUEST)는 계속 채팅 이용 가능
+
+            // 5. 채팅방에서 해당 GUEST만 퇴장
+            //    HOST + 나머지 GUEST는 채팅 계속 이용 가능
             chatService.removeChatMember(match.getPostId(), userId);
 
+            // 6. HOST에게 "GUEST가 퇴장했습니다" 알림
             Long chatRoomId = chatService.getChatRoomIdByPostId(match.getPostId());
-            // 15. 그룹 채팅방 신청자 퇴장 알림 - 등록자에게만
             notificationPublisher.sendChatMemberLeft(post.getAuthorId(), chatRoomId);
 
+            // 7. HOST에게 "GUEST가 매칭을 취소했습니다" 알림
+            notificationPublisher.sendGuestCancelled(post.getAuthorId(), matchId);
+
+            // 8. 취소된 GUEST의 Redis 알림 예약 제거
+            String cancelMatchIdStr = String.valueOf(matchId);
+            redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_30_GUEST, cancelMatchIdStr);
+            redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_15_GUEST, cancelMatchIdStr);
+            redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_IMMINENT_GUEST, cancelMatchIdStr);
+            redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_OVERDUE_GUEST, cancelMatchIdStr);
+            redisTemplate.opsForZSet().remove(ReviewRedisZSetKeys.DEADLINE_REMINDER, cancelMatchIdStr);
+
+            // 9. HOST ZSet: 활성 신청자가 0명이 된 경우에만 제거
+            //    match.cancel() 이후 카운트이므로 0이면 진짜 마지막 GUEST였던 것
+            long activeMatchCount = matchRepository.countByPostIdAndStatus(match.getPostId(), MatchStatus.MATCHED);
+            if (activeMatchCount <= 0) {
+                String cancelPostIdStr = String.valueOf(match.getPostId());
+                redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_30_HOST, cancelPostIdStr);
+                redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_15_HOST, cancelPostIdStr);
+                redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_IMMINENT_HOST, cancelPostIdStr);
+                redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_OVERDUE_HOST, cancelPostIdStr);
+            }
+
         } else {
+            // ================================================================
+            // HOST(등록자) 취소
+            // 정책: HOST 예치금 50% 몰수, 모든 GUEST 전액 환급, 게시글 CANCELLED
+            // ================================================================
 
-            // HOST(등록자) 취소 — 게시글 CANCELLED + 채팅방 완전 비활성화
-            // BUG-05 수정 — 기존 코드는 match.getApplicantId() 단 1명만 환불
-            // 그룹 매칭에서 GUEST가 여러 명이면 나머지는 환불되지 않는 치명적 버그
-            // 해결: 해당 postId에 연결된 모든 MATCHED 상태 매칭을 조회해서 일괄 처리
-
+            // ★ 핵심: 상태 변경 전에 MATCHED 게스트 목록 먼저 조회
+            //    guestMatch.cancel() 이후 조회하면 JPA flush 타이밍에 따라
+            //    방금 취소된 match가 결과에서 누락될 수 있으므로 반드시 먼저 SELECT
+            //    cancelMatch()를 실행한 원래 match도 MATCHED 상태이므로 여기에 포함됨
+            //    → 반복문 안에서 원래 match의 GUEST도 함께 환급/알림/취소 처리됨
             List<Match> allGuestMatches = matchRepository.findAllByPostIdAndStatus(
-                    match.getPostId(), MatchStatus.MATCHED);
-            // findAllByPostIdAndStatus: post_id = ? AND status = 'MATCHED' 인 매칭 전체 조회
+                    match.getPostId(), MatchStatus.MATCHED
+            );
 
-            // 모든 GUEST에게 전액 환불 + 매칭 취소 상태 변경
+            // 1. HOST 50% 환급 (HOST가 취소했으므로 패널티 적용), 정확히 한 번만 실행
+            userPointService.partialRefundPoint(userId, post.getAuthorDeposit(), matchId);
+
+            // 2. 모든 GUEST 처리 — 전액 환급 + 위치 삭제 + Redis 정리 + 알림 + 상태 취소
             for (Match guestMatch : allGuestMatches) {
-                // 각 GUEST의 예치금 전액 환불
-                // HOST가 취소한 것이므로 GUEST 귀책 없음 → 전액 반환
+
+                // GUEST는 귀책 없으므로 예치금 100% 반환
                 userPointService.refundPoint(
-                        guestMatch.getApplicantId(),  // 환불받을 GUEST ID
-                        guestMatch.getApplicantDeposit(), // 환불 금액 (GUEST가 예치한 금액)
-                        guestMatch.getId()            // 포인트 거래 기록용 matchId
+                        guestMatch.getApplicantId(),      // 환불받을 GUEST ID
+                        guestMatch.getApplicantDeposit(), // 환불 금액 (GUEST 예치금 전액)
+                        guestMatch.getId()                // 포인트 거래 기록용 matchId
                 );
 
-                // 매칭 상태 CANCELLED로 변경
+                // 각 GUEST의 위치 데이터 삭제
+                // HOST 취소 시 모든 match에 대한 위치 데이터를 정리해야 하므로 반복문 내 처리
+                userLocationCleanupService.deleteLocationsByMatchId(guestMatch.getId());
+
+                // 각 GUEST의 Redis 알림 예약 제거
+                String guestMatchIdStr = String.valueOf(guestMatch.getId());
+                redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_30_GUEST, guestMatchIdStr);
+                redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_15_GUEST, guestMatchIdStr);
+                redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_IMMINENT_GUEST, guestMatchIdStr);
+                redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_OVERDUE_GUEST, guestMatchIdStr);
+                redisTemplate.opsForZSet().remove(ReviewRedisZSetKeys.DEADLINE_REMINDER, guestMatchIdStr);
+
+                // 각 GUEST에게 "HOST가 매칭을 취소했습니다" 알림
+                notificationPublisher.sendHostCancelled(
+                        guestMatch.getApplicantId(),
+                        guestMatch.getId()
+                );
+
+                // GUEST 매칭 상태 CANCELLED로 변경
+                // allGuestMatches에 cancelMatch()를 실행한 원래 match도 포함되므로
+                // 반복문 바깥에서 별도로 match.cancel()을 호출하지 않음
                 guestMatch.cancel();
             }
 
-            // HOST는 50% 환불 (HOST가 취소했으므로 패널티)
-            userPointService.partialRefundPoint(userId, post.getAuthorDeposit(), matchId);
-
-            // 게시글 상태 CANCELLED로 변경
+            // 3. 게시글 상태 CANCELLED로 변경
             post.cancel();
 
-            // 채팅방 비활성화
+            // 4. 채팅방을 DEACTIVATED 상태로 전환하여 메시지 전송/조회를 모두 차단
+            //    ChatMember 레코드는 삭제되지 않으며, 상태 전환으로 접근을 제어함
             chatService.deactivateChatRoom(match.getPostId());
 
-            // 4. HOST가 매칭을 취소했을 때 - GUEST에게
-            for (Match guestMatch : allGuestMatches) {
-                // 각 GUEST에게 "HOST가 매칭을 취소했습니다" 알림
-                notificationPublisher.sendHostCancelled(
-                        guestMatch.getApplicantId(), // 알림 수신자 (GUEST)
-                        guestMatch.getId()           // 관련 매칭 ID
-                );
-            }
-        }
-
-        // 3. GUEST가 신청을 취소했을 때 - HOST에게
-        // GUEST가 취소한 경우에만 상대방(HOST)에게 알림 발송
-        // HOST가 취소한 경우는 위 for문에서 이미 모든 GUEST에게 발송 완료
-        if (cancelerIsApplicant) {
-            notificationPublisher.sendGuestCancelled(opponentId, matchId);
-        }
-
-        // 매칭 취소 시 ZSet 알림 예약 제거
-        String cancelMatchIdStr = String.valueOf(matchId);
-        String cancelPostIdStr = String.valueOf(match.getPostId());
-
-        // GUEST ZSet에서 해당 matchId 제거
-        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_30_GUEST, cancelMatchIdStr);
-        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_15_GUEST, cancelMatchIdStr);
-        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_IMMINENT_GUEST, cancelMatchIdStr);
-        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_OVERDUE_GUEST, cancelMatchIdStr);
-        redisTemplate.opsForZSet().remove(ReviewRedisZSetKeys.DEADLINE_REMINDER, cancelMatchIdStr);
-
-        // HOST ZSet: 활성 신청자가 한 명도 없을 때만 postId 제거
-        // match.cancel()이 이미 실행된 후 카운트하므로 본인은 CANCELLED로 빠져있음
-        // → 0이면 진짜 마지막, 1 이상이면 다른 신청자 남아있음
-        long activeMatchCount = matchRepository.countByPostIdAndStatus(match.getPostId(), MatchStatus.MATCHED);
-        if (activeMatchCount <= 0) {
+            // 5. HOST ZSet 제거 — HOST가 취소했으므로 postId 기준 모든 예약 정리
+            String cancelPostIdStr = String.valueOf(match.getPostId());
             redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_30_HOST, cancelPostIdStr);
             redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_15_HOST, cancelPostIdStr);
             redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_IMMINENT_HOST, cancelPostIdStr);
