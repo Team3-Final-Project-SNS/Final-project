@@ -424,6 +424,12 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
                 continue;
             }
 
+            // MATCHED 상태가 아닌 매칭(CANCELLED 등 종결 상태)은 노쇼 판정 대상에서 제외
+            // 매칭 취소 시 MeetVerification이 PENDING으로 남아 오발송되는 버그 방어
+            if (matchInfoDto.status() != MatchStatus.MATCHED) {
+                continue;
+            }
+
             PostInfoDto postInfoDto = bulk.postInfoMap().get(matchInfoDto.postId());
             if (postInfoDto == null) {
                 continue;
@@ -522,6 +528,12 @@ public class MeetVerificationServiceImpl implements MeetVerificationService {
             // 데이터 정합성 방어
             // Match 정보가 없으면 해당 건은 스킵
             if (matchInfoDto == null) {
+                continue;
+            }
+
+            // MATCHED 상태가 아닌 매칭(CANCELLED 등 종결 상태)은 QR 노쇼 판정 대상에서 제외
+            // 취소된 MeetVerification이 VERIFIED로 남아 오발송되는 버그 방어
+            if (matchInfoDto.status() != MatchStatus.MATCHED) {
                 continue;
             }
 
