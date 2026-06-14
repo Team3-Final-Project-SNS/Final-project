@@ -1,26 +1,4 @@
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: hankkipot-mysql
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD_PROD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE_PROD}
-      MYSQL_USER: ${MYSQL_USER_PROD}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD_PROD}
-    ports:
-      - "3307:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD_PROD}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
   redis:
     image: redis:7-alpine
     container_name: hankkipot-redis
@@ -89,8 +67,6 @@ services:
     env_file:
       - .env
     depends_on:
-      mysql:
-        condition: service_healthy
       redis:
         condition: service_healthy
       kafka:
@@ -206,7 +182,6 @@ services:
     restart: always
 
 volumes:
-  mysql_data:
   redis_data:
   rag_postgres_data:
   prometheus_data:
