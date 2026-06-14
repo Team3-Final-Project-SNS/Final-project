@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Component
@@ -101,10 +102,26 @@ public class MeetReminderScheduler {
         List<String> postIds = popReadyItems(MeetRedisZSetKeys.REMINDER_OVERDUE_HOST);
         if (!postIds.isEmpty()) {
             log.info("[MeetReminderScheduler] 10분 경과 HOST 알림 대상: {}건", postIds.size());
+            // 10분 경과 알림 대상 postId들을 순회하며 HOST(등록자)에게 알림 발송
             for (String postIdStr : postIds) {
+
+                // ZSet에서 꺼낸 값은 문자열이므로 Long으로 변환
                 Long postId = Long.parseLong(postIdStr);
+
+                // postId로 게시글 조회 → 등록자(authorId) 정보 필요
                 Post post = postService.getPostById(postId);
-                notificationPublisher.sendMeetOverdue(post.getAuthorId(), postId);
+
+                // postId에 연결된 활성(MATCHED) 매칭의 matchId 조회
+                Optional<Long> matchId = matchService.getActiveMatchIdByPostId(postId);
+
+                // 활성 매칭이 없으면(이미 취소됨) 알림 보낼 대상 없음 → 스킵
+                if (matchId.isEmpty()) {
+                    log.warn("[MeetReminderScheduler] 10분 경과 HOST 알림 스킵 - 활성 매칭 없음 postId: {}", postId);
+                    continue;
+                }
+
+                // relatedId로 matchId를 전달 → 알림 클릭 시 올바른 매칭 화면으로 이동
+                notificationPublisher.sendMeetOverdue(post.getAuthorId(), matchId.get());
             }
         }
 
@@ -147,18 +164,16 @@ public class MeetReminderScheduler {
                 continue;
             }
 
-            // postId → matchId 변환
-            List<Long> matchIds = matchService.getMatchIdsByPostId(postId);
+            // postId에 연결된 활성(MATCHED) 매칭의 matchId를 조회
+            // (CANCELLED/COMPLETED 매칭은 자동 제외되고, 그룹 매칭이어도 항상 동일한 매칭 선택됨)
+            Optional<Long> matchId = matchService.getActiveMatchIdByPostId(postId);
 
-            // 매칭이 없으면 아직 신청자가 없는 게시글이므로 알림 발송 스킵
-            if (matchIds.isEmpty()) {
-                log.warn("[MeetReminderScheduler] {} HOST 알림 스킵 - matchId 없음 postId: {}", label, postId);
+            if (matchId.isEmpty()) {
+                log.warn("[MeetReminderScheduler] {} HOST 알림 스킵 - 활성 매칭 없음 postId: {}", label, postId);
                 continue;
             }
 
-            // 1:1 매칭이므로 첫 번째 matchId 사용
-            Long matchId = matchIds.get(0);
-            notifier.send(post.getAuthorId(), matchId);
+            notifier.send(post.getAuthorId(), matchId.get());
         }
     }
 

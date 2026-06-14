@@ -53,4 +53,10 @@ public interface MatchRepository extends JpaRepository<Match, Long>, MatchReposi
         WHERE p.authorId = :userId OR m.applicantId = :userId
         """)
     List<Long> findAllMatchIdsByUserId(@Param("userId") Long userId);
+
+
+     //postId에 연결된 활성(MATCHED) 매칭 중 id가 가장 작은 1건 조회
+     // - MATCHED 상태만 조회하므로 CANCELLED/COMPLETED/노쇼/이의제기 상태는 제외
+     // - 그룹 미팅이어도 항상 동일한 매칭이 선택되도록 ORDER BY id ASC로 결정성 보장
+    Optional<Match> findFirstByPostIdAndStatusOrderByIdAsc(Long postId, MatchStatus status);
 }
