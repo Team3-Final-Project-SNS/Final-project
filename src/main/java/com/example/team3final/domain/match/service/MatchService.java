@@ -156,4 +156,8 @@ public interface MatchService {
 
     // 사용자가 당사자인 전체 매칭 ID 목록 조회
     List<Long> getAllMatchIdsByUserId(Long userId);
+
+    // postId 기준 현재 활성(MATCHED) 매칭의 ID 조회
+    //활성 매칭이 없으면 Optional.empty() (이미 취소된 경우)
+    Optional<Long> getActiveMatchIdByPostId(Long postId);
 }
