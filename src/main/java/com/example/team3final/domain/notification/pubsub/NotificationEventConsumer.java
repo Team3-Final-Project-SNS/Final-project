@@ -39,18 +39,22 @@ public class NotificationEventConsumer {
     )
     @Transactional
     public void consume(@Payload String message) {
+
+        // catch 블록에서 멱등성 키 삭제(markFailed)에 쓸 eventId
+        // event 객체 자체는 try 안에서 선언해야 아래 람다(ifPresent)에서 effectively final로 캡처 가능
+        String eventId = null;
+
         try {
-            // JSON 문자열 -> NotificationEvent 변환
             NotificationEvent event = objectMapper.readValue(message, NotificationEvent.class);
+            eventId = event.eventId();
 
             // 이미 처리한 이벤트인지 확인
             // eventId가 Redis에 있으면 중복 메시지 → 스킵
             // eventId가 Redis에 없으면 처음 수신 → 정상 처리 후 Redis에 기록
-            if (!kafkaIdempotencyService.isFirstProcessing(event.eventId())) {
+            if (!kafkaIdempotencyService.isFirstProcessing(eventId)) {
                 return;
             }
 
-            // DB에 알림 저장
             Notification notification = Notification.builder()
                     .receiverId(event.receiverId())
                     .receiverType(event.receiverType())
@@ -60,9 +64,12 @@ public class NotificationEventConsumer {
                     .relatedDomain(event.relatedDomain())
                     .relatedId(event.relatedId())
                     .build();
-            notificationRepository.save(notification);
 
-            // 캐시 무효화 — 별도 서비스 호출로 @CacheEvict 정상 동작
+            // saveAndFlush(): INSERT를 즉시 실행시켜서 DB 제약조건 위반 등의 오류를
+            // 이 메서드의 catch에서 바로 잡을 수 있게 함
+            // (save()만 쓰면 INSERT가 트랜잭션 커밋 시점에 실행되어, 실패해도 이 catch가 못 잡음)
+            notificationRepository.saveAndFlush(notification);
+
             notificationCacheService.evictAll();
 
             // SSE로 실시간 전송
@@ -83,8 +90,30 @@ public class NotificationEventConsumer {
                     event.receiverId(), event.type(), event.title(), notification.getId());
             log.debug("[Kafka Notification Consumer] 알림 상세 내용 - title: {}, content: {}",
                     event.title(), event.content());
+
         } catch (Exception e) {
-            log.error("[Kafka Notification Consumer] 알림 처리 실패 - error: {}", e.getMessage());
+            // 스택트레이스까지 포함해서 로깅 (마지막 인자로 예외 전달)
+            log.error("[Kafka Notification Consumer] 알림 처리 실패 - eventId: {}", eventId, e);
+
+            // 처리 실패 → 멱등성 키 삭제
+            // 삭제 안 하면 재시도 때도 isFirstProcessing()이 false를 반환해서
+            // "이미 처리됨"으로 오인되어 재처리도, DLT 전송도 일어나지 않음
+            if (eventId != null) {
+                try {
+                    kafkaIdempotencyService.markFailed(eventId);
+                } catch (Exception redisEx) {
+                    // 멱등성 키 삭제 자체가 실패해도, 원본 예외(e)는 반드시 재던져야 하므로
+                    // 여기서는 로그만 남기고 별도 처리하지 않음
+                    log.error("[Kafka Notification Consumer] 멱등성 키 삭제 실패 - eventId: {}", eventId, redisEx);
+                }
+            }
+
+            // 예외 재던짐
+            // → @Transactional 롤백 (DB 부분 저장 방지)
+            // → Spring Kafka DefaultErrorHandler가 1초 간격 3회 재시도
+            // → 3회 모두 실패하면 DeadLetterPublishingRecoverer가 notifications.DLT로 발행
+            //    → DltEventConsumer가 최종 실패 로그 기록
+            throw new RuntimeException("알림 이벤트 처리 실패", e);
         }
     }
 }
