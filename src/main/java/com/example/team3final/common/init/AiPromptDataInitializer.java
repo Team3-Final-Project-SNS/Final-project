@@ -75,6 +75,15 @@ public class AiPromptDataInitializer implements ApplicationRunner {
                 true,
                 "관리자 신고 AI 분석 프롬프트"
         );
+
+        saveIfMissing(
+                AiPromptType.REPORT_SUMMARY,
+                AiFeature.REPORT,
+                "v2",
+                "report-summary-v2.st",
+                true,
+                "관리자 AI 출처 표기 및 업무별 답변 구조 강화 프롬프트"
+        );
     }
 
     private void saveIfMissing(

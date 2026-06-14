@@ -79,6 +79,8 @@ public class AiReportServiceImpl implements AiReportService {
             REPORT RAG 정책 문서가 있으면 Tool 결과와 함께 우선 근거로 사용한다.
             REPORT RAG 정책 문서가 없으면 Retrieval Augmentation Advisor 전략으로 GPT가 답변을 보강한다.
             이때 내부 정책 문서 근거가 없음을 밝히고, 조치 확정 대신 관리자 추가 검토를 우선 권고한다.
+            REPORT RAG 출처가 비어 있지 않으면 답변 마지막에 반드시 "출처:" 섹션을 만들고, 제공된 정책명만 그대로 표시한다.
+            REPORT RAG 출처가 비어 있으면 출처를 임의로 만들지 않는다.
             AI 판단은 최종 처분이 아니라 관리자 의사결정을 돕는 참고 의견이다.
 
             REPORT RAG 정책 문서 검색 결과:
@@ -260,9 +262,11 @@ public class AiReportServiceImpl implements AiReportService {
             boolean reportCommand = looksLikeReportAiCommand(request.message());
             AiAdminCategory adminCategory = resolveAdminCategory(request.message());
             boolean ragUsed = false;
+            String ragSources = "";
             String systemPrompt;
             if (reportCommand) {
                 AiReportRagContext ragContext = buildReportRagContext(contextualUserMessage);
+                ragSources = ragContext.sources();
                 ragUsed = ragContext.sources() != null && !ragContext.sources().isBlank();
                 AiPromptFileService.RenderedPrompt prompt = renderPrompt(null, adminId, ragContext.context(), ragContext.sources());
                 promptTemplateId = prompt.promptTemplateId();
@@ -275,6 +279,7 @@ public class AiReportServiceImpl implements AiReportService {
             boolean metricRetrievalFallbackUsed = !ragUsed;
             AiAdminAnswerSource metricAnswerSource = resolveAnswerSource(reportCommand, ragUsed, false);
             AiAdminCategory metricAdminCategory = adminCategory;
+            String metricRagSources = ragSources;
             Long metricPromptTemplateId = promptTemplateId;
             String metricPromptVersion = promptVersion;
             Long metricAdminId = adminId;
@@ -296,6 +301,15 @@ public class AiReportServiceImpl implements AiReportService {
                     .stream()
                     .content()
                     .doOnNext(streamedAnswer::append)
+                    .concatWith(Flux.defer(() -> {
+                        String sourceFooter = sourceFooterIfMissing(streamedAnswer.toString(), metricRagSources);
+                        if (sourceFooter.isBlank()) {
+                            return Flux.empty();
+                        }
+
+                        streamedAnswer.append(sourceFooter);
+                        return Flux.just(sourceFooter);
+                    }))
                     .doOnComplete(() -> {
                         String answer = requiredText(
                                 streamedAnswer.toString(),
@@ -702,7 +716,9 @@ public class AiReportServiceImpl implements AiReportService {
                 - 정책 목록은 각 항목을 새 줄의 "- "로 시작한다. 절대 "1.내용 2.내용"처럼 한 문단에 붙여 쓰지 않는다.
                 - REPORT RAG 출처가 있으면 내부 정책 문서 근거로 답한다.
                 - REPORT RAG 출처가 비어 있으면 Retrieval Augmentation Advisor 전략으로 GPT가 답하되, 답변에 "출처:" 줄을 쓰지 않는다.
-                - 내부 정책 근거가 있으면 답변 마지막에 [REPORT RAG 출처]에 제공된 정책명만 "출처:"로 포함한다.
+                - 내부 정책 근거가 있으면 답변 마지막에 반드시 "출처:" 섹션을 만든다.
+                - "출처:" 섹션에는 [REPORT RAG 출처]에 제공된 정책명만 그대로 표시한다.
+                - 출처 정책명을 요약하거나 바꾸거나 새로 만들지 않는다.
                 - REPORT RAG 출처가 비어 있으면 출처를 만들지 않는다.
                 - 출력 형식은 반드시 아래처럼 줄바꿈을 지킨다.
                   제목
@@ -992,6 +1008,7 @@ public class AiReportServiceImpl implements AiReportService {
             case "report/admin-inquiry-faq-policy.md" -> "관리자 고객 문의 관리 정책";
             case "report/admin-payment-management-policy.md" -> "관리자 주문 결제 관리 정책";
             case "report/admin-console-guide.md" -> "관리자 콘솔 운영 가이드";
+            case "report/no-show-dispute-policy.md" -> "관리자 노쇼 이의제기 판정 정책";
             case "support/point-policy.md" -> "포인트 정책";
             case "support/matching-policy.md" -> "매칭 및 게시글 정책";
             case "support/no-show-policy.md" -> "노쇼 및 이의제기 정책";
@@ -1215,6 +1232,8 @@ public class AiReportServiceImpl implements AiReportService {
                             아래 REPORT RAG 정책 문서 검색 결과가 있으면 최우선 근거로 사용한다.
                             REPORT RAG 출처가 비어 있으면 Retrieval Augmentation Advisor 전략으로 GPT가 답하되,
                             답변에 "출처:" 줄을 쓰지 않고 확정 조치 대신 관리자 추가 확인을 안내한다.
+                            REPORT RAG 출처가 비어 있지 않으면 답변 마지막에 반드시 "출처:" 섹션을 만들고,
+                            [REPORT RAG 출처]에 제공된 정책명만 그대로 표시한다.
                             특정 신고 분석 요청이 명확할 때만 신고 ID가 필요하다고 안내한다.
                             일반 인사, 잡담, 의미가 짧은 메시지에는 신고 ID를 요구하지 않는다.
                             최종 처분은 관리자가 결정해야 하며, AI는 참고 의견만 제공한다고 말한다.
@@ -1234,6 +1253,8 @@ public class AiReportServiceImpl implements AiReportService {
                             - 현재 메시지 분류가 "일반 대화"이면 절대 신고 ID를 요청하지 말고 자연스럽게 응답한다.
                             - 관리자 메시지가 게시글, 신고, 고객 문의, 이의제기, 유저, 주문 결제, FAQ, 계정, 제재, 포상, 재신고 제한, 신고 기능 제한 정책을 묻는 경우 REPORT RAG 정책 문서 검색 결과를 우선 근거로 답한다.
                             - REPORT RAG 출처가 비어 있으면 GPT가 답변을 보강하되, 출처 섹션을 만들지 않는다.
+                            - REPORT RAG 출처가 비어 있지 않으면 답변 마지막에 반드시 "출처:" 섹션을 만들고, 제공된 정책명만 그대로 표시한다.
+                            - 출처 정책명을 요약하거나 바꾸거나 새로 만들지 않는다.
                             - 신고 ID 요청은 "신고 분석" 의도가 명확한데 ID가 없는 경우에만 한다.
                             - 정책 설명은 한 문단으로 뭉치지 말고 제목, 빈 줄, 짧은 목록, 빈 줄, 출처 순서로 답한다.
                             - Markdown 제목 기호인 "#", "##", "###"를 쓰지 않는다.
@@ -1280,7 +1301,7 @@ public class AiReportServiceImpl implements AiReportService {
             );
 
             return new AiReportChatResponseDto(
-                    formatGeneralGuideAnswer(message, extractContent(response)),
+                    formatGeneralGuideAnswer(message, extractContent(response), ragContext.sources()),
                     AiReportChatAction.GENERAL_GUIDE,
                     null,
                     null,
@@ -1306,7 +1327,7 @@ public class AiReportServiceImpl implements AiReportService {
             );
 
             return new AiReportChatResponseDto(
-                    formatGeneralGuideAnswer(message, null),
+                    formatGeneralGuideAnswer(message, null, ""),
                     AiReportChatAction.GENERAL_GUIDE,
                     null,
                     null,
@@ -1330,7 +1351,31 @@ public class AiReportServiceImpl implements AiReportService {
     }
 
     private String formatGeneralGuideAnswer(String message, String aiAnswer) {
-        return requiredText(aiAnswer, fallbackGeneralGuideAnswer(message));
+        return formatGeneralGuideAnswer(message, aiAnswer, "");
+    }
+
+    private String formatGeneralGuideAnswer(String message, String aiAnswer, String ragSources) {
+        return appendSourceFooterIfMissing(
+                requiredText(aiAnswer, fallbackGeneralGuideAnswer(message)),
+                ragSources
+        );
+    }
+
+    private String appendSourceFooterIfMissing(String answer, String ragSources) {
+        String sourceFooter = sourceFooterIfMissing(answer, ragSources);
+        if (sourceFooter.isBlank()) {
+            return answer;
+        }
+
+        return answer.stripTrailing() + sourceFooter;
+    }
+
+    private String sourceFooterIfMissing(String answer, String ragSources) {
+        if (ragSources == null || ragSources.isBlank() || answer == null || answer.contains("출처:")) {
+            return "";
+        }
+
+        return "\n\n출처:\n" + ragSources;
     }
 
     private String fallbackGeneralGuideAnswer(String message) {

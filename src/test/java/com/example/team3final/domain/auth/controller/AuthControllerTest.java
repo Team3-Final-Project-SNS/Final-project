@@ -126,7 +126,7 @@ class AuthControllerTest {
     @DisplayName("API test")
     void refresh_ApiTest() throws Exception {
         // given
-        given(authService.refresh(anyString(), any())).willReturn(null);
+        given(authService.refresh(anyString(), anyString(), any())).willReturn(null);
 
         // when & then
         mockMvc.perform(post("/api/v1/auth/refresh")

@@ -208,4 +208,52 @@ class AiCallMetricServiceImplTest {
         assertThat(meterRegistry.get("ai.support.completion.tokens").counter().count()).isEqualTo(70.0);
         assertThat(meterRegistry.get("ai.support.latency.ms").summary().totalAmount()).isEqualTo(2400.0);
     }
+
+    @Test
+    @DisplayName("관리자 AI 호출 메트릭은 REPORT 전용 Prometheus 메트릭으로 기록한다")
+    void createAiCallMetric_reportPrometheusMetrics() {
+        aiCallMetricService.createAiCallMetric(
+                "request-report-1",
+                5L,
+                AiFeature.REPORT,
+                "gpt-4o-mini",
+                14L,
+                "v2",
+                220,
+                90,
+                310,
+                2800L,
+                AiCallStatus.SUCCESS,
+                null,
+                null
+        );
+
+        ArgumentCaptor<AiCallMetric> captor = ArgumentCaptor.forClass(AiCallMetric.class);
+        verify(aiCallMetricRepository).save(captor.capture());
+
+        AiCallMetric metric = captor.getValue();
+        assertThat(metric.getRequestId()).isEqualTo("request-report-1");
+        assertThat(metric.getUserId()).isEqualTo(5L);
+        assertThat(metric.getFeature()).isEqualTo(AiFeature.REPORT);
+        assertThat(metric.getModel()).isEqualTo("gpt-4o-mini");
+        assertThat(metric.getPromptTemplateId()).isEqualTo(14L);
+        assertThat(metric.getPromptVersion()).isEqualTo("v2");
+        assertThat(metric.getPromptTokens()).isEqualTo(220);
+        assertThat(metric.getCompletionTokens()).isEqualTo(90);
+        assertThat(metric.getTotalTokens()).isEqualTo(310);
+        assertThat(metric.getLatencyMs()).isEqualTo(2800L);
+        assertThat(metric.getStatus()).isEqualTo(AiCallStatus.SUCCESS);
+        assertThat(metric.getErrorType()).isNull();
+        assertThat(metric.getErrorMessage()).isNull();
+
+        assertThat(meterRegistry.get("ai.report.call")
+                .tag("model", "gpt-4o-mini")
+                .tag("status", "SUCCESS")
+                .counter()
+                .count()).isEqualTo(1.0);
+        assertThat(meterRegistry.get("ai.report.tokens").counter().count()).isEqualTo(310.0);
+        assertThat(meterRegistry.get("ai.report.prompt.tokens").counter().count()).isEqualTo(220.0);
+        assertThat(meterRegistry.get("ai.report.completion.tokens").counter().count()).isEqualTo(90.0);
+        assertThat(meterRegistry.get("ai.report.latency.ms").summary().totalAmount()).isEqualTo(2800.0);
+    }
 }
