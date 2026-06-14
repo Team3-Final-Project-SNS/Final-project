@@ -31,12 +31,12 @@ import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -54,6 +54,7 @@ public class AuthServiceImpl implements AuthService{
     private final PasswordEncoder passwordEncoder;
 
     private static final String REFRESH_TOKEN_KEY_PREFIX = "refresh:";
+    private static final String DEVICE_ID_COOKIE_NAME = "device_id";
 
     private final AuthProperties authProperties; // 회원정보시 약관 동의
 
@@ -279,17 +280,21 @@ public class AuthServiceImpl implements AuthService{
         expireSignupTokenCookie(httpResponse);
 
         // ===== 13단계: refresh_token 발급 (자동 로그인) =====
-        String refreshToken = jwtProvider.generateRefreshToken(savedUser.getEmail());
+        String deviceId = UUID.randomUUID().toString();
 
-        // Redis에 저장 (RTR: 재발급 시 교체, 로그아웃 시 삭제)
+        // deviceId 포함 Refresh Token 발급
+        String refreshToken = jwtProvider.generateRefreshToken(savedUser.getEmail(), deviceId);
+
+        // Redis key에 deviceId 포함
         redisTemplate.opsForValue().set(
-                REFRESH_TOKEN_KEY_PREFIX + savedUser.getEmail(),
+                buildRefreshKey(savedUser.getEmail(), deviceId),  // ← "refresh:{email}:{deviceId}"
                 refreshToken,
                 Duration.ofMillis(jwtProvider.getRefreshTokenValidityTime())
         );
 
         // refresh_token HttpOnly 쿠키 발급
         addRefreshTokenCookie(httpResponse, refreshToken);
+        addDeviceIdCookie(httpResponse, deviceId);
 
         // ===== 14단계: Access Token 발급 =====
         String accessToken = jwtProvider.generateAccessToken(savedUser.getEmail());
@@ -324,30 +329,42 @@ public class AuthServiceImpl implements AuthService{
         // 인증 성공 → 유저 정보 조회
         User user = userService.findByEmail(request.getEmail());
 
+        // deviceId 발급
+        String deviceId = UUID.randomUUID().toString();
+
         // Access Token 생성
         String accessToken = jwtProvider.generateAccessToken(user.getEmail());
 
-        // Refresh Token 생성 후 Redis에 저장 (RTR을 위해 서버측 보관)
-        // Key: "refresh:{email}", Value: refreshToken, TTL: 14일
-        String refreshToken = jwtProvider.generateRefreshToken(user.getEmail());
+        // Refresh Token 생성 시 deviceId 포함
+        String refreshToken = jwtProvider.generateRefreshToken(user.getEmail(), deviceId);
+
+        // Redis key: "refresh:{email}:{deviceId}"
+        // 같은 이메일로 다른 디바이스 로그인 → 다른 deviceId → 기존 세션 유지됨
         redisTemplate.opsForValue().set(
-                REFRESH_TOKEN_KEY_PREFIX + user.getEmail(),
+                buildRefreshKey(user.getEmail(), deviceId),  // ← 변경: deviceId 포함 key
                 refreshToken,
                 Duration.ofMillis(jwtProvider.getRefreshTokenValidityTime())
         );
 
+        // device_id 쿠키도 함께 발급
         // Refresh Token을 HttpOnly 쿠키로 응답에 추가
         addRefreshTokenCookie(response, refreshToken);
+        addDeviceIdCookie(response, deviceId);
 
         return new LoginResponseDto(user.getId(), user.getNickname(), accessToken);
     }
 
     // ===== 토큰 재발급 =====
     @Override
-    public TokenResponseDto refresh(String refreshToken, HttpServletResponse response) {
+    public TokenResponseDto refresh(String refreshToken, String deviceId, HttpServletResponse response) {
 
-        // refreshToken이 null이면 NPE 발생 -> null 체크
+        // refreshToken null 체크
         if (refreshToken == null) {
+            throw new AuthException(ErrorCode.AUTH_INVALID_TOKEN);
+        }
+
+        // deviceId null 체크 (device_id 쿠키 없이 재발급 시도 차단)
+        if (deviceId == null) {
             throw new AuthException(ErrorCode.AUTH_INVALID_TOKEN);
         }
 
@@ -364,25 +381,30 @@ public class AuthServiceImpl implements AuthService{
         // 3. 토큰에서 이메일 추출
         String email = jwtProvider.getEmailFromToken(refreshToken);
 
-        // 4. Redis에 저장된 Refresh Token과 비교 (탈취된 토큰 사용 방지)
-        String storedToken = redisTemplate.opsForValue().get(REFRESH_TOKEN_KEY_PREFIX + email);
+        // 4. Redis에서 해당 디바이스의 토큰 조회
+        // key: "refresh:{email}:{deviceId}" → 이 디바이스의 세션만 검증
+        String storedToken = redisTemplate.opsForValue().get(buildRefreshKey(email, deviceId));
         if (!refreshToken.equals(storedToken)) {
-            // 이미 사용된 토큰이거나 로그아웃된 경우
+            // 이미 사용된 토큰이거나 다른 디바이스의 토큰인 경우
             throw new AuthException(ErrorCode.AUTH_INVALID_TOKEN);
         }
 
-        // 5. 새 Access Token + 새 Refresh Token 발급 (RTR: 기존 토큰 폐기)
+        // 5. 새 Access Token + 새 Refresh Token 발급 (RTR: Refresh Token Rotation)
         String newAccessToken = jwtProvider.generateAccessToken(email);
-        String newRefreshToken = jwtProvider.generateRefreshToken(email);
 
-        // 6. Redis 업데이트 (기존 토큰 덮어쓰기)
+        // 새 Refresh Token 발급 시에도 동일한 deviceId 유지
+        // deviceId는 로그아웃 전까지 재사용 → 같은 디바이스 세션 연속성 유지
+        String newRefreshToken = jwtProvider.generateRefreshToken(email, deviceId);
+
+        // 6. Redis 업데이트: 동일 key에 새 토큰으로 덮어쓰기 (RTR)
         redisTemplate.opsForValue().set(
-                REFRESH_TOKEN_KEY_PREFIX + email,
+                buildRefreshKey(email, deviceId),  // 같은 key 유지
                 newRefreshToken,
                 Duration.ofMillis(jwtProvider.getRefreshTokenValidityTime())
         );
 
-        // 7. 새 Refresh Token 쿠키로 재전송
+        // 7. 새 Refresh Token 쿠키 재전송
+        // device_id 쿠키는 바뀌지 않으므로 재발급 불필요
         addRefreshTokenCookie(response, newRefreshToken);
 
         return new TokenResponseDto(newAccessToken);
@@ -390,14 +412,19 @@ public class AuthServiceImpl implements AuthService{
 
     // ======== 로그아웃 ========
     @Override
-    public void logout(String refreshToken, HttpServletResponse response) {
+    public void logout(String refreshToken, String deviceId, HttpServletResponse response) {
         if (refreshToken != null && jwtProvider.validateToken(refreshToken)) {
             String email = jwtProvider.getEmailFromToken(refreshToken);
-            redisTemplate.delete(REFRESH_TOKEN_KEY_PREFIX + email);
+            // "refresh:{email}:{deviceId}" key만 삭제 → 이 디바이스 세션만 로그아웃
+            // 다른 기기는 계속 로그인 상태 유지
+            redisTemplate.delete(buildRefreshKey(email, deviceId));
         }
 
-        // 인자 2개 버전 호출 → logout은 path가 "/" 고정
+        // refresh_token 쿠키 만료
         expireRefreshTokenCookie(response);
+
+        // device_id 쿠키도 함께 만료
+        expireDeviceIdCookie(response);
     }
 
     // ======== 회원 탈퇴 ========
@@ -464,5 +491,29 @@ public class AuthServiceImpl implements AuthService{
         cookie.setPath("/");
         cookie.setMaxAge(0);
         response.addCookie(cookie);
+    }
+
+    // device_id 전용 HttpOnly 쿠키 추가 헬퍼
+    private void addDeviceIdCookie(HttpServletResponse response, String deviceId) {
+        Cookie cookie = new Cookie(DEVICE_ID_COOKIE_NAME, deviceId);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true);   // 운영(HTTPS)에서만 전송 / 로컬 테스트 시 false로 변경
+        cookie.setPath("/");      // 모든 경로에서 자동 전송
+        response.addCookie(cookie);
+    }
+
+    // device_id 쿠키 만료 헬퍼
+    private void expireDeviceIdCookie(HttpServletResponse response) {
+        Cookie cookie = new Cookie(DEVICE_ID_COOKIE_NAME, "");
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(0);  // 즉시 만료
+        response.addCookie(cookie);
+    }
+
+    // Redis key 조합 헬퍼
+    private String buildRefreshKey(String email, String deviceId) {
+        return REFRESH_TOKEN_KEY_PREFIX + email + ":" + deviceId;
     }
 }

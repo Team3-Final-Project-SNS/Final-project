@@ -37,6 +37,7 @@ out/
 .vscode/
 
 .env
+hankkipot-key.pem
 
 application-local.yml
 application-docker.yml

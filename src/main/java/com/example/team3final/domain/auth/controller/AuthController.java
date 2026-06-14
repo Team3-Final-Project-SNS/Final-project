@@ -304,8 +304,15 @@ public class AuthController {
             HttpServletResponse response) {
 
         // 쿠키에서 refresh_token 꺼내기
-        String refreshToken = extractRefreshTokenFromCookie(request);
-        return ResponseEntity.ok(ApiResponseDto.success(authService.refresh(refreshToken, response)));
+        String refreshToken = extractCookieValue(request, "refresh_token");
+
+        // device_id 쿠키 꺼내기
+        String deviceId = extractCookieValue(request, "device_id");
+
+        // deviceId도 함께 전달
+        return ResponseEntity.ok(ApiResponseDto.success(
+                authService.refresh(refreshToken, deviceId, response)
+        ));
     }
 
     // 로그아웃
@@ -332,17 +339,22 @@ public class AuthController {
             HttpServletResponse response) {
 
         // 쿠키에서 refresh_token 꺼내기
-        String refreshToken = extractRefreshTokenFromCookie(request);
-        authService.logout(refreshToken, response);
+        String refreshToken = extractCookieValue(request, "refresh_token");
+
+        // device_id 쿠키 꺼내기
+        String deviceId = extractCookieValue(request, "device_id");
+
+        // deviceId도 함께 전달
+        authService.logout(refreshToken, deviceId, response);
         return ResponseEntity.ok(ApiResponseDto.successWithNoContent());
     }
 
     // 쿠키 배열에서 refresh_token 값을 찾아 반환하는 헬퍼 메서드
-    private String extractRefreshTokenFromCookie(HttpServletRequest request) {
+    private String extractCookieValue(HttpServletRequest request, String cookieName) {
         if (request.getCookies() == null) return null;
 
         return Arrays.stream(request.getCookies())
-                .filter(cookie -> "refresh_token".equals(cookie.getName()))
+                .filter(cookie -> cookieName.equals(cookie.getName()))
                 .findFirst()
                 .map(Cookie::getValue)
                 .orElse(null);

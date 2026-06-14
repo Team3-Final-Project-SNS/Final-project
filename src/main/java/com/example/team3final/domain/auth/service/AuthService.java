@@ -27,10 +27,10 @@ public interface AuthService {
     LoginResponseDto login(LoginRequestDto request, HttpServletResponse response);
 
     // 토큰 재발급
-    TokenResponseDto refresh(String refreshToken, HttpServletResponse response);
+    TokenResponseDto refresh(String refreshToken, String deviceId, HttpServletResponse response);
 
     // 로그아웃 - 리프레쉬 토큰 쿠키 만료 처리
-    void logout(String refreshToken, HttpServletResponse response);
+    void logout(String refreshToken, String deviceId, HttpServletResponse response);
 
     // 회원 탈퇴 - Redis 토큰 삭제 + UserService 탈퇴 처리 + 쿠키 파기 오케스트레이션
     WithdrawResponseDto withdraw(Long userId, WithdrawRequestDto request, String refreshToken, HttpServletResponse response);
