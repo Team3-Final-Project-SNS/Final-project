@@ -54,6 +54,8 @@ public class AiMatchingToolResultConverter implements ToolCallResultConverter {
                 장소: %s
                 시간: %s
                 책임비: %dP
+                참여 인원: %d/%d명
+                남은 자리: %d명
                 내용: %s
                 신청 가능 여부: %s
                 포인트 충분 여부: %s
@@ -63,6 +65,9 @@ public class AiMatchingToolResultConverter implements ToolCallResultConverter {
                 post.placeName(),
                 post.meetAt(),
                 post.deposit(),
+                post.currentApplicants(),
+                post.maxApplicants(),
+                post.remainingSlots(),
                 post.content(),
                 post.applicationAvailable() ? "가능" : "불가능",
                 post.pointAffordable() ? "충분" : "부족",

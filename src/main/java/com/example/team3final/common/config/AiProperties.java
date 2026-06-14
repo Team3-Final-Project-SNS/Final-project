@@ -87,6 +87,8 @@ public class AiProperties {
         private String password;
         private String schemaName;
         private String tableName;
+        // 문서 RAG 테이블과 분리된 매칭 AI 게시글 추천 전용 pgvector 테이블명입니다.
+        private String postTableName = "post_vector_index";
         private int dimensions;
         private boolean initializeSchema;
         private String distanceType;

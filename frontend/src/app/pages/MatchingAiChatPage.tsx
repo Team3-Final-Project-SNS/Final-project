@@ -1,7 +1,7 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { AlertCircle, ArrowRight, Bot, CalendarClock, CheckCircle2, Coins, Loader2, Send, Sparkles, XCircle } from 'lucide-react';
-import { RecommendedPost, streamMatchingChat } from '@/api/aiApi';
+import { clearMatchingConversation, RecommendedPost, streamMatchingChat } from '@/api/aiApi';
 
 const EXAMPLE_QUESTIONS = [
   '오늘 3시쯤 밥 먹을 사람 추천해줘',
@@ -31,6 +31,7 @@ type ParsedRecommendation = {
 
 export default function MatchingAiChatPage() {
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const conversationIdRef = useRef<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: Date.now(),
@@ -42,6 +43,18 @@ export default function MatchingAiChatPage() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    return () => {
+      const activeConversationId = conversationIdRef.current;
+
+      if (activeConversationId) {
+        void clearMatchingConversation(activeConversationId).catch(() => {
+          // 화면 이탈 중 정리 실패는 다음 세션 생성 자체를 막지 않습니다.
+        });
+      }
+    };
+  }, []);
 
   const showThinkingForMoment = () => new Promise((resolve) => setTimeout(resolve, 800));
 
@@ -63,6 +76,7 @@ export default function MatchingAiChatPage() {
     const nextConversationId = conversationId ?? crypto.randomUUID();
     const assistantMessageId = Date.now() + 1;
     setConversationId(nextConversationId);
+    conversationIdRef.current = nextConversationId;
 
     setMessages((prev) => [
       ...prev,

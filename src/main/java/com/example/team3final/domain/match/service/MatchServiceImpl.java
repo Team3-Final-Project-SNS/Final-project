@@ -16,12 +16,15 @@ import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.dto.response.PostMatchInfoDto;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
+import com.example.team3final.domain.post.event.PostVectorDeleteEvent;
+import com.example.team3final.domain.post.event.PostVectorUpsertEvent;
 import com.example.team3final.domain.post.service.PostService;
 import com.example.team3final.domain.review.util.ReviewRedisZSetKeys;
 import com.example.team3final.domain.user.dto.response.UserInfoDto;
 import com.example.team3final.domain.user.service.UserPointService;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -50,6 +53,7 @@ public class MatchServiceImpl implements MatchService{
     private final NotificationPublisher notificationPublisher;  // 알림 발송용
     private final StringRedisTemplate redisTemplate; // ZSet 예약용
     private final UserLocationCleanupService userLocationCleanupService;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @Override
     public CreateMatchResponseDto createMatch(Long postId, Long applicantId) {
@@ -118,6 +122,8 @@ public class MatchServiceImpl implements MatchService{
 
         // Post → CANCELLED
         post.cancel();
+        // 취소된 게시글은 신청 가능한 모집글이 아니므로 벡터 추천 인덱스에서 제거합니다.
+        publishPostVectorDeleteEvent(post.getId());
 
         // 양측 전액 환불 (둘 다 현장에 있었으므로 귀책 없음 → 패널티 없음)
         userPointService.refundPoint(post.getAuthorId(), post.getAuthorDeposit(), matchId);
@@ -195,6 +201,9 @@ public class MatchServiceImpl implements MatchService{
 
         if (lockedPost.getStatus() != PostStatus.COMPLETED) {
             lockedPost.complete();
+            // 관리자 이의제기 ACCEPTED로 게시글이 완료되는 경로도 추천 인덱스에서 제거합니다.
+            // 보통 MATCHED 전환 때 이미 삭제되지만, 완료 지점에서도 한 번 더 삭제 이벤트를 발행해 정합성을 보강합니다.
+            publishPostVectorDeleteEvent(lockedPost.getId());
 
             userPointService.refundPoint(
                     lockedPost.getAuthorId(),
@@ -481,6 +490,8 @@ public class MatchServiceImpl implements MatchService{
             //    정원이 미충족 상태로 돌아갔으므로 재신청 가능하도록 복구
             if (post.isMatched()) {
                 post.reopen();
+                // 정원 취소로 다시 모집 가능해진 글은 AI 추천 후보에도 다시 반영합니다.
+                publishPostVectorUpsertEvent(post);
             }
 
             // 5. 채팅방에서 해당 GUEST만 퇴장
@@ -567,6 +578,8 @@ public class MatchServiceImpl implements MatchService{
 
             // 3. 게시글 상태 CANCELLED로 변경
             post.cancel();
+            // 등록자가 취소한 모집글은 더 이상 추천되지 않도록 벡터 인덱스에서 제거합니다.
+            publishPostVectorDeleteEvent(post.getId());
 
             // 4. 채팅방을 DEACTIVATED 상태로 전환하여 메시지 전송/조회를 모두 차단
             //    ChatMember 레코드는 삭제되지 않으며, 상태 전환으로 접근을 제어함
@@ -810,6 +823,8 @@ public class MatchServiceImpl implements MatchService{
 
         // Post 엔티티의 도메인 메서드로 상태를 COMPLETED로 전환
         post.complete();
+        // 식사가 완료된 게시글은 검색/추천 대상에서 제외합니다.
+        publishPostVectorDeleteEvent(post.getId());
 
         // 등록자 책임비는 그룹 만남 전체가 정상 종료된 시점에 한 번만 환급
         userPointService.refundPoint(
@@ -848,5 +863,38 @@ public class MatchServiceImpl implements MatchService{
         return matchRepository
                 .findFirstByPostIdAndStatusOrderByIdAsc(postId, MatchStatus.MATCHED)
                 .map(Match::getId);
+    }
+
+    private void publishPostVectorUpsertEvent(Post post) {
+        if (applicationEventPublisher == null || post == null || !post.isOpen() || post.isDeleted()) {
+            return;
+        }
+
+        // Match 도메인에서 게시글을 OPEN으로 되돌릴 때도 Post 도메인과 같은 이벤트 형식으로 인덱스를 갱신합니다.
+        applicationEventPublisher.publishEvent(
+                new PostVectorUpsertEvent(
+                        post.getId(),
+                        post.getAuthorId(),
+                        userService.findUserById(post.getAuthorId()).getUniversityId(),
+                        post.getStatus(),
+                        post.getMeetAt(),
+                        post.getPlaceName(),
+                        post.getContent(),
+                        post.getAuthorDeposit(),
+                        post.getMaxApplicants(),
+                        post.getCurrentApplicants(),
+                        post.getPlaceLat(),
+                        post.getPlaceLng()
+                )
+        );
+    }
+
+    private void publishPostVectorDeleteEvent(Long postId) {
+        if (applicationEventPublisher == null || postId == null) {
+            return;
+        }
+
+        // 삭제 이벤트는 postId만 필요합니다. Listener가 커밋 이후 pgvector 테이블에서 해당 행을 제거합니다.
+        applicationEventPublisher.publishEvent(new PostVectorDeleteEvent(postId));
     }
 }

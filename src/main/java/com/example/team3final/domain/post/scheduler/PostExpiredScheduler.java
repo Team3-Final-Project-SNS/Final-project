@@ -3,10 +3,12 @@ package com.example.team3final.domain.post.scheduler;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
+import com.example.team3final.domain.post.event.PostVectorDeleteEvent;
 import com.example.team3final.domain.post.repository.PostRepository;
 import com.example.team3final.domain.user.service.UserPointService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +31,7 @@ public class PostExpiredScheduler {
     private final PostRepository postRepository;
     private final NotificationPublisher notificationPublisher;
     private final UserPointService userPointService;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     /**
      * 매시 정각에 OPEN 상태인 만료 게시글을 EXPIRED로 일괄 전환
@@ -63,6 +66,9 @@ public class PostExpiredScheduler {
 
         // 만료된 게시글 각각에 대해 알림 발송 + 포인트 환불 처리
         for (Post post : expiredTargets) {
+            // 벌크 UPDATE는 엔티티 이벤트를 자동으로 만들지 않으므로, 만료 대상마다 직접 벡터 삭제 이벤트를 발행합니다.
+            applicationEventPublisher.publishEvent(new PostVectorDeleteEvent(post.getId()));
+
             // 40. 게시글 만료 알림 - 게시글 작성자에게
             notificationPublisher.sendPostExpired(post.getAuthorId(), post.getId());
 

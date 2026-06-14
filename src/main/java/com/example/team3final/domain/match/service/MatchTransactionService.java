@@ -23,12 +23,14 @@ import com.example.team3final.domain.match.repository.MatchRepository;
 import com.example.team3final.domain.meet.util.MeetRedisZSetKeys;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
+import com.example.team3final.domain.post.event.PostVectorDeleteEvent;
 import com.example.team3final.domain.post.service.PostService;
 import com.example.team3final.domain.report.service.ReportService;
 import com.example.team3final.domain.review.service.ReviewAvoidanceService;
 import com.example.team3final.domain.user.service.UserPointService;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -49,6 +51,7 @@ public class MatchTransactionService {
     private final ReviewAvoidanceService reviewAvoidanceService;
     private final ReportService reportService;
     private final StringRedisTemplate redisTemplate;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public CreateMatchResponseDto createMatchInTransaction(Long postId, Long applicantId) {
@@ -123,6 +126,10 @@ public class MatchTransactionService {
         // 7. 정원이 다 찼을 때만 게시글 상태를 MATCHED로 전환
         if (post.isFull()) {
             post.match();
+            if (applicationEventPublisher != null) {
+                // 정원이 찬 게시글은 더 이상 신청받을 수 없으므로 AI 추천 후보에서도 제거합니다.
+                applicationEventPublisher.publishEvent(new PostVectorDeleteEvent(post.getId()));
+            }
         }
 
         // 8. 응답 DTO에 필요한 닉네임 조회

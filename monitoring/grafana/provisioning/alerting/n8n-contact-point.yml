@@ -9,7 +9,7 @@ contactPoints:
         settings:
           url: ${GRAFANA_N8N_WEBHOOK_URL}
           httpMethod: POST
-          maxAlerts: "10"
+          maxAlerts: "100"
         disableResolveMessage: false
 
 policies:
