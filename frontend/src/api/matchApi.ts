@@ -19,7 +19,7 @@ export interface GetMatchesItemResponse {
     myDeposit: number;
     isAuthor: boolean;
     status: MatchStatus;
-    chatRoomId: number;
+    chatRoomId: number | null;
     matchedAt: string;
     completedAt: string | null;
 }
@@ -42,7 +42,7 @@ export interface GetMatchResponse {
     authorDeposit: number;
     applicantDeposit: number;
     status: MatchStatus;
-    chatRoomId: number;
+    chatRoomId: number | null;
     matchedAt: string;
     completedAt: string | null;
 }
@@ -54,8 +54,12 @@ export const createMatch = (postId: number) =>
         postId: number, 
         authorId: number, 
         applicantId: number,
+        authorNickname: string,
+        applicantNickname: string,
+        authorDeposit: number,
+        applicantDeposit: number,
         status: MatchStatus,
-        chatRoomId: number,
+        chatRoomId: number | null,
         matchedAt: string
     }>>(`/api/v1/posts/${postId}/matches`);
 

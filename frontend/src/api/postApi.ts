@@ -60,6 +60,20 @@ export interface CreatePostRequest {
     maxApplicants: number;
 }
 
+export interface CreatePostResponse {
+    postId: number;
+    authorId: number;
+    authorNickname: string;
+    meetAt: string;
+    placeName: string;
+    placeLat: number;
+    placeLng: number;
+    content: string | null;
+    authorDeposit: number;
+    status: PostStatus;
+    createdAt: string;
+}
+
 export interface UpdatePostRequest {
     meetAt?: string;
     placeName?: string;
@@ -69,6 +83,15 @@ export interface UpdatePostRequest {
     authorDeposit?: number;
 }
 
+export interface UpdatePostResponse {
+    postId: number;
+    meetAt: string;
+    placeName: string;
+    authorDeposit: number;
+    status: PostStatus;
+    updatedAt: string;
+}
+
 export interface DeletedPostReasonResponse {
     postId: number;
     placeName: string;
@@ -76,9 +99,14 @@ export interface DeletedPostReasonResponse {
     deletedAt: string;
 }
 
+export interface DeletePostResponse {
+    postId: number;
+    refundedPoint: number;
+}
+
 // 寃뚯떆湲 ?묒꽦
 export const createPost = (data: CreatePostRequest) =>
-    axiosInstance.post<ApiResponse<{ postId: number }>>("/api/v1/posts", data);
+    axiosInstance.post<ApiResponse<CreatePostResponse>>("/api/v1/posts", data);
 
 // 寃뚯떆湲 紐⑸줉 議고쉶
 export const getPosts = (status: PostStatus = "OPEN", page: number = 0, size: number = 20) =>
@@ -92,18 +120,11 @@ export const getPost = (postId: number) =>
 
 // 寃뚯떆湲 ?섏젙
 export const updatePost = (postId: number, data: UpdatePostRequest) =>
-    axiosInstance.patch<ApiResponse<{ postId: number }>>(`/api/v1/posts/${postId}`, data);
+    axiosInstance.patch<ApiResponse<UpdatePostResponse>>(`/api/v1/posts/${postId}`, data);
 
 // 寃뚯떆湲 ??젣
 export const deletePost = (postId: number) =>
-    axiosInstance.delete<ApiResponse<{ postId: number, refundedPoint: number }>>(`/api/v1/posts/${postId}`);
+    axiosInstance.delete<ApiResponse<DeletePostResponse>>(`/api/v1/posts/${postId}`);
 
 export const getDeletedPostReason = (postId: number) =>
     axiosInstance.get<ApiResponse<DeletedPostReasonResponse>>(`/api/v1/posts/${postId}/delete-reason`);
-
-export const getMyPosts = (page: number = 0, size: number = 20) =>
-    axiosInstance.get<ApiResponse<PageResponse<PostItemResponse>>>(`/api/v1/posts/me`, {
-        params: { page, size }
-    });
-
-

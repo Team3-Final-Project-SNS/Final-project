@@ -2,7 +2,7 @@
 
 declare global {
     interface Window {
-        kakao: typeof kakao;
+        kakao?: typeof kakao;
     }
 
     namespace kakao.maps {

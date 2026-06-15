@@ -45,8 +45,6 @@ export const getNotificationTargetPath = (notification: NotificationResponse) =>
       case 'REPORT_REWARD':
       case 'REPORT_REJECTED':
         return `/me/reports?reportId=${relatedId}`;
-      case 'POST_DELETED':
-        return `/posts/${relatedId}/delete-reason`;
     }
   }
 
