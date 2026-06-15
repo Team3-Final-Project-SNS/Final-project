@@ -44,7 +44,7 @@ public class MeetVerificationNoShowServiceImpl implements MeetVerificationNoShow
     private final UserLocationService userLocationService;
     private final NotificationPublisher notificationPublisher;
     private final MeetVerificationContextReader contextReader;
-    private final NoShowPostProcessor noShowPostProcessor;
+    private final MeetVerificationNoShowSettlementService noShowSettlementService;
 
     // GPS 노쇼 배치 판정 — 스케줄러가 주기적으로 호출
     // 판정 대상: PENDING 상태 (양측 GPS 인증이 모두 완료되지 않은 매칭)
@@ -404,7 +404,7 @@ public class MeetVerificationNoShowServiceImpl implements MeetVerificationNoShow
         for (Map.Entry<Long, List<Long>> entry : matchIdsByPostId.entrySet()) {
             try {
                 // Post별 REQUIRES_NEW 처리로 한 그룹 실패가 다른 그룹 알림까지 롤백시키지 않게 한다.
-                noShowPostProcessor.process(entry.getKey(), entry.getValue());
+                noShowSettlementService.settlePost(entry.getKey(), entry.getValue());
             } catch (Exception e) {
                 log.error(
                         "[노쇼확정] Post 처리 실패 - postId={}, matchIds={}, exception={}, message={}",

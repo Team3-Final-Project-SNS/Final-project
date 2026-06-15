@@ -1,10 +1,9 @@
-package com.example.team3final.domain.post.scheduler;
+package com.example.team3final.domain.post.service;
 
 import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.event.PostVectorDeleteEvent;
-import com.example.team3final.domain.post.service.PostInternalService;
 import com.example.team3final.domain.user.service.UserPointService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -18,13 +17,14 @@ import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
-public class PostExpirationProcessor {
+public class PostExpirationServiceImpl implements PostExpirationService {
 
     private final PostInternalService postInternalService;
     private final NotificationPublisher notificationPublisher;
     private final UserPointService userPointService;
     private final ApplicationEventPublisher applicationEventPublisher;
 
+    @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void process(Long postId, LocalDateTime now) {
         Post post = postInternalService.getPostByIdWithLock(postId);

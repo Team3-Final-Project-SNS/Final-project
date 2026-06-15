@@ -1,4 +1,4 @@
-package com.example.team3final.domain.match.service;
+package com.example.team3final.domain.match.context;
 
 import java.util.List;
 

@@ -5,8 +5,8 @@ import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.service.MatchInternalService;
 import com.example.team3final.domain.match.service.MatchNoShowService;
-import com.example.team3final.domain.match.service.NoShowDecision;
-import com.example.team3final.domain.match.service.NoShowSettlementResult;
+import com.example.team3final.domain.match.context.NoShowDecision;
+import com.example.team3final.domain.match.context.NoShowSettlementResult;
 import com.example.team3final.domain.meet.context.MeetVerificationBulkContext;
 import com.example.team3final.domain.meet.context.NoShowConfirmedNotificationTarget;
 import com.example.team3final.domain.meet.entity.MeetVerification;
@@ -33,7 +33,8 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class NoShowPostProcessor {
+public class MeetVerificationNoShowSettlementServiceImpl
+        implements MeetVerificationNoShowSettlementService {
 
     private final MeetVerificationRepository meetVerificationRepository;
     private final MatchInternalService matchInternalService;
@@ -42,8 +43,9 @@ public class NoShowPostProcessor {
     private final MeetVerificationContextReader contextReader;
     private final NotificationPublisher notificationPublisher;
 
+    @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void process(Long postId, List<Long> candidateMatchIds) {
+    public void settlePost(Long postId, List<Long> candidateMatchIds) {
         List<MeetVerification> candidates =
                 meetVerificationRepository.findAllByMatchIdInWithLock(candidateMatchIds);
 

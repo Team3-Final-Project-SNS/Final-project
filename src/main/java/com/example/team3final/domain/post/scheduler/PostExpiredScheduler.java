@@ -3,6 +3,7 @@ package com.example.team3final.domain.post.scheduler;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.repository.PostRepository;
+import com.example.team3final.domain.post.service.PostExpirationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -24,7 +25,7 @@ import java.util.List;
 public class PostExpiredScheduler {
 
     private final PostRepository postRepository;
-    private final PostExpirationProcessor postExpirationProcessor;
+    private final PostExpirationService postExpirationService;
 
     /**
      * 매시 정각에 OPEN 상태인 만료 게시글을 EXPIRED로 일괄 전환
@@ -35,7 +36,7 @@ public class PostExpiredScheduler {
      *   *      → 모든 일
      *   *      → 모든 월
      *   *      → 모든 요일
-     * 각 게시글은 PostExpirationProcessor의 REQUIRES_NEW 트랜잭션에서 독립 처리한다.
+     * 각 게시글은 PostExpirationService의 REQUIRES_NEW 트랜잭션에서 독립 처리한다.
      */
     @Scheduled(cron = "0 * * * * *")
     public void expireOpenPosts() {
@@ -51,7 +52,7 @@ public class PostExpiredScheduler {
         for (Post post : dueTargets) {
             try {
                 // 한 Post의 실패가 나머지 만료/매칭 전환을 막지 않도록 단건 트랜잭션으로 처리한다.
-                postExpirationProcessor.process(post.getId(), now);
+                postExpirationService.process(post.getId(), now);
             } catch (Exception e) {
                 log.error(
                         "[PostExpiredScheduler] 단건 처리 실패 - postId={}, exception={}, message={}",
