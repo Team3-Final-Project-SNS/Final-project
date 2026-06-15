@@ -40,35 +40,33 @@ import RequireAuth from "./components/RequireAuth";
 
 export const router = createBrowserRouter([
   {
+    // 메인 페이지: 로그인 여부와 무관하게 누구나 접근 가능
+    // (RequireAuth 밖에 있는 유일한 일반 페이지)
     path: "/",
     Component: HomePage,
   },
   {
+    // [핵심] 이 컴포넌트 하위의 모든 children 라우트는 인증 필요
+    // RequireAuth: 토큰 없으면 <Navigate to="/login" /> 으로 자동 전환
+    // path를 지정하지 않은 "레이아웃 라우트"이므로 URL에는 영향 없음
     Component: RequireAuth,
     children: [
       {
-        path: "/app",
+        // [이동+병합] 기존 최상위 "/posts" 블록(보호 안 됨)을 이 위치로 이동
+        // path는 "/posts" 그대로 유지 → URL 변경 없이 보호만 추가됨
+        // 기존 "/app/posts" 블록은 어디서도 참조되지 않는 죽은 코드라 제거함
+        path: "/posts",
         Component: Layout,
         children: [
-          { path: "posts", Component: PostListPage },
-          { path: "posts/new", Component: PostCreatePage },
-          { path: "posts/:id/edit", Component: PostCreatePage },
-          { path: "posts/:id", Component: PostDetailPage },
-          { path: "posts/:id/delete-reason", Component: DeletedPostReasonPage },
-          { path: "matches", Component: MatchesPage },
-          { path: "matches/:id", Component: MatchDetailPage },
-          { path: "ai/matching", Component: MatchingAiChatPage },
-          { path: "chat/:roomId", Component: ChatPage },
-          { path: "me", Component: MyInfoPage },
-          { path: "me/edit", Component: MyInfoEditPage },
-          { path: "me/points", Component: PointTransactionsPage },
-          { path: "me/matches", Component: MyMatchResultsPage },
-          { path: "me/inquiries", Component: InquiryCenterPage },
-          { path: "me/reports", Component: ReportCenterPage },
-          { path: "matches/:id/qr", Component: QRVerificationPage },
+          { index: true, Component: PostListPage },
+          { path: "new", Component: PostCreatePage },
+          { path: ":id/edit", Component: PostCreatePage },
+          { path: ":id", Component: PostDetailPage },
+          { path: ":id/delete-reason", Component: DeletedPostReasonPage },
         ],
       },
       {
+        // 매칭 관련: 기존과 동일한 위치 유지 (이미 RequireAuth 안에 있었음)
         path: "/matches",
         Component: Layout,
         children: [
@@ -79,6 +77,7 @@ export const router = createBrowserRouter([
         ],
       },
       {
+        // 결제: 기존과 동일
         path: "/payments",
         Component: Layout,
         children: [
@@ -86,6 +85,7 @@ export const router = createBrowserRouter([
         ],
       },
       {
+        // AI 매칭: 기존과 동일
         path: "/ai",
         Component: Layout,
         children: [
@@ -93,6 +93,7 @@ export const router = createBrowserRouter([
         ],
       },
       {
+        // 채팅: 기존과 동일
         path: "/chat/:roomId",
         Component: Layout,
         children: [
@@ -100,6 +101,7 @@ export const router = createBrowserRouter([
         ],
       },
       {
+        // 내 정보: 기존과 동일
         path: "/me",
         Component: Layout,
         children: [
@@ -111,17 +113,6 @@ export const router = createBrowserRouter([
           { path: "reports", Component: ReportCenterPage },
         ],
       },
-    ],
-  },
-  {
-    path: "/posts",
-    Component: Layout,
-    children: [
-      { index: true, Component: PostListPage },
-      { path: "new", Component: PostCreatePage },
-      { path: ":id/edit", Component: PostCreatePage },
-      { path: ":id", Component: PostDetailPage },
-      { path: ":id/delete-reason", Component: DeletedPostReasonPage },
     ],
   },
   {
