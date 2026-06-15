@@ -1,6 +1,7 @@
 package com.example.team3final.domain.meet.scheduler;
 
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
+import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.service.MatchInternalService;
 import com.example.team3final.domain.meet.entity.MeetVerification;
 import com.example.team3final.domain.meet.enums.VerificationStatus;
@@ -173,6 +174,11 @@ public class MeetReminderScheduler {
             for (String matchIdStr : matchIds) {
                 Long matchId = Long.parseLong(matchIdStr);
                 MatchInfoDto matchInfo = matchInternalService.getMatchInfo(matchId);
+                if (matchInfo.status() != MatchStatus.MATCHED) {
+                    log.info("[MeetReminderScheduler] 10분 경과 GUEST 알림 스킵 - 비활성 매칭 matchId: {}, status: {}",
+                            matchId, matchInfo.status());
+                    continue;
+                }
                 Post post = postInternalService.getPostById(matchInfo.postId());
 
                 // QR 인증까지 완료된 DONE 상태와 장소 인증이 끝난 VERIFIED 상태는 발송 대상이 아니다.

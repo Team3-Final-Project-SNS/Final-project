@@ -42,6 +42,8 @@ function toTenMinuteTimeInputValue(value: Date) {
 
 const hourOptions = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, '0'));
 const minuteOptions = ['00', '10', '20', '30', '40', '50'];
+const MIN_DEPOSIT = 200;
+const DEPOSIT_STEP = 100;
 
 export default function PostCreatePage() {
     const navigate = useNavigate();
@@ -191,6 +193,10 @@ export default function PostCreatePage() {
             setError('만남 장소를 검색해서 선택해주세요.');
             return;
         }
+        if (points < MIN_DEPOSIT) {
+            setError('최소 책임비는 200포인트 입니다.');
+            return;
+        }
 
         setLoading(true);
         setError('');
@@ -225,7 +231,7 @@ export default function PostCreatePage() {
         }
     };
 
-    const pointOptions = [1000, 2000, 3000, 5000];
+    const pointOptions = [MIN_DEPOSIT, 500, 1000, 2000, 3000, 5000];
     const isPlaceSelected = placeLat !== null && placeLng !== null;
     const [selectedHour, selectedMinute] = time.split(':');
     const normalizedMinute = minuteOptions.includes(selectedMinute) ? selectedMinute : '00';
@@ -233,6 +239,31 @@ export default function PostCreatePage() {
     const handleTimeChange = (nextHour: string, nextMinute: string) => {
         setTime(`${nextHour}:${nextMinute}`);
         setOpenTimeDropdown(null);
+    };
+
+    const selectDateOffset = (offsetDays: number) => {
+        const nextDate = new Date();
+        nextDate.setDate(nextDate.getDate() + offsetDays);
+        setDate(toDateInputValue(nextDate));
+    };
+
+    const handlePointInputChange = (value: string) => {
+        const nextPoint = Number(value);
+        if (Number.isNaN(nextPoint)) return;
+
+        setPoints(nextPoint);
+        if (nextPoint < MIN_DEPOSIT) {
+            setError('최소 책임비는 200포인트 입니다.');
+        } else if (error === '최소 책임비는 200포인트 입니다.') {
+            setError('');
+        }
+    };
+
+    const adjustPoints = (delta: number) => {
+        setPoints((current) => Math.max(MIN_DEPOSIT, current + delta));
+        if (error === '최소 책임비는 200포인트 입니다.') {
+            setError('');
+        }
     };
 
     if (initialLoading) {
@@ -357,9 +388,26 @@ export default function PostCreatePage() {
                                     type="date"
                                     value={date}
                                     onChange={(e) => setDate(e.target.value)}
+                                    min={toDateInputValue(new Date())}
                                     className="w-full px-4 py-3 border border-[#e0e0e0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#d84315] focus:border-transparent"
                                     required
                                 />
+                                <div className="mt-2 flex gap-2">
+                                    {[
+                                        { label: '오늘', offset: 0 },
+                                        { label: '내일', offset: 1 },
+                                        { label: '모레', offset: 2 },
+                                    ].map((item) => (
+                                        <button
+                                            key={item.label}
+                                            type="button"
+                                            onClick={() => selectDateOffset(item.offset)}
+                                            className="rounded-full border border-[#e0e0e0] bg-white px-3 py-1.5 text-xs font-semibold text-[#616161] hover:border-[#d84315] hover:text-[#d84315]"
+                                        >
+                                            {item.label}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-[#424242] mb-2">시간</label>
@@ -479,12 +527,29 @@ export default function PostCreatePage() {
                         ))}
                         <input
                             type="number"
-                            step={100}
+                            step={DEPOSIT_STEP}
                             placeholder="직접입력"
                             value={points}
-                            onChange={(e) => setPoints(Number(e.target.value))}
+                            onChange={(e) => handlePointInputChange(e.target.value)}
                             className="px-4 py-3 border border-[#e0e0e0] rounded-lg w-32 focus:outline-none focus:ring-2 focus:ring-[#d84315]"
                         />
+                        <div className="flex overflow-hidden rounded-lg border border-[#e0e0e0] bg-white">
+                            <button
+                                type="button"
+                                onClick={() => adjustPoints(-DEPOSIT_STEP)}
+                                className="px-4 py-3 font-bold text-[#616161] hover:bg-[#fff3e0] disabled:text-[#bdbdbd]"
+                                disabled={points <= MIN_DEPOSIT}
+                            >
+                                -
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => adjustPoints(DEPOSIT_STEP)}
+                                className="border-l border-[#e0e0e0] px-4 py-3 font-bold text-[#616161] hover:bg-[#fff3e0]"
+                            >
+                                +
+                            </button>
+                        </div>
                     </div>
                     <div className="bg-[#fff3e0] rounded-lg p-4">
                         <p className="text-sm text-[#616161]">

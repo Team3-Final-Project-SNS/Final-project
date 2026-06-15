@@ -120,7 +120,7 @@ export default function SignupPage() {
       setOtpSent(true);
       setOtpTimer(300);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'OTP 발송에 실패했습니다.');
+      setError(err.response?.data?.message || '인증번호 요청에 실패했습니다.');
     } finally {
       setLoading(false);
     }
@@ -236,7 +236,7 @@ export default function SignupPage() {
                     disabled={loading}
                     className="whitespace-nowrap rounded-xl bg-[#d84315] px-6 py-3 font-bold text-white shadow-md transition-all hover:bg-[#bf360c] disabled:bg-[#e0e0e0]"
                   >
-                    {loading ? '발송 중...' : otpSent ? 'OTP 재요청' : 'OTP 발송'}
+                    {loading ? '요청 중...' : otpSent ? '인증번호 재요청' : '인증번호 요청'}
                   </button>
                 </div>
               </div>

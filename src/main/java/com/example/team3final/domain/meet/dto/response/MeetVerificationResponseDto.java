@@ -24,7 +24,10 @@ public record MeetVerificationResponseDto (
             Long matchId,                    // 이 신청자의 matchId
             String nickname,                 // 신청자 닉네임
             boolean verified,                // 장소 인증 완료 여부
-            LocalDateTime verifiedAt         // 인증 시각 (null = 미인증)
+            LocalDateTime verifiedAt,        // 인증 시각 (null = 미인증)
+            VerificationStatus verificationStatus,
+            boolean meetVerified,
+            LocalDateTime completedAt
     ) {}
 
     public static MeetVerificationResponseDto of(
@@ -42,7 +45,16 @@ public record MeetVerificationResponseDto (
                     String nickname = info != null ? info.nickname() : "알 수 없음";
                     boolean verified = mv.isApplicantPlaceVerified();
                     LocalDateTime verifiedAt = mv.getApplicantPlaceVerifiedAt();
-                    return new ParticipantVerificationDto(mv.getMatchId(), nickname, verified, verifiedAt);
+                    boolean meetVerified = mv.getStatus() == VerificationStatus.DONE;
+                    return new ParticipantVerificationDto(
+                            mv.getMatchId(),
+                            nickname,
+                            verified,
+                            verifiedAt,
+                            mv.getStatus(),
+                            meetVerified,
+                            mv.getCompletedAt()
+                    );
                 })
                 .toList();
 

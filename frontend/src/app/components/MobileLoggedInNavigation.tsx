@@ -37,6 +37,20 @@ const bottomItems = [
   { label: 'MY', to: '/me', icon: User },
 ];
 
+const getNotificationContextLabel = (notification: NotificationResponse) => {
+  if (!notification.relatedId) return null;
+
+  if (notification.domain === 'MATCH' || notification.domain === 'MEET') {
+    return `matchId ${notification.relatedId}`;
+  }
+
+  if (notification.domain === 'CHAT') {
+    return `chatRoomId ${notification.relatedId}`;
+  }
+
+  return `${notification.domain.toLowerCase()}Id ${notification.relatedId}`;
+};
+
 export default function MobileLoggedInNavigation({
   point,
   unreadCount,
@@ -160,6 +174,11 @@ export default function MobileLoggedInNavigation({
                                   )}
                                 </div>
                                 <p className="line-clamp-2 text-xs text-[#616161]">{notification.content}</p>
+                                {getNotificationContextLabel(notification) && (
+                                    <p className="mt-1 text-[11px] font-bold text-[#d84315]">
+                                      {getNotificationContextLabel(notification)}
+                                    </p>
+                                )}
                                 <p className="mt-2 text-[11px] font-semibold text-[#9e9e9e]">
                                   {new Date(notification.createdAt).toLocaleString('ko-KR', {
                                     month: 'numeric',
