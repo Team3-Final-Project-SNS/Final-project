@@ -53,6 +53,7 @@ public class MatchTransactionService {
     private final ApplicationEventPublisher applicationEventPublisher;
     private final StringRedisTemplate redisTemplate;
 
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public CreateMatchResponseDto createMatchInTransaction(Long postId, Long applicantId) {
 

@@ -5,7 +5,6 @@ import com.example.team3final.domain.admin.meet.dto.response.AdminNoShowCandidat
 import com.example.team3final.domain.dispute.service.DisputeService;
 import com.example.team3final.domain.match.service.MatchService;
 import com.example.team3final.domain.meet.service.MeetVerificationService;
-import com.example.team3final.domain.post.service.PostService;
 import com.example.team3final.domain.user.service.UserService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

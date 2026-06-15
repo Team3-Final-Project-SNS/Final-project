@@ -8,7 +8,6 @@ import com.example.team3final.domain.admin.post.dto.response.AdminGetPostsRespon
 import com.example.team3final.domain.admin.post.dto.response.AdminRestorePostResponseDto;
 import com.example.team3final.domain.admin.repository.AdminRepository;
 import com.example.team3final.domain.post.entity.Post;
-import com.example.team3final.domain.post.service.PostService;
 import com.example.team3final.domain.report.service.ReportService;
 import com.example.team3final.domain.user.service.UserService;
 import org.junit.jupiter.api.DisplayName;

@@ -1,6 +1,5 @@
 package com.example.team3final.domain.dispute.service;
 
-import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.domain.admin.service.AdminService;
 import com.example.team3final.domain.dispute.dto.request.CreateDisputeRequestDto;
 import com.example.team3final.domain.dispute.dto.response.CreateDisputeResponseDto;
@@ -18,7 +17,6 @@ import com.example.team3final.domain.meet.enums.VerificationStatus;
 import com.example.team3final.domain.meet.service.MeetVerificationService;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.dto.response.PostInfoDto;
-import com.example.team3final.domain.post.service.PostService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,7 +38,6 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 

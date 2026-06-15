@@ -118,6 +118,7 @@ app:
       password: ${AI_RAG_POSTGRES_PASSWORD}
       schema-name: ${AI_RAG_POSTGRES_SCHEMA}
       table-name: ${AI_RAG_VECTOR_TABLE}
+      post-table-name: ${AI_MATCHING_POST_VECTOR_TABLE}
       dimensions: ${AI_RAG_VECTOR_DIMENSIONS}
       initialize-schema: ${AI_RAG_VECTOR_INITIALIZE_SCHEMA}
       distance-type: ${AI_RAG_VECTOR_DISTANCE_TYPE}
