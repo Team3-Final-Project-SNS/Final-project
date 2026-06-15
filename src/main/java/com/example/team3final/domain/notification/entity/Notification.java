@@ -78,7 +78,8 @@ public class Notification extends BaseTimeEntity {
                          NotificationType type, String title,
                          String content, RelatedDomain relatedDomain, Long relatedId) {
         this.receiverId = receiverId;
-        this.receiverType = receiverType != null ? receiverType : NotificationReceiverType.USER;
+        // Consumer 검증을 통과한 receiverType을 그대로 저장한다.
+        this.receiverType = receiverType;
         this.type = type;
         this.title = title;
         this.content = content;
