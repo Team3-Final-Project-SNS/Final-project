@@ -26,10 +26,16 @@ public class AiRagVectorStoreConfig {
     private final AiProperties aiProperties;
 
     @Bean
+    public JdbcTemplate aiRagJdbcTemplate() {
+        // 문서 RAG와 게시글 추천 벡터 저장소가 같은 PostgreSQL 접속 정보를 공유하도록 별도 JdbcTemplate을 노출합니다.
+        return new JdbcTemplate(createRagDataSource(aiProperties.getRagStore()));
+    }
+
+    @Bean
     public VectorStore vectorStore(EmbeddingModel embeddingModel) {
         AiProperties.RagStore ragStore = aiProperties.getRagStore();
 
-        return PgVectorStore.builder(new JdbcTemplate(createRagDataSource(ragStore)), embeddingModel)
+        return PgVectorStore.builder(aiRagJdbcTemplate(), embeddingModel)
                 .schemaName(ragStore.getSchemaName())
                 .vectorTableName(ragStore.getTableName())
                 .dimensions(ragStore.getDimensions())

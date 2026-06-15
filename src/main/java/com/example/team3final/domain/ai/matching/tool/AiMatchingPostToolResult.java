@@ -16,6 +16,9 @@ public record AiMatchingPostToolResult(
         String meetAt,
         int deposit,
         String content,
+        int currentApplicants,
+        int maxApplicants,
+        int remainingSlots,
         boolean applicationAvailable,
         boolean pointAffordable,
         String unavailableReason

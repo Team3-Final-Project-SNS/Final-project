@@ -39,6 +39,16 @@ public class AiPromptDataInitializer implements ApplicationRunner {
                 "한끼팟 매칭 AI 조건 반영 강화 프롬프트"
         );
 
+        // v3는 게시글 추천용 pgvector 후보 검색과 이전 추천 후보 제한 규칙을 포함한 매칭 AI 프롬프트입니다.
+        saveIfMissing(
+                AiPromptType.MATCHING_CHAT,
+                AiFeature.MATCHING,
+                "v3",
+                "matching-chat-v3.st",
+                true,
+                "한끼팟 매칭 AI pgvector 보조 인덱스 기반 추천 프롬프트"
+        );
+
         saveIfMissing(
                 AiPromptType.SUPPORT_CHAT,
                 AiFeature.SUPPORT,
@@ -64,6 +74,15 @@ public class AiPromptDataInitializer implements ApplicationRunner {
                 "report-summary-v1.st",
                 true,
                 "관리자 신고 AI 분석 프롬프트"
+        );
+
+        saveIfMissing(
+                AiPromptType.REPORT_SUMMARY,
+                AiFeature.REPORT,
+                "v2",
+                "report-summary-v2.st",
+                true,
+                "관리자 AI 출처 표기 및 업무별 답변 구조 강화 프롬프트"
         );
     }
 

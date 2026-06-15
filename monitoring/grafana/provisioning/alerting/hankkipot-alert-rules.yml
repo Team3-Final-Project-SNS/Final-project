@@ -17,7 +17,7 @@ groups:
               to: 0
             model:
               refId: A
-              expr: sum(count_over_time({job="spring-app"} |= "ERROR" [5m]))
+              expr: 'sum(count_over_time({job="spring-app"} |= "ERROR" [5m]))'
               queryType: range
               maxDataPoints: 43200
               intervalMs: 1000
@@ -60,12 +60,20 @@ groups:
         execErrState: Error
         for: 0m
         labels:
+          alertname: SpringErrorLogsDetected
           severity: warning
           domain: backend
           source: loki
+          service: hankkipot-api
+          env: prod
+          team: backend
+          priority: P2
         annotations:
           summary: Spring Boot ERROR log detected
           description: Spring Boot app emitted at least one ERROR log in the last 5 minutes.
+          impact: "Spring Boot 애플리케이션에서 ERROR 로그가 발생했습니다. 특정 API 실패, 예외 처리 누락, 외부 연동 실패 가능성이 있습니다."
+          action: "Spring 애플리케이션 로그에서 ERROR stack trace를 확인하고, 같은 시간대 API 5xx / DB / Kafka 로그를 함께 확인하세요."
+          runbook_url: "https://github.com/your-org/your-repo/wiki/spring-error-logs"
 
       - uid: hankkipot-kafka-dlq-dlt
         title: Kafka DLQ or DLT message detected
@@ -78,7 +86,7 @@ groups:
               to: 0
             model:
               refId: A
-              expr: sum(count_over_time({job="kafka-dead-letter"}[5m]))
+              expr: 'sum(count_over_time({job="kafka-dead-letter"}[5m]))'
               queryType: range
               maxDataPoints: 43200
               intervalMs: 1000
@@ -121,12 +129,20 @@ groups:
         execErrState: Error
         for: 0m
         labels:
+          alertname: KafkaDlqDltMessageDetected
           severity: critical
           domain: kafka
           source: loki
+          service: hankkipot-api
+          env: prod
+          team: backend
+          priority: P1
         annotations:
           summary: Kafka DLQ/DLT message detected
           description: At least one Kafka dead-letter message was consumed by Alloy in the last 5 minutes.
+          impact: "Kafka 메시지 처리 실패가 발생했습니다. 주문, 결제, 알림, 매칭 등 비동기 처리 데이터가 누락되거나 지연될 수 있습니다."
+          action: "DLQ/DLT 토픽 메시지 내용, consumer 로그, 역직렬화 오류, 재처리 가능 여부를 확인하세요."
+          runbook_url: "https://github.com/your-org/your-repo/wiki/kafka-dlq-dlt"
 
   - orgId: 1
     name: Hankkipot Prometheus Alerts
@@ -144,7 +160,7 @@ groups:
               to: 0
             model:
               refId: A
-              expr: min(up{job="spring-boot-app"})
+              expr: 'min(up{job="spring-boot-app"})'
               range: true
               instant: false
               maxDataPoints: 43200
@@ -188,12 +204,20 @@ groups:
         execErrState: Error
         for: 1m
         labels:
+          alertname: ApplicationDown
           severity: critical
           domain: backend
           source: prometheus
+          service: hankkipot-api
+          env: prod
+          team: backend
+          priority: P1
         annotations:
           summary: Spring Boot app is down
           description: Prometheus cannot scrape the Spring Boot actuator target.
+          impact: "Spring Boot 애플리케이션이 내려갔거나 Prometheus scrape 대상에 접근할 수 없습니다. 전체 API 장애 가능성이 있습니다."
+          action: "애플리케이션 컨테이너 상태, actuator /prometheus 엔드포인트, 네트워크, 최근 배포 로그를 확인하세요."
+          runbook_url: "https://github.com/your-org/your-repo/wiki/application-down"
 
       - uid: hankkipot-api-5xx
         title: API 5xx detected
@@ -206,7 +230,7 @@ groups:
               to: 0
             model:
               refId: A
-              expr: sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m]))
+              expr: 'sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m]))'
               range: true
               instant: false
               maxDataPoints: 43200
@@ -250,12 +274,20 @@ groups:
         execErrState: Error
         for: 0m
         labels:
+          alertname: API5xxDetected
           severity: critical
           domain: api
           source: prometheus
+          service: hankkipot-api
+          env: prod
+          team: backend
+          priority: P1
         annotations:
           summary: API 5xx response detected
           description: At least one 5xx response was observed by Spring actuator metrics in the last 5 minutes.
+          impact: "일반 API에서 서버 오류가 발생했습니다. 사용자 요청 실패 또는 일부 기능 장애 가능성이 있습니다."
+          action: "5xx가 발생한 uri, exception 로그, 최근 배포 여부, DB/Kafka/외부 API 연동 상태를 확인하세요."
+          runbook_url: "https://github.com/your-org/your-repo/wiki/api-5xx"
 
       - uid: hankkipot-payment-5xx
         title: Payment API 5xx detected
@@ -268,7 +300,7 @@ groups:
               to: 0
             model:
               refId: A
-              expr: sum(rate(http_server_requests_seconds_count{uri=~"/api/v1/payments.*|/api/v1/admin/payments.*",status=~"5.."}[5m]))
+              expr: 'sum(rate(http_server_requests_seconds_count{uri=~"/api/v1/payments.*|/api/v1/admin/payments.*",status=~"5.."}[5m]))'
               range: true
               instant: false
               maxDataPoints: 43200
@@ -312,12 +344,20 @@ groups:
         execErrState: Error
         for: 0m
         labels:
+          alertname: PaymentAPI5xxDetected
           severity: critical
           domain: payment
           source: prometheus
+          service: hankkipot-api
+          env: prod
+          team: backend
+          priority: P1
         annotations:
           summary: Payment API 5xx response detected
           description: Payment related endpoint returned at least one 5xx response in the last 5 minutes.
+          impact: "결제 생성, 결제 조회, 관리자 결제 API가 실패할 수 있습니다. 사용자 결제 흐름에 직접 영향이 있을 수 있습니다."
+          action: "결제 API 5xx 발생 uri, Spring exception 로그, DB connection, 외부 PG 응답 상태를 확인하세요."
+          runbook_url: "https://github.com/your-org/your-repo/wiki/payment-5xx"
 
       - uid: hankkipot-ai-5xx
         title: AI API 5xx detected
@@ -330,7 +370,7 @@ groups:
               to: 0
             model:
               refId: A
-              expr: sum(rate(http_server_requests_seconds_count{uri=~"/api/v1/ai.*|/api/v1/admin/ai.*",status=~"5.."}[5m]))
+              expr: 'sum(rate(http_server_requests_seconds_count{uri=~"/api/v1/ai.*|/api/v1/admin/ai.*",status=~"5.."}[5m]))'
               range: true
               instant: false
               maxDataPoints: 43200
@@ -374,12 +414,20 @@ groups:
         execErrState: Error
         for: 0m
         labels:
+          alertname: AIAPI5xxDetected
           severity: warning
           domain: ai
           source: prometheus
+          service: hankkipot-api
+          env: prod
+          team: backend
+          priority: P2
         annotations:
           summary: AI API 5xx response detected
           description: AI related endpoint returned at least one 5xx response in the last 5 minutes.
+          impact: "AI 관련 기능에서 서버 오류가 발생했습니다. 매칭 추천, 지원서/리포트 생성 등 AI 기능이 실패할 수 있습니다."
+          action: "AI API uri, Spring exception 로그, 외부 AI API 응답, timeout, token limit, rate limit 여부를 확인하세요."
+          runbook_url: "https://github.com/your-org/your-repo/wiki/ai-api-5xx"
 
       - uid: hankkipot-ai-token-spike
         title: AI token usage spike
@@ -392,7 +440,7 @@ groups:
               to: 0
             model:
               refId: A
-              expr: sum(increase({__name__=~"ai_(matching|support|report)_tokens_total"}[5m]))
+              expr: 'sum(increase({__name__=~"ai_(matching|support|report)_tokens_total"}[5m]))'
               range: true
               instant: false
               maxDataPoints: 43200
@@ -436,12 +484,20 @@ groups:
         execErrState: Error
         for: 0m
         labels:
+          alertname: AITokenUsageSpike
           severity: warning
           domain: ai
           source: prometheus
+          service: hankkipot-api
+          env: prod
+          team: backend
+          priority: P2
         annotations:
           summary: AI token usage spike detected
           description: Matching/Support/Report AI consumed more than 15000 tokens in the last 5 minutes.
+          impact: "AI 토큰 사용량이 급증했습니다. 비용 증가, 외부 AI API rate limit, 응답 지연 가능성이 있습니다."
+          action: "최근 AI 요청량, 사용자별 호출량, matching/support/report 토큰 사용량, 비정상 반복 호출 여부를 확인하세요."
+          runbook_url: "https://github.com/your-org/your-repo/wiki/ai-token-spike"
 
       - uid: hankkipot-db-connection-pending
         title: DB connection pending detected
@@ -454,7 +510,7 @@ groups:
               to: 0
             model:
               refId: A
-              expr: max(hikaricp_connections_pending)
+              expr: 'max(hikaricp_connections_pending)'
               range: true
               instant: false
               maxDataPoints: 43200
@@ -498,9 +554,17 @@ groups:
         execErrState: Error
         for: 1m
         labels:
+          alertname: DBConnectionPendingDetected
           severity: warning
           domain: database
           source: prometheus
+          service: hankkipot-api
+          env: prod
+          team: backend
+          priority: P2
         annotations:
           summary: DB connection pending detected
           description: HikariCP has pending connection requests for at least 1 minute.
+          impact: "DB connection pool 대기가 발생했습니다. API 응답 지연, timeout, 5xx 증가로 이어질 수 있습니다."
+          action: "HikariCP active/idle/pending connection, slow query, DB CPU/connection limit, 트랜잭션 누수 여부를 확인하세요."
+          runbook_url: "https://github.com/your-org/your-repo/wiki/db-connection-pending"

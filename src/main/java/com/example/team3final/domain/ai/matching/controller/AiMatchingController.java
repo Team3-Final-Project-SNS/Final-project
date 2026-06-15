@@ -44,6 +44,20 @@ public class AiMatchingController {
         return aiMatchingService.streamChat(email, request);
     }
 
+    @DeleteMapping("/chat/{conversationId}")
+    public ResponseEntity<Void> clearConversation(
+            Authentication authentication,
+            @PathVariable String conversationId
+    ) {
+        // 매칭 AI 화면을 나갈 때 프론트가 호출해 대화 메모리와 직전 추천 ID를 함께 정리합니다.
+        // 다음 진입 시 이전 추천 결과가 새 추천 스코프에 섞이지 않도록 하기 위한 API입니다.
+        String email = authentication.getName();
+
+        aiMatchingService.clearConversation(email, conversationId);
+
+        return ResponseEntity.noContent().build();
+    }
+
     /**
      * 매칭 AI 채팅 요청을 처리합니다.
      *

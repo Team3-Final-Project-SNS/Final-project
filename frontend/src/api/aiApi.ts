@@ -44,3 +44,6 @@ export const streamMatchingChat = (
         body: data,
         onChunk,
     });
+
+export const clearMatchingConversation = (conversationId: string) =>
+    axiosInstance.delete(`/api/v1/ai/matching/chat/${conversationId}`);

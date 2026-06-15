@@ -15,10 +15,27 @@ public class AiMatchingSessionTool {
 
     private final AiMatchingTool aiMatchingTool;
     private final String email;
+    private final List<Long> scopedPostIds;
+    private final String originalUserMessage;
 
     public AiMatchingSessionTool(AiMatchingTool aiMatchingTool, String email) {
+        this(aiMatchingTool, email, List.of(), "");
+    }
+
+    public AiMatchingSessionTool(AiMatchingTool aiMatchingTool, String email, List<Long> scopedPostIds) {
+        this(aiMatchingTool, email, scopedPostIds, "");
+    }
+
+    public AiMatchingSessionTool(
+            AiMatchingTool aiMatchingTool,
+            String email,
+            List<Long> scopedPostIds,
+            String originalUserMessage
+    ) {
         this.aiMatchingTool = aiMatchingTool;
         this.email = email;
+        this.scopedPostIds = scopedPostIds == null ? List.of() : List.copyOf(scopedPostIds);
+        this.originalUserMessage = originalUserMessage == null ? "" : originalUserMessage;
     }
 
     /**
@@ -32,7 +49,30 @@ public class AiMatchingSessionTool {
             @ToolParam(description = "Rewrite Query Transformer로 정리한 식사 조건", required = true)
             String condition
     ) {
-        return aiMatchingTool.searchRecruitingMealPostsForAi(email, condition);
+        if (!scopedPostIds.isEmpty()) {
+            // "아까 추천한 것 중에서 제일 싼 거" 같은 후속 질문은 새 검색을 하지 않습니다.
+            // 이전 답변에 실제로 노출된 게시글 ID만 다시 검증해서 LLM이 후보를 새로 섞지 못하게 제한합니다.
+            return scopedPostIds.stream()
+                    .map(postId -> aiMatchingTool.checkApplicationAvailability(email, postId))
+                    .toList();
+        }
+
+        return aiMatchingTool.searchRecruitingMealPostsForAi(
+                email,
+                mergeConditionWithOriginalMessage(condition)
+        );
+    }
+
+    private String mergeConditionWithOriginalMessage(String condition) {
+        if (originalUserMessage.isBlank()) {
+            return condition;
+        }
+
+        if (condition == null || condition.isBlank()) {
+            return originalUserMessage;
+        }
+
+        return condition + "\n원문 조건: " + originalUserMessage;
     }
 
     /**
