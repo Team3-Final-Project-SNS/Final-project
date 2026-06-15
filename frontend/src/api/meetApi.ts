@@ -20,7 +20,7 @@ export interface QrScanResponse {
     matchId: number;
     verificationStatus: string;
     matchStatus: string;
-    completedAt: string;
+    completedAt: string | null;
     refundedPoint: number;
 }
 
@@ -61,7 +61,7 @@ export interface AcceptMeetExtensionResponse {
     matchId: number;
     extensionStatus: ExtensionStatus;
     originalMeetAt: string;
-    extendedMeetAt: string;
+    extendedMeetAt: string | null;
     isExtended: boolean;
     extendedAt: string;
 }

@@ -278,8 +278,11 @@ export default function ChatPage() {
     try {
       setExtensionActionLoading(true);
       const res = await acceptMeetExtension(matchInfo.matchId);
-      setExtendedMeetAt(matchInfo.matchId, res.data.data.extendedMeetAt);
-      setMatchInfo((prev) => prev ? { ...prev, meetAt: res.data.data.extendedMeetAt } : prev);
+      const extendedMeetAt = res.data.data.extendedMeetAt;
+      if (extendedMeetAt) {
+        setExtendedMeetAt(matchInfo.matchId, extendedMeetAt);
+        setMatchInfo((prev) => prev ? { ...prev, meetAt: extendedMeetAt } : prev);
+      }
       setExtensionInfo((prev) => prev ? { ...prev, extensionStatus: 'ACCEPTED' } : prev);
     } catch (err: any) {
       alert(err.response?.data?.message || '시간 연장 수락에 실패했습니다.');

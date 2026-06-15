@@ -29,9 +29,13 @@ export async function streamPost<TBody>({ path, body, admin = false, onChunk }: 
   if (!admin && (response.status === 401 || response.status === 403)) {
     try {
       const refreshResponse = await refresh();
-      token = refreshResponse.data.data.accessToken;
-      setAccessToken(token);
-      response = await sendStreamRequest(path, body, token);
+      const refreshedToken = refreshResponse.data.data?.accessToken;
+      if (!refreshedToken) {
+        throw new Error('ACCESS_TOKEN_NOT_FOUND');
+      }
+      token = refreshedToken;
+      setAccessToken(refreshedToken);
+      response = await sendStreamRequest(path, body, refreshedToken);
     } catch {
       clearAccessToken();
       redirectToLogin(false);
