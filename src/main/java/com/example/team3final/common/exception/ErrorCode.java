@@ -56,7 +56,7 @@ public enum ErrorCode {
     MATCH_POST_CLOSED(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_005", "모집이 종료된 게시글입니다."),
     MATCH_INVALID_STATUS(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_006", "현재 상태의 매칭은 취소할 수 없습니다."),
     MATCH_AFTER_MEET_TIME(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_007", "약속 시간 이후에는 취소할 수 없습니다."),
-    MATCH_DUPLICATE_APPLY(HttpStatus.BAD_REQUEST, "MATCH_008", "이미 신청한 게시글입니다. 재신청은 불가합니다."),
+    MATCH_DUPLICATE_APPLY(HttpStatus.BAD_REQUEST, "MATCH_008", "재신청 할 수 없습니다."),
     MATCH_AVOIDED_USER(HttpStatus.FORBIDDEN, "MATCH_009", "다시 만나고 싶지 않아요 관계의 게시글에는 신청할 수 없습니다."),
     MATCH_POST_UNDER_REPORT(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_010", "신고 접수 중인 게시글에는 신청할 수 없습니다."),
 
@@ -99,6 +99,7 @@ public enum ErrorCode {
     CHAT_NOT_PARTICIPANT(HttpStatus.FORBIDDEN, "CHAT_004", "해당 채팅방의 참여자가 아닙니다."),
     CHAT_INVALID_PAGE_SIZE(HttpStatus.BAD_REQUEST, "CHAT_005", "페이지 크기는 최대 50까지 요청할 수 있습니다."),
     CHAT_INVALID_CURSOR(HttpStatus.BAD_REQUEST, "CHAT_006", "유효하지 않은 커서 ID입니다."),
+    CHAT_CANCELLED_PARTICIPANT(HttpStatus.FORBIDDEN, "CHAT_007", "매칭 취소자는 채팅방에 접근할 수 없습니다."),
 
     // University
     UNIVERSITY_NOT_FOUND(HttpStatus.NOT_FOUND, "UNIVERSITY_001", "조회 가능한 대학 목록이 없습니다."),

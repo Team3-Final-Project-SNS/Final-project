@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
-import { Camera, Check, Loader2 } from 'lucide-react';
+import { Camera, Check, Loader2, MessageCircle } from 'lucide-react';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
 import { createQrScan, getMeetQrByPost, getMeetVerification, ParticipantVerification } from '../../api/meetApi';
@@ -57,6 +57,7 @@ export default function QRVerificationPage() {
   const [cameraReady, setCameraReady] = useState(false);
   const [authorNickname, setAuthorNickname] = useState('등록자');
   const [verificationParticipants, setVerificationParticipants] = useState<ParticipantVerification[]>([]);
+  const [chatRoomId, setChatRoomId] = useState<number | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -89,8 +90,10 @@ export default function QRVerificationPage() {
         if (roleParam === 'applicant' && postIdFromUrl) {
           const ownMatchId = await findMyMatchIdByPostId(Number(postIdFromUrl));
           if (ownMatchId) {
+            const matchRes = await getMatchDetail(ownMatchId);
             setResolvedMatchId(ownMatchId);
             setPostId(Number(postIdFromUrl));
+            setChatRoomId(matchRes.data.data.chatRoomId);
             setRole('applicant');
             setStep('scan');
             return;
@@ -103,6 +106,7 @@ export default function QRVerificationPage() {
 
         setResolvedMatchId(routeMatchId);
         setPostId(match.postId);
+        setChatRoomId(match.chatRoomId);
 
         if (roleParam === 'author' || roleParam === 'applicant') {
           setRole(roleParam);
@@ -115,7 +119,7 @@ export default function QRVerificationPage() {
       } catch (err: any) {
         console.error('QR 인증 정보 확인 실패:', err);
         const code = err.response?.data?.code;
-        if (code === 'MATCH_002' || code === 'CHAT_002' || code === 'CHAT_004') {
+        if (code === 'MATCH_002' || code === 'CHAT_002' || code === 'CHAT_004' || code === 'CHAT_007') {
           blockCancelledParticipant();
           return;
         }
@@ -334,6 +338,21 @@ export default function QRVerificationPage() {
     return { label: '장소 미인증', className: 'bg-[#f5f5f5] text-[#757575]' };
   };
 
+  const renderChatReturnButton = () => {
+    if (!chatRoomId) return null;
+
+    return (
+      <button
+        type="button"
+        onClick={() => navigate(`/chat/${chatRoomId}`, { state: { matchId: resolvedMatchId } })}
+        className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg border border-[#e0e0e0] px-4 py-3 text-sm font-bold text-[#616161] transition-colors hover:border-[#d84315] hover:text-[#d84315]"
+      >
+        <MessageCircle size={18} />
+        채팅으로 돌아가기
+      </button>
+    );
+  };
+
   if (!role) {
     return (
       <div className="mx-auto max-w-2xl">
@@ -418,6 +437,7 @@ export default function QRVerificationPage() {
               </div>
             </div>
           )}
+          {renderChatReturnButton()}
         </div>
       </div>
     );
@@ -508,6 +528,7 @@ export default function QRVerificationPage() {
             </p>
           </div>
         )}
+        {renderChatReturnButton()}
       </div>
     </div>
   );

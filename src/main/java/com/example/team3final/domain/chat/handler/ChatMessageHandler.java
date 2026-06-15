@@ -7,6 +7,7 @@ import com.example.team3final.domain.chat.dto.response.ChatMessageResponseDto;
 import com.example.team3final.domain.chat.entity.ChatMember;
 import com.example.team3final.domain.chat.entity.ChatMessage;
 import com.example.team3final.domain.chat.entity.ChatRoom;
+import com.example.team3final.domain.chat.enums.ChatMemberStatus;
 import com.example.team3final.domain.chat.pubsub.KafkaChatMessageProducer;
 import com.example.team3final.domain.chat.repository.ChatMemberRepository;
 import com.example.team3final.domain.chat.repository.ChatMessageRepository;
@@ -107,6 +108,8 @@ public class ChatMessageHandler {
                     "/queue/errors",
                     sender.isNoShow()
                             ? ErrorCode.CHAT_ROOM_READ_ONLY.getMessage()
+                            : sender.getStatus() == ChatMemberStatus.LEFT
+                            ? ErrorCode.CHAT_CANCELLED_PARTICIPANT.getMessage()
                             : ErrorCode.CHAT_NOT_PARTICIPANT.getMessage()
             );
             return;

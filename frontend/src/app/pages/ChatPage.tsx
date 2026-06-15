@@ -109,7 +109,7 @@ export default function ChatPage() {
       } catch (err: any) {
         console.error(err);
         const code = err.response?.data?.code;
-        if (code === 'CHAT_002' || code === 'CHAT_004' || code === 'MATCH_002') {
+        if (code === 'CHAT_002' || code === 'CHAT_004' || code === 'CHAT_007' || code === 'MATCH_002') {
           blockCancelledChatAccess();
           return;
         }
@@ -163,7 +163,7 @@ export default function ChatPage() {
               setError('조회만 가능한 채팅방입니다. 메시지를 보낼 수 없습니다.');
               return;
             }
-            if (parsedError.code === 'CHAT_004') {
+            if (parsedError.code === 'CHAT_004' || parsedError.code === 'CHAT_007') {
               blockCancelledChatAccess();
               return;
             }

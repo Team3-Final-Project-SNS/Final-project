@@ -41,6 +41,9 @@ export interface GetMatchResponse {
     placeLng: number;
     authorDeposit: number;
     applicantDeposit: number;
+    currentApplicants: number;
+    maxApplicants: number;
+    authorMannerTemperature: number | null;
     status: MatchStatus;
     chatRoomId: number | null;
     matchedAt: string;

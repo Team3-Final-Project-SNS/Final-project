@@ -9,6 +9,7 @@ import com.example.team3final.domain.match.dto.response.GetMatchesResponseDto;
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.repository.MatchRepository;
+import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
 import com.example.team3final.domain.post.dto.response.PostMatchInfoDto;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.service.PostInternalService;
@@ -35,6 +36,7 @@ public class MatchQueryServiceImpl implements MatchQueryService {
     private final PostInternalService postInternalService;
     private final ChatInternalService chatInternalService;
     private final UserInternalService userInternalService;
+    private final MeetVerificationRepository meetVerificationRepository;
 
     @Override
     public GetMatchResponseDto getMatch(Long matchId, Long currentUserId) {
@@ -51,11 +53,15 @@ public class MatchQueryServiceImpl implements MatchQueryService {
 
         UserInfoDto authorInfo = userInternalService.getUserInfo(post.getAuthorId());
         UserInfoDto applicantInfo = userInternalService.getUserInfo(match.getApplicantId());
+        LocalDateTime meetAt = meetVerificationRepository.findEffectiveExtendedMeetAtByMatchId(matchId)
+                .orElse(post.getMeetAt());
 
         return GetMatchResponseDto.of(
                 match, post,
                 authorInfo.nickname(), authorInfo.major(), authorInfo.studentNumber(),
                 applicantInfo.nickname(), applicantInfo.major(), applicantInfo.studentNumber(),
+                authorInfo.mannerTemperature(),
+                meetAt,
                 chatRoomId
         );
     }
@@ -107,6 +113,15 @@ public class MatchQueryServiceImpl implements MatchQueryService {
 
         // 2-3. 채팅방 ID IN 쿼리 1번
         Map<Long, Long> chatRoomMap = chatInternalService.getChatRoomIdsByPostIds(postIds);
+        List<Long> matchIds = matches.stream().map(Match::getId).toList();
+        Map<Long, LocalDateTime> extendedMeetAtMap = matchIds.isEmpty()
+                ? java.util.Collections.emptyMap()
+                : meetVerificationRepository.findExtendedMeetAtRowsByMatchIds(matchIds).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        row -> (Long) row[0],
+                        row -> (LocalDateTime) row[1],
+                        (first, second) -> second
+                ));
 
         Page<GetMatchesResponseDto> dtoPage = matchPage.map(match -> {
             PostMatchInfoDto postInfo = postMap.get(match.getPostId());
@@ -122,7 +137,10 @@ public class MatchQueryServiceImpl implements MatchQueryService {
             String oppNickname = (opponentInfo != null) ? opponentInfo.nickname() : null;
             String oppMajor    = (opponentInfo != null) ? opponentInfo.major() : null;
             String oppStudentNo= (opponentInfo != null) ? opponentInfo.studentNumber() : null;
-            LocalDateTime meetAt = (postInfo != null) ? postInfo.meetAt() : null;
+            LocalDateTime meetAt = extendedMeetAtMap.getOrDefault(
+                    match.getId(),
+                    (postInfo != null) ? postInfo.meetAt() : null
+            );
             String placeName     = (postInfo != null) ? postInfo.placeName() : null;
             int currentApplicants = (postInfo != null) ? postInfo.currentApplicants() : 0;
             int maxApplicants = (postInfo != null) ? postInfo.maxApplicants() : 0;

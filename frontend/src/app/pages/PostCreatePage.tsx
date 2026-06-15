@@ -231,7 +231,7 @@ export default function PostCreatePage() {
         }
     };
 
-    const pointOptions = [MIN_DEPOSIT, 500, 1000, 2000, 3000, 5000];
+    const pointOptions = [1000, 2000, 3000, 5000];
     const isPlaceSelected = placeLat !== null && placeLng !== null;
     const [selectedHour, selectedMinute] = time.split(':');
     const normalizedMinute = minuteOptions.includes(selectedMinute) ? selectedMinute : '00';

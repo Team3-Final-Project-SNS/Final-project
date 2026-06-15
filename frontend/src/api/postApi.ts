@@ -35,6 +35,7 @@ export interface GetPostResponse {
     authorNickname: string;
     authorMajor: string;
     authorStudentNumber: string;
+    authorMannerTemperature: number | null;
     meetAt: string;
     placeName: string;
     placeLat: number;
