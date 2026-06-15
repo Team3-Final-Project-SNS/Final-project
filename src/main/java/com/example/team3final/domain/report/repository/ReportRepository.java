@@ -32,8 +32,17 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
             Pageable pageable
     );
 
-    // 피신고자 채택 횟수 조회 (제재 정책용)
-    int countByTargetIdAndStatus(Long targetId, ReportStatus status);
+    // 특정 사용자가 작성한 모든 게시글의 채택 신고 누적 횟수 조회
+    // reports.target_id는 userId가 아닌 postId이므로 posts와 조인한다.
+    // native query라서 soft delete된 게시글도 누적 대상에 포함된다.
+    @Query(value = """
+        SELECT COUNT(*)
+        FROM reports r
+        JOIN posts p ON p.post_id = r.target_id
+        WHERE p.author_id = :authorId
+          AND r.status = 'ACCEPTED'
+        """, nativeQuery = true)
+    int countAcceptedReportsByAuthorId(@Param("authorId") Long authorId);
 
     // 기각된 신고 단건 조회
     Optional<Report> findTopByReporterIdAndTargetIdAndStatusOrderByProcessedAtDesc(

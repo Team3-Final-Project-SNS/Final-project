@@ -234,4 +234,26 @@ public class User extends SoftDeleteEntity {
         return reportBannedUntil != null && LocalDateTime.now().isBefore(reportBannedUntil);
     }
 
+    // 신고 누적 제재 기간을 기존 정지 만료 시각에 더한다.
+    // days가 null이면 영구 정지로 전환한다.
+    public void extendSuspension(Integer days) {
+        this.status = UserStatus.SUSPENDED;
+
+        if (days == null) {
+            this.suspendedUntil = null;
+            return;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+
+        // 유효한 기간 정지 중이면 기존 만료 시각부터 추가한다.
+        // 정지 상태가 아니거나 이미 만료됐으면 현재 시각부터 계산한다.
+        LocalDateTime baseTime =
+                this.suspendedUntil != null && this.suspendedUntil.isAfter(now)
+                        ? this.suspendedUntil
+                        : now;
+
+        this.suspendedUntil = baseTime.plusDays(days);
+    }
+
 }

@@ -111,47 +111,50 @@ public interface NotificationPublisher {
     // 27. 신고 채택 포인트 지급 알림 - 신고자에게
     void sendReportAcceptedPoint(Long userId, Long reportId);
 
-    // 28. 신고 기각 알림 - 신고자에게
+    // 28. 신고는 채택됐지만 월 보상 한도로 포인트가 지급되지 않은 경우
+    void sendReportAcceptedWithoutPoint(Long userId, Long reportId);
+
+    // 29. 신고 기각 알림 - 신고자에게
     void sendReportRejected(Long userId, Long reportId);
 
     // ── 결제 ──────────────────────────────────────────────────────────────
-    // 29. 결제 성공 알림 - 결제 사용자에게
+    // 30. 결제 성공 알림 - 결제 사용자에게
     void sendPaymentSuccess(Long userId, Long paymentId);
 
-    // 30. 결제 실패 알림 - 결제 사용자에게
+    // 31. 결제 실패 알림 - 결제 사용자에게
     void sendPaymentFailed(Long userId, Long paymentId);
 
-    // 31. 결제 취소 및 환불 완료 알림 - 결제 사용자에게
+    // 32. 결제 취소 및 환불 완료 알림 - 결제 사용자에게
     void sendPaymentCancelSuccess(Long userId, Long paymentId);
 
-    // 32. 결제 취소 및 환불 실패 알림 - 결제 사용자에게
+    // 33. 결제 취소 및 환불 실패 알림 - 결제 사용자에게
     void sendPaymentCancelFailed(Long userId, Long paymentId);
 
     // ── 문의 ──────────────────────────────────────────────────────────────
-    // 33. 문의 접수 알림 - 관리자에게
+    // 34. 문의 접수 알림 - 관리자에게
     void sendInquirySubmitted(Long adminId, Long inquiryId);
 
-    // 34. 문의 답변 완료 알림 - 문의 작성자에게
+    // 35. 문의 답변 완료 알림 - 문의 작성자에게
     void sendInquiryAnswered(Long userId, Long inquiryId);
 
     // ── 계정 ──────────────────────────────────────────────────────────────
-    // 35. 계정 정지 알림 - 해당 사용자에게
+    // 36. 계정 정지 알림 - 해당 사용자에게
     // 제재 단계별 메시지는 호출하는 쪽(Service)에서 title/content를 분기하여 전달
     void sendAccountSuspended(Long userId, String title, String content);
 
-    // 36. 계정 정지 해제 알림 - 해당 사용자에게
+    // 37. 계정 정지 해제 알림 - 해당 사용자에게
     void sendAccountUnsuspended(Long userId);
 
     // ── 게시글 / 신고로 인한 경고 ────────────────────────────────────────
-    // 37. 게시글 신고 경고 1회 알림 - 게시글 작성자에게
+    // 38. 게시글 신고 경고 1회 알림 - 게시글 작성자에게
     void sendPostWarned(Long userId, String title, String content);
 
-    // 38. 게시글 만료 알림 - 게시글 작성자에게
+    // 39. 게시글 만료 알림 - 게시글 작성자에게
     void sendPostExpired(Long userId, Long postId);
 
-    // 39. 게시글 삭제 알림 - 게시글 작성자에게
+    // 40. 게시글 삭제 알림 - 게시글 작성자에게
     void sendPostDeleted(Long userId, Long postId);
 
-    // 40. 게시글 복구 알림 - 게시글 작성자에게
+    // 41. 게시글 복구 알림 - 게시글 작성자에게
     void sendPostRestored(Long userId, Long postId);
 }

@@ -64,6 +64,25 @@ public class UserModerationServiceImpl implements UserModerationService {
         user.suspend(days);
     }
 
+    // 신고 채택 누적에 따른 계정 정지를 적용
+    // 일반 관리자 정지와 달리, 유효한 기간 정지 중이면 기존 만료일에 새 제재 기간을 누적
+    // days == null이면 영구 정지로 전환하며, 이미 영구 정지된 사용자는 상태를 유지
+    @Override
+    @Transactional
+    public void applyReportSuspension(Long userId, Integer days) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(ErrorCode.USER_NOT_FOUND));
+
+        // 영구 정지는 suspendedUntil이 null이므로 추가 기간을 계산하지 않음
+        if (user.getStatus() == UserStatus.SUSPENDED
+                && user.getSuspendedUntil() == null) {
+            return;
+        }
+
+        // 기간 정지 중이면 기존 만료일부터, 정지가 아니거나 만료됐으면 현재부터 기간을 계산
+        user.extendSuspension(days);
+    }
+
     // 신고 박탈 처리 메서드
     @Override
     @Transactional

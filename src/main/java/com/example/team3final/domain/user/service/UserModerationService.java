@@ -23,6 +23,10 @@ public interface UserModerationService {
     // days: 정지 일수 (null = 영구정지)
     void suspendUser(Long userId, Integer days);
 
+    // 신고 누적 제재 적용
+    // 기존 정지 중이어도 더 높은 신고 제재 단계로 갱신한다.
+    void applyReportSuspension(Long userId, Integer days);
+
     // 신고 기능 박탈 처리 — 기각 누적 초과 시 호출
     void banReportFeature(Long userId, int days);
 

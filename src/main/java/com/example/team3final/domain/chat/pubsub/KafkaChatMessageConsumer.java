@@ -3,6 +3,7 @@ package com.example.team3final.domain.chat.pubsub;
 import com.example.team3final.common.kafka.KafkaIdempotencyService;
 import com.example.team3final.common.kafka.KafkaTopics;
 import com.example.team3final.domain.chat.dto.response.ChatMessageResponseDto;
+import com.example.team3final.domain.chat.entity.ChatMember;
 import com.example.team3final.domain.chat.repository.ChatMemberRepository;
 import com.example.team3final.domain.user.service.UserInternalService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -61,7 +62,7 @@ public class KafkaChatMessageConsumer {
 
             // NO_SHOW 멤버를 제외한 구독자에게만 개별 전송
             chatMemberRepository.findByChatRoomId(response.chatRoomId()).stream()
-                    .filter(member -> !member.isNoShow())
+                    .filter(ChatMember::isActive)
                     .forEach(member -> {
                         // convertAndSendToUser는 Principal.getName() = email 기준으로 전달
                         String memberEmail = userInternalService.getEmailByUserId(member.getUserId());
