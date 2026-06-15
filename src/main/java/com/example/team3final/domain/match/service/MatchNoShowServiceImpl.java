@@ -9,7 +9,6 @@ import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.event.PostVectorDeleteEvent;
 import com.example.team3final.domain.post.service.PostInternalService;
-import com.example.team3final.domain.post.service.PostLifecycleService;
 import com.example.team3final.domain.review.util.ReviewRedisZSetKeys;
 import com.example.team3final.domain.user.service.UserPointService;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +19,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 // Match 도메인의 노쇼 및 이의제기 결과 반영을 담당하는 서비스
 @Service
@@ -28,10 +31,12 @@ import java.util.List;
 @Transactional
 public class MatchNoShowServiceImpl implements MatchNoShowService {
 
+    private static final List<MatchStatus> ACTIVE_STATUSES =
+            List.of(MatchStatus.MATCHED, MatchStatus.DISPUTED);
+
     private final MatchRepository matchRepository;
     private final MatchInternalService matchInternalService;
     private final PostInternalService postInternalService;
-    private final PostLifecycleService postLifecycleService;
     private final UserPointService userPointService;
     private final ChatInternalService chatInternalService;
     private final ApplicationEventPublisher applicationEventPublisher;
@@ -39,329 +44,379 @@ public class MatchNoShowServiceImpl implements MatchNoShowService {
 
     @Override
     public void markDisputed(Long matchId) {
-
         Match match = matchInternalService.getMatchById(matchId);
-
-        // MATCHED 상태일 때만 DISPUTED로 전환
-        // DISPUTED 중인 건에 중복 이의제기가 들어와도 상태가 다시 바뀌지 않도록 방어
         if (match.getStatus() == MatchStatus.MATCHED) {
             match.dispute();
         }
     }
 
-    // 관리자 ACCEPTED 판정
-    // 노쇼가 아니라고 인정된 케이스다.
-    // 따라서 해당 Match를 정상 완료 처리하고, 포인트도 정상 완료 기준으로 정산한다.
-    // 신청자 예치금: 해당 Match 완료 시 전액 반환
-    // 등록자 책임비: 같은 Post의 모든 활성 Match가 끝났을 때 1회 반환
-    // 반환값 이의제기자에게 실제 반환된 포인트
     @Override
     public int completeSingleMatchByDispute(Long matchId, Long submitterId) {
-
         Match match = matchInternalService.getMatchById(matchId);
+        Post post = lockAndNormalizePost(match.getPostId());
 
-        // 관리자 판정 처리 가능한 상태가 아니면 중복 처리 방지
-        if (!canResolveDispute(match)) {
+        if (!isActive(match)) {
             return 0;
         }
 
-        Post post = postInternalService.getPostById(match.getPostId());
-
         boolean submitterIsAuthor = submitterId.equals(post.getAuthorId());
         boolean submitterIsApplicant = submitterId.equals(match.getApplicantId());
+        boolean authorAlreadySettled =
+                userPointService.hasSettlement(post.getAuthorId(), post.getId());
 
-        int refundedPoint = 0;
-
-        // Match 상태를 정상 완료로 전환
         match.completeByDispute();
-
-        // 신청자 예치금 전액 반환
         userPointService.refundPoint(
                 match.getApplicantId(),
                 match.getApplicantDeposit(),
                 match.getId()
         );
+        scheduleReviewReminder(match);
 
-        if (submitterIsApplicant) {
-            refundedPoint = match.getApplicantDeposit();
+        // 마지막 활성 Match가 끝날 때만 Post와 등록자 책임비를 한 번 정산한다.
+        boolean postCompleted = completePostIfNoActiveMatches(post);
+        if (submitterIsAuthor && postCompleted && !authorAlreadySettled) {
+            return post.getAuthorDeposit();
         }
-
-        // 정상 완료 흐름과 동일하게 후기 작성 마지막 날 알림 예약
-        LocalDateTime reviewDeadlineReminderAt = match.getCompletedAt()
-                .plusDays(7)
-                .toLocalDate()
-                .atTime(9, 0);
-
-        redisTemplate.opsForZSet().add(
-                ReviewRedisZSetKeys.DEADLINE_REMINDER,
-                String.valueOf(match.getId()),
-                reviewDeadlineReminderAt.toEpochSecond(ZoneOffset.ofHours(9))
-        );
-
-        // 같은 Post에 아직 진행 중이거나 이의제기 중인 Match가 남아 있으면
-        // 등록자 책임비는 아직 반환하지 않는다.
-        boolean hasRemainingActiveMatch = matchRepository.findAllByPostId(match.getPostId())
-                .stream()
-                .anyMatch(this::canResolveDispute);
-
-        if (hasRemainingActiveMatch) {
-            return refundedPoint;
-        }
-
-        // 모든 활성 Match가 끝났다면 Post 완료 + 등록자 책임비 반환
-        Post lockedPost = postInternalService.getPostByIdWithLock(match.getPostId());
-
-        if (lockedPost.getStatus() != PostStatus.COMPLETED) {
-            lockedPost.complete();
-
-            // 관리자 이의제기 ACCEPTED로 게시글이 완료되는 경로도 추천 인덱스에서 제거합니다.
-            // 보통 MATCHED 전환 때 이미 삭제되지만, 완료 지점에서도 한 번 더 삭제 이벤트를 발행해 정합성을 보강합니다.
-            publishPostVectorDeleteEvent(lockedPost.getId());
-
-            userPointService.refundPoint(
-                    lockedPost.getAuthorId(),
-                    lockedPost.getAuthorDeposit(),
-                    lockedPost.getId()
-            );
-
-            if (submitterIsAuthor) {
-                refundedPoint = lockedPost.getAuthorDeposit();
-            }
-
-            // 모든 매칭이 끝났으므로 채팅방 비활성화 예약
-            chatInternalService.scheduleChatRoomDeactivation(match.getPostId());
-        }
-
-        return refundedPoint;
+        return submitterIsApplicant ? match.getApplicantDeposit() : 0;
     }
 
-    // 관리자 PARTIALLY_ACCEPTED 판정
-    // 노쇼 자체는 맞지만, 이의제기자의 사유가 일부 인정된 케이스다.
-    // - 이의제기자: 50% 반환
-    // - 피해 상대방: 100% 반환
-    // - 포인트 정산은 Match 도메인에서 처리한다.
-    //
-    // restoredStatus:
-    // - HOST_NO_SHOW  → 등록자 노쇼. 그룹에서는 같은 Post의 활성 Match 전체가 등록자 노쇼 처리된다.
-    // - GUEST_NO_SHOW → 해당 신청자 Match 하나만 신청자 노쇼 처리된다.
-    // - BOTH_NO_SHOW  → 해당 Match 하나만 양측 노쇼 처리된다.
-    //
-    // 반환값:
-    // - 이의제기자에게 실제 반환된 포인트
     @Override
     public int markNoShowByDispute(
             Long matchId,
             VerificationStatus restoredStatus,
             Long submitterId
     ) {
+        Match triggerMatch = matchInternalService.getMatchById(matchId);
+        Post post = lockAndNormalizePost(triggerMatch.getPostId());
 
-        Match match = matchInternalService.getMatchById(matchId);
-
-        if (!canResolveDispute(match)) {
+        if (!isActive(triggerMatch)) {
             return 0;
         }
 
-        Post post = postInternalService.getPostById(match.getPostId());
-
         boolean submitterIsAuthor = submitterId.equals(post.getAuthorId());
-        boolean submitterIsApplicant = submitterId.equals(match.getApplicantId());
-
+        boolean submitterIsApplicant = submitterId.equals(triggerMatch.getApplicantId());
+        boolean authorAlreadySettled =
+                userPointService.hasSettlement(post.getAuthorId(), post.getId());
         int refundedPoint = 0;
 
         if (restoredStatus == VerificationStatus.HOST_NO_SHOW) {
+            List<Match> activeMatches = getActiveMatches(post.getId());
 
-            // 등록자 노쇼는 Post 전체 책임이다.
-            // 같은 Post의 MATCHED / DISPUTED 상태 Match 전체를 AUTHOR_NO_SHOW로 확정한다.
-            List<Match> activeMatches = matchRepository.findAllByPostId(match.getPostId())
-                    .stream()
-                    .filter(this::canResolveDispute)
-                    .toList();
-
-            if (activeMatches.isEmpty()) {
-                return 0;
-            }
-
-            // 등록자가 이의제기자라면 등록자 책임비 50% 반환
-            if (submitterIsAuthor) {
-                userPointService.partialRefundPoint(
-                        post.getAuthorId(),
-                        post.getAuthorDeposit(),
-                        match.getId()
-                );
-                refundedPoint = post.getAuthorDeposit() / 2;
-            }
-
-            // 등록자 노쇼 피해자는 모든 활성 신청자다.
-            // 모든 신청자 예치금은 전액 반환한다.
+            // 등록자 노쇼는 Post 전체 책임이므로 모든 활성 Match를 한 번에 종결한다.
             for (Match activeMatch : activeMatches) {
                 activeMatch.markNoShow(MatchStatus.AUTHOR_NO_SHOW);
-
                 userPointService.refundPoint(
                         activeMatch.getApplicantId(),
                         activeMatch.getApplicantDeposit(),
                         activeMatch.getId()
                 );
-
                 if (submitterId.equals(activeMatch.getApplicantId())) {
                     refundedPoint = activeMatch.getApplicantDeposit();
                 }
             }
 
-            postLifecycleService.completePost(match.getPostId());
+            if (submitterIsAuthor) {
+                settleAuthorPartialRefund(post);
+                refundedPoint = post.getAuthorDeposit() / 2;
+            } else {
+                settleAuthorPenalty(post);
+            }
+
+            completePostIfNoActiveMatches(post);
             return refundedPoint;
         }
 
         if (restoredStatus == VerificationStatus.GUEST_NO_SHOW) {
-
-            // 신청자 노쇼는 해당 Match 하나만 확정
-            match.markNoShow(MatchStatus.APPLICANT_NO_SHOW);
+            triggerMatch.markNoShow(MatchStatus.APPLICANT_NO_SHOW);
+            if (submitterIsApplicant) {
+                userPointService.partialRefundPoint(
+                        triggerMatch.getApplicantId(),
+                        triggerMatch.getApplicantDeposit(),
+                        triggerMatch.getId()
+                );
+                refundedPoint = triggerMatch.getApplicantDeposit() / 2;
+            } else {
+                userPointService.penaltyPoint(
+                        triggerMatch.getApplicantId(),
+                        triggerMatch.getApplicantDeposit(),
+                        triggerMatch.getId()
+                );
+            }
+        } else if (restoredStatus == VerificationStatus.BOTH_NO_SHOW) {
+            triggerMatch.markNoShow(MatchStatus.BOTH_NO_SHOW);
 
             if (submitterIsApplicant) {
-                // 노쇼 당사자인 신청자의 사유가 일부 인정됨 → 50% 반환
                 userPointService.partialRefundPoint(
-                        match.getApplicantId(),
-                        match.getApplicantDeposit(),
-                        match.getId()
+                        triggerMatch.getApplicantId(),
+                        triggerMatch.getApplicantDeposit(),
+                        triggerMatch.getId()
                 );
-                refundedPoint = match.getApplicantDeposit() / 2;
+                refundedPoint = triggerMatch.getApplicantDeposit() / 2;
+            } else {
+                userPointService.penaltyPoint(
+                        triggerMatch.getApplicantId(),
+                        triggerMatch.getApplicantDeposit(),
+                        triggerMatch.getId()
+                );
             }
 
-            // 등록자는 피해자이므로 전액 반환
-            userPointService.refundPoint(
-                    post.getAuthorId(),
-                    post.getAuthorDeposit(),
-                    match.getId()
-            );
-
             if (submitterIsAuthor) {
-                refundedPoint = post.getAuthorDeposit();
-            }
-
-        } else if (restoredStatus == VerificationStatus.BOTH_NO_SHOW) {
-
-            // 양측 노쇼는 해당 Match 하나만 확정
-            match.markNoShow(MatchStatus.BOTH_NO_SHOW);
-
-            // BOTH_NO_SHOW에서 PARTIALLY_ACCEPTED는 이의제기자에게만 50% 반환한다.
-            // 상대방은 여전히 노쇼 당사자이므로 여기서 피해자 전액 반환으로 처리하지 않는다.
-            if (submitterIsAuthor) {
-                userPointService.partialRefundPoint(
-                        post.getAuthorId(),
-                        post.getAuthorDeposit(),
-                        match.getId()
-                );
+                settleAuthorPartialRefund(post);
                 refundedPoint = post.getAuthorDeposit() / 2;
-
-            } else if (submitterIsApplicant) {
-                userPointService.partialRefundPoint(
-                        match.getApplicantId(),
-                        match.getApplicantDeposit(),
-                        match.getId()
-                );
-                refundedPoint = match.getApplicantDeposit() / 2;
             }
-
         } else {
-
-            // HOST/GUEST/BOTH_NO_SHOW 외 상태는 정상 플로우 아님
             return 0;
         }
 
-        // GUEST_NO_SHOW / BOTH_NO_SHOW는 단건 처리 후,
-        // 같은 Post에 아직 MATCHED / DISPUTED 상태 Match가 남아 있으면 Post 완료하지 않음
-        boolean hasRemainingActiveMatch = matchRepository.findAllByPostId(match.getPostId())
-                .stream()
-                .anyMatch(this::canResolveDispute);
-
-        if (!hasRemainingActiveMatch) {
-            postLifecycleService.completePost(match.getPostId());
+        boolean postCompleted = completePostIfNoActiveMatches(post);
+        if (postCompleted && submitterIsAuthor && refundedPoint == 0 && !authorAlreadySettled) {
+            refundedPoint = post.getAuthorDeposit();
         }
-
         return refundedPoint;
     }
 
     @Override
-    public void markAuthorNoShow(Long matchId) {
+    public NoShowSettlementResult markAuthorNoShow(Long matchId) {
+        Match triggerMatch = matchInternalService.getMatchById(matchId);
+        Post post = lockAndNormalizePost(triggerMatch.getPostId());
+        List<Match> activeMatches = getActiveMatches(post.getId());
 
-        Match match = matchInternalService.getMatchById(matchId);
-
-        // MATCHED 또는 DISPUTED 상태만 노쇼 확정 처리 가능
-        // 스케줄러 배치에서 호출되므로 예외 대신 return으로 중단 방지
-        if (!canFinalizeNoShow(match)) {
-            return;
+        if (activeMatches.isEmpty()) {
+            return NoShowSettlementResult.empty(post.getId());
         }
 
-        match.markNoShow(MatchStatus.AUTHOR_NO_SHOW);
-        postLifecycleService.completePost(match.getPostId());
+        List<Long> processedIds = new ArrayList<>();
+        for (Match activeMatch : activeMatches) {
+            activeMatch.markNoShow(MatchStatus.AUTHOR_NO_SHOW);
+            userPointService.refundPoint(
+                    activeMatch.getApplicantId(),
+                    activeMatch.getApplicantDeposit(),
+                    activeMatch.getId()
+            );
+            processedIds.add(activeMatch.getId());
+        }
 
-        Post post = postInternalService.getPostById(match.getPostId());
-        // 등록자(노쇼 당사자): 예치금 전액 몰수 (패널티)
-        // 신청자(피해자): 예치금 전액 환급
-        userPointService.penaltyPoint(post.getAuthorId(), post.getAuthorDeposit(), matchId);
-        userPointService.refundPoint(match.getApplicantId(), match.getApplicantDeposit(), matchId);
+        // 등록자 책임비는 Match 수와 무관하게 Post당 한 번만 패널티 처리한다.
+        settleAuthorPenalty(post);
+        completePostIfNoActiveMatches(post);
+        return new NoShowSettlementResult(post.getId(), processedIds);
     }
 
     @Override
-    public void markApplicantNoShow(Long matchId) {
-
+    public NoShowSettlementResult markApplicantNoShow(Long matchId) {
         Match match = matchInternalService.getMatchById(matchId);
+        Post post = lockAndNormalizePost(match.getPostId());
 
-        // MATCHED 또는 DISPUTED 상태만 노쇼 확정 처리 가능
-        // 스케줄러 배치에서 호출되므로 예외 대신 return으로 중단 방지
-        if (!canFinalizeNoShow(match)) {
-            return;
+        if (!isActive(match)) {
+            return NoShowSettlementResult.empty(post.getId());
         }
 
         match.markNoShow(MatchStatus.APPLICANT_NO_SHOW);
-        postLifecycleService.completePost(match.getPostId());
+        userPointService.penaltyPoint(
+                match.getApplicantId(),
+                match.getApplicantDeposit(),
+                match.getId()
+        );
 
-        Post post = postInternalService.getPostById(match.getPostId());
-        // 등록자(피해자): 예치금 전액 환급
-        // 신청자(노쇼 당사자): 예치금 전액 몰수 (패널티)
-        userPointService.refundPoint(post.getAuthorId(), post.getAuthorDeposit(), matchId);
-        userPointService.penaltyPoint(match.getApplicantId(), match.getApplicantDeposit(), matchId);
+        completePostIfNoActiveMatches(post);
+        return new NoShowSettlementResult(post.getId(), List.of(match.getId()));
     }
 
     @Override
-    public void markBothNoShow(Long matchId) {
+    public NoShowSettlementResult markBothNoShow(Long matchId) {
+        Match triggerMatch = matchInternalService.getMatchById(matchId);
+        Post post = lockAndNormalizePost(triggerMatch.getPostId());
+        List<Match> activeMatches = getActiveMatches(post.getId());
 
-        Match match = matchInternalService.getMatchById(matchId);
-
-        // MATCHED 또는 DISPUTED 상태만 노쇼 확정 처리 가능
-        // 스케줄러 배치에서 호출되므로 예외 대신 return으로 중단 방지
-        if (!canFinalizeNoShow(match)) {
-            return;
+        if (activeMatches.isEmpty()) {
+            return NoShowSettlementResult.empty(post.getId());
         }
 
-        match.markNoShow(MatchStatus.BOTH_NO_SHOW);
-        postLifecycleService.completePost(match.getPostId());
+        List<Long> processedIds = new ArrayList<>();
+        for (Match activeMatch : activeMatches) {
+            if (activeMatch.getId().equals(matchId)) {
+                activeMatch.markNoShow(MatchStatus.BOTH_NO_SHOW);
+                userPointService.penaltyPoint(
+                        activeMatch.getApplicantId(),
+                        activeMatch.getApplicantDeposit(),
+                        activeMatch.getId()
+                );
+            } else {
+                // 등록자 결석은 그룹 전체에 적용되지만, 다른 신청자의 귀책까지 만들지는 않는다.
+                activeMatch.markNoShow(MatchStatus.AUTHOR_NO_SHOW);
+                userPointService.refundPoint(
+                        activeMatch.getApplicantId(),
+                        activeMatch.getApplicantDeposit(),
+                        activeMatch.getId()
+                );
+            }
+            processedIds.add(activeMatch.getId());
+        }
 
-        Post post = postInternalService.getPostById(match.getPostId());
-        // 양측 모두 노쇼 → 양측 예치금 전부 몰수
-        userPointService.penaltyPoint(post.getAuthorId(), post.getAuthorDeposit(), matchId);
-        userPointService.penaltyPoint(match.getApplicantId(), match.getApplicantDeposit(), matchId);
+        settleAuthorPenalty(post);
+        completePostIfNoActiveMatches(post);
+        return new NoShowSettlementResult(post.getId(), processedIds);
     }
 
-    // canFinalizeNoShow: 배치 노쇼 확정 처리 가능 여부
-    // MATCHED(정상 매칭 중) 또는 DISPUTED(이의제기 기각 후 노쇼 확정 흐름) 두 케이스만 허용
-    // 이미 COMPLETED/CANCELLED 등으로 종결된 건은 배치에서 재처리 방지
-    private boolean canFinalizeNoShow(Match match) {
-        return match.getStatus() == MatchStatus.MATCHED || match.getStatus() == MatchStatus.DISPUTED;
+    @Override
+    public NoShowSettlementResult finalizeNoShows(Long postId, List<NoShowDecision> decisions) {
+        Post post = lockAndNormalizePost(postId);
+        List<Match> activeMatches = getActiveMatches(postId);
+
+        if (activeMatches.isEmpty()) {
+            return NoShowSettlementResult.empty(postId);
+        }
+
+        Map<Long, NoShowDecision> decisionMap = decisions.stream()
+                .collect(Collectors.toMap(NoShowDecision::matchId, Function.identity()));
+
+        boolean authorNoShow = decisions.stream().anyMatch(decision ->
+                decision.status() == VerificationStatus.HOST_NO_SHOW
+                        || decision.status() == VerificationStatus.BOTH_NO_SHOW
+        );
+
+        if (authorNoShow && activeMatches.stream().anyMatch(match -> !decisionMap.containsKey(match.getId()))) {
+            // 등록자 귀책은 그룹 전체에 영향을 주므로 모든 활성 Match의 판정이 모일 때까지 보류한다.
+            return NoShowSettlementResult.empty(postId);
+        }
+
+        List<Long> processedIds = new ArrayList<>();
+        for (Match match : activeMatches) {
+            NoShowDecision decision = decisionMap.get(match.getId());
+            if (decision == null) {
+                continue;
+            }
+
+            if (authorNoShow) {
+                if (decision.status() == VerificationStatus.BOTH_NO_SHOW
+                        || decision.status() == VerificationStatus.GUEST_NO_SHOW) {
+                    // 그룹에서 등록자 결석이 확인됐고 이 신청자도 결석이면 최종 결과는 양측 노쇼다.
+                    match.markNoShow(MatchStatus.BOTH_NO_SHOW);
+                    userPointService.penaltyPoint(
+                            match.getApplicantId(),
+                            match.getApplicantDeposit(),
+                            match.getId()
+                    );
+                } else {
+                    match.markNoShow(MatchStatus.AUTHOR_NO_SHOW);
+                    userPointService.refundPoint(
+                            match.getApplicantId(),
+                            match.getApplicantDeposit(),
+                            match.getId()
+                    );
+                }
+            } else if (decision.status() == VerificationStatus.GUEST_NO_SHOW) {
+                match.markNoShow(MatchStatus.APPLICANT_NO_SHOW);
+                userPointService.penaltyPoint(
+                        match.getApplicantId(),
+                        match.getApplicantDeposit(),
+                        match.getId()
+                );
+            } else {
+                continue;
+            }
+            processedIds.add(match.getId());
+        }
+
+        if (authorNoShow) {
+            settleAuthorPenalty(post);
+        }
+        completePostIfNoActiveMatches(post);
+        return new NoShowSettlementResult(postId, processedIds);
     }
 
-    // canResolveDispute: 이의제기 판정 결과 처리 가능 여부
-    // canFinalizeNoShow와 허용 조건은 동일하지만 호출 목적이 다름
-    // → "노쇼 확정(배치)" vs "이의제기 판정 후처리(관리자)" 의도를 이름으로 구분
-    private boolean canResolveDispute(Match match) {
-        return match.getStatus() == MatchStatus.MATCHED || match.getStatus() == MatchStatus.DISPUTED;
+    private Post lockAndNormalizePost(Long postId) {
+        Post post = postInternalService.getPostByIdWithLock(postId);
+
+        // 신청자가 한 명이라도 있으면 정책상 성립된 모임이다.
+        // 과거 스케줄러가 잘못 만든 EXPIRED + 활성 Match 데이터도 같은 정상 상태로 복구한다.
+        if ((post.getStatus() == PostStatus.OPEN || post.getStatus() == PostStatus.EXPIRED)
+                && post.getCurrentApplicants() >= 2) {
+            post.match();
+        }
+        return post;
+    }
+
+    private List<Match> getActiveMatches(Long postId) {
+        return matchRepository.findAllByPostIdAndStatusInOrderByIdAsc(postId, ACTIVE_STATUSES);
+    }
+
+    private boolean completePostIfNoActiveMatches(Post post) {
+        if (matchRepository.countByPostIdAndStatusIn(post.getId(), ACTIVE_STATUSES) > 0) {
+            return false;
+        }
+        if (post.getStatus() == PostStatus.COMPLETED) {
+            return false;
+        }
+        if (post.getStatus() != PostStatus.MATCHED) {
+            throw new IllegalStateException("활성 매칭이 종료됐지만 Post가 MATCHED 상태가 아닙니다. postId=" + post.getId());
+        }
+
+        // 등록자 정산이 아직 없다면 종료된 Match 결과를 기준으로 최종 환급/패널티를 한 번 결정한다.
+        if (!userPointService.hasSettlement(post.getAuthorId(), post.getId())) {
+            boolean authorWasNoShow = matchRepository.findAllByPostId(post.getId()).stream()
+                    .anyMatch(match -> match.getStatus() == MatchStatus.AUTHOR_NO_SHOW
+                            || match.getStatus() == MatchStatus.BOTH_NO_SHOW);
+            if (authorWasNoShow) {
+                settleAuthorPenalty(post);
+            } else {
+                settleAuthorRefund(post);
+            }
+        }
+
+        post.complete();
+        publishPostVectorDeleteEvent(post.getId());
+        chatInternalService.scheduleChatRoomDeactivation(post.getId());
+        return true;
+    }
+
+    private void settleAuthorRefund(Post post) {
+        if (!userPointService.hasSettlement(post.getAuthorId(), post.getId())) {
+            userPointService.refundPoint(
+                    post.getAuthorId(),
+                    post.getAuthorDeposit(),
+                    post.getId()
+            );
+        }
+    }
+
+    private void settleAuthorPartialRefund(Post post) {
+        if (!userPointService.hasSettlement(post.getAuthorId(), post.getId())) {
+            userPointService.partialRefundPoint(
+                    post.getAuthorId(),
+                    post.getAuthorDeposit(),
+                    post.getId()
+            );
+        }
+    }
+
+    private void settleAuthorPenalty(Post post) {
+        if (!userPointService.hasSettlement(post.getAuthorId(), post.getId())) {
+            userPointService.penaltyPoint(
+                    post.getAuthorId(),
+                    post.getAuthorDeposit(),
+                    post.getId()
+            );
+        }
+    }
+
+    private boolean isActive(Match match) {
+        return ACTIVE_STATUSES.contains(match.getStatus());
+    }
+
+    private void scheduleReviewReminder(Match match) {
+        LocalDateTime reminderAt = match.getCompletedAt()
+                .plusDays(7)
+                .toLocalDate()
+                .atTime(9, 0);
+        redisTemplate.opsForZSet().add(
+                ReviewRedisZSetKeys.DEADLINE_REMINDER,
+                String.valueOf(match.getId()),
+                reminderAt.toEpochSecond(ZoneOffset.ofHours(9))
+        );
     }
 
     private void publishPostVectorDeleteEvent(Long postId) {
-        if (applicationEventPublisher == null || postId == null) {
-            return;
-        }
-
-        // 삭제 이벤트는 postId만 필요합니다. Listener가 커밋 이후 pgvector 테이블에서 해당 행을 제거합니다.
         applicationEventPublisher.publishEvent(new PostVectorDeleteEvent(postId));
     }
 }

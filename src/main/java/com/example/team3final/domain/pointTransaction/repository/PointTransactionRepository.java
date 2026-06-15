@@ -29,6 +29,14 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
             @Param("types") List<PointTransactionType> types
     );
 
+    // 등록자 책임비는 postId를 참조 ID로 사용한다.
+    // Post 락 안에서 이 조회를 선행해 REFUND/PARTIAL_REFUND/PENALTY 중복 정산을 막는다.
+    boolean existsByUserIdAndMatchIdAndTransactionTypeIn(
+            Long userId,
+            Long matchId,
+            List<PointTransactionType> transactionTypes
+    );
+
     // tearDown 정리용
     @Modifying
     @Query("DELETE FROM PointTransaction pt WHERE pt.matchId = :matchId")

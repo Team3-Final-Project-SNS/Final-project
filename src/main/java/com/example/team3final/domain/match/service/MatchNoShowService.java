@@ -2,6 +2,8 @@ package com.example.team3final.domain.match.service;
 
 import com.example.team3final.domain.meet.enums.VerificationStatus;
 
+import java.util.List;
+
 // Match 도메인의 노쇼 및 이의제기 결과 반영을 담당하는 서비스
 public interface MatchNoShowService {
 
@@ -28,13 +30,16 @@ public interface MatchNoShowService {
 
     // 등록자 노쇼 확정 — 배치(judgeNoShowConfirmed) 또는 이의제기 REJECTED 판정 시 호출
     // 처리: Match→AUTHOR_NO_SHOW, Post→COMPLETED, 등록자 예치금 몰수, 신청자 전액 환급
-    void markAuthorNoShow(Long matchId);
+    NoShowSettlementResult markAuthorNoShow(Long matchId);
 
     // 신청자 노쇼 확정 — 배치(judgeNoShowConfirmed) 또는 이의제기 REJECTED 판정 시 호출
     // 처리: Match→APPLICANT_NO_SHOW, Post→COMPLETED, 신청자 예치금 몰수, 등록자 전액 환급
-    void markApplicantNoShow(Long matchId);
+    NoShowSettlementResult markApplicantNoShow(Long matchId);
 
     // 양측 노쇼 확정 — 배치(judgeNoShowConfirmed) 또는 이의제기 REJECTED 판정 시 호출
     // 처리: Match→BOTH_NO_SHOW, Post→COMPLETED, 양측 예치금 모두 몰수
-    void markBothNoShow(Long matchId);
+    NoShowSettlementResult markBothNoShow(Long matchId);
+
+    // 배치에서 같은 Post의 판정 결과를 한 트랜잭션으로 정산한다.
+    NoShowSettlementResult finalizeNoShows(Long postId, List<NoShowDecision> decisions);
 }
