@@ -1,6 +1,5 @@
 package com.example.team3final.domain.pointTransaction.service;
 
-
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.ServiceException;
@@ -8,7 +7,7 @@ import com.example.team3final.domain.pointTransaction.dto.response.PointTransact
 import com.example.team3final.domain.pointTransaction.entity.PointTransaction;
 import com.example.team3final.domain.pointTransaction.enums.PointTransactionType;
 import com.example.team3final.domain.pointTransaction.repository.PointTransactionRepository;
-import com.example.team3final.domain.user.service.UserService;
+import com.example.team3final.domain.user.service.UserInternalService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,16 +25,16 @@ public class PointTransactionServiceImpl implements PointTransactionService {
      * ==================== Service to Service Rules ====================
      *
      * PointTransaction 도메인은 로그인 사용자의 userId가 필요합니다.
-     * userId 조회는 User 도메인의 책임이므로 UserService를 통해 가져옵니다.
+     * userId 조회는 User 도메인의 책임이므로 UserInternalService를 통해 가져옵니다.
      *
      * 흐름:
      * PointTransactionServiceImpl
-     *   -> UserService
+     *   -> UserInternalService
      *      -> UserRepository
      *
      * ================================================================
      */
-    private final UserService userService;
+    private final UserInternalService userInternalService;
 
     @Override
     public PageResponseDto<PointTransactionResponseDto> getPointTransactions(
@@ -47,7 +46,7 @@ public class PointTransactionServiceImpl implements PointTransactionService {
         validatePageable(pageable);
 
         // User 도메인 Service를 통해 로그인 사용자의 userId를 조회합니다.
-        Long userId = userService.getUserIdByEmail(email);
+        Long userId = userInternalService.getUserIdByEmail(email);
 
         // userId와 거래 타입 조건에 맞는 포인트 거래내역을 조회합니다.
         Page<PointTransaction> pointTransactions = getPointTransactionPage(userId, type, pageable);

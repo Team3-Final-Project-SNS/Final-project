@@ -13,7 +13,8 @@ import com.example.team3final.domain.chat.repository.ChatMessageRepository;
 import com.example.team3final.domain.chat.repository.ChatRoomRepository;
 import com.example.team3final.domain.chat.service.BadWordFilterService;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
-import com.example.team3final.domain.user.service.UserService;
+import com.example.team3final.domain.user.service.UserCommandService;
+import com.example.team3final.domain.user.service.UserInternalService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
@@ -35,7 +36,8 @@ public class ChatMessageHandler {
     private final SimpMessagingTemplate messagingTemplate;
     private final ChatMemberRepository chatMemberRepository;
     private final KafkaChatMessageProducer kafkaChatMessageProducer;
-    private final UserService userService;
+    private final UserInternalService userInternalService;
+    private final UserCommandService userCommandService;
     private final BadWordFilterService badWordFilterService;     // 욕설 필터링
     private final NotificationPublisher notificationPublisher;   // 알림 발송
 
@@ -57,7 +59,7 @@ public class ChatMessageHandler {
         String email = (String) sessionAttributes.get("email");
 
         // 이메일로 userId 조회
-        Long senderId = userService.getUserIdByEmail(email);
+        Long senderId = userInternalService.getUserIdByEmail(email);
 
         // 채팅방 존재 여부 확인
         ChatRoom chatRoom = chatRoomRepository.findById(chatRoomId)
@@ -127,7 +129,7 @@ public class ChatMessageHandler {
                 chatMessage.getId(),
                 chatRoomId,
                 senderId,
-                userService.getUser(senderId).nickname(),
+                userCommandService.getUser(senderId).nickname(),
                 chatMessage.getContent(),
                 chatMessage.isRead(),
                 chatMessage.getCreatedAt()

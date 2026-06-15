@@ -4,7 +4,6 @@ import java.util.List;
 
 /**
  * 다시 만나고 싶지 않아요 관계를 다른 도메인에 제공하는 서비스입니다.
- *
  * Post, Match 도메인은 ReviewRepository를 직접 참조하지 않고,
  * 이 서비스를 통해 블라인드 처리에 필요한 사용자 관계만 조회합니다.
  */

@@ -24,22 +24,22 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
 
     /**
      * soft delete된 게시글 포함 IN 조회 — 매칭 목록 조회 전용
-     *
+     * <p>
      * [왜 이 메서드가 필요한가]
-     *   - 기본 findAllById()는 @SQLRestriction("deleted_at IS NULL") 때문에
-     *     soft delete된 게시글을 결과에서 제외함
-     *   - 매칭은 게시글이 삭제되어도 살아있음 (매칭 이력 보존)
-     *   - 따라서 getMatches()에서 매칭에 엮인 postId로 게시글 정보를 조회할 때,
-     *     삭제된 게시글도 포함해서 가져와야 postInfo가 null이 되지 않음
-     *   - soft delete 필터(@SQLRestriction)를 우회하기 위해 @Query로 직접 작성
-     *
+     * - 기본 findAllById()는 @SQLRestriction("deleted_at IS NULL") 때문에
+     * soft delete된 게시글을 결과에서 제외함
+     * - 매칭은 게시글이 삭제되어도 살아있음 (매칭 이력 보존)
+     * - 따라서 getMatches()에서 매칭에 엮인 postId로 게시글 정보를 조회할 때,
+     * 삭제된 게시글도 포함해서 가져와야 postInfo가 null이 되지 않음
+     * - soft delete 필터(@SQLRestriction)를 우회하기 위해 @Query로 직접 작성
+     * <p>
      * [쿼리 설명]
-     *   FROM Post p    : Post 엔티티 (deleted_at 컬럼 포함)
-     *   WHERE p.id IN :postIds  : 주어진 ID 목록으로 일괄 조회
-     *   (deleted_at 조건 없음 → soft delete 필터 우회)*
+     * FROM Post p    : Post 엔티티 (deleted_at 컬럼 포함)
+     * WHERE p.id IN :postIds  : 주어진 ID 목록으로 일괄 조회
+     * (deleted_at 조건 없음 → soft delete 필터 우회)*
      */
     @Query("SELECT p FROM Post p WHERE p.id IN :postIds")
-    List<Post> findAllByIdIncludingDeleted(@Param("postIds")List<Long> postIds);
+    List<Post> findAllByIdIncludingDeleted(@Param("postIds") List<Long> postIds);
 
     // 게시글을 PESSIMISTIC_WRITE 락으로 조회
     // 이 메서드가 트랜잭션 안에서 실행되면 해당 Post row에 write lock이 걸림.
@@ -50,8 +50,8 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
 
     // soft delete된 게시글 포함 단건 조회 -> 삭제 사유 조회 전용
     @Query("""
-           SELECT p FROM Post p WHERE p.id = :postId
-           """)
+            SELECT p FROM Post p WHERE p.id = :postId
+            """)
     Optional<Post> findByIdIncludingDeleted(@Param("postId") Long postId);
 
     Page<Post> findByAuthorIdInAndStatus(
@@ -76,18 +76,17 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
 
     /**
      * 만료 벌크 업데이트
-     *
+     * <p>
      * 조건: OPEN 상태이면서 meetAt이 현재 시각보다 과거인 게시글 전부
      * → 스케줄러가 1시간마다 이 쿼리 1번으로 전부 처리
      *
      * @Modifying: SELECT가 아닌 UPDATE/DELETE 쿼리임을 JPA에게 알림
-     *   - clearAutomatically = true: 쿼리 실행 후 1차 캐시(EntityManager)를 비워줌
-     *     → 이걸 안 하면 DB는 EXPIRED인데 메모리 안 엔티티는 OPEN으로 남는 불일치 발생
-     *
+     * - clearAutomatically = true: 쿼리 실행 후 1차 캐시(EntityManager)를 비워줌
+     * → 이걸 안 하면 DB는 EXPIRED인데 메모리 안 엔티티는 OPEN으로 남는 불일치 발생
      * @Query JPQL: 엔티티 필드명 기준으로 작성 (컬럼명 아님)
-     *   - p.status = :open     → PostStatus.OPEN 값
-     *   - p.meetAt < :now      → 만남 시각이 현재보다 과거
-     *   - p.deletedAt IS NULL  → soft delete된 게시글 제외
+     * - p.status = :open     → PostStatus.OPEN 값
+     * - p.meetAt < :now      → 만남 시각이 현재보다 과거
+     * - p.deletedAt IS NULL  → soft delete된 게시글 제외
      */
     @Modifying(clearAutomatically = true)
     @Query("""
@@ -98,9 +97,9 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
               AND p.deletedAt IS NULL
             """)
     int bulkExpireOpenPosts(
-            @Param("open")    PostStatus open,    // PostStatus.OPEN
+            @Param("open") PostStatus open,    // PostStatus.OPEN
             @Param("expired") PostStatus expired, // PostStatus.EXPIRED
-            @Param("now")     LocalDateTime now   // LocalDateTime.now()
+            @Param("now") LocalDateTime now   // LocalDateTime.now()
     );
 
     // 동시성 제어 테스트 관련 메서드
@@ -114,11 +113,19 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
     Optional<Post> findByIdWithPessimisticLock(@Param("id") Long id);
 
 
- // ai 매칭 도메인에서 활용. toolcalling에서 활용하기 위해서.
+    // ai 매칭 도메인에서 활용. toolcalling에서 활용하기 위해서.
     Page<Post> findByAuthorIdInAndStatusAndMeetAtAfter(
             List<Long> authorIds,
             PostStatus status,
             LocalDateTime meetAt,
             Pageable pageable
+    );
+
+    // pgvector가 반환한 postId 후보를 MySQL posts 테이블에서 같은 학교, 작성자, OPEN 상태, 미래 약속 시간 기준으로 최종 검증합니다.
+    List<Post> findByIdInAndAuthorIdInAndStatusAndMeetAtAfter(
+            List<Long> postIds,
+            List<Long> authorIds,
+            PostStatus status,
+            LocalDateTime meetAt
     );
 }

@@ -1,9 +1,8 @@
 package com.example.team3final.domain.university.controller;
 
-
 import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.domain.university.dto.response.UniversityResponseDto;
-import com.example.team3final.domain.university.service.UniversityService;
+import com.example.team3final.domain.university.service.UniversityQueryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
@@ -11,7 +10,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,7 +23,7 @@ import java.util.List;
 @RequestMapping("/api/v1")
 public class UniversityController {
 
-    private final UniversityService universityService;
+    private final UniversityQueryService universityQueryService;
 
     // 대학 목록 조회
     @Operation(
@@ -57,7 +55,7 @@ public class UniversityController {
     @GetMapping("/universities")
     public ResponseEntity<ApiResponseDto<List<UniversityResponseDto>>> getUniversities() {
         return ResponseEntity.ok(
-                ApiResponseDto.success(universityService.getUniversities())
+                ApiResponseDto.success(universityQueryService.getUniversities())
         );
 
     }

@@ -3,10 +3,7 @@ package com.example.team3final.domain.ai.matching.service;
 
 import com.example.team3final.common.config.AiProperties;
 import com.example.team3final.common.exception.AiException;
-import com.example.team3final.domain.ai.common.enums.AiCallStatus;
-import com.example.team3final.domain.ai.common.enums.AiErrorType;
-import com.example.team3final.domain.ai.common.enums.AiFeature;
-import com.example.team3final.domain.ai.common.enums.AiPromptType;
+import com.example.team3final.domain.ai.common.enums.*;
 import com.example.team3final.domain.ai.common.service.AiCallMetricService;
 import com.example.team3final.domain.ai.matching.dto.request.AiMatchingChatRequestDto;
 import com.example.team3final.domain.ai.matching.dto.response.AiMatchingChatResponseDto;
@@ -15,34 +12,27 @@ import com.example.team3final.domain.ai.matching.entity.AiMatchingChatMemory;
 import com.example.team3final.domain.ai.matching.entity.AiMatchingChatMessage;
 import com.example.team3final.domain.ai.matching.repository.AiMatchingChatMemoryRepository;
 import com.example.team3final.domain.ai.matching.repository.AiMatchingChatMessageRepository;
-import com.example.team3final.domain.ai.matching.tool.AiMatchingPostToolResult;
 import com.example.team3final.domain.ai.matching.tool.AiMatchingSessionTool;
 import com.example.team3final.domain.ai.matching.tool.AiMatchingTool;
 import com.example.team3final.domain.ai.prompt.service.AiPromptFileService;
-import com.example.team3final.domain.ai.common.enums.AiChatMemoryRole;
 import com.example.team3final.domain.user.entity.User;
-import com.example.team3final.domain.user.service.UserService;
+import com.example.team3final.domain.user.service.UserInternalService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.ResponseEntity;
 import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.rag.Query;
 import org.springframework.ai.rag.preretrieval.query.transformation.RewriteQueryTransformer;
-import org.springframework.ai.chat.client.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -74,7 +64,7 @@ public class AiMatchingServiceImpl implements AiMatchingService {
     private final AiMatchingTool aiMatchingTool;
     private final AiCallMetricService aiCallMetricService;
     private final AiProperties aiProperties;
-    private final UserService userService;
+    private final UserInternalService userInternalService;
     private final RewriteQueryTransformer rewriteQueryTransformer;
     private final AiMatchingChatMemoryRepository aiMatchingChatMemoryRepository;
     private final AiMatchingChatMessageRepository aiMatchingChatMessageRepository;
@@ -118,7 +108,7 @@ public class AiMatchingServiceImpl implements AiMatchingService {
             AiMatchingTool aiMatchingTool,
             AiCallMetricService aiCallMetricService,
             AiProperties aiProperties,
-            UserService userService,
+            UserInternalService userInternalService,
             AiMatchingChatMemoryRepository aiMatchingChatMemoryRepository,
             AiMatchingChatMessageRepository aiMatchingChatMessageRepository
     ) {
@@ -127,7 +117,7 @@ public class AiMatchingServiceImpl implements AiMatchingService {
         this.aiMatchingTool = aiMatchingTool;
         this.aiCallMetricService = aiCallMetricService;
         this.aiProperties = aiProperties;
-        this.userService = userService;
+        this.userInternalService = userInternalService;
         this.aiMatchingChatMemoryRepository = aiMatchingChatMemoryRepository;
         this.aiMatchingChatMessageRepository = aiMatchingChatMessageRepository;
         this.rewriteQueryTransformer = RewriteQueryTransformer.builder()
@@ -174,7 +164,7 @@ public class AiMatchingServiceImpl implements AiMatchingService {
         String conversationId = resolveConversationId(request.conversationId());
 
         try {
-            User user = userService.findByEmail(email);
+            User user = userInternalService.findByEmail(email);
             userId = user.getId();
             cleanupExpiredMatchingMemory();
 
@@ -396,7 +386,7 @@ public class AiMatchingServiceImpl implements AiMatchingService {
         String conversationId = resolveConversationId(request.conversationId());
 
         try {
-            User user = userService.findByEmail(email);
+            User user = userInternalService.findByEmail(email);
             userId = user.getId();
             cleanupExpiredMatchingMemory();
 
@@ -769,7 +759,7 @@ public class AiMatchingServiceImpl implements AiMatchingService {
             return;
         }
 
-        User user = userService.findByEmail(email);
+        User user = userInternalService.findByEmail(email);
         aiMatchingChatMemoryRepository.deleteByUserIdAndConversationId(user.getId(), conversationId);
         aiMatchingChatMessageRepository.deleteByUserIdAndConversationId(user.getId(), conversationId);
     }

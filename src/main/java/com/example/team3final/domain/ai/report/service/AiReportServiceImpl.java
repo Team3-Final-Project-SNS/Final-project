@@ -3,11 +3,7 @@ package com.example.team3final.domain.ai.report.service;
 import com.example.team3final.common.config.AiProperties;
 import com.example.team3final.common.exception.AiException;
 import com.example.team3final.domain.admin.service.AdminService;
-import com.example.team3final.domain.ai.common.enums.AiCallStatus;
-import com.example.team3final.domain.ai.common.enums.AiChatMemoryRole;
-import com.example.team3final.domain.ai.common.enums.AiErrorType;
-import com.example.team3final.domain.ai.common.enums.AiFeature;
-import com.example.team3final.domain.ai.common.enums.AiPromptType;
+import com.example.team3final.domain.ai.common.enums.*;
 import com.example.team3final.domain.ai.common.service.AiCallMetricService;
 import com.example.team3final.domain.ai.prompt.service.AiPromptFileService;
 import com.example.team3final.domain.ai.rag.dto.AiRagSearchResultDto;
@@ -17,11 +13,7 @@ import com.example.team3final.domain.ai.report.dto.request.AiReportChatRequestDt
 import com.example.team3final.domain.ai.report.dto.response.*;
 import com.example.team3final.domain.ai.report.entity.AiAdminResult;
 import com.example.team3final.domain.ai.report.entity.AiReportChatMemory;
-import com.example.team3final.domain.ai.report.enums.AiAdminAnswerSource;
-import com.example.team3final.domain.ai.report.enums.AiAdminCategory;
-import com.example.team3final.domain.ai.report.enums.AiReportChatAction;
-import com.example.team3final.domain.ai.report.enums.AiReportDecisionSuggestion;
-import com.example.team3final.domain.ai.report.enums.AiReportRiskLevel;
+import com.example.team3final.domain.ai.report.enums.*;
 import com.example.team3final.domain.ai.report.repository.AiAdminResultRepository;
 import com.example.team3final.domain.ai.report.repository.AiReportChatMemoryRepository;
 import com.example.team3final.domain.ai.report.tool.AiDisputeContextToolResult;
@@ -29,7 +21,7 @@ import com.example.team3final.domain.ai.report.tool.AiReportDashboardToolResult;
 import com.example.team3final.domain.ai.report.tool.AiReportHighRiskUserToolResult;
 import com.example.team3final.domain.ai.report.tool.AiReportTool;
 import com.example.team3final.domain.report.entity.Report;
-import com.example.team3final.domain.report.service.ReportService;
+import com.example.team3final.domain.report.service.ReportInternalService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.ResponseEntity;
@@ -44,12 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -125,7 +112,7 @@ public class AiReportServiceImpl implements AiReportService {
     private final AiCallMetricService aiCallMetricService;
     private final AiProperties aiProperties;
     private final AdminService adminService;
-    private final ReportService reportService;
+    private final ReportInternalService reportInternalService;
     private final AiRagRetrieverService aiRagRetrieverService;
 
     // 관리자 AI 멀티턴 컨텍스트는 최근 10턴(관리자/AI 메시지 최대 20개)과 3000토큰 중 먼저 도달하는 기준으로 제한합니다.
@@ -143,7 +130,7 @@ public class AiReportServiceImpl implements AiReportService {
             AiCallMetricService aiCallMetricService,
             AiProperties aiProperties,
             AdminService adminService,
-            ReportService reportService,
+            ReportInternalService reportInternalService,
             ObjectProvider<AiRagRetrieverService> aiRagRetrieverServiceProvider
     ) {
         this.chatClient = chatClientBuilder.build();
@@ -154,7 +141,7 @@ public class AiReportServiceImpl implements AiReportService {
         this.aiCallMetricService = aiCallMetricService;
         this.aiProperties = aiProperties;
         this.adminService = adminService;
-        this.reportService = reportService;
+        this.reportInternalService = reportInternalService;
         this.aiRagRetrieverService = aiRagRetrieverServiceProvider.getIfAvailable();
     }
 
@@ -443,7 +430,7 @@ public class AiReportServiceImpl implements AiReportService {
         Integer totalTokens = null;
 
         try {
-            Report report = reportService.getReportById(reportId);
+            Report report = reportInternalService.getReportById(reportId);
             AiReportRagContext ragContext = buildReportRagContext("신고 ID " + reportId + "번 분석 정책과 관리자 조치 기준");
             AiPromptFileService.RenderedPrompt prompt = renderPrompt(reportId, adminId, ragContext.context(), ragContext.sources());
             promptTemplateId = prompt.promptTemplateId();
@@ -1862,7 +1849,7 @@ public class AiReportServiceImpl implements AiReportService {
             Long promptTemplateId,
             String promptVersion
     ) {
-        Report report = reportService.getReportById(reportId);
+        Report report = reportInternalService.getReportById(reportId);
 
         return aiAdminResultRepository.save(
                 AiAdminResult.builder()

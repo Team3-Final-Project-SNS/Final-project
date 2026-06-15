@@ -9,7 +9,6 @@ import java.util.List;
 
 /**
  * 후기 도메인의 핵심 비즈니스 로직을 정의하는 서비스입니다.
- *
  * 후기 작성, 받은 후기 조회, 태그 기반 점수 계산,
  * 매너 온도 재계산 흐름을 처리합니다.
  */
@@ -29,7 +28,6 @@ public interface ReviewService {
 
     /**
      * 로그인 사용자가 직접 작성한 후기 목록을 조회합니다.
-     *
      * 사용자는 받은 후기 목록을 볼 수 없고, 본인이 작성한 후기만 확인할 수 있습니다.
      *
      * @param currentUserId 현재 로그인한 사용자 ID
@@ -39,7 +37,6 @@ public interface ReviewService {
 
     /**
      * 현재 사용자가 다시 만나고 싶지 않은 사용자 ID 목록을 조회합니다.
-     *
      * Post, Match, AI 추천 도메인에서 노출/매칭 후보 제외에 사용할 수 있습니다.
      */
     List<Long> getAvoidedUserIds(Long userId);

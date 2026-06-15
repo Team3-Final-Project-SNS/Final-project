@@ -4,14 +4,14 @@ import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.AdminException;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.domain.admin.meet.dto.response.AdminNoShowCandidateResponseDto;
-import com.example.team3final.domain.dispute.service.DisputeService;
+import com.example.team3final.domain.dispute.service.DisputeInternalService;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
-import com.example.team3final.domain.match.service.MatchService;
+import com.example.team3final.domain.match.service.MatchInternalService;
 import com.example.team3final.domain.meet.entity.MeetVerification;
-import com.example.team3final.domain.meet.service.MeetVerificationService;
+import com.example.team3final.domain.meet.service.MeetVerificationNoShowService;
 import com.example.team3final.domain.post.dto.response.PostInfoDto;
-import com.example.team3final.domain.post.service.PostService;
-import com.example.team3final.domain.user.service.UserService;
+import com.example.team3final.domain.post.service.PostInternalService;
+import com.example.team3final.domain.user.service.UserInternalService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -28,18 +28,18 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class AdminMeetVerificationServiceImpl implements AdminMeetVerificationService {
 
-    private final MeetVerificationService meetVerificationService;
-    private final MatchService matchService;
-    private final PostService postService;
-    private final UserService userService;
-    private final DisputeService disputeService;
+    private final MeetVerificationNoShowService meetVerificationNoShowService;
+    private final MatchInternalService matchInternalService;
+    private final PostInternalService postInternalService;
+    private final UserInternalService userInternalService;
+    private final DisputeInternalService disputeInternalService;
 
     // 노쇼 후보군 조회
     @Override
     public PageResponseDto<AdminNoShowCandidateResponseDto> getNoShowCandidates(Pageable pageable) {
 
         // 노쇼 상태 MeetVerification 페이징 조회
-        Page<MeetVerification> meetVerificationPage = meetVerificationService.getNoShowCandidates(pageable);
+        Page<MeetVerification> meetVerificationPage = meetVerificationNoShowService.getNoShowCandidates(pageable);
 
         // matchId 목록 추출
         List<Long> matchIds = meetVerificationPage.getContent()
@@ -48,7 +48,7 @@ public class AdminMeetVerificationServiceImpl implements AdminMeetVerificationSe
                 .toList();
 
         // Match 배치 조회
-        Map<Long, MatchInfoDto> matchInfoDtoMap = matchService.getMatchInfos(matchIds);
+        Map<Long, MatchInfoDto> matchInfoDtoMap = matchInternalService.getMatchInfos(matchIds);
 
         // MatchInfoDto 에서 postId 추출
         List<Long> postIds = matchInfoDtoMap.values()
@@ -58,7 +58,7 @@ public class AdminMeetVerificationServiceImpl implements AdminMeetVerificationSe
                 .toList();
 
         // postId -> PostInfoDto 맵
-        Map<Long, PostInfoDto> postInfoByPostId = postService.getPostInfos(postIds);
+        Map<Long, PostInfoDto> postInfoByPostId = postInternalService.getPostInfos(postIds);
 
         // authorId + applicantId 목록 수집
         List<Long> userIds = new ArrayList<>();
@@ -68,11 +68,11 @@ public class AdminMeetVerificationServiceImpl implements AdminMeetVerificationSe
         matchInfoDtoMap.values().forEach(m -> userIds.add(m.applicantId()));
 
         // 닉네임 배치 조회
-        Map<Long, String> nicknameMap = userService.getUserNicknameMap(
+        Map<Long, String> nicknameMap = userInternalService.getUserNicknameMap(
                 userIds.stream().distinct().toList());
 
         // matchId 목록으로 이의제기 존재 여부를 한 번에 조회 (N+1 방지)
-        Set<Long> matchIdsWithDispute = disputeService.getMatchIdsWithDispute(matchIds);
+        Set<Long> matchIdsWithDispute = disputeInternalService.getMatchIdsWithDispute(matchIds);
 
         // DTO 조립
         Page<AdminNoShowCandidateResponseDto> result = meetVerificationPage.map(meetVerification -> {

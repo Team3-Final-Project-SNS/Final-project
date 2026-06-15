@@ -3,7 +3,7 @@ package com.example.team3final.domain.ai.support.tool;
 import com.example.team3final.domain.ai.support.enums.AiSupportCategory;
 import com.example.team3final.domain.user.dto.response.UserInfoDto;
 import com.example.team3final.domain.user.entity.User;
-import com.example.team3final.domain.user.service.UserService;
+import com.example.team3final.domain.user.service.UserInternalService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -32,7 +32,7 @@ public class AiSupportTool {
 
     private static final int MAX_GUIDE_LENGTH = 4_000;
 
-    private final UserService userService;
+    private final UserInternalService userInternalService;
     private final ResourceLoader resourceLoader;
 
 
@@ -147,8 +147,8 @@ public class AiSupportTool {
     public AiSupportUserContextToolResult getUserSupportContext(String email) {
         // email은 LLM이 입력한 값이 아니라 인증된 사용자 정보에서 온 값입니다.
         // 다른 사용자의 포인트/상태를 질문해도 현재 로그인 사용자 컨텍스트만 조회됩니다.
-        User user = userService.findByEmail(email);
-        UserInfoDto userInfo = userService.getUserInfo(user.getId());
+        User user = userInternalService.findByEmail(email);
+        UserInfoDto userInfo = userInternalService.getUserInfo(user.getId());
 
         return new AiSupportUserContextToolResult(
                 userInfo.userId(),

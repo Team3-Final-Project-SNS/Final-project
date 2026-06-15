@@ -4,7 +4,7 @@ import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.common.dto.response.CursorResponseDto;
 import com.example.team3final.domain.chat.dto.response.ChatMemberResponseDto;
 import com.example.team3final.domain.chat.dto.response.ChatMessageResponseDto;
-import com.example.team3final.domain.chat.service.ChatService;
+import com.example.team3final.domain.chat.service.ChatQueryService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -18,7 +18,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ChatController {
 
-    private final ChatService chatService;
+    private final ChatQueryService chatQueryService;
 
     // 메시지 목록 조회
     @GetMapping("/{chatRoomId}/messages")
@@ -29,7 +29,7 @@ public class ChatController {
             @RequestParam(defaultValue = "20") int size
     ) {
         Long userId = userDetails.getUserId();
-        CursorResponseDto<ChatMessageResponseDto> response = chatService.getChatMessages(
+        CursorResponseDto<ChatMessageResponseDto> response = chatQueryService.getChatMessages(
                 chatRoomId, userId, cursorId, size);
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
@@ -41,7 +41,7 @@ public class ChatController {
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
         Long userId = userDetails.getUserId();
-        List<ChatMemberResponseDto> response = chatService.getChatMembers(chatRoomId, userId);
+        List<ChatMemberResponseDto> response = chatQueryService.getChatMembers(chatRoomId, userId);
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
 

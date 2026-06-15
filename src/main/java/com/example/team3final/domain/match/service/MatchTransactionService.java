@@ -15,7 +15,7 @@ package com.example.team3final.domain.match.service;
 
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.MatchException;
-import com.example.team3final.domain.chat.service.ChatService;
+import com.example.team3final.domain.chat.service.ChatInternalService;
 import com.example.team3final.domain.match.dto.response.CreateMatchResponseDto;
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.enums.MatchStatus;
@@ -23,12 +23,14 @@ import com.example.team3final.domain.match.repository.MatchRepository;
 import com.example.team3final.domain.meet.util.MeetRedisZSetKeys;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
-import com.example.team3final.domain.post.service.PostService;
-import com.example.team3final.domain.report.service.ReportService;
+import com.example.team3final.domain.post.event.PostVectorDeleteEvent;
+import com.example.team3final.domain.post.service.PostInternalService;
+import com.example.team3final.domain.report.service.ReportInternalService;
 import com.example.team3final.domain.review.service.ReviewAvoidanceService;
+import com.example.team3final.domain.user.service.UserInternalService;
 import com.example.team3final.domain.user.service.UserPointService;
-import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -42,12 +44,13 @@ import java.time.ZoneOffset;
 public class MatchTransactionService {
 
     private final MatchRepository matchRepository;
-    private final PostService postService;
-    private final ChatService chatService;
+    private final PostInternalService postInternalService;
+    private final ChatInternalService chatInternalService;
     private final UserPointService userPointService;
-    private final UserService userService;
+    private final UserInternalService userInternalService;
     private final ReviewAvoidanceService reviewAvoidanceService;
-    private final ReportService reportService;
+    private final ReportInternalService reportInternalService;
+    private final ApplicationEventPublisher applicationEventPublisher;
     private final StringRedisTemplate redisTemplate;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -56,7 +59,7 @@ public class MatchTransactionService {
         // SELECT FOR UPDATE로 Post 행 잠금
         // → 한 스레드가 읽고 수정하는 동안 다른 스레드는 대기
         // → @Version 낙관락 충돌 없이 항상 최신 상태를 읽음
-        Post post = postService.getPostWithPessimisticLock(postId);
+        Post post = postInternalService.getPostWithPessimisticLock(postId);
 
         // 1. 본인 소유 게시글 신청 차단
         if (post.getAuthorId().equals(applicantId)) {
@@ -80,7 +83,7 @@ public class MatchTransactionService {
         }
 
         // 신고 접수 중인 게시글 차단
-        if (reportService.existsPendingReport(post.getId())) {
+        if (reportInternalService.existsPendingReport(post.getId())) {
             throw new MatchException(ErrorCode.MATCH_POST_UNDER_REPORT);
         }
 
@@ -111,23 +114,28 @@ public class MatchTransactionService {
 
         // 6. 채팅방 생성 또는 기존 채팅방에 멤버 추가
         Long chatRoomId;
-        if (!chatService.existsChatRoomByPostId(postId)) {
+        if (!chatInternalService.existsChatRoomByPostId(postId)) {
             // 첫 번째 신청자 → HOST + GUEST 채팅방 신규 생성
-            chatRoomId = chatService.createChatRoom(postId, post.getAuthorId(), applicantId);
+            chatRoomId = chatInternalService.createChatRoom(postId, post.getAuthorId(), applicantId);
         } else {
             // 두 번째 이후 → 기존 채팅방에 GUEST만 추가
-            chatService.addChatMember(postId, applicantId);
-            chatRoomId = chatService.getChatRoomIdByPostId(postId);
+            chatInternalService.addChatMember(postId, applicantId);
+            chatRoomId = chatInternalService.getChatRoomIdByPostId(postId);
         }
 
         // 7. 정원이 다 찼을 때만 게시글 상태를 MATCHED로 전환
         if (post.isFull()) {
             post.match();
+
+            if (applicationEventPublisher != null) {
+                // 정원이 찬 게시글은 더 이상 신청받을 수 없으므로 AI 추천 후보에서도 제거합니다.
+                applicationEventPublisher.publishEvent(new PostVectorDeleteEvent(post.getId()));
+            }
         }
 
         // 8. 응답 DTO에 필요한 닉네임 조회
-        String authorNickname = userService.getUserInfo(post.getAuthorId()).nickname();
-        String applicantNickname = userService.getUserInfo(applicantId).nickname();
+        String authorNickname = userInternalService.getUserInfo(post.getAuthorId()).nickname();
+        String applicantNickname = userInternalService.getUserInfo(applicantId).nickname();
 
         // 9. 만남 알림 ZSet 예약 (30분/15분/5분 전, 10분 경과)
         LocalDateTime meetAt = post.getMeetAt();

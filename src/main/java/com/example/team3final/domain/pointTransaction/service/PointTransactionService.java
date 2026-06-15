@@ -1,12 +1,9 @@
 package com.example.team3final.domain.pointTransaction.service;
 
-
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.domain.pointTransaction.dto.response.PointTransactionResponseDto;
 import com.example.team3final.domain.pointTransaction.enums.PointTransactionType;
 import org.springframework.data.domain.Pageable;
-
-
 
 public interface PointTransactionService {
 
@@ -16,6 +13,4 @@ public interface PointTransactionService {
             PointTransactionType type,
             Pageable pageable
     );
-
-
 }

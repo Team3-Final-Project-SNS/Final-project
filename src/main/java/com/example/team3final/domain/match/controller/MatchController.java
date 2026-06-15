@@ -8,8 +8,9 @@ import com.example.team3final.domain.match.dto.response.CreateMatchResponseDto;
 import com.example.team3final.domain.match.dto.response.GetMatchResponseDto;
 import com.example.team3final.domain.match.dto.response.GetMatchesResponseDto;
 import com.example.team3final.domain.match.enums.MatchStatus;
-import com.example.team3final.domain.match.service.MatchService;
-import com.example.team3final.domain.meet.service.MeetVerificationService;
+import com.example.team3final.domain.match.service.MatchCommandService;
+import com.example.team3final.domain.match.service.MatchQueryService;
+import com.example.team3final.domain.meet.service.MeetVerificationInternalService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -21,7 +22,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -33,9 +33,9 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1")
 public class MatchController {
 
-    private final MatchService matchService;
-    private final MeetVerificationService meetVerificationService;
-
+    private final MatchCommandService matchCommandService;
+    private final MatchQueryService matchQueryService;
+    private final MeetVerificationInternalService meetVerificationInternalService;
     // 공통 에러 응답 예시 상수
     // 여러 API에서 동일한 에러 응답이 반복되므로 상수로 분리하여 중복 제거
 
@@ -159,8 +159,8 @@ public class MatchController {
         // 토큰에서 추출된 검증된 userId
         Long applicantId = userDetails.getUserId();
 
-        CreateMatchResponseDto response = matchService.createMatch(postId, applicantId);
-        meetVerificationService.createPendingVerification(response.matchId());
+        CreateMatchResponseDto response = matchCommandService.createMatch(postId, applicantId);
+        meetVerificationInternalService.createPendingVerification(response.matchId());
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -209,9 +209,8 @@ public class MatchController {
         // JWT 토큰에서 검증된 userId 추출 (당사자 검증용)
         Long currentUserId = userDetails.getUserId();
 
-        GetMatchResponseDto response = matchService.getMatch(matchId, currentUserId);
-
-        return ResponseEntity.ok(ApiResponseDto.success(response));
+        return ResponseEntity.ok(
+                ApiResponseDto.success(matchQueryService.getMatch(matchId, currentUserId)));
     }
 
     /**
@@ -254,10 +253,8 @@ public class MatchController {
                 safeSize
         );
 
-        PageResponseDto<GetMatchesResponseDto> response =
-                matchService.getMatches(userId, status, pageable);
-
-        return ResponseEntity.ok(ApiResponseDto.success(response));
+        return ResponseEntity.ok(
+                ApiResponseDto.success(matchQueryService.getMatches(userId, status, pageable)));
     }
 
     /**
@@ -318,8 +315,7 @@ public class MatchController {
             ) {
         Long userId = userDetails.getUserId();
 
-        CancelMatchResponseDto response = matchService.cancelMatch(matchId, userId, request);
-
-        return ResponseEntity.ok(ApiResponseDto.success(response));
+        return ResponseEntity.ok(
+                ApiResponseDto.success(matchCommandService.cancelMatch(matchId, userId, request)));
     }
 }

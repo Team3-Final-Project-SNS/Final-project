@@ -1,6 +1,5 @@
 package com.example.team3final.domain.pointTransaction.controller;
 
-
 import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.domain.pointTransaction.dto.response.PointTransactionResponseDto;
@@ -21,7 +20,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
 
 @Tag(name = "PointTransaction", description = "포인트 거래 내역 API - 포인트 변동 이력 조회")
 @RestController // REST API 요청을 처리하는 Controller입니다.

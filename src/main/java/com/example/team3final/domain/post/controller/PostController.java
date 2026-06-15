@@ -6,7 +6,8 @@ import com.example.team3final.domain.post.dto.request.CreatePostRequestDto;
 import com.example.team3final.domain.post.dto.request.UpdatePostRequestDto;
 import com.example.team3final.domain.post.dto.response.*;
 import com.example.team3final.domain.post.enums.PostStatus;
-import com.example.team3final.domain.post.service.PostService;
+import com.example.team3final.domain.post.service.PostCommandService;
+import com.example.team3final.domain.post.service.PostQueryService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -30,7 +31,8 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class PostController {
 
-    private final PostService postService;
+    private final PostCommandService postCommandService;
+    private final PostQueryService postQueryService;
 
     // 공통 에러 응답 예시 상수
     // 여러 API에서 동일한 에러 응답이 반복되므로 상수로 분리하여 중복 제거
@@ -67,7 +69,6 @@ public class PostController {
 
     /**
      * 게시글 작성
-     *
      * POST /api/v1/posts
      */
     @Operation(
@@ -132,18 +133,15 @@ public class PostController {
         // 클라이언트가 보낸 헤더가 아니라 토큰 안의 서명된 값 → 위변조 불가
         Long userId = userDetails.getUserId();
 
-        CreatePostResponseDto response = postService.createPost(userId, request);
-
         // 명세서: 201 Created 반환
         // ResponseEntity.status(201).body(...) 패턴
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(ApiResponseDto.success(response));
+                .body(ApiResponseDto.success(postCommandService.createPost(userId, request)));
     }
 
     /**
      * 게시글 목록 조회
-     *
      * GET /api/v1/posts?status=OPEN&page=0&size=20
      */
     @Operation(
@@ -182,15 +180,12 @@ public class PostController {
                 Sort.by("authorDeposit").descending()
         );
 
-        PageResponseDto<GetPostsItemResponseDto> response =
-                postService.getPosts(userId, status, pageable);
-
-        return ResponseEntity.ok(ApiResponseDto.success(response));
+        return ResponseEntity.ok(
+                ApiResponseDto.success(postQueryService.getPosts(userId, status, pageable)));
     }
 
     /**
      * 게시글 상세 조회
-     *
      * GET /api/v1/posts/{postId}
      */
     @Operation(
@@ -237,16 +232,12 @@ public class PostController {
     ) {
         // JWT 토큰에서 검증된 userId 추출 (클라이언트 위변조 불가)
         Long currentUserId = userDetails.getUserId();
-
-        // Service 호출 - 검증/조회/조립 모두 위임
-        GetPostResponseDto response = postService.getPost(postId, currentUserId);
-
-        return ResponseEntity.ok(ApiResponseDto.success(response));
+        return ResponseEntity.ok(
+                ApiResponseDto.success(postQueryService.getPost(postId, currentUserId)));
     }
 
     /**
      * 게시글 수정
-     *
      * PATCH /api/v1/posts/{postId}
      */
     @Operation(
@@ -303,16 +294,12 @@ public class PostController {
             ) {
         // JWT에서 검증된 userId 추출
         Long userId = userDetails.getUserId();
-
-        // Service에 위임 - 검증/차액처리/업데이트 모두 위임
-        UpdatePostResponseDto response = postService.updatePost(postId, userId, request);
-
-        return ResponseEntity.ok(ApiResponseDto.success(response));
+        return ResponseEntity.ok(
+                ApiResponseDto.success(postCommandService.updatePost(postId, userId, request)));
     }
 
     /**
      * 게시글 삭제
-     *
      * DELETE /api/v1/posts/{postId}
      */
     @Operation(
@@ -367,10 +354,8 @@ public class PostController {
     ) {
 
         Long userId = userDetails.getUserId();
-
-        DeletePostResponseDto response = postService.deletePost(postId, userId);
-
-        return ResponseEntity.ok(ApiResponseDto.success(response));
+        return ResponseEntity.ok(
+                ApiResponseDto.success(postCommandService.deletePost(postId, userId)));
     }
 
     // 내 삭제된 게시글의 삭제 사유 조회
@@ -410,6 +395,6 @@ public class PostController {
     ) {
 
         Long userId = userDetails.getUserId();
-        return ResponseEntity.ok(ApiResponseDto.success(postService.getDeletedPostReason(postId, userId)));
+        return ResponseEntity.ok(ApiResponseDto.success(postQueryService.getDeletedPostReason(postId, userId)));
     }
 }

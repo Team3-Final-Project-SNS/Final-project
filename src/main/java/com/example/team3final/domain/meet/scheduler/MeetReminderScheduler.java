@@ -1,11 +1,11 @@
 package com.example.team3final.domain.meet.scheduler;
 
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
-import com.example.team3final.domain.match.service.MatchService;
+import com.example.team3final.domain.match.service.MatchInternalService;
 import com.example.team3final.domain.meet.util.MeetRedisZSetKeys;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.entity.Post;
-import com.example.team3final.domain.post.service.PostService;
+import com.example.team3final.domain.post.service.PostInternalService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -25,8 +25,8 @@ public class MeetReminderScheduler {
 
     private final StringRedisTemplate redisTemplate;
     private final NotificationPublisher notificationPublisher;
-    private final MatchService matchService;
-    private final PostService postService;
+    private final MatchInternalService matchInternalService;
+    private final PostInternalService postInternalService;
 
     // Lua Script - ZSet 조회 + 삭제 원자적 처리 (중복 발송 방지)
     private final DefaultRedisScript<List<String>> popReadyItemsScript;
@@ -109,10 +109,10 @@ public class MeetReminderScheduler {
                 Long postId = Long.parseLong(postIdStr);
 
                 // postId로 게시글 조회 → 등록자(authorId) 정보 필요
-                Post post = postService.getPostById(postId);
+                Post post = postInternalService.getPostById(postId);
 
                 // postId에 연결된 활성(MATCHED) 매칭의 matchId 조회
-                Optional<Long> matchId = matchService.getActiveMatchIdByPostId(postId);
+                Optional<Long> matchId = matchInternalService.getActiveMatchIdByPostId(postId);
 
                 // 활성 매칭이 없으면(이미 취소됨) 알림 보낼 대상 없음 → 스킵
                 if (matchId.isEmpty()) {
@@ -131,7 +131,7 @@ public class MeetReminderScheduler {
             log.info("[MeetReminderScheduler] 10분 경과 GUEST 알림 대상: {}건", matchIds.size());
             for (String matchIdStr : matchIds) {
                 Long matchId = Long.parseLong(matchIdStr);
-                MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
+                MatchInfoDto matchInfo = matchInternalService.getMatchInfo(matchId);
                 notificationPublisher.sendMeetOverdue(matchInfo.applicantId(), matchId);
             }
         }
@@ -152,7 +152,7 @@ public class MeetReminderScheduler {
 
         for (String postIdStr : postIds) {
             Long postId = Long.parseLong(postIdStr);
-            Post post = postService.getPostById(postId);
+            Post post = postInternalService.getPostById(postId);
 
             // 스킵 조건 체크
             LocalDateTime skipBoundary = skipIfAfterMinutes > 0
@@ -166,7 +166,7 @@ public class MeetReminderScheduler {
 
             // postId에 연결된 활성(MATCHED) 매칭의 matchId를 조회
             // (CANCELLED/COMPLETED 매칭은 자동 제외되고, 그룹 매칭이어도 항상 동일한 매칭 선택됨)
-            Optional<Long> matchId = matchService.getActiveMatchIdByPostId(postId);
+            Optional<Long> matchId = matchInternalService.getActiveMatchIdByPostId(postId);
 
             if (matchId.isEmpty()) {
                 log.warn("[MeetReminderScheduler] {} HOST 알림 스킵 - 활성 매칭 없음 postId: {}", label, postId);
@@ -187,8 +187,8 @@ public class MeetReminderScheduler {
 
         for (String matchIdStr : matchIds) {
             Long matchId = Long.parseLong(matchIdStr);
-            MatchInfoDto matchInfo = matchService.getMatchInfo(matchId);
-            Post post = postService.getPostById(matchInfo.postId());
+            MatchInfoDto matchInfo = matchInternalService.getMatchInfo(matchId);
+            Post post = postInternalService.getPostById(matchInfo.postId());
 
             // 스킵 조건 체크
             LocalDateTime skipBoundary = skipIfAfterMinutes > 0

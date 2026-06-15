@@ -10,7 +10,6 @@ import java.util.List;
 
 /**
  * 다시 만나고 싶지 않아요 관계를 관리하는 서비스 구현체입니다.
- *
  * 이 서비스는 Match/Post 도메인에서도 사용되므로,
  * ReviewServiceImpl과 분리해 순환 참조를 피합니다.
  */

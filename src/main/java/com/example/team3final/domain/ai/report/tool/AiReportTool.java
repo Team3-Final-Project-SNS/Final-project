@@ -5,13 +5,13 @@ import com.example.team3final.domain.admin.dispute.service.AdminDisputeService;
 import com.example.team3final.domain.ai.report.dashboard.dto.AiReportDashboardSnapshotDto;
 import com.example.team3final.domain.ai.report.dashboard.service.AiReportDashboardQueryService;
 import com.example.team3final.domain.post.entity.Post;
-import com.example.team3final.domain.post.service.PostService;
+import com.example.team3final.domain.post.service.PostInternalService;
 import com.example.team3final.domain.report.entity.Report;
 import com.example.team3final.domain.report.enums.ReportReason;
 import com.example.team3final.domain.report.enums.ReportStatus;
-import com.example.team3final.domain.report.service.ReportService;
+import com.example.team3final.domain.report.service.ReportInternalService;
 import com.example.team3final.domain.user.dto.response.UserInfoDto;
-import com.example.team3final.domain.user.service.UserService;
+import com.example.team3final.domain.user.service.UserInternalService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -32,9 +32,9 @@ public class AiReportTool {
 
     private static final int MAX_REPORT_SCAN_SIZE = 100;
 
-    private final ReportService reportService;
-    private final PostService postService;
-    private final UserService userService;
+    private final ReportInternalService reportInternalService;
+    private final PostInternalService postInternalService;
+    private final UserInternalService userInternalService;
     private final AiReportDashboardQueryService aiReportDashboardQueryService;
     private final AdminDisputeService adminDisputeService;
 
@@ -55,13 +55,13 @@ public class AiReportTool {
             @ToolParam(description = "분석할 신고 ID", required = true)
             Long reportId
     ) {
-        Report report = reportService.getReportById(reportId);
+        Report report = reportInternalService.getReportById(reportId);
 
-        UserInfoDto reporter = userService.getUserInfo(report.getReporterId());
+        UserInfoDto reporter = userInternalService.getUserInfo(report.getReporterId());
 
         Post targetPost;
         try {
-            targetPost = postService.getPostById(report.getTargetId());
+            targetPost = postInternalService.getPostById(report.getTargetId());
         } catch (Exception e) {
             return new AiReportContextToolResult(
                     report.getId(),
@@ -83,7 +83,7 @@ public class AiReportTool {
             );
         }
 
-        UserInfoDto targetUser = userService.getUserInfo(targetPost.getAuthorId());
+        UserInfoDto targetUser = userInternalService.getUserInfo(targetPost.getAuthorId());
         UserReportCounts counts = countReportsByTargetUser(targetPost.getAuthorId());
 
         return new AiReportContextToolResult(
@@ -125,7 +125,7 @@ public class AiReportTool {
     ) {
         int resultLimit = limit == null || limit <= 0 ? 5 : Math.min(limit, 20);
 
-        List<Report> reports = reportService
+        List<Report> reports = reportInternalService
                 .getReportsForAdmin(null, PageRequest.of(0, MAX_REPORT_SCAN_SIZE))
                 .getContent();
 
@@ -134,7 +134,7 @@ public class AiReportTool {
         for (Report report : reports) {
             Post post;
             try {
-                post = postService.getPostById(report.getTargetId());
+                post = postInternalService.getPostById(report.getTargetId());
             } catch (Exception e) {
                 continue;
             }
@@ -255,7 +255,7 @@ public class AiReportTool {
      * AI가 관리자에게 읽기 쉬운 고위험 후보 설명을 생성할 수 있게 합니다.
      */
     private AiReportHighRiskUserToolResult toResult(MutableUserRisk risk) {
-        UserInfoDto userInfo = userService.getUserInfo(risk.userId());
+        UserInfoDto userInfo = userInternalService.getUserInfo(risk.userId());
 
         return new AiReportHighRiskUserToolResult(
                 risk.userId(),
@@ -276,7 +276,7 @@ public class AiReportTool {
      * 해당 작성자에게 쌓인 전체/미처리/채택 신고 수를 집계합니다.
      */
     private UserReportCounts countReportsByTargetUser(Long targetUserId) {
-        List<Report> reports = reportService
+        List<Report> reports = reportInternalService
                 .getReportsForAdmin(null, PageRequest.of(0, MAX_REPORT_SCAN_SIZE))
                 .getContent();
 
@@ -287,7 +287,7 @@ public class AiReportTool {
         for (Report report : reports) {
             Post post;
             try {
-                post = postService.getPostById(report.getTargetId());
+                post = postInternalService.getPostById(report.getTargetId());
             } catch (Exception e) {
                 continue;
             }

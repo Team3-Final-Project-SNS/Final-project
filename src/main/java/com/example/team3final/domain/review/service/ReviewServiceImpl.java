@@ -5,10 +5,10 @@ import com.example.team3final.common.exception.MatchException;
 import com.example.team3final.common.exception.ReviewException;
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.enums.MatchStatus;
-import com.example.team3final.domain.match.service.MatchService;
+import com.example.team3final.domain.match.service.MatchInternalService;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.dto.response.PostMatchInfoDto;
-import com.example.team3final.domain.post.service.PostService;
+import com.example.team3final.domain.post.service.PostInternalService;
 import com.example.team3final.domain.review.dto.request.CreateReviewRequestDto;
 import com.example.team3final.domain.review.dto.response.CreateReviewResponseDto;
 import com.example.team3final.domain.review.dto.response.GetWrittenReviewsResponseDto;
@@ -22,8 +22,9 @@ import com.example.team3final.domain.review.repository.ReviewBadTagRepository;
 import com.example.team3final.domain.review.repository.ReviewGoodTagRepository;
 import com.example.team3final.domain.review.repository.ReviewRepository;
 import com.example.team3final.domain.user.dto.response.UserInfoDto;
+import com.example.team3final.domain.user.service.UserInternalService;
+import com.example.team3final.domain.user.service.UserMannerService;
 import com.example.team3final.domain.user.service.UserPointService;
-import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -85,9 +86,10 @@ public class ReviewServiceImpl implements ReviewService {
     private final ReviewGoodTagRepository reviewGoodTagRepository;
     private final ReviewBadTagRepository reviewBadTagRepository;
     private final ReviewAvoidanceService reviewAvoidanceService;
-    private final MatchService matchService;
-    private final PostService postService;
-    private final UserService userService;
+    private final MatchInternalService matchInternalService;
+    private final PostInternalService postInternalService;
+    private final UserMannerService userMannerService;
+    private final UserInternalService userInternalService;
     private final UserPointService userPointService;
 
 
@@ -111,8 +113,8 @@ public class ReviewServiceImpl implements ReviewService {
             Long writerId,
             CreateReviewRequestDto request
     ) {
-        Match match = matchService.getMatchById(matchId);
-        PostMatchInfoDto post = postService.getPostMatchInfo(match.getPostId());
+        Match match = matchInternalService.getMatchById(matchId);
+        PostMatchInfoDto post = postInternalService.getPostMatchInfo(match.getPostId());
 
         // 1차 방어: 애플리케이션 레벨 중복 체크
         validateReviewCreatable(match, post, writerId);
@@ -122,7 +124,7 @@ public class ReviewServiceImpl implements ReviewService {
         validateTags(goodTags, badTags);
 
         Long authorId = post.authorId();
-        List<Long> postMatchIds = matchService.getMatchIdsByPostId(post.postId());
+        List<Long> postMatchIds = matchInternalService.getMatchIdsByPostId(post.postId());
         BigDecimal previousMeetingAverageScore = calculateMeetingAverageScore(postMatchIds);
         int tagScoreDelta = calculateTagScoreDelta(goodTags, badTags);
 
@@ -163,12 +165,12 @@ public class ReviewServiceImpl implements ReviewService {
         // 매너온도 갱신 — 비관락 버전으로 교체
         BigDecimal currentMeetingAverageScore = calculateMeetingAverageScore(postMatchIds);
         BigDecimal averageScoreDelta = currentMeetingAverageScore.subtract(previousMeetingAverageScore);
-        userService.updateMannerTemperatureWithLock(authorId, averageScoreDelta, MANNER_WEIGHT);
+        userMannerService.updateMannerTemperatureWithLock(authorId, averageScoreDelta, MANNER_WEIGHT);
 
         // 12. 매너 온도 상승 알림 - 후기로 인한 매너온도 반영자에게
         notificationPublisher.sendMannerTemperatureChanged(authorId);
 
-        UserInfoDto targetInfo = userService.getUserInfo(authorId);
+        UserInfoDto targetInfo = userInternalService.getUserInfo(authorId);
 
         return CreateReviewResponseDto.of(
                 review,
@@ -193,7 +195,7 @@ public class ReviewServiceImpl implements ReviewService {
         List<Review> reviews = reviewRepository.findAllByWriterIdOrderByCreatedAtDesc(currentUserId);
         Map<Long, List<ReviewGoodTag>> goodTagMap = getGoodTagMap(reviews);
         Map<Long, List<ReviewBadTag>> badTagMap = getBadTagMap(reviews);
-        UserInfoDto currentUserInfo = userService.getUserInfo(currentUserId);
+        UserInfoDto currentUserInfo = userInternalService.getUserInfo(currentUserId);
 
         List<ReviewItemResponseDto> content = reviews.stream()
                 .map(review -> {
@@ -375,14 +377,14 @@ public class ReviewServiceImpl implements ReviewService {
             BigDecimal previousMeetingAverageScore,
             BigDecimal currentMeetingAverageScore
     ) {
-        BigDecimal currentTemperature = userService.getMannerTemperature(authorId);
+        BigDecimal currentTemperature = userMannerService.getMannerTemperature(authorId);
         BigDecimal averageScoreDelta = currentMeetingAverageScore.subtract(previousMeetingAverageScore);
 
         BigDecimal changedTemperature = currentTemperature
                 .add(averageScoreDelta.multiply(MANNER_WEIGHT))
                 .setScale(1, RoundingMode.HALF_UP);
 
-        userService.updateMannerTemperature(authorId, clampMannerTemperature(changedTemperature));
+        userMannerService.updateMannerTemperature(authorId, clampMannerTemperature(changedTemperature));
     }
 
 

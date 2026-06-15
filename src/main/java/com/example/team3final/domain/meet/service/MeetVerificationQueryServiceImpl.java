@@ -1,0 +1,201 @@
+package com.example.team3final.domain.meet.service;
+
+import com.example.team3final.common.exception.ErrorCode;
+import com.example.team3final.common.exception.MeetException;
+import com.example.team3final.domain.match.dto.response.MatchInfoDto;
+import com.example.team3final.domain.match.service.MatchInternalService;
+import com.example.team3final.domain.meet.context.MeetVerificationContext;
+import com.example.team3final.domain.meet.dto.response.GetMeetExtensionResponseDto;
+import com.example.team3final.domain.meet.dto.response.MeetVerificationResponseDto;
+import com.example.team3final.domain.meet.dto.response.NoShowMatchResponseDto;
+import com.example.team3final.domain.meet.dto.response.QrResponseDto;
+import com.example.team3final.domain.meet.entity.MeetVerification;
+import com.example.team3final.domain.meet.enums.VerificationStatus;
+import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
+import com.example.team3final.domain.meet.service.support.MeetQrSupport;
+import com.example.team3final.domain.meet.service.support.MeetVerificationContextReader;
+import com.example.team3final.domain.meet.service.support.MeetVerificationPolicy;
+import com.example.team3final.domain.post.dto.response.PostInfoDto;
+import com.example.team3final.domain.post.service.PostInternalService;
+import com.example.team3final.domain.user.service.UserInternalService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+// MeetVerification 도메인의 조회 기능을 담당하는 서비스
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class MeetVerificationQueryServiceImpl implements MeetVerificationQueryService {
+
+    private final MeetVerificationRepository meetVerificationRepository;
+    private final MatchInternalService matchInternalService;
+    private final PostInternalService postInternalService;
+    private final UserInternalService userInternalService;
+    private final MeetVerificationContextReader contextReader;
+    private final MeetQrSupport meetQrSupport;
+
+
+    @Override
+    @Transactional
+    public QrResponseDto getMeetQrByPost(Long userId, Long postId) {
+
+        // Post 정보를 조회해서 요청자가 등록자인지 확인
+        PostInfoDto postInfoDto = postInternalService.getPostInfo(postId);
+
+        // QR은 등록자만 화면에 띄울 수 있으므로, 작성자 검증
+        if (!userId.equals(postInfoDto.authorId())) {
+            throw new MeetException(ErrorCode.QR_NOT_AUTHOR);
+        }
+
+        // 같은 Post에 속한 모든 Match ID를 조회
+        List<Long> siblingMatchIds = matchInternalService.getMatchIdsByPostId(postId);
+
+        // 매칭이 하나도 없다면 아직 QR을 발급할 수 없는 상태
+        if (siblingMatchIds.isEmpty()) {
+            throw new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED);
+        }
+
+        // 같은 Post에 속한 MeetVerification을 벌크 조회
+        List<MeetVerification> siblingMvList = meetVerificationRepository.findAllByMatchIdIn(siblingMatchIds);
+
+        // 등록자와 신청자 양측 장소 인증이 끝난 MeetVerification이 하나라도 있는지 확인
+        MeetVerification verified = siblingMvList.stream()
+                .filter(mv -> mv.getStatus() == VerificationStatus.VERIFIED)
+                .findFirst()
+                .orElseThrow( () -> new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED));
+
+        // 같은 Post에 이미 발급된 공통 QR 토큰이 있는지 확인
+        Optional<MeetVerification> tokenOwnerOpt = meetQrSupport.findPostQrTokenOwner(siblingMvList);
+
+        MeetVerification tokenOwner;
+
+        if (tokenOwnerOpt.isPresent()) {
+            // 이미 발급된 공통 QR 토큰이 있다면 그 토큰을 재사용
+            tokenOwner = tokenOwnerOpt.get();
+        } else {
+            // 아직 QR 토큰이 없다면 VERIFIED 상태의 MeetVerification에 최초 발급
+            meetQrSupport.issueQrTokenIfNeeded(verified, postId);
+
+            // issueQrTokenIfNeeded()가 verified에 QR 토큰을 발급했으므로,
+            // 이 verified가 현재 Post의 QR token owner가 됨
+            tokenOwner = verified;
+        }
+
+        // 공통 QR 토큰의 만료 여부를 확인
+        if (tokenOwner.isQrExpired()) {
+            throw new MeetException(ErrorCode.QR_EXPIRED);
+        }
+
+        // Post 기준 공통 QR 응답을 반환
+        return QrResponseDto.of(
+                postId,
+                tokenOwner.getQrToken(),
+                tokenOwner.getQrExpiresAt()
+        );
+    }
+
+    // 인증 상태 조회
+    @Override
+    public MeetVerificationResponseDto getMeetVerification(Long userId, Long matchId) {
+
+        // MeetVerification + MatchInfo + PostInfo 한 번에 조회
+        MeetVerificationContext ctx = contextReader.loadMeetContext(matchId);
+
+        MatchInfoDto matchInfo = ctx.matchInfo();
+
+        PostInfoDto postInfo = ctx.postInfo();
+
+        // 매칭 당사자 검증 (등록자인지 신청자인지)
+        contextReader.validateParticipant(userId, matchInfo, postInfo);
+
+        // 등록자 닉네임 조회
+        String authorNickname = userInternalService.getUserInfo(postInfo.authorId()).nickname();
+
+        // postId 기준으로 모든 형제 matchId 조회
+        List<Long> siblingMatchIds = matchInternalService.getMatchIdsByPostId(matchInfo.postId());
+
+        // 형제 matchId → MeetVerification 목록 조회 (N+1 방지용 벌크 조회)
+        List<MeetVerification> siblingMvList = meetVerificationRepository.findAllByMatchIdIn(siblingMatchIds);
+
+        // 형제 matchId → MatchInfoDto 벌크 조회 (N+1 방지용 벌크 조회)
+        Map<Long, MatchInfoDto> siblingMatchInfoMap = matchInternalService.getMatchInfos(siblingMatchIds);
+
+        // 신청자 userId 목록 추출
+        List<Long> applicantIds = siblingMatchInfoMap.values().stream()
+                .map(MatchInfoDto::applicantId)
+                .toList();
+
+        // 신청자 닉네임 벌크 조회
+        Map<Long, String> nicknameMap = userInternalService.getUserNicknameMap(applicantIds);
+
+        // matchId -> ParticipantInfo 맵 조립
+        Map<Long, MeetVerificationResponseDto.ParticipantInfo> applicantInfoMap =
+                siblingMatchInfoMap.entrySet().stream()
+                        .collect(Collectors.toMap(Map.Entry::getKey,
+                                e -> new MeetVerificationResponseDto.ParticipantInfo(
+                                        e.getValue().applicantId(),
+                                        nicknameMap.getOrDefault(e.getValue().applicantId(), "알 수 없음")
+                                )));
+
+        return MeetVerificationResponseDto.of(
+                matchId,
+                ctx.meetVerification(),
+                authorNickname,
+                siblingMvList,
+                applicantInfoMap
+        );
+    }
+
+    // 연장 상태 조회
+    @Override
+    public GetMeetExtensionResponseDto getMeetExtension(Long userId, Long matchId) {
+
+        // MeetVerification + MatchInfo + PostInfo 한 번에 조회
+        MeetVerificationContext ctx = contextReader.loadMeetContext(matchId);
+        MeetVerification meetVerification = ctx.meetVerification();
+        MatchInfoDto matchInfoDto = ctx.matchInfo();
+        PostInfoDto postInfoDto = ctx.postInfo();
+
+        // 매칭 당사자 확인
+        contextReader.validateParticipant(userId, matchInfoDto, postInfoDto);
+
+        // NONE 상태면 아직 요청자 없음 → 닉네임 null 처리
+        String requesterNickname = null;
+        if (meetVerification.getExtensionRequesterId() != null) {
+            requesterNickname = userInternalService.getUserInfo(meetVerification.getExtensionRequesterId()).nickname();
+        }
+
+        return GetMeetExtensionResponseDto.of(meetVerification, requesterNickname, postInfoDto.meetAt(), userId);
+    }
+
+    // 사용자 노쇼 예정 매칭 목록 조회
+    // 내가 등록자 또는 신청자로 참여한 매칭 중 노쇼 예정 상태인 것만 반환
+    // 이의제기 화면 드롭다운에 표시할 매칭 목록 제공용
+    @Override
+    public List<NoShowMatchResponseDto> getNoShowMatchesForUser(Long userId) {
+
+        // 1. 내가 참여한 전체 매칭 ID 목록 조회 (matchService 통해 서비스투서비스)
+        List<Long> myMatchIds = matchInternalService.getAllMatchIdsByUserId(userId);
+
+        // 2. 매칭이 없으면 빈 리스트 반환
+        if (myMatchIds.isEmpty()) {
+            return List.of();
+        }
+
+        // 3. 내 매칭 중 노쇼 예정 상태인 MeetVerification만 조회
+        // NO_SHOW_STATUSES = HOST_NO_SHOW, GUEST_NO_SHOW, BOTH_NO_SHOW
+        List<MeetVerification> noShowMvList = meetVerificationRepository
+                .findAllByMatchIdInAndStatusIn(myMatchIds, MeetVerificationPolicy.NO_SHOW_STATUSES);
+
+        // 4. DTO 변환
+        return noShowMvList.stream()
+                .map(NoShowMatchResponseDto::from)
+                .toList();
+    }
+}
