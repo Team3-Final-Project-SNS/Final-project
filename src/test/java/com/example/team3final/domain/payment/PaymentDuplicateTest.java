@@ -73,7 +73,7 @@ class PaymentDuplicateTest {
     // 테스트 2: 1차 방어 — 이미 PAID된 결제에 verifyPayment 중복 호출
     // ====================================================================
     //
-    // 방어 위치: PaymentServiceImpl.verifyPayment()
+    // 방어 위치: PaymentCommandServiceImpl.verifyPayment()
     //   if (payment.getStatus().isFinalized()) {
     //       throw new PaymentException(ErrorCode.PAY_ALREADY_PROCESSED);
     //   }
@@ -111,7 +111,7 @@ class PaymentDuplicateTest {
     // 테스트 3: 1차 방어 — isFinalized() 상태 체크 동작 검증
     // ====================================================================
     //
-    // PaymentServiceImpl.verifyPayment()의 핵심 방어 조건:
+    // PaymentCommandServiceImpl.verifyPayment()의 핵심 방어 조건:
     //   if (payment.getStatus().isFinalized()) → 처리 거부
     //
     // isFinalized() = true 조건: PAID 또는 CANCELLED
