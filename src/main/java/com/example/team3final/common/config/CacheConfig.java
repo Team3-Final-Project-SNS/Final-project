@@ -49,7 +49,7 @@ public class CacheConfig {
                         // 미확인 알림 카운트 캐시: 10초 TTL
                         // 벨 아이콘 숫자는 즉각 반영이 중요 → 매우 짧게
                         NotificationCachePolicy.NOTIFICATION_UNREAD,
-                        NotificationCachePolicy.notificationCacheConfig(
+                        NotificationCachePolicy.notificationUnreadCacheConfig(
                                 NotificationCachePolicy.NOTIFICATION_UNREAD_TTL
                         )
                 ))
