@@ -16,6 +16,8 @@ import com.example.team3final.domain.dispute.enums.DisputeStatus;
 import com.example.team3final.domain.dispute.service.DisputeInternalService;
 import com.example.team3final.domain.dispute.util.DisputeRedisZSetKeys;
 import com.example.team3final.domain.match.entity.Match;
+import com.example.team3final.domain.match.context.NoShowDisputeSettlementResult;
+import com.example.team3final.domain.match.context.NoShowSettlementResult;
 import com.example.team3final.domain.match.service.MatchInternalService;
 import com.example.team3final.domain.match.service.MatchNoShowService;
 import com.example.team3final.domain.meet.entity.MeetVerification;
@@ -32,6 +34,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -165,6 +168,7 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
 
         // 매칭 정보 조회
         Match match = matchInternalService.getMatchById(dispute.getMatchId());
+        List<Long> processedMatchIds = new ArrayList<>();
 
         // 판정 결과에 따른 포인트 처리
         int refundedPoint = switch (requestDto.getStatus()) {
@@ -194,11 +198,14 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
 
                 VerificationStatus restoredStatus = meetVerification.getDisputedFromStatus();
 
-                yield matchNoShowService.markNoShowByDispute(
+                NoShowDisputeSettlementResult settlementResult =
+                        matchNoShowService.markNoShowByDispute(
                         dispute.getMatchId(),
                         restoredStatus,
                         dispute.getSubmitterId()
                 );
+                processedMatchIds.addAll(settlementResult.processedMatchIds());
+                yield settlementResult.refundedPoint();
             }
 
             case REJECTED -> {
@@ -223,7 +230,7 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
         };
 
         // HOLD는 전용 알림 발송 (24시간 이내 행동 유도 메시지)
-        applyDisputeJudgment(dispute, requestDto.getStatus(), match);
+        applyDisputeJudgment(dispute, requestDto.getStatus(), match, processedMatchIds);
 
         if (requestDto.getStatus() == DisputeStatus.HOLD) {
             // 24. 이의제기 보류 알림 - 이의제기 신청자에게
@@ -250,7 +257,8 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
     private void applyDisputeJudgment(
             Dispute dispute,
             DisputeStatus judgment,
-            Match match
+            Match match,
+            List<Long> processedMatchIds
     ) {
 
         if (judgment == DisputeStatus.HOLD) {
@@ -277,11 +285,9 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
 
             VerificationStatus restoredStatus = meetVerification.getDisputedFromStatus();
 
-            // PARTIALLY_ACCEPTED:
-            // - 노쇼 자체는 맞음
-            // - Match 상태 변경과 포인트 정산은 judgeDispute()에서 MatchService에 위임함
-            // - 여기서는 MeetVerification만 노쇼 확정 상태로 정리
-            meetVerification.confirmNoShowByAdmin();
+            // Match 서비스가 실제 종결한 형제 Match만 확정한다.
+            // 별도 관리자 판정을 기다리는 다른 DISPUTED Match는 그대로 유지한다.
+            meetVerificationNoShowService.confirmNoShows(processedMatchIds);
 
             if (restoredStatus == VerificationStatus.GUEST_NO_SHOW) {
                 chatInternalService.markGuestNoShow(postId, match.getApplicantId());
@@ -304,26 +310,25 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
 
             if (restoredStatus == VerificationStatus.HOST_NO_SHOW) {
 
-                matchNoShowService.markAuthorNoShow(dispute.getMatchId());
-
-                meetVerificationNoShowService.confirmNoShowByPost(postId);
+                NoShowSettlementResult settlementResult =
+                        matchNoShowService.markAuthorNoShow(dispute.getMatchId());
+                meetVerificationNoShowService.confirmNoShows(settlementResult.processedMatchIds());
 
                 chatInternalService.makeReadOnlyChatRoom(postId);
 
             } else if (restoredStatus == VerificationStatus.GUEST_NO_SHOW) {
 
-                matchNoShowService.markApplicantNoShow(dispute.getMatchId());
-
-                meetVerification.confirmNoShowByAdmin();
+                NoShowSettlementResult settlementResult =
+                        matchNoShowService.markApplicantNoShow(dispute.getMatchId());
+                meetVerificationNoShowService.confirmNoShows(settlementResult.processedMatchIds());
 
                 chatInternalService.markGuestNoShow(postId, match.getApplicantId());
 
             } else if (restoredStatus == VerificationStatus.BOTH_NO_SHOW) {
 
-                matchNoShowService.markBothNoShow(dispute.getMatchId());
-
-                // BOTH에는 등록자 귀책이 포함되므로 같은 Post의 형제 노쇼 인증도 함께 확정한다.
-                meetVerificationNoShowService.confirmNoShowByPost(postId);
+                NoShowSettlementResult settlementResult =
+                        matchNoShowService.markBothNoShow(dispute.getMatchId());
+                meetVerificationNoShowService.confirmNoShows(settlementResult.processedMatchIds());
 
                 chatInternalService.makeReadOnlyChatRoom(postId);
             }

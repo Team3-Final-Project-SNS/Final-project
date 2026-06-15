@@ -1,6 +1,7 @@
 package com.example.team3final.domain.match.service;
 
 import com.example.team3final.domain.match.context.NoShowDecision;
+import com.example.team3final.domain.match.context.NoShowDisputeSettlementResult;
 import com.example.team3final.domain.match.context.NoShowSettlementResult;
 import com.example.team3final.domain.meet.enums.VerificationStatus;
 
@@ -24,7 +25,7 @@ public interface MatchNoShowService {
     // 노쇼는 맞지만 이의제기자의 사유가 일부 인정된 케이스
     // 포인트 정산은 Match 도메인에서 처리
     // 반환값: 이의제기자에게 실제 반환된 포인트
-    int markNoShowByDispute(
+    NoShowDisputeSettlementResult markNoShowByDispute(
             Long matchId,
             VerificationStatus restoredStatus,
             Long submitterId

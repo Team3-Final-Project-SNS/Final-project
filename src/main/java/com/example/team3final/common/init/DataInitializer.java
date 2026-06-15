@@ -16,6 +16,8 @@ import com.example.team3final.domain.meet.entity.MeetVerification;
 import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
 import com.example.team3final.domain.pointTransaction.entity.PointTransaction;
 import com.example.team3final.domain.pointTransaction.enums.PointSource;
+import com.example.team3final.domain.pointTransaction.enums.PointReferenceType;
+import com.example.team3final.domain.pointTransaction.enums.PointSettlementReason;
 import com.example.team3final.domain.pointTransaction.enums.PointTransactionType;
 import com.example.team3final.domain.pointTransaction.repository.PointTransactionRepository;
 import com.example.team3final.domain.post.entity.Post;
@@ -370,6 +372,8 @@ public class DataInitializer implements ApplicationRunner {
                 PointTransaction.builder()
                         .userId(author.getId())
                         .matchId(activeMatch.getId())
+                        .referenceType(PointReferenceType.POST)
+                        .referenceId(activePost.getId())
                         .amount(-300)
                         .transactionType(PointTransactionType.DEPOSIT)
                         .balanceAfter(authorBonus - 300)
@@ -429,6 +433,9 @@ public class DataInitializer implements ApplicationRunner {
                 PointTransaction.builder()
                         .userId(author.getId())
                         .matchId(completedMatch.getId())
+                        .referenceType(PointReferenceType.POST)
+                        .referenceId(completedPost.getId())
+                        .settlementReason(PointSettlementReason.AUTHOR_DEPOSIT)
                         .amount(300)
                         .transactionType(PointTransactionType.REFUND)
                         .balanceAfter(authorBonus)
@@ -467,6 +474,9 @@ public class DataInitializer implements ApplicationRunner {
                 PointTransaction.builder()
                         .userId(applicant.getId())
                         .matchId(cancelledMatch.getId())
+                        .referenceType(PointReferenceType.MATCH)
+                        .referenceId(cancelledMatch.getId())
+                        .settlementReason(PointSettlementReason.APPLICANT_DEPOSIT)
                         .amount(-500)
                         .transactionType(PointTransactionType.PENALTY)
                         .balanceAfter(applicantBonus - 500)

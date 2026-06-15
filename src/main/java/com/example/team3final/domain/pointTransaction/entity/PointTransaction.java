@@ -3,6 +3,8 @@ package com.example.team3final.domain.pointTransaction.entity;
 
 import com.example.team3final.common.entity.BaseTimeEntity;
 import com.example.team3final.domain.pointTransaction.enums.PointSource;
+import com.example.team3final.domain.pointTransaction.enums.PointReferenceType;
+import com.example.team3final.domain.pointTransaction.enums.PointSettlementReason;
 import com.example.team3final.domain.pointTransaction.enums.PointTransactionType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -18,14 +20,15 @@ import java.time.LocalDateTime;
         name = "point_transactions",
         uniqueConstraints = {
                 @UniqueConstraint(
-                        // (user_id, match_id, transaction_type) 조합이 동일하면 중복 환불로 판단
-                        // NULL 처리: match_id가 NULL인 경우(가입 보너스 등)는 UNIQUE 비교에서 NULL ≠ NULL이므로 제약 위반 아님
-                        //            → 가입 보너스, 신고 보상 등 match_id=NULL 거래는 이 제약에 걸리지 않음 (의도된 동작)
-                        // 왜 amount를 제약에 넣지 않는가:
-                        //   동일 matchId에 같은 type으로 다른 금액이 들어오는 경우는 없음 (금액은 항상 예치금 기준으로 고정)
-                        //   amount를 넣으면 "같은 금액 중복"만 막아서 방어력이 약해짐
-                        name = "uk_point_tx_user_match_type",
-                        columnNames = {"user_id", "match_id", "transaction_type"}
+                        // transaction_type을 제외해 동일 책임비에 REFUND와 PENALTY가 함께 생기는 것도 차단한다.
+                        // settlement_reason이 NULL인 예치/충전/보상 거래는 이 제약의 대상이 아니다.
+                        name = "uk_point_tx_settlement",
+                        columnNames = {
+                                "user_id",
+                                "reference_type",
+                                "reference_id",
+                                "settlement_reason"
+                        }
                 )
         }
 )
@@ -42,6 +45,17 @@ public class PointTransaction extends BaseTimeEntity {
 
     @Column(name = "match_id", nullable = true, updatable = false)
     private Long matchId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "reference_type", length = 20, updatable = false)
+    private PointReferenceType referenceType;
+
+    @Column(name = "reference_id", updatable = false)
+    private Long referenceId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "settlement_reason", length = 30, updatable = false)
+    private PointSettlementReason settlementReason;
 
     @Column(name = "amount", nullable = false) //  포인트 변동량
     private int amount;
@@ -65,6 +79,9 @@ public class PointTransaction extends BaseTimeEntity {
     private PointTransaction(
             Long userId,
             Long matchId,
+            PointReferenceType referenceType,
+            Long referenceId,
+            PointSettlementReason settlementReason,
             int amount,
             PointTransactionType transactionType,
             int balanceAfter,
@@ -73,6 +90,9 @@ public class PointTransaction extends BaseTimeEntity {
     ) {
         this.userId = userId;
         this.matchId = matchId;
+        this.referenceType = referenceType;
+        this.referenceId = referenceId;
+        this.settlementReason = settlementReason;
         this.amount = amount;
         this.transactionType = transactionType;
         this.balanceAfter = balanceAfter;

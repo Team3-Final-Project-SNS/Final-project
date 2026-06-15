@@ -4,6 +4,8 @@ import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.PointTransactionException;
 import com.example.team3final.domain.pointTransaction.entity.PointTransaction;
 import com.example.team3final.domain.pointTransaction.enums.PointSource;
+import com.example.team3final.domain.pointTransaction.enums.PointReferenceType;
+import com.example.team3final.domain.pointTransaction.enums.PointSettlementReason;
 import com.example.team3final.domain.pointTransaction.enums.PointTransactionType;
 import com.example.team3final.domain.pointTransaction.repository.PointTransactionRepository;
 import com.example.team3final.domain.user.entity.User;
@@ -11,8 +13,6 @@ import com.example.team3final.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -114,6 +114,42 @@ public class UserPointServiceImpl implements UserPointService{
                 user.getTotalPoint(), PointSource.FREE);
     }
 
+    @Override
+    public void refundApplicantDeposit(Long userId, int amount, Long matchId) {
+        settleDeposit(userId, amount, matchId, PointReferenceType.MATCH,
+                PointSettlementReason.APPLICANT_DEPOSIT, PointTransactionType.REFUND);
+    }
+
+    @Override
+    public void partialRefundApplicantDeposit(Long userId, int amount, Long matchId) {
+        settleDeposit(userId, amount, matchId, PointReferenceType.MATCH,
+                PointSettlementReason.APPLICANT_DEPOSIT, PointTransactionType.PARTIAL_REFUND);
+    }
+
+    @Override
+    public void penaltyApplicantDeposit(Long userId, int amount, Long matchId) {
+        settleDeposit(userId, amount, matchId, PointReferenceType.MATCH,
+                PointSettlementReason.APPLICANT_DEPOSIT, PointTransactionType.PENALTY);
+    }
+
+    @Override
+    public void refundAuthorDeposit(Long userId, int amount, Long postId) {
+        settleDeposit(userId, amount, postId, PointReferenceType.POST,
+                PointSettlementReason.AUTHOR_DEPOSIT, PointTransactionType.REFUND);
+    }
+
+    @Override
+    public void partialRefundAuthorDeposit(Long userId, int amount, Long postId) {
+        settleDeposit(userId, amount, postId, PointReferenceType.POST,
+                PointSettlementReason.AUTHOR_DEPOSIT, PointTransactionType.PARTIAL_REFUND);
+    }
+
+    @Override
+    public void penaltyAuthorDeposit(Long userId, int amount, Long postId) {
+        settleDeposit(userId, amount, postId, PointReferenceType.POST,
+                PointSettlementReason.AUTHOR_DEPOSIT, PointTransactionType.PENALTY);
+    }
+
     // 신고 채택 포상 포인트 지급.
     // 이때 매칭이 Null인 이유: 신고는 매칭id가 중요하지 않음. 신고, 채팅, 유저 신고 등이 존재하기 때문.
     @Override
@@ -213,15 +249,75 @@ public class UserPointServiceImpl implements UserPointService{
     private void saveTransaction(Long userId, Long matchId, int amount,
                                  PointTransactionType type, int balanceAfter,
                                  PointSource pointSource) {
+        saveTransaction(userId, matchId, null, null, null, amount, type, balanceAfter, pointSource);
+    }
+
+    private void saveTransaction(
+            Long userId,
+            Long matchId,
+            PointReferenceType referenceType,
+            Long referenceId,
+            PointSettlementReason settlementReason,
+            int amount,
+            PointTransactionType type,
+            int balanceAfter,
+            PointSource pointSource
+    ) {
         pointTransactionRepository.save(
                 PointTransaction.builder()
                         .userId(userId)
                         .matchId(matchId)
+                        .referenceType(referenceType)
+                        .referenceId(referenceId)
+                        .settlementReason(settlementReason)
                         .amount(amount)
                         .transactionType(type)
                         .balanceAfter(balanceAfter)
                         .pointSource(pointSource)
                         .build()
+        );
+    }
+
+    private void settleDeposit(
+            Long userId,
+            int depositAmount,
+            Long referenceId,
+            PointReferenceType referenceType,
+            PointSettlementReason settlementReason,
+            PointTransactionType transactionType
+    ) {
+        // 같은 사용자의 동시 정산이 잔액을 덮어쓰지 않도록 사용자 행을 먼저 잠근다.
+        User user = getUserOrThrowWithLock(userId);
+
+        // 락을 얻은 뒤 다시 확인해 재시도/동시 요청을 멱등하게 처리한다.
+        if (hasSettlement(userId, referenceType, referenceId, settlementReason)) {
+            return;
+        }
+
+        int transactionAmount;
+        if (transactionType == PointTransactionType.REFUND) {
+            transactionAmount = depositAmount;
+            user.addFreePoint(transactionAmount);
+        } else if (transactionType == PointTransactionType.PARTIAL_REFUND) {
+            transactionAmount = depositAmount / 2;
+            user.addFreePoint(transactionAmount);
+        } else if (transactionType == PointTransactionType.PENALTY) {
+            // 책임비는 예치 시 이미 잔액에서 빠졌으므로 패널티는 이력만 남긴다.
+            transactionAmount = -depositAmount;
+        } else {
+            throw new IllegalArgumentException("지원하지 않는 책임비 정산 타입입니다: " + transactionType);
+        }
+
+        saveTransaction(
+                userId,
+                referenceType == PointReferenceType.MATCH ? referenceId : null,
+                referenceType,
+                referenceId,
+                settlementReason,
+                transactionAmount,
+                transactionType,
+                user.getTotalPoint(),
+                PointSource.FREE
         );
     }
 
@@ -235,15 +331,30 @@ public class UserPointServiceImpl implements UserPointService{
 
     @Override
     @Transactional(readOnly = true)
-    public boolean hasSettlement(Long userId, Long referenceId) {
-        return pointTransactionRepository.existsByUserIdAndMatchIdAndTransactionTypeIn(
-                userId,
-                referenceId,
-                List.of(
-                        PointTransactionType.REFUND,
-                        PointTransactionType.PARTIAL_REFUND,
-                        PointTransactionType.PENALTY
-                )
-        );
+    public boolean hasApplicantDepositSettlement(Long userId, Long matchId) {
+        return hasSettlement(userId, PointReferenceType.MATCH, matchId,
+                PointSettlementReason.APPLICANT_DEPOSIT);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean hasAuthorDepositSettlement(Long userId, Long postId) {
+        return hasSettlement(userId, PointReferenceType.POST, postId,
+                PointSettlementReason.AUTHOR_DEPOSIT);
+    }
+
+    private boolean hasSettlement(
+            Long userId,
+            PointReferenceType referenceType,
+            Long referenceId,
+            PointSettlementReason settlementReason
+    ) {
+        return pointTransactionRepository
+                .existsByUserIdAndReferenceTypeAndReferenceIdAndSettlementReason(
+                        userId,
+                        referenceType,
+                        referenceId,
+                        settlementReason
+                );
     }
 }

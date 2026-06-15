@@ -17,9 +17,8 @@ public interface MeetVerificationNoShowService {
     // 노쇼 확정 배치 — _NO_SHOW 상태가 된 지 24시간 지난 건 알림 발송 + 확정 처리
     void judgeNoShowConfirmed();
 
-    // 특정 Post에 속한 노쇼/이의제기 상태 MeetVerification들을 관리자 노쇼 확정 상태로 일괄 정리
-    // 등록자 노쇼처럼 Post 전체 책임이 확정되는 경우 사용
-    void confirmNoShowByPost(Long postId);
+    // Match 정산 서비스가 실제 처리한 대상만 관리자 노쇼 확정 상태로 변경한다.
+    void confirmNoShows(java.util.List<Long> matchIds);
 
     // Admin 도메인에서 사용할 노쇼 후보군 조회
     // HOST_NO_SHOW, GUEST_NO_SHOW, BOTH_NO_SHOW
