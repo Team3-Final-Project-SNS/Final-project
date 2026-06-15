@@ -16,6 +16,12 @@ public interface MatchRepository extends JpaRepository<Match, Long>, MatchReposi
     // 특정 게시글에 특정 상태(주로 MATCHED)인 매칭이 현재 몇 건인지 카운트
     long countByPostIdAndStatus(Long postId, MatchStatus status);
 
+    // 그룹 완료/노쇼 판단에서는 MATCHED와 DISPUTED를 모두 활성 매칭으로 취급
+    long countByPostIdAndStatusIn(Long postId, List<MatchStatus> statuses);
+
+    // 같은 Post의 활성 매칭을 결정적인 순서로 처리해 그룹 정산 결과를 일관되게 유지
+    List<Match> findAllByPostIdAndStatusInOrderByIdAsc(Long postId, List<MatchStatus> statuses);
+
     // MATCHED 상태인 매칭만 중복으로 판단
     // CANCELLED 상태는 이미 취소된 것이므로 재신청 허용
     // SQL: SELECT EXISTS (

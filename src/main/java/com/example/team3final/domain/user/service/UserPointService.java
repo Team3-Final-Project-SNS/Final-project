@@ -71,4 +71,7 @@ public interface UserPointService {
 
     // 유저 포인트 총 보유량 조회 (유료 + 무료 포인트)
     int getTotalPoint(Long userId);
+
+    // 동일 책임비 대상에 환급/부분 환급/패널티 중 하나가 이미 기록됐는지 확인
+    boolean hasSettlement(Long userId, Long referenceId);
 }

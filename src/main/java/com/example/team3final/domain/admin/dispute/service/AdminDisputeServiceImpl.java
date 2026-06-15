@@ -322,7 +322,8 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
 
                 matchNoShowService.markBothNoShow(dispute.getMatchId());
 
-                meetVerification.confirmNoShowByAdmin();
+                // BOTH에는 등록자 귀책이 포함되므로 같은 Post의 형제 노쇼 인증도 함께 확정한다.
+                meetVerificationNoShowService.confirmNoShowByPost(postId);
 
                 chatInternalService.makeReadOnlyChatRoom(postId);
             }

@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 
 // Match 도메인의 생명주기 전환을 담당하는 서비스
 // QR 인증 완료, 시스템 취소, Post 완료 처리처럼 매칭 진행 상태와 게시글 완료 상태가 함께 전환되는 흐름을 처리
@@ -127,16 +128,18 @@ public class MatchLifecycleServiceImpl implements MatchLifecycleService {
     @Override
     public void completePostIfAllMatchesCompleted(Long postId) {
 
-        // 방어 로직 -> 아직 QR 인증이 끝나지 않은 MATCHED 매칭이 있다면 Post를 완료하면 안 됨
-        long remainingMatchedCount = matchRepository.countByPostIdAndStatus(postId, MatchStatus.MATCHED);
+        // Post 락을 먼저 잡아 정상 완료와 노쇼/이의제기 완료가 동시에 등록자 책임비를 정산하지 않게 한다.
+        Post post = postInternalService.getPostByIdWithLock(postId);
 
-        // 남은 MATCHED 매칭이 있으면 아직 그룹 만남이 끝난 것이 아니므로 스킵
-        if (remainingMatchedCount > 0) {
+        long remainingActiveCount = matchRepository.countByPostIdAndStatusIn(
+                postId,
+                List.of(MatchStatus.MATCHED, MatchStatus.DISPUTED)
+        );
+
+        // DISPUTED도 아직 결론이 나지 않은 활성 Match이므로 Post 완료를 보류한다.
+        if (remainingActiveCount > 0) {
             return;
         }
-
-        // 이미 PostService에 있는 PESSIMISTIC_WRITE 락 조회
-        Post post = postInternalService.getPostByIdWithLock(postId);
 
         // 멱등성 보장 -> 이미 완료된 Post면 등록자 환급도 다시 하지 않음
         if (post.getStatus() == PostStatus.COMPLETED) {
@@ -150,11 +153,13 @@ public class MatchLifecycleServiceImpl implements MatchLifecycleService {
         publishPostVectorDeleteEvent(post.getId());
 
         // 등록자 책임비는 그룹 만남 전체가 정상 종료된 시점에 한 번만 환급
-        userPointService.refundPoint(
-                post.getAuthorId(),
-                post.getAuthorDeposit(),
-                post.getId()
-        );
+        if (!userPointService.hasSettlement(post.getAuthorId(), post.getId())) {
+            userPointService.refundPoint(
+                    post.getAuthorId(),
+                    post.getAuthorDeposit(),
+                    post.getId()
+            );
+        }
     }
 
     private void publishPostVectorDeleteEvent(Long postId) {

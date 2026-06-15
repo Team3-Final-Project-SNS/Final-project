@@ -1,16 +1,13 @@
 package com.example.team3final.domain.meet.service;
 
 import com.example.team3final.domain.chat.service.ChatInternalService;
-import com.example.team3final.domain.dispute.service.DisputeInternalService;
 import com.example.team3final.domain.location.service.UserLocationCleanupService;
 import com.example.team3final.domain.location.service.UserLocationService;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.service.MatchInternalService;
 import com.example.team3final.domain.match.service.MatchLifecycleService;
-import com.example.team3final.domain.match.service.MatchNoShowService;
 import com.example.team3final.domain.meet.context.MeetVerificationBulkContext;
-import com.example.team3final.domain.meet.context.NoShowConfirmedNotificationTarget;
 import com.example.team3final.domain.meet.entity.MeetVerification;
 import com.example.team3final.domain.meet.enums.VerificationStatus;
 import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
@@ -25,14 +22,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.stream.Collectors;
 
 // MeetVerification 도메인의 노쇼 판정 및 노쇼 확정 처리를 담당하는 서비스
 @Slf4j
@@ -47,11 +41,10 @@ public class MeetVerificationNoShowServiceImpl implements MeetVerificationNoShow
     private final PostInternalService postInternalService;
     private final MatchInternalService matchInternalService;
     private final MatchLifecycleService matchLifecycleService;
-    private final MatchNoShowService matchNoShowService;
     private final UserLocationService userLocationService;
     private final NotificationPublisher notificationPublisher;
-    private final DisputeInternalService disputeInternalService;
     private final MeetVerificationContextReader contextReader;
+    private final MeetVerificationNoShowSettlementService noShowSettlementService;
 
     // GPS 노쇼 배치 판정 — 스케줄러가 주기적으로 호출
     // 판정 대상: PENDING 상태 (양측 GPS 인증이 모두 완료되지 않은 매칭)
@@ -372,7 +365,7 @@ public class MeetVerificationNoShowServiceImpl implements MeetVerificationNoShow
     // 노쇼 확정 — 스케줄러가 주기적으로 호출
     // 노쇼 예정 상태에서 24시간이 지나면 최종 확정 처리
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public void judgeNoShowConfirmed() {
 
 //        LocalDateTime deadline =
@@ -400,144 +393,27 @@ public class MeetVerificationNoShowServiceImpl implements MeetVerificationNoShow
         log.info("[노쇼확정] 배치 시작 - deadline={}, matchIds={}",
                 deadline, matchIds);
 
-        // ===== Kafka 발행 대상 리스트 — DB 커밋 후 발행하기 위해 모아둠 =====
-        List<NoShowConfirmedNotificationTarget> notificationTargets = new ArrayList<>();
-
-        // ===== afterCommit()에서 Kafka 발행 + afterCompletion()에서 COMMIT/ROLLBACK 로그 =====
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-
-                    @Override
-                    public void afterCommit() {
-                        // DB 커밋 성공 후에만 Kafka 알림 발행
-                        for (NoShowConfirmedNotificationTarget target : notificationTargets) {
-                            notificationPublisher.sendNoShowConfirmed(
-                                    target.userId(),
-                                    target.matchId()
-                            );
-                        }
-                        log.info("[노쇼확정] 알림 발행 완료 - targets={}", notificationTargets);
-                    }
-
-                    @Override
-                    public void afterCompletion(int status) {
-                        if (status == TransactionSynchronization.STATUS_COMMITTED) {
-                            log.info(
-                                    "[노쇼확정] 트랜잭션 COMMIT - matchIds={}",
-                                    matchIds
-                            );
-                        } else {
-                            log.error(
-                                    "[노쇼확정] 트랜잭션 ROLLBACK - matchIds={}",
-                                    matchIds
-                            );
-                        }
-                    }
-                }
-        );
-
         MeetVerificationBulkContext bulk = contextReader.loadBulkMatchContext(matchIds);
+        Map<Long, List<Long>> matchIdsByPostId = noShowList.stream()
+                .map(MeetVerification::getMatchId)
+                .filter(bulk.matchInfoMap()::containsKey)
+                .collect(Collectors.groupingBy(
+                        matchId -> bulk.matchInfoMap().get(matchId).postId()
+                ));
 
-        Set<Long> activeDisputeMatchIds =
-                disputeInternalService.getMatchIdsWithActiveDispute(matchIds);
-
-        for (MeetVerification meetVerification : noShowList) {
-
-            Long matchId = meetVerification.getMatchId();
-
+        for (Map.Entry<Long, List<Long>> entry : matchIdsByPostId.entrySet()) {
             try {
-                log.info(
-                        "[노쇼확정] 처리 시작 - matchId={}, status={}, sent={}",
-                        matchId,
-                        meetVerification.getStatus(),
-                        meetVerification.isNoShowConfirmedSent()
-                );
-
-                if (activeDisputeMatchIds.contains(matchId)) {
-                    log.info(
-                            "[노쇼확정] 이의제기 검토 중 스킵 - matchId={}",
-                            matchId
-                    );
-                    continue;
-                }
-
-                MatchInfoDto matchInfoDto =
-                        bulk.matchInfoMap().get(matchId);
-
-                if (matchInfoDto == null) {
-                    log.warn(
-                            "[노쇼확정] Match 정보 없음 - matchId={}",
-                            matchId
-                    );
-                    continue;
-                }
-
-                PostInfoDto postInfoDto =
-                        bulk.postInfoMap().get(matchInfoDto.postId());
-
-                if (postInfoDto == null) {
-                    log.warn(
-                            "[노쇼확정] Post 정보 없음 - matchId={}, postId={}",
-                            matchId,
-                            matchInfoDto.postId()
-                    );
-                    continue;
-                }
-
-                VerificationStatus status = meetVerification.getStatus();
-
-                if (!meetVerification.isNoShowConfirmedSent()) {
-
-                    // Kafka 발행을 afterCommit()으로 미뤄서 DB 롤백 시 알림 중복 발송 방지
-                    if (status == VerificationStatus.BOTH_NO_SHOW) {
-                        matchNoShowService.markBothNoShow(matchId);
-
-                        notificationTargets.add(
-                                new NoShowConfirmedNotificationTarget(postInfoDto.authorId(), matchId)
-                        );
-                        notificationTargets.add(
-                                new NoShowConfirmedNotificationTarget(matchInfoDto.applicantId(), matchId)
-                        );
-
-                    } else if (status == VerificationStatus.GUEST_NO_SHOW) {
-                        matchNoShowService.markApplicantNoShow(matchId);
-
-                        notificationTargets.add(
-                                new NoShowConfirmedNotificationTarget(matchInfoDto.applicantId(), matchId)
-                        );
-
-                    } else if (status == VerificationStatus.HOST_NO_SHOW) {
-                        matchNoShowService.markAuthorNoShow(matchId);
-
-                        notificationTargets.add(
-                                new NoShowConfirmedNotificationTarget(postInfoDto.authorId(), matchId)
-                        );
-                    }
-
-                    // sent 플래그는 트랜잭션 안에서 DB에 저장 (커밋되어야 의미 있음)
-                    meetVerification.markNoShowConfirmedSent();
-                }
-
-                meetVerification.confirmNoShow();
-
-                log.info(
-                        "[노쇼확정] 처리 완료(커밋 전) - matchId={}, status={}, sent={}",
-                        matchId,
-                        meetVerification.getStatus(),
-                        meetVerification.isNoShowConfirmedSent()
-                );
-
+                // Post별 REQUIRES_NEW 처리로 한 그룹 실패가 다른 그룹 알림까지 롤백시키지 않게 한다.
+                noShowSettlementService.settlePost(entry.getKey(), entry.getValue());
             } catch (Exception e) {
                 log.error(
-                        "[노쇼확정] 처리 실패 - matchId={}, status={}, exception={}, message={}",
-                        matchId,
-                        meetVerification.getStatus(),
+                        "[노쇼확정] Post 처리 실패 - postId={}, matchIds={}, exception={}, message={}",
+                        entry.getKey(),
+                        entry.getValue(),
                         e.getClass().getSimpleName(),
                         e.getMessage(),
                         e
                 );
-
-                throw e;
             }
         }
     }
@@ -563,11 +439,10 @@ public class MeetVerificationNoShowServiceImpl implements MeetVerificationNoShow
         for (MeetVerification mv : siblingMvList) {
 
             // 관리자 판정으로 노쇼 확정 가능한 상태만 변경
-            // DONE 등 이미 정상 완료된 인증은 건드리지 않음
+            // 다른 사용자의 DISPUTE는 별도 관리자 판정 대상이므로 함께 확정하지 않는다.
             if (mv.getStatus() == VerificationStatus.HOST_NO_SHOW
                     || mv.getStatus() == VerificationStatus.GUEST_NO_SHOW
-                    || mv.getStatus() == VerificationStatus.BOTH_NO_SHOW
-                    || mv.getStatus() == VerificationStatus.DISPUTE) {
+                    || mv.getStatus() == VerificationStatus.BOTH_NO_SHOW) {
                 mv.confirmNoShowByAdmin();
             }
         }
