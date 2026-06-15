@@ -62,8 +62,12 @@ public class MatchLifecycleServiceImpl implements MatchLifecycleService {
         publishPostVectorDeleteEvent(post.getId());
 
         // 양측 전액 환불 (둘 다 현장에 있었으므로 귀책 없음 → 패널티 없음)
-        userPointService.refundPoint(post.getAuthorId(), post.getAuthorDeposit(), matchId);
-        userPointService.refundPoint(match.getApplicantId(), match.getApplicantDeposit(), matchId);
+        userPointService.refundAuthorDeposit(post.getAuthorId(), post.getAuthorDeposit(), post.getId());
+        userPointService.refundApplicantDeposit(
+                match.getApplicantId(),
+                match.getApplicantDeposit(),
+                matchId
+        );
 
         // 위치 데이터 삭제 (개인정보 최소 수집 원칙)
         userLocationCleanupService.deleteLocationsByMatchId(matchId);
@@ -96,7 +100,7 @@ public class MatchLifecycleServiceImpl implements MatchLifecycleService {
 
         // 신청자 예치금 환급
         // Meet 도메인에서 하지 않고 Match 도메인에서 처리
-        userPointService.refundPoint(
+        userPointService.refundApplicantDeposit(
                 match.getApplicantId(),
                 match.getApplicantDeposit(),
                 match.getId()
@@ -153,8 +157,8 @@ public class MatchLifecycleServiceImpl implements MatchLifecycleService {
         publishPostVectorDeleteEvent(post.getId());
 
         // 등록자 책임비는 그룹 만남 전체가 정상 종료된 시점에 한 번만 환급
-        if (!userPointService.hasSettlement(post.getAuthorId(), post.getId())) {
-            userPointService.refundPoint(
+        if (!userPointService.hasAuthorDepositSettlement(post.getAuthorId(), post.getId())) {
+            userPointService.refundAuthorDeposit(
                     post.getAuthorId(),
                     post.getAuthorDeposit(),
                     post.getId()

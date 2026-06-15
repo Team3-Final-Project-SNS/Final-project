@@ -418,23 +418,16 @@ public class MeetVerificationNoShowServiceImpl implements MeetVerificationNoShow
         }
     }
 
-    // 특정 Post에 속한 노쇼/이의제기 상태 MeetVerification들을 관리자 노쇼 확정 상태로 일괄 정리
-    // 등록자 노쇼처럼 Post 전체 책임이 확정되는 경우 사용
+    // Match 정산 서비스가 실제 처리한 대상만 확정해 다른 사용자의 DISPUTE를 보존한다.
     @Override
     @Transactional
-    public void confirmNoShowByPost(Long postId) {
-
-        // MeetVerification에는 postId가 없으므로,
-        // 먼저 postId에 속한 모든 matchId를 Match 도메인에서 조회
-        List<Long> siblingMatchIds = matchInternalService.getMatchIdsByPostId(postId);
-
-        if (siblingMatchIds.isEmpty()) {
+    public void confirmNoShows(List<Long> matchIds) {
+        if (matchIds == null || matchIds.isEmpty()) {
             return;
         }
 
-        // 같은 Post에 속한 MeetVerification들을 한 번에 조회
         List<MeetVerification> siblingMvList =
-                meetVerificationRepository.findAllByMatchIdIn(siblingMatchIds);
+                meetVerificationRepository.findAllByMatchIdIn(matchIds);
 
         for (MeetVerification mv : siblingMvList) {
 
@@ -442,7 +435,8 @@ public class MeetVerificationNoShowServiceImpl implements MeetVerificationNoShow
             // 다른 사용자의 DISPUTE는 별도 관리자 판정 대상이므로 함께 확정하지 않는다.
             if (mv.getStatus() == VerificationStatus.HOST_NO_SHOW
                     || mv.getStatus() == VerificationStatus.GUEST_NO_SHOW
-                    || mv.getStatus() == VerificationStatus.BOTH_NO_SHOW) {
+                    || mv.getStatus() == VerificationStatus.BOTH_NO_SHOW
+                    || mv.getStatus() == VerificationStatus.DISPUTE) {
                 mv.confirmNoShowByAdmin();
             }
         }

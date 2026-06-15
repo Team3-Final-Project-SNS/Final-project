@@ -92,7 +92,11 @@ public class MatchCommandServiceImpl implements MatchCommandService {
 
             // 1. 취소 GUEST만 50% 환급 (패널티 적용)
             //    HOST 예치금 환불 없음 -> 모임은 유지되므로 HOST 예치금은 계속 예치 상태
-            userPointService.partialRefundPoint(userId, match.getApplicantDeposit(), matchId);
+            userPointService.partialRefundApplicantDeposit(
+                    userId,
+                    match.getApplicantDeposit(),
+                    matchId
+            );
 
             // 2. 매칭 상태 CANCELLED로 변경 + 참여 인원 감소
             match.cancel();
@@ -157,13 +161,17 @@ public class MatchCommandServiceImpl implements MatchCommandService {
             );
 
             // 1. HOST 50% 환급 (HOST가 취소했으므로 패널티 적용), 정확히 한 번만 실행
-            userPointService.partialRefundPoint(userId, post.getAuthorDeposit(), matchId);
+            userPointService.partialRefundAuthorDeposit(
+                    userId,
+                    post.getAuthorDeposit(),
+                    post.getId()
+            );
 
             // 2. 모든 GUEST 처리 -> 전액 환급 + 위치 삭제 + Redis 정리 + 알림 + 상태 취소
             for (Match guestMatch : allGuestMatches) {
 
                 // GUEST는 귀책 없으므로 예치금 100% 반환
-                userPointService.refundPoint(
+                userPointService.refundApplicantDeposit(
                         guestMatch.getApplicantId(),      // 환불받을 GUEST ID
                         guestMatch.getApplicantDeposit(), // 환불 금액 (GUEST 예치금 전액)
                         guestMatch.getId()                // 포인트 거래 기록용 matchId

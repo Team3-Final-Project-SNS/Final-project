@@ -161,7 +161,7 @@ public class PostCommandServiceImpl implements PostCommandService {
         int refundedPoint = post.getAuthorDeposit();
 
         // 5. 포인트 전액 환불
-        userPointService.refundPoint(userId, refundedPoint, null);
+        userPointService.refundAuthorDeposit(userId, refundedPoint, postId);
 
         // 6. 게시글 소프트 삭제
         post.delete();

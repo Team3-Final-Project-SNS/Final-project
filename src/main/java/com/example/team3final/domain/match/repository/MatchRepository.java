@@ -22,6 +22,9 @@ public interface MatchRepository extends JpaRepository<Match, Long>, MatchReposi
     // 같은 Post의 활성 매칭을 결정적인 순서로 처리해 그룹 정산 결과를 일관되게 유지
     List<Match> findAllByPostIdAndStatusInOrderByIdAsc(Long postId, List<MatchStatus> statuses);
 
+    // 등록자 귀책 처리 시 일반 MATCHED 형제만 묶고, 별도 판정 중인 DISPUTED 형제는 제외한다.
+    List<Match> findAllByPostIdAndStatusOrderByIdAsc(Long postId, MatchStatus status);
+
     // MATCHED 상태인 매칭만 중복으로 판단
     // CANCELLED 상태는 이미 취소된 것이므로 재신청 허용
     // SQL: SELECT EXISTS (

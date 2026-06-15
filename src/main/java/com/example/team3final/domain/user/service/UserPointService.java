@@ -14,6 +14,16 @@ public interface UserPointService {
     // 포인트 몰수 (노쇼 패널티)
     void penaltyPoint(Long userId, int amount, Long matchId);
 
+    // 신청자 책임비 최종 정산 — Match 단위로 한 번만 허용
+    void refundApplicantDeposit(Long userId, int amount, Long matchId);
+    void partialRefundApplicantDeposit(Long userId, int amount, Long matchId);
+    void penaltyApplicantDeposit(Long userId, int amount, Long matchId);
+
+    // 등록자 책임비 최종 정산 — Post 단위로 한 번만 허용
+    void refundAuthorDeposit(Long userId, int amount, Long postId);
+    void partialRefundAuthorDeposit(Long userId, int amount, Long postId);
+    void penaltyAuthorDeposit(Long userId, int amount, Long postId);
+
     // 신고 채택 포상 포인트 지급
     void rewardReportPoint(Long userId, int amount);
 
@@ -72,6 +82,6 @@ public interface UserPointService {
     // 유저 포인트 총 보유량 조회 (유료 + 무료 포인트)
     int getTotalPoint(Long userId);
 
-    // 동일 책임비 대상에 환급/부분 환급/패널티 중 하나가 이미 기록됐는지 확인
-    boolean hasSettlement(Long userId, Long referenceId);
+    boolean hasApplicantDepositSettlement(Long userId, Long matchId);
+    boolean hasAuthorDepositSettlement(Long userId, Long postId);
 }

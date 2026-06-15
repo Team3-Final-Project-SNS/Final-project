@@ -45,8 +45,8 @@ public class PostExpirationServiceImpl implements PostExpirationService {
         // 작성자 혼자 남은 게시글만 모집 실패로 만료하고 등록자 책임비를 돌려준다.
         post.expire();
         if (post.getAuthorDeposit() > 0
-                && !userPointService.hasSettlement(post.getAuthorId(), post.getId())) {
-            userPointService.refundPoint(
+                && !userPointService.hasAuthorDepositSettlement(post.getAuthorId(), post.getId())) {
+            userPointService.refundAuthorDeposit(
                     post.getAuthorId(),
                     post.getAuthorDeposit(),
                     post.getId()

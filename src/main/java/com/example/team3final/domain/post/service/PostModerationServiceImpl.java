@@ -35,7 +35,7 @@ public class PostModerationServiceImpl implements PostModerationService {
 
         // 작성자에게 예치 포인트 전액 환불
         int refundedPoint = post.getAuthorDeposit();
-        userPointService.refundPoint(post.getAuthorId(), refundedPoint, null);
+        userPointService.refundAuthorDeposit(post.getAuthorId(), refundedPoint, post.getId());
 
         // 소프트 삭제 + 사유 영속화
         // post.delete(reason) 가 deleteReason 세팅 후 deletedAt=now() 세팅

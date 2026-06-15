@@ -2,6 +2,8 @@ package com.example.team3final.domain.pointTransaction.repository;
 
 import com.example.team3final.domain.pointTransaction.entity.PointTransaction;
 import com.example.team3final.domain.pointTransaction.enums.PointTransactionType;
+import com.example.team3final.domain.pointTransaction.enums.PointReferenceType;
+import com.example.team3final.domain.pointTransaction.enums.PointSettlementReason;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -29,12 +31,12 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
             @Param("types") List<PointTransactionType> types
     );
 
-    // 등록자 책임비는 postId를 참조 ID로 사용한다.
-    // Post 락 안에서 이 조회를 선행해 REFUND/PARTIAL_REFUND/PENALTY 중복 정산을 막는다.
-    boolean existsByUserIdAndMatchIdAndTransactionTypeIn(
+    // 동일 책임비에 최종 정산 결과가 이미 기록됐는지 확인한다.
+    boolean existsByUserIdAndReferenceTypeAndReferenceIdAndSettlementReason(
             Long userId,
-            Long matchId,
-            List<PointTransactionType> transactionTypes
+            PointReferenceType referenceType,
+            Long referenceId,
+            PointSettlementReason settlementReason
     );
 
     // tearDown 정리용
