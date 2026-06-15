@@ -61,11 +61,11 @@ services:
       - rag_postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
-  app:
+  app-blue:
     build:
       context: .
       dockerfile: dockerfile
-    container_name: hankkipot-app
+    container_name: hankkipot-app-blue
     env_file:
       - .env
     depends_on:
@@ -80,6 +80,27 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
     restart: unless-stopped
+
+  app-green:
+    build:
+      context: .
+      dockerfile: dockerfile
+    container_name: hankkipot-app-green
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      rag-postgres:
+        condition: service_started
+    ports:
+      - "8081:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    restart: unless-stopped
+    profiles: [ "green" ]
 
   prometheus:
     image: prom/prometheus
@@ -180,7 +201,7 @@ services:
       - VITE_PORTONE_STORE_ID=${PORTONE_STORE_ID}
       - VITE_PORTONE_CHANNEL_KEY=${PORTONE_CHANNEL_KEY}
     depends_on:
-      - app
+      - app-blue
     restart: always
 
 volumes:
