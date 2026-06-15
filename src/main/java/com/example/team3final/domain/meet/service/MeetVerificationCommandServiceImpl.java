@@ -28,6 +28,8 @@ import com.example.team3final.domain.user.service.UserInternalService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -50,6 +52,7 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
     private final MeetVerificationContextReader contextReader;
     private final MeetExtensionSupport meetExtensionSupport;
     private final MeetQrSupport meetQrSupport;
+    private final MeetOverdueReservationService meetOverdueReservationService;
 
     // GPS 장소 인증
     @Override
@@ -387,6 +390,27 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
             // 수락이 끝났으므로 각 MV의 타임아웃 예약을 제거
             meetExtensionSupport.removeExtensionTimeout(mv);
         }
+
+        // DB 커밋 이후 Redis 재예약에 사용할 값을 복사한다.
+        Long postId = matchInfoDto.postId();
+        List<Long> matchIdsForReservation = List.copyOf(activeMatchIds);
+
+        // 모든 활성 MeetVerification에 저장된 extendedMeetAt과 동일한 값이다.
+        LocalDateTime extendedMeetAt = postInfoDto.meetAt()
+                .plusMinutes(MeetVerificationPolicy.EXTENSION_MINUTES);
+
+        // DB 연장이 정상 커밋된 이후에만 Redis의 10분 경과 알림 시각을 갱신한다.
+        // DB가 롤백됐는데 Redis 예약만 변경되는 불일치를 방지한다.
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                meetOverdueReservationService.rescheduleAfterExtension(
+                        postId,
+                        matchIdsForReservation,
+                        extendedMeetAt
+                );
+            }
+        });
 
         // 연장 요청자에게 수락 알림을 보냄
         // 요청자는 한 명이므로, requestMv에 저장된 requesterId에게만 알림을 보냄

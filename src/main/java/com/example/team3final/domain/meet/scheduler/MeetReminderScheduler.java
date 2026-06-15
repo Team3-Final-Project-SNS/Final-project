@@ -2,6 +2,8 @@ package com.example.team3final.domain.meet.scheduler;
 
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.service.MatchInternalService;
+import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
+import com.example.team3final.domain.meet.service.MeetOverdueReservationService;
 import com.example.team3final.domain.meet.util.MeetRedisZSetKeys;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.entity.Post;
@@ -27,6 +29,8 @@ public class MeetReminderScheduler {
     private final NotificationPublisher notificationPublisher;
     private final MatchInternalService matchInternalService;
     private final PostInternalService postInternalService;
+    private final MeetVerificationRepository meetVerificationRepository;
+    private final MeetOverdueReservationService meetOverdueReservationService;
 
     // Lua Script - ZSet 조회 + 삭제 원자적 처리 (중복 발송 방지)
     private final DefaultRedisScript<List<String>> popReadyItemsScript;
@@ -104,7 +108,6 @@ public class MeetReminderScheduler {
             log.info("[MeetReminderScheduler] 10분 경과 HOST 알림 대상: {}건", postIds.size());
             // 10분 경과 알림 대상 postId들을 순회하며 HOST(등록자)에게 알림 발송
             for (String postIdStr : postIds) {
-
                 // ZSet에서 꺼낸 값은 문자열이므로 Long으로 변환
                 Long postId = Long.parseLong(postIdStr);
 
@@ -120,6 +123,21 @@ public class MeetReminderScheduler {
                     continue;
                 }
 
+                LocalDateTime effectiveMeetAt = getEffectiveMeetAt(
+                        matchId.get(),
+                        post.getMeetAt()
+                );
+
+                // 기존 예약 pop과 연장 재예약이 경합했으면 실제 발송 시각으로 다시 예약한다.
+                if (requeueAndSkipIfEarly(
+                        MeetRedisZSetKeys.REMINDER_OVERDUE_HOST,
+                        postIdStr,
+                        effectiveMeetAt,
+                        LocalDateTime.now()
+                )) {
+                    continue;
+                }
+
                 // relatedId로 matchId를 전달 → 알림 클릭 시 올바른 매칭 화면으로 이동
                 notificationPublisher.sendMeetOverdue(post.getAuthorId(), matchId.get());
             }
@@ -132,6 +150,23 @@ public class MeetReminderScheduler {
             for (String matchIdStr : matchIds) {
                 Long matchId = Long.parseLong(matchIdStr);
                 MatchInfoDto matchInfo = matchInternalService.getMatchInfo(matchId);
+                Post post = postInternalService.getPostById(matchInfo.postId());
+
+                LocalDateTime effectiveMeetAt = getEffectiveMeetAt(
+                        matchId,
+                        post.getMeetAt()
+                );
+
+                // 아직 실제 경과 시각 전이면 같은 matchId를 올바른 시각으로 다시 예약한다.
+                if (requeueAndSkipIfEarly(
+                        MeetRedisZSetKeys.REMINDER_OVERDUE_GUEST,
+                        matchIdStr,
+                        effectiveMeetAt,
+                        LocalDateTime.now()
+                )) {
+                    continue;
+                }
+
                 notificationPublisher.sendMeetOverdue(matchInfo.applicantId(), matchId);
             }
         }
@@ -202,6 +237,63 @@ public class MeetReminderScheduler {
 
             notifier.send(matchInfo.applicantId(), matchId);
         }
+    }
+
+    // 연장된 시각이 있으면 extendedMeetAt을 사용하고,
+    // 연장하지 않았으면 최초 Post.meetAt을 사용한다.
+    private LocalDateTime getEffectiveMeetAt(
+            Long matchId,
+            LocalDateTime originalMeetAt
+    ) {
+        return meetVerificationRepository.findByMatchId(matchId)
+                .map(meetVerification ->
+                        meetVerification.getExtendedMeetAt() != null
+                                ? meetVerification.getExtendedMeetAt()
+                                : originalMeetAt
+                )
+                .orElse(originalMeetAt);
+    }
+
+    // Redis 항목이 DB 기준 실제 발송 시각보다 일찍 pop됐는지 확인한다.
+    // 아직 이르면 올바른 시각으로 재등록하고 이번 발송은 건너뛴다.
+    private boolean requeueAndSkipIfEarly(
+            String key,
+            String member,
+            LocalDateTime effectiveMeetAt,
+            LocalDateTime now
+    ) {
+        LocalDateTime actualOverdueAt = effectiveMeetAt.plusMinutes(10);
+
+        // 실제 발송 시각과 같거나 이후면 정상 발송한다.
+        if (!now.isBefore(actualOverdueAt)) {
+            return false;
+        }
+
+        boolean requeued = meetOverdueReservationService.updateReservation(
+                key,
+                member,
+                actualOverdueAt
+        );
+
+        if (requeued) {
+            log.info(
+                    "[MeetReminderScheduler] 이른 10분 경과 알림 재예약 key={}, member={}, targetAt={}",
+                    key,
+                    member,
+                    actualOverdueAt
+            );
+        } else {
+            // 재등록 실패 시 이른 알림을 잘못 발송하지 않고 운영 확인을 위한 오류 로그를 남긴다.
+            log.error(
+                    "[MeetReminderScheduler] 이른 10분 경과 알림 재예약 실패 key={}, member={}, targetAt={}",
+                    key,
+                    member,
+                    actualOverdueAt
+            );
+        }
+
+        // 아직 이른 경우에는 재등록 성공 여부와 관계없이 발송하지 않는다.
+        return true;
     }
 
     // ZSet에서 현재 시각 이전 항목 원자적으로 꺼내기
