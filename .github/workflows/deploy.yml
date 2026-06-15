@@ -11,6 +11,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      # 이전 빌드 잔여물(src, build) 정리
+      # compileJava 캐시 충돌 방지를 위해 파일 복사 전에 실행
+      - name: Clean old build artifacts on EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            rm -rf /home/ec2-user/app/src
+            rm -rf /home/ec2-user/app/build
+
       - name: Copy project files to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -40,6 +52,8 @@ jobs:
               echo "frontend/.env.local file is missing on EC2: /home/ec2-user/app/frontend/.env.local"
               exit 1
             fi
+
+            chmod +x deploy-blue-green.sh
 
             docker-compose -f docker-compose.prod.yml down
             docker-compose -f docker-compose.prod.yml up --build -d
