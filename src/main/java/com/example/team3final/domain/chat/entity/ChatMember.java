@@ -88,4 +88,9 @@ public class ChatMember extends BaseTimeEntity {
     public boolean isNoShow() {
         return this.status == ChatMemberStatus.NO_SHOW;
     }
+
+    // 메시지 발신·실시간 수신·알림이 허용되는 현재 참여자인지 확인
+    public boolean isActive() {
+        return this.status == ChatMemberStatus.ACTIVE;
+    }
 }

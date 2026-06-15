@@ -100,12 +100,14 @@ public class ChatMessageHandler {
             return;
         }
 
-        // 노쇼 판정(예정)된 멤버는 메시지 전송 차단
-        if (sender.isNoShow()) {
+        // NO_SHOW와 LEFT 멤버 모두 메시지 발신을 차단
+        if (!sender.isActive()) {
             messagingTemplate.convertAndSendToUser(
                     email,
                     "/queue/errors",
-                    ErrorCode.CHAT_ROOM_READ_ONLY.getMessage()
+                    sender.isNoShow()
+                            ? ErrorCode.CHAT_ROOM_READ_ONLY.getMessage()
+                            : ErrorCode.CHAT_NOT_PARTICIPANT.getMessage()
             );
             return;
         }
@@ -136,13 +138,14 @@ public class ChatMessageHandler {
         );
         kafkaChatMessageProducer.publish(chatRoomId, response);
 
-        // 채팅방 참여자에게 메시지 수신 알림 발송 (발신자 제외)
+        // 현재 ACTIVE 상태인 멤버에게만 채팅 수신 알림을 보냄
         chatMemberRepository.findByChatRoomId(chatRoomId).stream()
-                .filter(member -> !member.getUserId().equals(senderId)) // 발신자 제외
-                .filter(member -> !member.isNoShow()) // 노쇼 멤버 알림 제외
+                .filter(ChatMember::isActive)
+                .filter(member -> !member.getUserId().equals(senderId))
                 .forEach(member ->
-                        // 13. 채팅 메시지 수신 알림 - 메시지 수신자에게
-                        notificationPublisher.sendChatReceived(member.getUserId(), chatRoomId));
+                        notificationPublisher.sendChatReceived(
+                                member.getUserId(), chatRoomId
+                        ));
 
     }
 }

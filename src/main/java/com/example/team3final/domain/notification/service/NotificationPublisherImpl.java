@@ -359,7 +359,20 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.REPORT, reportId);
     }
 
-    // 28. 신고 기각 알림 - 신고자에게
+    // 28. 신고는 채택됐지만 월 보상 한도로 포인트 미지급 알림 - 신고자에게
+    @Override
+    public void sendReportAcceptedWithoutPoint(Long userId, Long reportId) {
+        publish(
+                userId,
+                NotificationType.REPORT_REWARD,
+                "신고가 채택되었습니다.",
+                "신고가 채택되었으나 월 보상 한도에 도달하여 포인트는 지급되지 않았습니다.",
+                RelatedDomain.REPORT,
+                reportId
+        );
+    }
+
+    // 29. 신고 기각 알림 - 신고자에게
     @Override
     public void sendReportRejected(Long userId, Long reportId) {
         publish(userId, NotificationType.REPORT_REJECTED,
@@ -370,7 +383,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
 
     // ── 결제 ──────────────────────────────────────────────────────────────
 
-    // 29. 결제 성공 알림 - 결제 사용자에게
+    // 30. 결제 성공 알림 - 결제 사용자에게
     @Override
     public void sendPaymentSuccess(Long userId, Long paymentId) {
         publish(userId, NotificationType.PAYMENT_SUCCESS,
@@ -379,7 +392,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.POINT, paymentId);
     }
 
-    // 30. 결제 실패 알림 - 결제 사용자에게
+    // 31. 결제 실패 알림 - 결제 사용자에게
     @Override
     public void sendPaymentFailed(Long userId, Long paymentId) {
         publish(userId, NotificationType.PAYMENT_FAILED,
@@ -388,7 +401,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.POINT, paymentId);
     }
 
-    // 31. 결제 취소 및 환불 완료 알림 - 결제 사용자에게
+    // 32. 결제 취소 및 환불 완료 알림 - 결제 사용자에게
     @Override
     public void sendPaymentCancelSuccess(Long userId, Long paymentId) {
         publish(userId, NotificationType.PAYMENT_CANCEL_SUCCESS,
@@ -397,7 +410,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.POINT, paymentId);
     }
 
-    // 32. 결제 취소 및 환불 실패 알림 - 결제 사용자에게
+    // 33. 결제 취소 및 환불 실패 알림 - 결제 사용자에게
     @Override
     public void sendPaymentCancelFailed(Long userId, Long paymentId) {
         publish(userId, NotificationType.PAYMENT_CANCEL_FAILED,
@@ -408,7 +421,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
 
     // ── 문의 ──────────────────────────────────────────────────────────────
 
-    // 33. 문의 접수 알림 - 관리자에게
+    // 34. 문의 접수 알림 - 관리자에게
     @Override
     public void sendInquirySubmitted(Long adminId, Long inquiryId) {
         publishAdmin(adminId, NotificationType.INQUIRY_SUBMITTED,
@@ -417,7 +430,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.INQUIRY, inquiryId);
     }
 
-    // 34. 문의 답변 완료 알림 - 문의 작성자에게
+    // 35. 문의 답변 완료 알림 - 문의 작성자에게
     @Override
     public void sendInquiryAnswered(Long userId, Long inquiryId) {
         publish(userId, NotificationType.INQUIRY_ANSWERED,
@@ -428,7 +441,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
 
     // ── 계정 ──────────────────────────────────────────────────────────────
 
-    // 35. 계정 정지 알림 - 해당 사용자에게
+    // 36. 계정 정지 알림 - 해당 사용자에게
     // 제재 단계별 메시지는 호출하는 쪽(Service)에서 title/content를 분기하여 전달
     @Override
     public void sendAccountSuspended(Long userId, String title, String content) {
@@ -437,7 +450,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.ACCOUNT, null);
     }
 
-    // 36. 계정 정지 해제 알림 - 해당 사용자에게
+    // 37. 계정 정지 해제 알림 - 해당 사용자에게
     @Override
     public void sendAccountUnsuspended(Long userId) {
         publish(userId, NotificationType.ACCOUNT_UNSUSPENDED,
@@ -448,7 +461,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
 
     // ── 게시글 / 신고로 인한 경고 ────────────────────────────────────────
 
-    // 37. 게시글 신고 경고 1회 알림 - 게시글 작성자에게
+    // 38. 게시글 신고 경고 1회 알림 - 게시글 작성자에게
     // 제재 단계별 메시지는 호출하는 쪽(Service)에서 title/content를 분기하여 전달
     @Override
     public void sendPostWarned(Long userId, String title, String content) {
@@ -457,7 +470,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.ACCOUNT, null);
     }
 
-    // 38. 게시글 만료 알림 - 게시글 작성자에게
+    // 39. 게시글 만료 알림 - 게시글 작성자에게
     @Override
     public void sendPostExpired(Long userId, Long postId) {
         publish(userId, NotificationType.POST_EXPIRED,
@@ -466,7 +479,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.POST, postId);
     }
 
-    // 39. 게시글 삭제 알림 - 게시글 작성자에게
+    // 40. 게시글 삭제 알림 - 게시글 작성자에게
     // content는 호출하는 쪽(Service)에서 상황에 맞게 전달
     // ex) 관리자 강제 삭제: "해당 게시물이 신고 접수 및 관리자 판단에 의해 삭제되었습니다."
     @Override
@@ -477,7 +490,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.POST, postId);
     }
 
-    // 40. 게시글 복구 알림 - 게시글 작성자에게
+    // 41. 게시글 복구 알림 - 게시글 작성자에게
     @Override
     public void sendPostRestored(Long userId, Long postId) {
         publish(userId, NotificationType.POST_RESTORED,
