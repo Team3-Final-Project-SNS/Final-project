@@ -19,8 +19,6 @@ import com.example.team3final.domain.pointTransaction.enums.PointSource;
 import com.example.team3final.domain.pointTransaction.enums.PointTransactionType;
 import com.example.team3final.domain.pointTransaction.repository.PointTransactionRepository;
 import com.example.team3final.domain.post.entity.Post;
-import com.example.team3final.domain.post.enums.PostStatus;
-import com.example.team3final.domain.post.event.PostVectorUpsertEvent;
 import com.example.team3final.domain.post.repository.PostRepository;
 import com.example.team3final.domain.university.entity.University;
 import com.example.team3final.domain.university.repository.UniversityRepository;
@@ -32,7 +30,6 @@ import com.example.team3final.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -63,7 +60,6 @@ public class DataInitializer implements ApplicationRunner {
     private final PointTransactionRepository pointTransactionRepository;
     private final PasswordEncoder passwordEncoder;
     private final ChatMemberRepository chatMemberRepository;
-    private final ApplicationEventPublisher applicationEventPublisher;
 
     @Override
     @Transactional
@@ -71,7 +67,6 @@ public class DataInitializer implements ApplicationRunner {
         // 이미 대표 seed 게시글이 있으면 local 이닛데이터를 다시 만들지 않습니다.
         // 서버 재시작 때마다 중복 데이터가 쌓이는 것을 막기 위한 방어 코드입니다.
         if (existsPostByContent("1:N 리뷰 테스트용 완료된 단체 식사입니다.")) {
-            publishSeedPostVectorEvents();
             return;
         }
 
@@ -727,8 +722,6 @@ public class DataInitializer implements ApplicationRunner {
         verifiedOnly.verifyAuthorPlace();
         verifiedOnly.verifyApplicantPlace(); // 여기서 자동으로 VERIFIED
         meetVerificationRepository.save(verifiedOnly);
-
-        publishSeedPostVectorEvents();
     }
 
     /**
@@ -737,29 +730,6 @@ public class DataInitializer implements ApplicationRunner {
     private boolean existsPostByContent(String content) {
         return postRepository.findAll().stream()
                 .anyMatch(post -> content.equals(post.getContent()));
-    }
-
-    // local seed 게시글도 매칭 AI가 추천할 수 있도록 OPEN + 미래 약속 게시글을 벡터 인덱스에 등록합니다.
-    // 이미 seed 데이터가 존재하는 재시작 상황에서도 인덱스가 비어 있을 수 있어 매번 이벤트를 다시 발행합니다.
-    private void publishSeedPostVectorEvents() {
-        postRepository.findByStatusAndMeetAtAfter(PostStatus.OPEN, LocalDateTime.now())
-                .forEach(post -> userRepository.findById(post.getAuthorId())
-                        .ifPresent(author -> applicationEventPublisher.publishEvent(
-                                new PostVectorUpsertEvent(
-                                        post.getId(),
-                                        post.getAuthorId(),
-                                        author.getUniversityId(),
-                                        post.getStatus(),
-                                        post.getMeetAt(),
-                                        post.getPlaceName(),
-                                        post.getContent(),
-                                        post.getAuthorDeposit(),
-                                        post.getMaxApplicants(),
-                                        post.getCurrentApplicants(),
-                                        post.getPlaceLat(),
-                                        post.getPlaceLng()
-                                )
-                        )));
     }
 
     /**

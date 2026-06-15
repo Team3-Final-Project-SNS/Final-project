@@ -9,8 +9,6 @@ import com.example.team3final.domain.post.dto.request.UpdatePostRequestDto;
 import com.example.team3final.domain.post.dto.response.*;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
-import com.example.team3final.domain.post.event.PostVectorDeleteEvent;
-import com.example.team3final.domain.post.event.PostVectorUpsertEvent;
 import com.example.team3final.domain.post.repository.PostRepository;
 import com.example.team3final.domain.review.service.ReviewAvoidanceService;
 import com.example.team3final.domain.user.dto.response.UserInfoDto;
@@ -18,7 +16,6 @@ import com.example.team3final.domain.user.service.UserPointService;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -45,7 +42,6 @@ public class PostServiceImpl implements PostService{
     private final NotificationPublisher notificationPublisher;
     private final ReviewAvoidanceService reviewAvoidanceService;
     private final RedisPostService redisPostService;
-    private final ApplicationEventPublisher applicationEventPublisher;
 
 
     @Override
@@ -86,8 +82,6 @@ public class PostServiceImpl implements PostService{
 
         // 4. 저장
         Post savedPost = postRepository.save(post);
-        // OPEN 게시글은 매칭 AI 추천 후보가 될 수 있으므로 커밋 이후 벡터 인덱스에 반영합니다.
-        publishPostVectorUpsertEvent(savedPost);
 
         log.info("[Post] 게시글 생성 완료 - postId: {}, authorId: {}, status: {}, meetAt: {}",
                 savedPost.getId(), authorId, savedPost.getStatus(), savedPost.getMeetAt());
@@ -148,8 +142,6 @@ public class PostServiceImpl implements PostService{
                 request.getContent(),
                 request.getAuthorDeposit()
         );
-        // 장소/한마디/시간/책임비가 바뀌면 의미 검색 결과와 필터 조건도 달라지므로 인덱스를 갱신합니다.
-        publishPostVectorUpsertEvent(post);
 
         // 6. 응답 DTO 변환
         return UpdatePostResponseDto.from(post);
@@ -168,8 +160,6 @@ public class PostServiceImpl implements PostService{
 
         // 2. 도메인 메서드 호출 — 상태 전이 규칙은 엔티티가 책임
         post.complete();
-        // 완료된 게시글은 더 이상 신청 대상이 아니므로 AI 추천 인덱스에서 제거합니다.
-        publishPostVectorDeleteEvent(postId);
 
         log.info("[Post] 게시글 완료 처리 - postId: {}, status: {}",
                 postId, post.getStatus());
@@ -201,8 +191,6 @@ public class PostServiceImpl implements PostService{
 
         // 6. 게시글 소프트 삭제
         post.delete();
-        // 소프트 삭제도 사용자에게 추천되면 안 되므로 벡터 인덱스에서는 물리 삭제합니다.
-        publishPostVectorDeleteEvent(postId);
 
         log.info("[Post] 게시글 삭제 처리 - postId: {}, authorId: {}, refundedPoint: {}",
                 postId, userId, refundedPoint);
@@ -454,7 +442,6 @@ public class PostServiceImpl implements PostService{
         // post.delete(reason) 가 deleteReason 세팅 후 deletedAt=now() 세팅
         // @Transactional 더티 체킹으로 트랜잭션 종료 시 두 컬럼 모두 UPDATE
         post.deleteAndReason(reason);
-        publishPostVectorDeleteEvent(post.getId());
 
         // 41. 게시글 삭제 알림 - 게시글 작성자에게
         notificationPublisher.sendPostDeleted(
@@ -500,7 +487,6 @@ public class PostServiceImpl implements PostService{
 
         // 게시글 복구
         post.restore();
-        publishPostVectorUpsertEvent(post);
 
         // 42. 게시글 복구 알림 - 게시글 작성자에게
         notificationPublisher.sendPostRestored(
@@ -540,66 +526,6 @@ public class PostServiceImpl implements PostService{
         );
 
         return posts.getContent();
-    }
-
-    @Override
-    public List<Post> findAiMatchingCandidatePostsByIds(
-            List<Long> postIds,
-            List<Long> authorIds
-    ) {
-        if (postIds == null || postIds.isEmpty() || authorIds == null || authorIds.isEmpty()) {
-            return List.of();
-        }
-
-        Map<Long, Integer> rankByPostId = new java.util.HashMap<>();
-        for (int i = 0; i < postIds.size(); i++) {
-            rankByPostId.put(postIds.get(i), i);
-        }
-
-        // 벡터 검색 결과의 유사도 순서를 유지하면서, MySQL의 최신 게시글 상태로 한 번 더 걸러냅니다.
-        return postRepository.findByIdInAndAuthorIdInAndStatusAndMeetAtAfter(
-                        postIds,
-                        authorIds,
-                        PostStatus.OPEN,
-                        LocalDateTime.now()
-                )
-                .stream()
-                .sorted(java.util.Comparator.comparingInt(post -> rankByPostId.getOrDefault(post.getId(), Integer.MAX_VALUE)))
-                .toList();
-    }
-
-    private void publishPostVectorUpsertEvent(Post post) {
-        if (applicationEventPublisher == null || post == null || !post.isOpen() || post.isDeleted()) {
-            return;
-        }
-
-        // 이벤트에는 추천 검색에 필요한 스냅샷만 담습니다.
-        // Listener가 AFTER_COMMIT에서 embedding 생성과 PostgreSQL upsert를 비동기로 수행합니다.
-        applicationEventPublisher.publishEvent(
-                new PostVectorUpsertEvent(
-                        post.getId(),
-                        post.getAuthorId(),
-                        userService.findUserById(post.getAuthorId()).getUniversityId(),
-                        post.getStatus(),
-                        post.getMeetAt(),
-                        post.getPlaceName(),
-                        post.getContent(),
-                        post.getAuthorDeposit(),
-                        post.getMaxApplicants(),
-                        post.getCurrentApplicants(),
-                        post.getPlaceLat(),
-                        post.getPlaceLng()
-                )
-        );
-    }
-
-    private void publishPostVectorDeleteEvent(Long postId) {
-        if (applicationEventPublisher == null || postId == null) {
-            return;
-        }
-
-        // 상태가 OPEN이 아니게 된 게시글은 postId만 알면 벡터 인덱스에서 제거할 수 있습니다.
-        applicationEventPublisher.publishEvent(new PostVectorDeleteEvent(postId));
     }
 
     // ── 동시성 테스트용 추가 구현 ──────────────────────────────────────
@@ -658,11 +584,6 @@ public class PostServiceImpl implements PostService{
         //    Post 엔티티에 changeStatus() 도메인 메서드가 있어야 함
         //    없다면 아래처럼 추가: public void changeStatus(PostStatus status) { this.status = status; }
         post.changeStatus(status);
-        if (post.isOpen() && !post.isDeleted()) {
-            publishPostVectorUpsertEvent(post);
-        } else {
-            publishPostVectorDeleteEvent(postId);
-        }
 
         log.info("[Post] 게시글 상태 변경 - postId: {}, status: {}",
                 postId, status);

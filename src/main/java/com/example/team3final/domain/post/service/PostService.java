@@ -138,16 +138,10 @@ public interface PostService {
     // 관리자 게시글 목록 조회
     Page<Post> getPostsForAdmin(List<Long> authorIds, PostStatus status, String keyword, Pageable pageable);
 
-    // AI 매칭 도메인에서 pgvector 후보가 없거나 비활성화된 경우 MySQL 기준으로 모집 중 게시글을 조회합니다.
+    // ai 매칭 도메인에서 활용.
     List<Post> findAiMatchingCandidatePosts(
             List<Long> authorIds,
             Sort sort
-    );
-
-    // pgvector가 반환한 postId 후보를 MySQL posts 테이블에서 같은 학교 작성자, OPEN 상태, 미래 약속 시간 기준으로 최종 검증합니다.
-    List<Post> findAiMatchingCandidatePostsByIds(
-            List<Long> postIds,
-            List<Long> authorIds
     );
 
     // ── 동시성 테스트용 추가 메서드 ──────────────────────────────────────

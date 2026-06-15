@@ -1,17 +1,12 @@
 package com.example.team3final.domain.ai.matching.tool;
 
 
-import com.example.team3final.common.config.AiProperties;
-import com.example.team3final.domain.ai.matching.dto.PostVectorSearchResultDto;
-import com.example.team3final.domain.ai.matching.repository.PostVectorRepository;
 import com.example.team3final.domain.match.service.MatchService;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.service.PostService;
 import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 
@@ -31,23 +26,19 @@ import java.util.regex.Pattern;
  * 같은 학교의 모집 중인 식사팟 후보를 조회하고,
  * 로그인 사용자의 신청 가능 여부와 책임비 포인트 충족 여부를 검증합니다.
  *
- * 추천 후보 조회는 PostgreSQL pgvector의 매칭 게시글 벡터 인덱스를 의미 검색용 보조 인덱스로 먼저 사용합니다.
- * pgvector에는 장소명(placeName), 한마디(content), 시간대 표현의 embedding과 후보 필터링용 메타데이터를 저장하고,
- * 신청 가능 여부와 실시간 정합성은 기존 MySQL posts/matches/users 데이터를 기준으로 최종 검증합니다.
+ * 현재는 MySQL의 사용자, 게시글, 매칭 데이터를 기준으로 후보를 조회하며,
+ * 추후 RAG 검색이 추가되면 Retriever가 찾은 postId 후보를
+ * 다시 이 Tool에서 검증하는 방식으로 확장할 수 있습니다.
  */
 @Component
 @RequiredArgsConstructor
-@Slf4j
 public class AiMatchingTool {
 
     private static final int MAX_RECOMMENDATION_CANDIDATES = 3;
-    private static final int MAX_MEAL_PARTY_SIZE = 5;
 
     private final UserService userService;
     private final PostService postService;
     private final MatchService matchService;
-    private final AiProperties aiProperties;
-    private final ObjectProvider<PostVectorRepository> postVectorRepositoryProvider;
 
 
     /**
@@ -80,38 +71,16 @@ public class AiMatchingTool {
 
         SearchCondition searchCondition = SearchCondition.from(condition);
 
-        List<Post> vectorCandidates = findCandidatePostsByVector(
-                condition,
-                userId,
-                universityId,
-                userPoint,
-                sameUniversityUserIds
+        List<Post> posts = postService.findAiMatchingCandidatePosts(
+                sameUniversityUserIds,
+                searchCondition.sort()
         );
-        List<Post> posts = vectorCandidates;
-        if (posts.isEmpty()) {
-            // pgvector가 비활성화되었거나 후보를 찾지 못하면 기존 MySQL 조회로 추천 기능을 계속 제공합니다.
-            // 이 fallback 덕분에 벡터 DB 장애가 곧바로 매칭 AI 전체 장애로 이어지지 않습니다.
-            posts = postService.findAiMatchingCandidatePosts(
-                    sameUniversityUserIds,
-                    searchCondition.sort()
-            );
-        }
 
-        List<Post> filteredPosts = filterCandidatePosts(posts, userId, searchCondition);
-        if (filteredPosts.isEmpty() && !vectorCandidates.isEmpty()) {
-            // 벡터 검색 후보가 최종 메뉴/시간 필터에서 모두 제외되면 MySQL 모집글 후보로 한 번 더 넓혀봅니다.
-            // pgvector는 의미 검색 보조 인덱스이므로, topK 안에 문자 조건과 정확히 맞는 게시글이 없을 수 있습니다.
-            filteredPosts = filterCandidatePosts(
-                    postService.findAiMatchingCandidatePosts(
-                            sameUniversityUserIds,
-                            searchCondition.sort()
-                    ),
-                    userId,
-                    searchCondition
-            );
-        }
-
-        return filteredPosts.stream()
+        return posts.stream()
+                .filter(post -> !post.isAuthor(userId))
+                .filter(searchCondition::matchesMenu)
+                .filter(searchCondition::matchesTime)
+                .sorted(searchCondition.comparator())
                 .limit(MAX_RECOMMENDATION_CANDIDATES)
                 .map(post -> {
                     boolean alreadyApplied =
@@ -137,63 +106,12 @@ public class AiMatchingTool {
                             post.getMeetAt().toString(),
                             post.getAuthorDeposit(),
                             post.getContent(),
-                            post.getCurrentApplicants(),
-                            post.getMaxApplicants(),
-                            Math.max(0, post.getMaxApplicants() - post.getCurrentApplicants()),
                             applicationAvailable,
                             pointAffordable,
                             unavailableReason
                     );
                 })
                 .toList();
-    }
-
-    private List<Post> filterCandidatePosts(List<Post> posts, Long userId, SearchCondition searchCondition) {
-        return posts.stream()
-                .filter(post -> !post.isAuthor(userId))
-                .filter(searchCondition::matchesMenu)
-                .filter(searchCondition::matchesTime)
-                .filter(searchCondition::matchesPartySize)
-                .sorted(searchCondition.comparator())
-                .toList();
-    }
-
-    private List<Post> findCandidatePostsByVector(
-            String condition,
-            Long userId,
-            Long universityId,
-            int userPoint,
-            List<Long> sameUniversityUserIds
-    ) {
-        PostVectorRepository postVectorRepository = postVectorRepositoryProvider == null
-                ? null
-                : postVectorRepositoryProvider.getIfAvailable();
-        if (postVectorRepository == null) {
-            return List.of();
-        }
-
-        try {
-            int topK = Math.max(aiProperties.getMatching().getRag().getTopK(), MAX_RECOMMENDATION_CANDIDATES);
-            double threshold = aiProperties.getMatching().getRag().getSimilarityThreshold();
-            List<Long> postIds = postVectorRepository.search(
-                            condition,
-                            universityId,
-                            userId,
-                            userPoint,
-                            topK,
-                            threshold
-                    )
-                    .stream()
-                    .map(PostVectorSearchResultDto::postId)
-                    .toList();
-
-            // pgvector는 의미 검색과 메타데이터 필터로 postId 후보를 제공하는 보조 인덱스입니다.
-            // 최종 추천 대상은 MySQL에서 같은 학교 작성자, OPEN 상태, 미래 약속 시간 조건을 다시 검증합니다.
-            return postService.findAiMatchingCandidatePostsByIds(postIds, sameUniversityUserIds);
-        } catch (Exception e) {
-            log.warn("[AiMatchingTool] 게시글 벡터 검색 실패. MySQL 후보 조회로 대체합니다.", e);
-            return List.of();
-        }
     }
 
     /**
@@ -276,9 +194,6 @@ public class AiMatchingTool {
                 post.getMeetAt().toString(),
                 post.getAuthorDeposit(),
                 post.getContent(),
-                post.getCurrentApplicants(),
-                post.getMaxApplicants(),
-                Math.max(0, post.getMaxApplicants() - post.getCurrentApplicants()),
                 applicationAvailable,
                 pointAffordable,
                 unavailableReason
@@ -332,8 +247,7 @@ public class AiMatchingTool {
             Sort sort,
             Comparator<Post> comparator,
             List<String> menuKeywords,
-            TimeRange timeRange,
-            PartySizeCondition partySizeCondition
+            TimeRange timeRange
     ) {
 
         private static SearchCondition from(String condition) {
@@ -342,9 +256,8 @@ public class AiMatchingTool {
             Comparator<Post> comparator = resolveComparator(normalized);
             List<String> menuKeywords = resolveMenuKeywords(normalized);
             TimeRange timeRange = resolveTimeRange(normalized);
-            PartySizeCondition partySizeCondition = resolvePartySizeCondition(normalized);
 
-            return new SearchCondition(sort, comparator, menuKeywords, timeRange, partySizeCondition);
+            return new SearchCondition(sort, comparator, menuKeywords,timeRange);
         }
 
         private record TimeRange(
@@ -377,15 +290,6 @@ public class AiMatchingTool {
             }
 
             return timeRange.contains(post.getMeetAt());
-        }
-
-        // 사용자가 원하는 식사팟 인원이 있으면 등록자 포함 최대 정원 기준으로 후보를 거릅니다.
-        private boolean matchesPartySize(Post post) {
-            if (partySizeCondition == null) {
-                return true;
-            }
-
-            return partySizeCondition.matches(post);
         }
 
         // 자연어 책임비 조건을 DB 정렬 조건으로 변환
@@ -564,90 +468,6 @@ public class AiMatchingTool {
                     center.minusHours(1),
                     center.plusHours(1)
             );
-        }
-
-        private enum PartySizeMode {
-            EXACT_CAPACITY,
-            MIN_CAPACITY
-        }
-
-        private record PartySizeCondition(
-                int partySize,
-                PartySizeMode mode
-        ) {
-
-            private boolean matches(Post post) {
-                if (partySize > MAX_MEAL_PARTY_SIZE) {
-                    return false;
-                }
-
-                if (mode == PartySizeMode.MIN_CAPACITY) {
-                    return post.getMaxApplicants() >= partySize;
-                }
-
-                return post.getMaxApplicants() == partySize;
-            }
-        }
-
-        private record PartySizeToken(
-                int value,
-                int start,
-                int end
-        ) {
-        }
-
-        // 숫자 또는 한글 수사 + 인원 단위 구조를 먼저 찾고, 주변 의미로 정원 조건을 결정합니다.
-        private static PartySizeCondition resolvePartySizeCondition(String normalized) {
-            PartySizeToken token = findPartySizeToken(normalized);
-            if (token == null || token.value() <= 0) {
-                return null;
-            }
-
-            PartySizeMode mode = hasCapacityAvailabilityIntent(normalized, token)
-                    ? PartySizeMode.MIN_CAPACITY
-                    : PartySizeMode.EXACT_CAPACITY;
-
-            return new PartySizeCondition(token.value(), mode);
-        }
-
-        private static PartySizeToken findPartySizeToken(String normalized) {
-            Matcher digitMatcher = Pattern.compile("(\\d+)(?:명|인)").matcher(normalized);
-            if (digitMatcher.find()) {
-                return new PartySizeToken(
-                        Integer.parseInt(digitMatcher.group(1)),
-                        digitMatcher.start(),
-                        digitMatcher.end()
-                );
-            }
-
-            Matcher koreanMatcher = Pattern.compile("([가-힣]+?)(?:명|인)").matcher(normalized);
-            while (koreanMatcher.find()) {
-                Integer value = parseKoreanPartySize(koreanMatcher.group(1));
-                if (value != null) {
-                    return new PartySizeToken(value, koreanMatcher.start(), koreanMatcher.end());
-                }
-            }
-
-            return null;
-        }
-
-        private static Integer parseKoreanPartySize(String text) {
-            return switch (text) {
-                case "한", "하나", "일" -> 1;
-                case "두", "둘", "이" -> 2;
-                case "세", "셋", "삼" -> 3;
-                case "네", "넷", "사" -> 4;
-                case "다섯", "오" -> 5;
-                default -> null;
-            };
-        }
-
-        private static boolean hasCapacityAvailabilityIntent(String normalized, PartySizeToken token) {
-            int windowStart = Math.max(0, token.start() - 8);
-            int windowEnd = Math.min(normalized.length(), token.end() + 10);
-            String nearText = normalized.substring(windowStart, windowEnd);
-
-            return containsAny(nearText, "가능", "까지", "이상", "수용", "자리", "여유", "남");
         }
 
 
