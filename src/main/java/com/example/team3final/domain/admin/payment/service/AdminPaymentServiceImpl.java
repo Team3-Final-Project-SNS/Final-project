@@ -8,7 +8,7 @@ import com.example.team3final.domain.admin.payment.dto.response.AdminGetPayments
 import com.example.team3final.domain.admin.repository.AdminRepository;
 import com.example.team3final.domain.payment.entity.Payment;
 import com.example.team3final.domain.payment.enums.PaymentStatus;
-import com.example.team3final.domain.payment.service.PaymentService;
+import com.example.team3final.domain.payment.service.PaymentInternalService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdminPaymentServiceImpl implements AdminPaymentService {
 
     private final AdminRepository adminRepository;
-    private final PaymentService paymentService;
+    private final PaymentInternalService paymentInternalService;
 
     // 관리자 결제내역 목록 조회
     @Override
@@ -42,7 +42,7 @@ public class AdminPaymentServiceImpl implements AdminPaymentService {
         // 조건에 맞는 결제내역 Page 조회
         // userId가 null이면 전체 유저 대상
         // status가 null이면 전체 상태 대상
-        Page<Payment> payments = paymentService.getPaymentsForAdmin(userId, status, pageable);
+        Page<Payment> payments = paymentInternalService.getPaymentsForAdmin(userId, status, pageable);
 
         // payments를 AdminGetPaymentsResponseDto 타입으로 변환
         Page<AdminGetPaymentsResponseDto> response = payments.map(AdminGetPaymentsResponseDto::from);

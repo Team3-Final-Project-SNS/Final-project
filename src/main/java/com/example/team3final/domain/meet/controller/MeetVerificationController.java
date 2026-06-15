@@ -4,7 +4,8 @@ import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.domain.meet.dto.request.PlaceVerificationRequestDto;
 import com.example.team3final.domain.meet.dto.request.QrScanRequestDto;
 import com.example.team3final.domain.meet.dto.response.*;
-import com.example.team3final.domain.meet.service.MeetVerificationService;
+import com.example.team3final.domain.meet.service.MeetVerificationCommandService;
+import com.example.team3final.domain.meet.service.MeetVerificationQueryService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -25,7 +26,8 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1")
 public class MeetVerificationController {
 
-    private final MeetVerificationService meetVerificationService;
+    private final MeetVerificationCommandService meetVerificationCommandService;
+    private final MeetVerificationQueryService meetVerificationQueryService;
 
     // 공통 에러 응답 예시 상수
 
@@ -145,7 +147,7 @@ public class MeetVerificationController {
 
         Long userId = userDetails.getUserId();
         return ResponseEntity.ok(ApiResponseDto.success(
-                meetVerificationService.createPlaceVerification(userId, matchId, requestDto)));
+                meetVerificationCommandService.createPlaceVerification(userId, matchId, requestDto)));
     }
 
     // QR 토큰 발급/조회
@@ -208,7 +210,7 @@ public class MeetVerificationController {
 
         Long userId = userDetails.getUserId();
         return ResponseEntity.ok(ApiResponseDto.success(
-                meetVerificationService.getMeetQrByPost(userId, postId)));
+                meetVerificationQueryService.getMeetQrByPost(userId, postId)));
     }
 
     // QR 스캔
@@ -278,7 +280,7 @@ public class MeetVerificationController {
 
         Long userId = userDetails.getUserId();
         return ResponseEntity.ok(ApiResponseDto.success(
-                meetVerificationService.createQrScan(userId, matchId, requestDto)));
+                meetVerificationCommandService.createQrScan(userId, matchId, requestDto)));
     }
 
     // QR 인증 상태 조회
@@ -326,7 +328,7 @@ public class MeetVerificationController {
 
         Long userId = userDetails.getUserId();
         return ResponseEntity.ok(ApiResponseDto.success(
-                meetVerificationService.getMeetVerification(userId, matchId)));
+                meetVerificationQueryService.getMeetVerification(userId, matchId)));
     }
 
     // 만남 시간 연장 요청
@@ -398,7 +400,7 @@ public class MeetVerificationController {
 
         Long userId = userDetails.getUserId();
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponseDto.success(meetVerificationService.createMeetExtension(userId, matchId)));
+                .body(ApiResponseDto.success(meetVerificationCommandService.createMeetExtension(userId, matchId)));
     }
 
     // 만남 시간 연장 수락
@@ -479,7 +481,7 @@ public class MeetVerificationController {
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
 
         Long userId = userDetails.getUserId();
-        return ResponseEntity.ok(ApiResponseDto.success(meetVerificationService.acceptMeetExtension(userId, matchId)));
+        return ResponseEntity.ok(ApiResponseDto.success(meetVerificationCommandService.acceptMeetExtension(userId, matchId)));
     }
 
     // 만남 시간 연장 거절
@@ -542,7 +544,7 @@ public class MeetVerificationController {
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
 
         Long userId = userDetails.getUserId();
-        return ResponseEntity.ok(ApiResponseDto.success(meetVerificationService.rejectMeetExtension(userId, matchId)));
+        return ResponseEntity.ok(ApiResponseDto.success(meetVerificationCommandService.rejectMeetExtension(userId, matchId)));
     }
 
     // 만남 시간 연장 상태 조회
@@ -586,6 +588,6 @@ public class MeetVerificationController {
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
 
         Long userId = userDetails.getUserId();
-        return ResponseEntity.ok(ApiResponseDto.success(meetVerificationService.getMeetExtension(userId, matchId)));
+        return ResponseEntity.ok(ApiResponseDto.success(meetVerificationQueryService.getMeetExtension(userId, matchId)));
     }
 }

@@ -4,12 +4,10 @@ import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.domain.dispute.dto.request.CreateDisputeRequestDto;
 import com.example.team3final.domain.dispute.dto.response.CreateDisputeResponseDto;
 import com.example.team3final.domain.dispute.dto.response.DisputeResponseDto;
-import com.example.team3final.domain.dispute.service.DisputeService;
-import com.example.team3final.domain.user.service.UserDetailsImpl;
+import com.example.team3final.domain.dispute.service.DisputeCommandService;
 import com.example.team3final.domain.meet.dto.response.NoShowMatchResponseDto;
-import com.example.team3final.domain.meet.service.MeetVerificationService;
-import java.util.List;
-
+import com.example.team3final.domain.meet.service.MeetVerificationQueryService;
+import com.example.team3final.domain.user.service.UserDetailsImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
@@ -23,14 +21,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Tag(name = "Dispute", description = "이의제기 API - 노쇼 예정 상태에서 이의제기 제출, 조회, 재이의제기")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/matches")
 public class DisputeController {
 
-    private final DisputeService disputeService;
-    private final MeetVerificationService meetVerificationService;
+    private final DisputeCommandService disputeCommandService;
+    private final MeetVerificationQueryService meetVerificationQueryService;
 
     // 공통 에러 응답 예시 상수
 
@@ -154,7 +154,7 @@ public class DisputeController {
         Long userId = userDetails.getUserId();
 
         // 실제 비즈니스 로직(검증 + 저장)은 전부 서비스에 위임한다.
-        CreateDisputeResponseDto response = disputeService.createDispute(matchId, userId, request);
+        CreateDisputeResponseDto response = disputeCommandService.createDispute(matchId, userId, request);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -213,7 +213,7 @@ public class DisputeController {
     ) {
         Long userId = userDetails.getUserId();
 
-        DisputeResponseDto response = disputeService.getDispute(matchId, userId);
+        DisputeResponseDto response = disputeCommandService.getDispute(matchId, userId);
 
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
@@ -244,7 +244,7 @@ public class DisputeController {
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
         Long userId = userDetails.getUserId();
-        List<NoShowMatchResponseDto> response = meetVerificationService.getNoShowMatchesForUser(userId);
+        List<NoShowMatchResponseDto> response = meetVerificationQueryService.getNoShowMatchesForUser(userId);
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
 
@@ -314,7 +314,7 @@ public class DisputeController {
             @Valid @RequestBody CreateDisputeRequestDto request
     ) {
         Long userId = userDetails.getUserId();
-        CreateDisputeResponseDto response = disputeService.reCreateDispute(matchId, userId, request);
+        CreateDisputeResponseDto response = disputeCommandService.reCreateDispute(matchId, userId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponseDto.success(response));
     }
 }

@@ -14,11 +14,12 @@ import com.example.team3final.domain.admin.repository.AdminRepository;
 import com.example.team3final.domain.inquiry.entity.Inquiry;
 import com.example.team3final.domain.inquiry.enums.InquiryAnswerStatus;
 import com.example.team3final.domain.inquiry.enums.InquiryType;
-import com.example.team3final.domain.inquiry.service.InquiryService;
+import com.example.team3final.domain.inquiry.service.InquiryInternalService;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
-import com.example.team3final.domain.university.service.UniversityService;
+import com.example.team3final.domain.university.service.UniversityInternalService;
 import com.example.team3final.domain.user.dto.response.AdminUserInfoDto;
-import com.example.team3final.domain.user.service.UserService;
+import com.example.team3final.domain.user.service.UserInternalService;
+import com.example.team3final.domain.user.service.UserModerationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -36,9 +37,10 @@ public class AdminInquiryAnswerServiceImpl implements AdminInquiryAnswerService 
 
     private final AdminRepository adminRepository;
     private final InquiryAnswerRepository inquiryAnswerRepository;
-    private final InquiryService inquiryService;
-    private final UserService userService;
-    private final UniversityService universityService;
+    private final InquiryInternalService inquiryInternalService;
+    private final UserInternalService userInternalService;
+    private final UserModerationService userModerationService;
+    private final UniversityInternalService universityInternalService;
     private final NotificationPublisher notificationPublisher;
 
     // 유저용 — InquiryServiceImpl에서 유저가 본인 문의 상세 조회할 때 답변 함께 반환하기 위해 호출
@@ -57,16 +59,16 @@ public class AdminInquiryAnswerServiceImpl implements AdminInquiryAnswerService 
                 .orElseThrow(() -> new AdminException(ErrorCode.ADMIN_NOT_FOUND));
 
         // 문의 단건 조회
-        Inquiry inquiry = inquiryService.getInquiryById(inquiryId);
+        Inquiry inquiry = inquiryInternalService.getInquiryById(inquiryId);
 
         // 관리자가 상세 조회하는 순간 PENDING → READ 자동 전환
         inquiry.markAsRead();
 
         // 작성자 정보 조회 (nickname, email, universityId)
-        AdminUserInfoDto userInfoDto = userService.getAdminUserInfo(inquiry.getUserId());
+        AdminUserInfoDto userInfoDto = userModerationService.getAdminUserInfo(inquiry.getUserId());
 
         // 대학 이름 조회
-        Map<Long, String> universityNameMap = universityService.getUniversityName(
+        Map<Long, String> universityNameMap = universityInternalService.getUniversityName(
                 List.of(userInfoDto.universityId())
         );
         String universityName = universityNameMap.get(userInfoDto.universityId());
@@ -94,7 +96,7 @@ public class AdminInquiryAnswerServiceImpl implements AdminInquiryAnswerService 
                 .orElseThrow(() -> new AdminException(ErrorCode.ADMIN_NOT_FOUND));
 
         // 문의 목록 조회 (status, type 필터 + 페이징)
-        Page<Inquiry> inquiries = inquiryService.getInquiriesForAdmin(status, type, pageable);
+        Page<Inquiry> inquiries = inquiryInternalService.getInquiriesForAdmin(status, type, pageable);
 
         // 문의 작성자 userId 목록 한 번에 추출 — N+1 방지
         List<Long> userIds = inquiries.getContent()
@@ -104,7 +106,7 @@ public class AdminInquiryAnswerServiceImpl implements AdminInquiryAnswerService 
                 .toList();
 
         // userId → nickname 매핑을 한 번의 쿼리로 조회
-        Map<Long, String> nicknameMap = userService.getUserNicknameMap(userIds);
+        Map<Long, String> nicknameMap = userInternalService.getUserNicknameMap(userIds);
 
         // Inquiry → DTO 변환
         Page<AdminGetInquiriesResponseDto> response = inquiries.map(inquiry ->
@@ -128,7 +130,7 @@ public class AdminInquiryAnswerServiceImpl implements AdminInquiryAnswerService 
                 .orElseThrow(() -> new AdminException(ErrorCode.ADMIN_NOT_FOUND));
 
         // 문의 존재 여부 확인
-        Inquiry inquiry = inquiryService.getInquiryById(inquiryId);
+        Inquiry inquiry = inquiryInternalService.getInquiryById(inquiryId);
 
         // 이미 답변된 문의인지 확인
         if (inquiry.getAnswerStatus() == InquiryAnswerStatus.ANSWERED) {

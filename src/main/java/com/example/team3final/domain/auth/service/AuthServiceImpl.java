@@ -13,13 +13,14 @@ import com.example.team3final.domain.auth.dto.response.*;
 import com.example.team3final.domain.auth.util.OtpGenerator;
 import com.example.team3final.domain.auth.util.OtpRedisKeyUtil;
 import com.example.team3final.domain.university.dto.response.UniversityResponseDto;
-import com.example.team3final.domain.university.service.UniversityService;
+import com.example.team3final.domain.university.service.UniversityInternalService;
 import com.example.team3final.domain.user.dto.request.WithdrawRequestDto;
 import com.example.team3final.domain.user.dto.response.WithdrawResponseDto;
 import com.example.team3final.domain.user.entity.TermAgreement;
 import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.repository.TermAgreementRepository;
-import com.example.team3final.domain.user.service.UserService;
+import com.example.team3final.domain.user.service.UserCommandService;
+import com.example.team3final.domain.user.service.UserInternalService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -45,8 +46,9 @@ public class AuthServiceImpl implements AuthService{
 
     private final StringRedisTemplate redisTemplate;
     private final OtpService otpService;
-    private final UniversityService universityService;
-    private final UserService userService;
+    private final UniversityInternalService universityInternalService;
+    private final UserInternalService userInternalService;
+    private final UserCommandService userCommandService;
     private final OtpProperties otpProperties;
     private final JwtProvider jwtProvider;
     private final AuthenticationManager authenticationManager;
@@ -66,13 +68,13 @@ public class AuthServiceImpl implements AuthService{
 
         // 1. 등록된 학교 도메인인지 검증 (Service to Service)
         String emailDomain = email.substring(email.indexOf("@") + 1);
-        boolean isRegisteredUniversity = universityService.isRegisteredActiveUniversity(emailDomain);
+        boolean isRegisteredUniversity = universityInternalService.isRegisteredActiveUniversity(emailDomain);
         if (!isRegisteredUniversity) {
             throw new AuthException(ErrorCode.AUTH_UNREGISTERED_UNIVERSITY);
         }
 
         // 2. 이미 가입된 이메일인지 검증 (Service to Service)
-        boolean isAlreadyRegistered = userService.isEmailAlreadyRegistered(email);
+        boolean isAlreadyRegistered = userInternalService.isEmailAlreadyRegistered(email);
         if (isAlreadyRegistered) {
             throw new AuthException(ErrorCode.AUTH_ALREADY_REGISTERED_EMAIL);
         }
@@ -164,7 +166,7 @@ public class AuthServiceImpl implements AuthService{
 
         // 6단계: 이메일 도메인으로 학교 정보 조회
         String emailDomain = email.substring(email.indexOf("@") + 1);
-        UniversityResponseDto university = universityService.getUniversityByDomain(emailDomain);
+        UniversityResponseDto university = universityInternalService.getUniversityByDomain(emailDomain);
 
         // 7단계: signup_token 생성 (기존 JwtProvider 재사용)
         // type: "SIGNUP", TTL: 15분 (application.yml jwt.signup-token-validity-time)
@@ -215,13 +217,13 @@ public class AuthServiceImpl implements AuthService{
         // ===== 5단계: 이메일 재중복 확인 =====
         // OTP 발송 ~ 회원가입 사이에 동일 이메일로 먼저 가입한 경우 차단
         // Service-to-Service: UserService 통해 확인
-        if (userService.isEmailAlreadyRegistered(email)) {
+        if (userInternalService.isEmailAlreadyRegistered(email)) {
             throw new AuthException(ErrorCode.AUTH_ALREADY_REGISTERED_EMAIL);
         }
 
         // ===== 6단계: 닉네임 중복 확인 =====
         // Service-to-Service: UserService 통해 확인 (UserRepository 직접 접근 금지)
-        if (userService.existsByNickname(request.getNickname())) {
+        if (userInternalService.existsByNickname(request.getNickname())) {
             throw new AuthException(ErrorCode.AUTH_NICKNAME_DUPLICATED);
         }
 
@@ -240,7 +242,7 @@ public class AuthServiceImpl implements AuthService{
         // ===== 8단계: universityId 조회 =====
         // Service-to-Service: UniversityService 통해 조회
         String emailDomain = email.substring(email.indexOf("@") + 1);
-        UniversityResponseDto university = universityService.getUniversityByDomain(emailDomain);
+        UniversityResponseDto university = universityInternalService.getUniversityByDomain(emailDomain);
 
         // ===== 9단계: 비밀번호 암호화 =====
         // 암호화 책임은 AuthService에 있음
@@ -250,7 +252,7 @@ public class AuthServiceImpl implements AuthService{
         // ===== 10단계: User 생성 + 포인트 지급 + PointTransaction 기록 =====
         // Service-to-Service: UserService 통해 처리
         // UserServiceImpl.createUser() 내부에서 단일 트랜잭션으로 세 가지를 모두 처리함
-        User savedUser = userService.createUser(
+        User savedUser = userCommandService.createUser(
                 email,
                 encodedPassword,
                 request.getName(),
@@ -327,7 +329,7 @@ public class AuthServiceImpl implements AuthService{
         }
 
         // 인증 성공 → 유저 정보 조회
-        User user = userService.findByEmail(request.getEmail());
+        User user = userInternalService.findByEmail(request.getEmail());
 
         // deviceId 발급
         String deviceId = UUID.randomUUID().toString();
@@ -432,7 +434,7 @@ public class AuthServiceImpl implements AuthService{
     public WithdrawResponseDto withdraw(
             Long userId, WithdrawRequestDto request, String refreshToken, HttpServletResponse response) {
         // 1. 비밀번호 검증 + 상태 변경
-        userService.withdrawUser(userId, request.getPassword());
+        userCommandService.withdrawUser(userId, request.getPassword());
 
         // 2. Redis에서 Refresh Token 삭제 - 로그아웃과 동일한 방식으로 토큰 무효화
         if (refreshToken != null && jwtProvider.validateToken(refreshToken)) {

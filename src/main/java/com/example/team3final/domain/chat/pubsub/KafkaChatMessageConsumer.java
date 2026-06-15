@@ -4,7 +4,7 @@ import com.example.team3final.common.kafka.KafkaIdempotencyService;
 import com.example.team3final.common.kafka.KafkaTopics;
 import com.example.team3final.domain.chat.dto.response.ChatMessageResponseDto;
 import com.example.team3final.domain.chat.repository.ChatMemberRepository;
-import com.example.team3final.domain.user.service.UserService;
+import com.example.team3final.domain.user.service.UserInternalService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +21,7 @@ public class KafkaChatMessageConsumer {
     private final ObjectMapper objectMapper;
     private final KafkaIdempotencyService kafkaIdempotencyService;
     private final ChatMemberRepository chatMemberRepository;
-    private final UserService userService;
+    private final UserInternalService userInternalService;
 
     @KafkaListener(
             topics = KafkaTopics.CHAT_MESSAGES,
@@ -64,7 +64,7 @@ public class KafkaChatMessageConsumer {
                     .filter(member -> !member.isNoShow())
                     .forEach(member -> {
                         // convertAndSendToUser는 Principal.getName() = email 기준으로 전달
-                        String memberEmail = userService.getEmailByUserId(member.getUserId());
+                        String memberEmail = userInternalService.getEmailByUserId(member.getUserId());
                         messagingTemplate.convertAndSendToUser(
                                 memberEmail,
                                 "/sub/chat/rooms/" + response.chatRoomId(),

@@ -5,7 +5,7 @@ import com.example.team3final.common.exception.MatchException;
 import com.example.team3final.domain.match.dto.response.CreateMatchResponseDto;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.entity.Post;
-import com.example.team3final.domain.post.service.PostService;
+import com.example.team3final.domain.post.service.PostInternalService;
 import lombok.RequiredArgsConstructor;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class MatchCreateService {
 
-    private final PostService postService;
+    private final PostInternalService postInternalService;
     private final RedissonClient redissonClient;
     private final NotificationPublisher notificationPublisher;
     private final MatchTransactionService matchTransactionService; // 트랜잭션 위임 대상
@@ -47,7 +47,7 @@ public class MatchCreateService {
         CreateMatchResponseDto result = null;
 
         try {
-            Post post = postService.getPostById(postId);
+            Post post = postInternalService.getPostById(postId);
 
             // 락 획득 전에 본인 소유 체크를 먼저 수행
             // → 락 경쟁 전에 빠르게 차단, 올바른 에러 코드 보장

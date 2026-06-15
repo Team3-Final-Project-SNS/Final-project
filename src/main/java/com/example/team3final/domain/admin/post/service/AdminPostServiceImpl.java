@@ -12,11 +12,12 @@ import com.example.team3final.domain.admin.post.dto.response.AdminRestorePostRes
 import com.example.team3final.domain.admin.repository.AdminRepository;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
-import com.example.team3final.domain.post.service.PostService;
+import com.example.team3final.domain.post.service.PostInternalService;
+import com.example.team3final.domain.post.service.PostModerationService;
 import com.example.team3final.domain.report.entity.Report;
-import com.example.team3final.domain.report.enums.ReportStatus;
-import com.example.team3final.domain.report.service.ReportService;
-import com.example.team3final.domain.user.service.UserService;
+import com.example.team3final.domain.report.service.ReportInternalService;
+import com.example.team3final.domain.report.service.ReportModerationService;
+import com.example.team3final.domain.user.service.UserInternalService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -33,9 +34,11 @@ import java.util.Map;
 public class AdminPostServiceImpl implements AdminPostService {
 
     private final AdminRepository adminRepository;
-    private final PostService postService;
-    private final ReportService reportService;
-    private final UserService userService;
+    private final PostInternalService postInternalService;
+    private final ReportInternalService reportInternalService;
+    private final ReportModerationService reportModerationService;
+    private final UserInternalService userInternalService;
+    private final PostModerationService postModerationService;
 
     // 게시글 강제 삭제
     @Override
@@ -54,7 +57,7 @@ public class AdminPostServiceImpl implements AdminPostService {
 
         // 관리자 강제 삭제는 신고 접수와 동시에 들어올 수 있으므로 락 조회 사용.
         // 같은 게시글에 대해 신고 접수도 락을 잡으면 둘 중 하나가 먼저 끝날 때까지 대기.
-        Post post = postService.getPostByIdWithLock(postId);
+        Post post = postInternalService.getPostByIdWithLock(postId);
 
         // OPEN 상태인지 확인
         if (!post.isOpen()) {
@@ -67,7 +70,7 @@ public class AdminPostServiceImpl implements AdminPostService {
         if (reportId != null) {
 
             // 신고 기반 삭제 (신고자에게 포상 지급되는 케이스)
-            Report report = reportService.getReportById(reportId);
+            Report report = reportInternalService.getReportById(reportId);
 
             // 신고 대상 게시글과 요청 게시글 일치 검증
             if (!report.getTargetId().equals(postId)) {
@@ -78,7 +81,7 @@ public class AdminPostServiceImpl implements AdminPostService {
             switch (report.getStatus()) {
                 case PENDING ->
                     // 미처리 신고 -> 채택 후 삭제
-                        reportService.acceptReport(reportId, adminId);
+                        reportModerationService.acceptReport(reportId, adminId);
 
                 case ACCEPTED -> {
                     // 이미 채택된 신고 -> 포상은 채택 시점에 이미 지급됨
@@ -91,13 +94,13 @@ public class AdminPostServiceImpl implements AdminPostService {
 
             // 직권 삭제
             // 단, 미처리 신고가 남아있으면 막고, 채택 후 삭제로 유도
-            if (reportService.existsPendingReport(postId)) {
+            if (reportInternalService.existsPendingReport(postId)) {
                 throw new AdminException(ErrorCode.ADMIN_PENDING_REPORT_EXISTS);
             }
         }
 
         // PostService 통해서 강제 삭제 + 환불 처리
-        int refundedPoint = postService.forceDeletePost(post, requestDto.getReason());
+        int refundedPoint = postModerationService.forceDeletePost(post, requestDto.getReason());
 
         return AdminDeletePostResponseDto.of(
                 postId,
@@ -127,7 +130,7 @@ public class AdminPostServiceImpl implements AdminPostService {
         // universityId 있으면 해당 대학 유저 ID 목록 조회
         List<Long> authorIds = null;
         if (universityId != null) {
-            authorIds = userService.getUserIdsByUniversityId(universityId);
+            authorIds = userInternalService.getUserIdsByUniversityId(universityId);
 
             // 해당 대학에 유저가 한 명도 없으면 빈 페이지 즉시 반환
             // authorIds가 빈 리스트인 채로 IN 절에 들어가면 쿼리 오류 또는 전체 조회가 될 수 있음
@@ -140,7 +143,7 @@ public class AdminPostServiceImpl implements AdminPostService {
         // universityId 없음 + authorNickname 있음 → 닉네임 검색 결과 그대로 사용
         // universityId 있음 + authorNickname 있음 -> 대학 필터 authorIds와 닉네임 검색 authorIds의 교집합
         if (authorNickname != null) {
-            List<Long> nicknameAuthorIds = userService.getUserIdsByNickname(authorNickname);
+            List<Long> nicknameAuthorIds = userInternalService.getUserIdsByNickname(authorNickname);
 
             // 닉네임 검색 결과가 없으면 즉시 빈 페이지 반환
             if (nicknameAuthorIds.isEmpty()) {
@@ -161,7 +164,7 @@ public class AdminPostServiceImpl implements AdminPostService {
         }
 
         // Post 목록 조회
-        Page<Post> posts = postService.getPostsForAdmin(authorIds, status, keyword, pageable);
+        Page<Post> posts = postModerationService.getPostsForAdmin(authorIds, status, keyword, pageable);
 
         // N+1 방지, authorId 목록 한 번에 추출 후 닉네임 bulk 조회
         List<Long> postAuthorIds = posts.getContent()
@@ -170,7 +173,7 @@ public class AdminPostServiceImpl implements AdminPostService {
                 .distinct()
                 .toList();
 
-        Map<Long, String> nicknameMap = userService.getUserNicknameMap(postAuthorIds);
+        Map<Long, String> nicknameMap = userInternalService.getUserNicknameMap(postAuthorIds);
 
         // 5. Post 엔티티 → 응답 DTO 변환
         Page<AdminGetPostsResponseDto> dtoPage = posts.map(post ->
@@ -191,10 +194,10 @@ public class AdminPostServiceImpl implements AdminPostService {
                 .orElseThrow(() -> new AdminException(ErrorCode.ADMIN_NOT_FOUND));
 
         // postId 조회
-        Post post = postService.getPostById(postId);
+        Post post = postInternalService.getPostById(postId);
 
         // 작성자 닉네임 단건 조회
-        String authorNickname = userService.getUserInfo(post.getAuthorId()).nickname();
+        String authorNickname = userInternalService.getUserInfo(post.getAuthorId()).nickname();
 
         // 4. DTO 변환 후 반환
         return AdminGetPostResponseDto.of(post, authorNickname);
@@ -214,7 +217,7 @@ public class AdminPostServiceImpl implements AdminPostService {
         }
 
         // 삭제 포함 조회
-        Post post = postService.getPostByIdIncludingDeleted(postId);
+        Post post = postInternalService.getPostByIdIncludingDeleted(postId);
 
         // 실제로 삭제된 글인지 확인
         if (!post.isDeleted()) {
@@ -222,7 +225,7 @@ public class AdminPostServiceImpl implements AdminPostService {
         }
 
         // 복구
-        int redeposited = postService.restorePost(post);
+        int redeposited = postModerationService.restorePost(post);
 
         return AdminRestorePostResponseDto.of(postId, redeposited, LocalDateTime.now());
     }

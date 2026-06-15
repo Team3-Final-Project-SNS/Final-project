@@ -7,7 +7,8 @@ import com.example.team3final.domain.inquiry.dto.response.CancelInquiryResponseD
 import com.example.team3final.domain.inquiry.dto.response.CreateInquiryResponseDto;
 import com.example.team3final.domain.inquiry.dto.response.GetAllInquiriesResponseDto;
 import com.example.team3final.domain.inquiry.dto.response.GetOneInquiryResponseDto;
-import com.example.team3final.domain.inquiry.service.InquiryService;
+import com.example.team3final.domain.inquiry.service.InquiryCommandService;
+import com.example.team3final.domain.inquiry.service.InquiryQueryService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -30,7 +31,8 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class InquiryController {
 
-    private final InquiryService inquiryService;
+    private final InquiryCommandService inquiryCommandService;
+    private final InquiryQueryService inquiryQueryService;
 
     // 공통 에러 응답 예시 상수
 
@@ -134,7 +136,7 @@ public class InquiryController {
         // jwt 토큰에서 검증된 userId 추출 (위변조 불가)
         Long userId = userDetails.getUserId();
 
-        CreateInquiryResponseDto response = inquiryService.createInquiry(userId, request);
+        CreateInquiryResponseDto response = inquiryCommandService.createInquiry(userId, request);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED).body(ApiResponseDto.success(response));
@@ -181,7 +183,7 @@ public class InquiryController {
     ) {
         Long userId = userDetails.getUserId();
 
-        GetOneInquiryResponseDto response = inquiryService.getOneInquiry(userId, inquiryId);
+        GetOneInquiryResponseDto response = inquiryQueryService.getOneInquiry(userId, inquiryId);
 
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
@@ -215,7 +217,7 @@ public class InquiryController {
         // PageRequest.of(page, size): Pageable 구현체 생성
         Pageable pageable = PageRequest.of(page, size);
 
-        PageResponseDto<GetAllInquiriesResponseDto> response = inquiryService.getAllInquiries(userId, pageable);
+        PageResponseDto<GetAllInquiriesResponseDto> response = inquiryQueryService.getAllInquiries(userId, pageable);
 
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }
@@ -274,7 +276,7 @@ public class InquiryController {
     ) {
         Long userId = userDetails.getUserId();
 
-        CancelInquiryResponseDto response = inquiryService.cancelInquiry(userId, inquiryId);
+        CancelInquiryResponseDto response = inquiryCommandService.cancelInquiry(userId, inquiryId);
 
         return ResponseEntity.ok(ApiResponseDto.success(response));
     }

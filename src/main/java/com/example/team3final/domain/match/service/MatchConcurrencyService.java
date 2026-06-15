@@ -28,14 +28,14 @@ import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.LockAcquisitionFailedException;
 import com.example.team3final.common.exception.MatchException;
 import com.example.team3final.common.exception.OptimisticLockConflictException;
-import com.example.team3final.domain.chat.service.ChatService;
+import com.example.team3final.domain.chat.service.ChatInternalService;
 import com.example.team3final.domain.match.dto.response.CreateMatchResponseDto;
 import com.example.team3final.domain.match.entity.Match;
-import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.repository.MatchRepository;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
-import com.example.team3final.domain.post.service.PostService;
+import com.example.team3final.domain.post.service.PostInternalService;
+import com.example.team3final.domain.post.service.PostLifecycleService;
 import com.example.team3final.domain.user.service.UserPointService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -54,9 +54,10 @@ import java.util.concurrent.TimeUnit;
 public class MatchConcurrencyService {
 
     private final MatchRepository matchRepository;
-    private final PostService postService;
+    private final PostInternalService postInternalService;
+    private final PostLifecycleService postLifecycleService;
     private final UserPointService userPointService;
-    private final ChatService chatService;
+    private final ChatInternalService chatInternalService;
 
     private final RedissonClient redissonClient;
 
@@ -94,7 +95,7 @@ public class MatchConcurrencyService {
 
         // PostService를 통해 비관적 락(NOWAIT) 걸린 게시글 조회
         // → 다른 트랜잭션이 같은 행 잠그고 있으면 즉시 예외
-        Post post = postService.getPostWithPessimisticLockNowait(postId);
+        Post post = postInternalService.getPostWithPessimisticLockNowait(postId);
 
         return processMatch(post, applicantId);
     }
@@ -117,7 +118,7 @@ public class MatchConcurrencyService {
     public CreateMatchResponseDto applyMatchWithPessimisticLockAndWait(Long postId, Long applicantId) {
 
         // PostService를 통해 비관적 락(대기 O) 걸린 게시글 조회
-        Post post = postService.getPostWithPessimisticLock(postId);
+        Post post = postInternalService.getPostWithPessimisticLock(postId);
 
         return processMatch(post, applicantId);
     }
@@ -143,7 +144,7 @@ public class MatchConcurrencyService {
     public CreateMatchResponseDto applyMatchWithOptimisticLock(Long postId, Long applicantId) {
 
         // 일반 조회 (락 없음) - @Version 필드로 나중에 충돌 감지
-        Post post = postService.getPostById(postId);
+        Post post = postInternalService.getPostById(postId);
 
         try {
             // processMatch → post.changeStatus() → JPA flush 시점에 version 검증
@@ -219,7 +220,7 @@ public class MatchConcurrencyService {
     // → 새 1차 캐시로 DB에서 최신 version의 Post 다시 읽음
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public CreateMatchResponseDto attemptMatchWithNewTransaction(Long postId, Long applicantId) {
-        Post post = postService.getPostById(postId);
+        Post post = postInternalService.getPostById(postId);
         return processMatch(post, applicantId);
     }
 
@@ -329,7 +330,7 @@ public class MatchConcurrencyService {
     @Transactional
     public CreateMatchResponseDto applyMatchWithoutLock(Long postId, Long applicantId) {
         // 락 없이 바로 조회 — 여러 스레드가 동시에 같은 OPEN 상태 읽을 수 있음
-        Post post = postService.getPostById(postId);
+        Post post = postInternalService.getPostById(postId);
         // OPEN 체크 → 매칭 생성 사이에 다른 스레드 끼어들면 둘 다 성공!
         return processMatch(post, applicantId);
     }
@@ -346,7 +347,7 @@ public class MatchConcurrencyService {
     // ====================================================================
     @Transactional
     public CreateMatchResponseDto applyMatchInTransaction(Long postId, Long applicantId) {
-        Post post = postService.getPostById(postId);
+        Post post = postInternalService.getPostById(postId);
         return processMatch(post, applicantId);
     }
 
@@ -390,7 +391,7 @@ public class MatchConcurrencyService {
         // PostService.changePostStatus()를 통해 처리
         // → PostService가 내부에서 post.changeStatus() 도메인 메서드 호출
         // → JPA Dirty Checking으로 UPDATE 자동 발생
-        postService.changePostStatus(post.getId(), PostStatus.MATCHED);
+        postLifecycleService.changePostStatus(post.getId(), PostStatus.MATCHED);
 
         // 5. 매칭 엔티티 생성 및 저장
         // MatchRepository는 같은 도메인 → 직접 사용 OK
@@ -408,7 +409,7 @@ public class MatchConcurrencyService {
         userPointService.deductPoint(applicantId, requiredPoint, savedMatch.getId());
 
         // 7. 채팅방 생성
-        chatService.createChatRoom(post.getId(), post.getAuthorId(), applicantId);
+        chatInternalService.createChatRoom(post.getId(), post.getAuthorId(), applicantId);
 
         // 8. 응답 DTO 생성
         // [테스트 목적] 닉네임·chatRoomId는 null 처리

@@ -12,9 +12,9 @@ import com.example.team3final.domain.location.enums.LocationRole;
 import com.example.team3final.domain.location.repository.UserLocationRepository;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.enums.MatchStatus;
-import com.example.team3final.domain.match.service.MatchService;
+import com.example.team3final.domain.match.service.MatchInternalService;
 import com.example.team3final.domain.post.dto.response.PostInfoDto;
-import com.example.team3final.domain.post.service.PostService;
+import com.example.team3final.domain.post.service.PostInternalService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,8 +34,8 @@ import java.util.stream.Collectors;
 public class UserLocationServiceImpl implements UserLocationService {
 
     private final UserLocationRepository userLocationRepository;
-    private final MatchService matchQueryService;
-    private final PostService postQueryService;
+    private final MatchInternalService matchInternalService;
+    private final PostInternalService postInternalService;
 
     // 위치 업데이트 시 반경 안/밖 여부를 계산할 때 사용할 기준 반경
     // 정책상 사용자 안내 반경은 50m지만, GPS 오차 10m를 고려해 서버 판정은 60m로 처리
@@ -47,13 +47,13 @@ public class UserLocationServiceImpl implements UserLocationService {
     public UpdateLocationResponseDto updateMyLocation(Long matchId, Long userId, UpdateLocationRequestDto requestDto) {
 
         // 매칭 정보 조회
-        MatchInfoDto matchInfo = matchQueryService.getMatchInfo(matchId);
+        MatchInfoDto matchInfo = matchInternalService.getMatchInfo(matchId);
 
         // 위치 공유가 가능한 매칭 상태인지 검증
         validateTrackableMatch(matchInfo);
 
         // 게시글 정보 조회
-        PostInfoDto postInfo = postQueryService.getPostInfo(matchInfo.postId());
+        PostInfoDto postInfo = postInternalService.getPostInfo(matchInfo.postId());
 
         // 매칭 당사자 검증
         if (!matchInfo.isParticipant(userId, postInfo.authorId())) {
@@ -109,13 +109,13 @@ public class UserLocationServiceImpl implements UserLocationService {
     public GetLocationResponseDto getLocations(Long matchId, Long userId) {
 
         // 매칭 정보 조회
-        MatchInfoDto matchInfo = matchQueryService.getMatchInfo(matchId);
+        MatchInfoDto matchInfo = matchInternalService.getMatchInfo(matchId);
 
         // 위치 공유가 가능한 매칭 상태인지 검증
         validateTrackableMatch(matchInfo);
 
         // 게시글 정보 조회
-        PostInfoDto postInfo = postQueryService.getPostInfo(matchInfo.postId());
+        PostInfoDto postInfo = postInternalService.getPostInfo(matchInfo.postId());
 
         // 매칭 당사자 검증
         if (!matchInfo.isParticipant(userId, postInfo.authorId())) {
@@ -123,7 +123,7 @@ public class UserLocationServiceImpl implements UserLocationService {
         }
 
         List<Long> activeMatchIds = getActiveMatchIdsByPostId(matchInfo.postId());
-        Map<Long, MatchInfoDto> activeMatchMap = matchQueryService.getMatchInfos(activeMatchIds);
+        Map<Long, MatchInfoDto> activeMatchMap = matchInternalService.getMatchInfos(activeMatchIds);
         Set<Long> activeApplicantIds = activeMatchMap.values()
                 .stream()
                 .map(MatchInfoDto::applicantId)
@@ -281,8 +281,8 @@ public class UserLocationServiceImpl implements UserLocationService {
     }
 
     private List<Long> getActiveMatchIdsByPostId(Long postId) {
-        List<Long> matchIds = matchQueryService.getMatchIdsByPostId(postId);
-        Map<Long, MatchInfoDto> matchInfoMap = matchQueryService.getMatchInfos(matchIds);
+        List<Long> matchIds = matchInternalService.getMatchIdsByPostId(postId);
+        Map<Long, MatchInfoDto> matchInfoMap = matchInternalService.getMatchInfos(matchIds);
 
         List<Long> activeMatchIds = matchInfoMap.values()
                 .stream()

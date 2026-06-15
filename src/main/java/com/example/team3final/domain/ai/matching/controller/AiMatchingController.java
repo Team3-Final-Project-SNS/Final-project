@@ -1,9 +1,7 @@
 package com.example.team3final.domain.ai.matching.controller;
 
 
-import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.domain.ai.matching.dto.request.AiMatchingChatRequestDto;
-import com.example.team3final.domain.ai.matching.dto.response.AiMatchingChatResponseDto;
 import com.example.team3final.domain.ai.matching.service.AiMatchingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

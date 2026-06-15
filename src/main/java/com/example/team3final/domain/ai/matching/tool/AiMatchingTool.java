@@ -1,17 +1,17 @@
 package com.example.team3final.domain.ai.matching.tool;
 
 
-import com.example.team3final.domain.match.service.MatchService;
+import com.example.team3final.domain.match.service.MatchInternalService;
 import com.example.team3final.domain.post.entity.Post;
-import com.example.team3final.domain.post.service.PostService;
+import com.example.team3final.domain.post.service.PostInternalService;
 import com.example.team3final.domain.user.entity.User;
-import com.example.team3final.domain.user.service.UserService;
+import com.example.team3final.domain.user.service.UserInternalService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
-
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -36,9 +36,9 @@ public class AiMatchingTool {
 
     private static final int MAX_RECOMMENDATION_CANDIDATES = 3;
 
-    private final UserService userService;
-    private final PostService postService;
-    private final MatchService matchService;
+    private final UserInternalService userInternalService;
+    private final PostInternalService postInternalService;
+    private final MatchInternalService matchInternalService;
 
 
     /**
@@ -63,7 +63,7 @@ public class AiMatchingTool {
         // User 도메인의 ACTIVE 사용자 조회 규칙을 재사용합니다.
         // AI 매칭 도메인은 UserRepository를 직접 참조하지 않고 추천 후보 작성자 ID만 전달받습니다.
         List<Long> sameUniversityUserIds =
-                userService.getActiveUserIdsByUniversityId(universityId);
+                userInternalService.getActiveUserIdsByUniversityId(universityId);
 
         if (sameUniversityUserIds.isEmpty()) {
             return List.of();
@@ -71,7 +71,7 @@ public class AiMatchingTool {
 
         SearchCondition searchCondition = SearchCondition.from(condition);
 
-        List<Post> posts = postService.findAiMatchingCandidatePosts(
+        List<Post> posts = postInternalService.findAiMatchingCandidatePosts(
                 sameUniversityUserIds,
                 searchCondition.sort()
         );
@@ -84,7 +84,7 @@ public class AiMatchingTool {
                 .limit(MAX_RECOMMENDATION_CANDIDATES)
                 .map(post -> {
                     boolean alreadyApplied =
-                            matchService.hasAppliedToPost(post.getId(), userId);
+                            matchInternalService.hasAppliedToPost(post.getId(), userId);
 
                     boolean pointAffordable = userPoint >= post.getAuthorDeposit();
 
@@ -132,7 +132,7 @@ public class AiMatchingTool {
             @ToolParam(description = "사용자의 식사 조건. 예: 오늘 저녁 조용하게 밥 먹을 사람", required = true)
             String condition
     ) {
-        User user = userService.findByEmail(email);
+        User user = userInternalService.findByEmail(email);
 
         return searchRecruitingMealPosts(
                 user.getId(),
@@ -162,12 +162,12 @@ public class AiMatchingTool {
             @ToolParam(description = "게시글 ID", required = true)
             Long postId
     ) {
-        User user = userService.findByEmail(email);
+        User user = userInternalService.findByEmail(email);
 
-        Post post = postService.getPostById(postId);
+        Post post = postInternalService.getPostById(postId);
 
         boolean alreadyApplied =
-                matchService.hasAppliedToPost(post.getId(), user.getId());
+                matchInternalService.hasAppliedToPost(post.getId(), user.getId());
 
         boolean pointAffordable = user.getTotalPoint() >= post.getAuthorDeposit();
 

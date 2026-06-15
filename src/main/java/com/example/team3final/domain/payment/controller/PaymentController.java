@@ -8,7 +8,7 @@ import com.example.team3final.domain.payment.dto.response.CancelPaymentResponseD
 import com.example.team3final.domain.payment.dto.response.CreatePaymentResponseDto;
 import com.example.team3final.domain.payment.dto.response.GetPaymentResponseDto;
 import com.example.team3final.domain.payment.dto.response.VerifyPaymentResponseDto;
-import com.example.team3final.domain.payment.service.PaymentService;
+import com.example.team3final.domain.payment.service.PaymentCommandService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -31,7 +31,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/payments")
 public class PaymentController {
 
-    private final PaymentService paymentService;
+    private final PaymentCommandService paymentCommandService;
 
     // 공통 에러 응답 예시 상수
 
@@ -125,7 +125,7 @@ public class PaymentController {
             @Valid @RequestBody CreatePaymentRequestDto request
     ) {
         Long userId = userDetails.getUserId();
-        CreatePaymentResponseDto response = paymentService.createPayment(userId, request);
+        CreatePaymentResponseDto response = paymentCommandService.createPayment(userId, request);
 
         // 201 Created - 새로운 결제 준비 건이 생성됐으므로
         return ResponseEntity
@@ -192,7 +192,7 @@ public class PaymentController {
        Long userId = userDetails.getUserId();
        return ResponseEntity.ok(
                ApiResponseDto.success(
-                       paymentService.verifyPayment(userId, paymentId, request)
+                       paymentCommandService.verifyPayment(userId, paymentId, request)
                )
        );
     }
@@ -226,7 +226,7 @@ public class PaymentController {
         Pageable pageable = PageRequest.of(page, Math.min(size,50));
         return ResponseEntity.ok(
                 ApiResponseDto.success(
-                        paymentService.getPayments(userId, pageable)
+                        paymentCommandService.getPayments(userId, pageable)
                 )
         );
     }
@@ -279,7 +279,7 @@ public class PaymentController {
         Long userId = userDetails.getUserId();
         return ResponseEntity.ok(
                 ApiResponseDto.success(
-                        paymentService.cancelPayment(userId, paymentId)
+                        paymentCommandService.cancelPayment(userId, paymentId)
                 )
         );
     }
@@ -321,7 +321,7 @@ public class PaymentController {
             @PathVariable Long paymentId
     ) {
         Long userId = userDetails.getUserId();
-        paymentService.failPayment(userId, paymentId);
+        paymentCommandService.failPayment(userId, paymentId);
 
         return ResponseEntity.ok(ApiResponseDto.successWithNoContent());
     }

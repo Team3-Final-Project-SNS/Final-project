@@ -7,8 +7,8 @@ import com.example.team3final.domain.user.dto.request.WithdrawRequestDto;
 import com.example.team3final.domain.user.dto.response.GetUserResponseDto;
 import com.example.team3final.domain.user.dto.response.UpdateUserResponseDto;
 import com.example.team3final.domain.user.dto.response.WithdrawResponseDto;
+import com.example.team3final.domain.user.service.UserCommandService;
 import com.example.team3final.domain.user.service.UserDetailsImpl;
-import com.example.team3final.domain.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
@@ -32,7 +32,7 @@ import java.util.Arrays;
 @RequestMapping("api/v1/users")
 public class UserController {
 
-    private final UserService userService;
+    private final UserCommandService userCommandService;
     private final AuthService authService;
 
     // 공통 에러 응답 예시 상수
@@ -86,9 +86,7 @@ public class UserController {
     public ResponseEntity<ApiResponseDto<GetUserResponseDto>> getUser(
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
         Long userId = userDetails.getUserId();
-        GetUserResponseDto response = userService.getUser(userId);
-
-        return ResponseEntity.ok(ApiResponseDto.success(response));
+        return ResponseEntity.ok(ApiResponseDto.success(userCommandService.getUser(userId)));
     }
 
     // 내 정보 수정
@@ -147,9 +145,8 @@ public class UserController {
     ) {
         // JWT에서 검증된 userId 추출
         Long userId = userDetails.getUserId();
-        UpdateUserResponseDto response = userService.updateUser(userId, request);
-
-        return ResponseEntity.ok(ApiResponseDto.success(response));
+        return ResponseEntity.ok(
+                ApiResponseDto.success(userCommandService.updateUser(userId, request)));
     }
 
     // 회원 탈퇴
@@ -208,9 +205,8 @@ public class UserController {
 
         // AuthService에 오케스트레이션 위임
         // (Redis 삭제 → DB 상태 변경 → 쿠키 파기)
-        WithdrawResponseDto response = authService.withdraw(userId, request, refreshToken, httpResponse);
-
-        return ResponseEntity.ok(ApiResponseDto.success(response));
+        return ResponseEntity.ok(
+                ApiResponseDto.success(authService.withdraw(userId, request, refreshToken, httpResponse)));
     }
 
     // 쿠키 배열에서 refresh_token 값을 찾아 반환하는 헬퍼 메서드
