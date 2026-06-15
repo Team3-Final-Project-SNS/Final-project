@@ -5,7 +5,6 @@ import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.ReportException;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.entity.Post;
-import com.example.team3final.domain.post.service.PostService;
 import com.example.team3final.domain.report.enums.ReportStatus;
 import com.example.team3final.domain.report.dto.request.CreateReportRequestDto;
 import com.example.team3final.domain.report.dto.response.CreateReportResponseDto;

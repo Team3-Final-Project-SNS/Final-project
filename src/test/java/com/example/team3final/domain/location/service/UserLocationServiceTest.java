@@ -9,7 +9,6 @@ import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.service.MatchService;
 import com.example.team3final.domain.post.dto.response.PostInfoDto;
-import com.example.team3final.domain.post.service.PostService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

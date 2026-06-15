@@ -74,6 +74,11 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
             LocalDateTime now
     );
 
+    List<Post> findByStatusAndMeetAtAfter(
+            PostStatus status,
+            LocalDateTime meetAt
+    );
+
     /**
      * 만료 벌크 업데이트
      * <p>
@@ -113,7 +118,8 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
     Optional<Post> findByIdWithPessimisticLock(@Param("id") Long id);
 
 
-    // ai 매칭 도메인에서 활용. toolcalling에서 활용하기 위해서.
+    // AI 매칭 Tool에서 pgvector 후보가 없거나 비활성화된 경우,
+    // 같은 학교 작성자의 OPEN + 미래 약속 게시글을 MySQL 기준으로 조회하는 fallback 메서드입니다.
     Page<Post> findByAuthorIdInAndStatusAndMeetAtAfter(
             List<Long> authorIds,
             PostStatus status,
@@ -121,7 +127,8 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
             Pageable pageable
     );
 
-    // pgvector가 반환한 postId 후보를 MySQL posts 테이블에서 같은 학교, 작성자, OPEN 상태, 미래 약속 시간 기준으로 최종 검증합니다.
+    // pgvector가 반환한 postId 후보를 MySQL posts 테이블에서 다시 검증하는 메서드입니다.
+    // 벡터 인덱스는 보조 검색용이므로, 최종 추천 전 같은 학교 작성자, OPEN 상태, 미래 약속 시간 조건을 여기서 확인합니다.
     List<Post> findByIdInAndAuthorIdInAndStatusAndMeetAtAfter(
             List<Long> postIds,
             List<Long> authorIds,
