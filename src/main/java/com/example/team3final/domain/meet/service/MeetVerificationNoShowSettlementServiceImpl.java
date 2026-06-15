@@ -66,10 +66,30 @@ public class MeetVerificationNoShowSettlementServiceImpl
         Set<Long> activeDisputeMatchIds =
                 disputeInternalService.getMatchIdsWithActiveDispute(activeMatchIds);
 
-        List<NoShowDecision> decisions = candidates.stream()
+        // QR 인증 완료 상태 또는 완료 플래그가 있는 매칭은 노쇼 확정과 포인트 정산에서 제외한다.
+        List<MeetVerification> settlementCandidates = candidates.stream()
+                .filter(candidate -> {
+                    if (!candidate.isMeetAlreadyCompleted()) {
+                        return true;
+                    }
+
+                    log.warn(
+                            "[노쇼확정] 완료된 만남 스킵 - matchId={}, status={}",
+                            candidate.getMatchId(),
+                            candidate.getStatus()
+                    );
+                    return false;
+                })
+                .toList();
+
+        List<NoShowDecision> decisions = settlementCandidates.stream()
                 .filter(candidate -> !activeDisputeMatchIds.contains(candidate.getMatchId()))
                 .map(candidate -> new NoShowDecision(candidate.getMatchId(), candidate.getStatus()))
                 .toList();
+
+        if (decisions.isEmpty()) {
+            return;
+        }
 
         boolean authorNoShow = decisions.stream().anyMatch(decision ->
                 decision.status() == VerificationStatus.HOST_NO_SHOW
@@ -88,7 +108,7 @@ public class MeetVerificationNoShowSettlementServiceImpl
             return;
         }
 
-        Map<Long, MeetVerification> verificationMap = candidates.stream()
+        Map<Long, MeetVerification> verificationMap = settlementCandidates.stream()
                 .collect(Collectors.toMap(MeetVerification::getMatchId, Function.identity()));
         MeetVerificationBulkContext bulk =
                 contextReader.loadBulkMatchContext(result.processedMatchIds());
@@ -99,6 +119,16 @@ public class MeetVerificationNoShowSettlementServiceImpl
             MatchInfoDto matchInfo = bulk.matchInfoMap().get(matchId);
 
             if (verification == null || matchInfo == null) {
+                continue;
+            }
+
+            // 정산 처리 중 상태가 변경된 경우에도 확정 알림과 상태 변경을 마지막으로 한 번 더 차단한다.
+            if (verification.isMeetAlreadyCompleted()) {
+                log.warn(
+                        "[노쇼확정] 발송 직전 완료된 만남 스킵 - matchId={}, status={}",
+                        matchId,
+                        verification.getStatus()
+                );
                 continue;
             }
 

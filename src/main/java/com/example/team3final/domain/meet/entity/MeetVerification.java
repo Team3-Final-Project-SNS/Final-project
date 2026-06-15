@@ -157,6 +157,13 @@ public class MeetVerification {
         return this.applicantPlaceVerifiedAt != null;
     }
 
+    // QR 인증 완료 상태 또는 완료 플래그가 남아 있으면 정상 만남 완료로 판단한다.
+    // 상태와 플래그 중 하나만 정상이어도 노쇼 판정과 알림에서 제외하기 위한 이중 방어다.
+    public boolean isMeetAlreadyCompleted() {
+        return this.status == VerificationStatus.DONE
+                || Boolean.TRUE.equals(this.isMeetVerified);
+    }
+
     // QR 토큰이 현재 시각 기준으로 만료여부 확인
     public boolean isQrExpired() {
         // qrExpiresAt이 null이면 아직 발급 전이므로 만료 아님

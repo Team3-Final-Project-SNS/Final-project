@@ -5,12 +5,17 @@ import com.example.team3final.domain.notification.dto.event.NotificationEvent;
 import com.example.team3final.domain.notification.enums.NotificationType;
 import com.example.team3final.domain.notification.enums.NotificationReceiverType;
 import com.example.team3final.domain.notification.enums.RelatedDomain;
+import com.example.team3final.domain.notification.validation.NotificationEventValidator;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.util.UUID;
 
 // 알림 발송 구현체 (NotificationPublisher 인터페이스)
@@ -26,6 +31,9 @@ public class NotificationPublisherImpl implements NotificationPublisher {
 
     // DTO -> JSON 문자열 변환 도구
     private final ObjectMapper objectMapper;
+
+    // Producer와 Consumer가 동일한 알림 불변 조건을 검증한다.
+    private final NotificationEventValidator notificationEventValidator;
 
     // ==================== 공통 메서드 ====================
 
@@ -44,52 +52,105 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     private void publish(Long receiverId, NotificationReceiverType receiverType,
                          NotificationType type, String title, String content,
                          RelatedDomain relatedDomain, Long relatedId) {
-        try {
+        // Consumer 멱등성 처리에 사용할 이벤트 고유 ID를 생성한다.
+        String eventId = UUID.randomUUID().toString();
 
-            // 멱등성을 위한 이벤트 고유 ID 생성
-            // Consumer가 이 ID를 Redis에 기록해 중복 처리 방지
-            String eventId = UUID.randomUUID().toString();
+        NotificationEvent event = new NotificationEvent(
+                eventId,
+                receiverId,
+                receiverType,
+                type,
+                title,
+                content,
+                relatedDomain,
+                relatedId
+        );
 
-            NotificationEvent event = new NotificationEvent(
-                    eventId,
-                    receiverId,
-                    receiverType,
-                    type,
-                    title,
-                    content,
-                    relatedDomain,
-                    relatedId
-            );
+        // Kafka 발행 전에 알림 도메인의 불변 조건을 검증한다.
+        // 검증 실패는 호출자에게 즉시 전달해 잘못된 비즈니스 호출을 빠르게 발견한다.
+        notificationEventValidator.validate(event);
 
-            // Kafka key는 receiverId로 설정
-            // 같은 수신자의 알림은 같은 파티션에 들어가 순서가 유지될 가능성이 높아짐
-            String key = String.valueOf(receiverId);
-            String message = objectMapper.writeValueAsString(event);
+        // 직렬화도 트랜잭션 안에서 미리 수행해 실패 시 비즈니스 작업을 롤백할 수 있게 한다.
+        String message = serialize(event);
 
-            // Kafka 전송 결과를 비동기로 확인
-            // 전송 성공 시 → 정상 처리
-            // 전송 실패 시 → DLQ 토픽으로 발행
-            kafkaTemplate.send(KafkaTopics.NOTIFICATIONS, key, message)
-                    .whenComplete((result, ex) -> {
-                        if (ex == null) {
-                            // 전송 성공
-                            log.info("[Kafka Notification Producer] 알림 이벤트 발행 성공" +
-                                            " - receiverId: {}, type: {}, relatedId: {}",
-                                    receiverId, type, relatedId);
-                        } else {
-                            // 전송 실패 → DLQ로 발행
-                            log.error("[Kafka Notification Producer] 알림 이벤트 발행 실패 → DLQ 발행" +
-                                            " - receiverId: {}, type: {}, error: {}",
-                                    receiverId, type, ex.getMessage());
-                            // DLQ에 원본 메시지 그대로 발행
-                            kafkaTemplate.send(KafkaTopics.NOTIFICATIONS_DLQ, key, message);
-                        }
-                    });
+        // USER와 ADMIN의 숫자 ID가 같아도 Kafka key가 충돌하지 않도록 타입을 포함한다.
+        String key = receiverType + ":" + receiverId;
 
-        } catch (Exception e) {
-            log.error("[Kafka Notification Producer] 알림 이벤트 직렬화 실패 - receiverId: {}, type: {}, error: {}",
-                    receiverId, type, e.getMessage());
+        if (isTransactionActive()) {
+            // 비즈니스 트랜잭션이 성공적으로 커밋된 경우에만 Kafka 알림을 발행한다.
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    sendToKafka(event, key, message);
+                }
+            });
+            return;
         }
+
+        // 스케줄러나 이미 커밋 이후인 호출은 즉시 Kafka에 발행한다.
+        sendToKafka(event, key, message);
+    }
+
+    private boolean isTransactionActive() {
+        return TransactionSynchronizationManager.isActualTransactionActive()
+                && TransactionSynchronizationManager.isSynchronizationActive();
+    }
+
+    private String serialize(NotificationEvent event) {
+        try {
+            return objectMapper.writeValueAsString(event);
+        } catch (JsonProcessingException e) {
+            // 직렬화 실패를 로그만 남기고 숨기지 않는다.
+            throw new IllegalStateException(
+                    "알림 이벤트 직렬화에 실패했습니다. eventId=" + event.eventId(),
+                    e
+            );
+        }
+    }
+
+    private void sendToKafka(NotificationEvent event, String key, String message) {
+        // Kafka 전송 결과를 비동기로 확인한다.
+        // 정상 토픽 발행 실패 시 원본 메시지를 Producer DLQ로 전달한다.
+        kafkaTemplate.send(KafkaTopics.NOTIFICATIONS, key, message)
+                .whenComplete((result, exception) -> {
+                    if (exception == null) {
+                        log.info(
+                                "[Kafka Notification Producer] 알림 이벤트 발행 성공"
+                                        + " - eventId: {}, receiverType: {}, receiverId: {}, type: {}, relatedId: {}",
+                                event.eventId(),
+                                event.receiverType(),
+                                event.receiverId(),
+                                event.type(),
+                                event.relatedId()
+                        );
+                        return;
+                    }
+
+                    log.error(
+                            "[Kafka Notification Producer] 알림 이벤트 발행 실패 → DLQ 발행"
+                                    + " - eventId: {}, receiverType: {}, receiverId: {}, type: {}",
+                            event.eventId(),
+                            event.receiverType(),
+                            event.receiverId(),
+                            event.type(),
+                            exception
+                    );
+
+                    // DLQ 전송도 비동기이므로 최종 실패 여부를 로그로 남긴다.
+                    kafkaTemplate.send(KafkaTopics.NOTIFICATIONS_DLQ, key, message)
+                            .whenComplete((dlqResult, dlqException) -> {
+                                if (dlqException != null) {
+                                    log.error(
+                                            "[Kafka Notification Producer] DLQ 발행 실패"
+                                                    + " - eventId: {}, receiverId: {}, type: {}",
+                                            event.eventId(),
+                                            event.receiverId(),
+                                            event.type(),
+                                            dlqException
+                                    );
+                                }
+                            });
+                });
     }
 
     // ==================== NotificationPublisher 구현 ====================

@@ -5,9 +5,12 @@ import com.example.team3final.common.kafka.KafkaTopics;
 import com.example.team3final.domain.notification.dto.event.NotificationEvent;
 import com.example.team3final.domain.notification.dto.response.GetNotificationsResponseDto;
 import com.example.team3final.domain.notification.entity.Notification;
+import com.example.team3final.domain.notification.exception.InvalidNotificationEventException;
 import com.example.team3final.domain.notification.repository.NotificationRepository;
 import com.example.team3final.domain.notification.service.NotificationCacheService;
 import com.example.team3final.domain.notification.sse.SseEmitterRepository;
+import com.example.team3final.domain.notification.validation.NotificationEventValidator;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +33,8 @@ public class NotificationEventConsumer {
     private final NotificationCacheService notificationCacheService;
     // 멱등성 체크 서비스 주입
     private final KafkaIdempotencyService kafkaIdempotencyService;
+    // Producer를 우회한 메시지도 저장 전에 동일한 정책으로 검증
+    private final NotificationEventValidator notificationEventValidator;
 
     // Kafka notifications 토픽에서 알림 이벤트가 오면 자동으로 호출됨
     // NotificationPublisherImpl -> Kafka -> 이 메서드 -> DB 저장 + SSE 전송
@@ -45,7 +50,12 @@ public class NotificationEventConsumer {
         String eventId = null;
 
         try {
-            NotificationEvent event = objectMapper.readValue(message, NotificationEvent.class);
+            NotificationEvent event = deserialize(message);
+
+            // Redis 멱등성 키를 만들기 전에 이벤트 전체를 검증한다.
+            // eventId가 null인 이벤트가 kafka:idempotency:null로 등록되는 것을 방지한다.
+            notificationEventValidator.validate(event);
+
             eventId = event.eventId();
 
             // 이미 처리한 이벤트인지 확인
@@ -91,6 +101,17 @@ public class NotificationEventConsumer {
             log.debug("[Kafka Notification Consumer] 알림 상세 내용 - title: {}, content: {}",
                     event.title(), event.content());
 
+        } catch (InvalidNotificationEventException e) {
+            // 데이터 자체가 잘못된 경우 재시도로 복구되지 않으므로 예외를 그대로 전달한다.
+            log.error(
+                    "[Kafka Notification Consumer] 유효하지 않은 알림 이벤트"
+                            + " - eventId: {}, error: {}",
+                    eventId,
+                    e.getMessage(),
+                    e
+            );
+            throw e;
+
         } catch (Exception e) {
             // 스택트레이스까지 포함해서 로깅 (마지막 인자로 예외 전달)
             log.error("[Kafka Notification Consumer] 알림 처리 실패 - eventId: {}", eventId, e);
@@ -114,6 +135,18 @@ public class NotificationEventConsumer {
             // → 3회 모두 실패하면 DeadLetterPublishingRecoverer가 notifications.DLT로 발행
             //    → DltEventConsumer가 최종 실패 로그 기록
             throw new RuntimeException("알림 이벤트 처리 실패", e);
+        }
+    }
+
+    private NotificationEvent deserialize(String message) {
+        try {
+            return objectMapper.readValue(message, NotificationEvent.class);
+        } catch (JsonProcessingException e) {
+            // JSON 구조 또는 Enum 값이 잘못된 메시지도 재시도 없이 DLT로 보낸다.
+            throw new InvalidNotificationEventException(
+                    "알림 이벤트 역직렬화에 실패했습니다.",
+                    e
+            );
         }
     }
 }

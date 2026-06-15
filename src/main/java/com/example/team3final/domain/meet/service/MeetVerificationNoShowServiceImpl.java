@@ -74,6 +74,16 @@ public class MeetVerificationNoShowServiceImpl implements MeetVerificationNoShow
 
         for (MeetVerification meetVerification : pendingList) {
 
+            // QR 인증까지 완료된 만남은 상태 데이터가 PENDING으로 오염됐더라도 노쇼 판정에서 제외한다.
+            if (meetVerification.isMeetAlreadyCompleted()) {
+                log.warn(
+                        "[GPS 노쇼판정] 완료된 만남 스킵 - matchId={}, status={}",
+                        meetVerification.getMatchId(),
+                        meetVerification.getStatus()
+                );
+                continue;
+            }
+
             MatchInfoDto matchInfoDto = bulk.matchInfoMap().get(meetVerification.getMatchId());
             if (matchInfoDto == null) {
                 // 데이터 정합성이 깨졌을 때를 대비한 방어 — 해당 건만 스킵
@@ -178,6 +188,16 @@ public class MeetVerificationNoShowServiceImpl implements MeetVerificationNoShow
         for (MeetVerification meetVerification : expiresList) {
 
             Long matchId = meetVerification.getMatchId();
+
+            // QR 인증 완료 플래그가 true인 만남은 상태가 VERIFIED로 남아 있어도 노쇼 판정하지 않는다.
+            if (meetVerification.isMeetAlreadyCompleted()) {
+                log.warn(
+                        "[QR 노쇼판정] 완료된 만남 스킵 - matchId={}, status={}",
+                        matchId,
+                        meetVerification.getStatus()
+                );
+                continue;
+            }
 
             // 현재 MeetVerification에 대응되는 Match 정보 조회
             MatchInfoDto matchInfoDto = matchInfoDtoMap.get(matchId);

@@ -2,6 +2,8 @@ package com.example.team3final.domain.meet.scheduler;
 
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.service.MatchInternalService;
+import com.example.team3final.domain.meet.entity.MeetVerification;
+import com.example.team3final.domain.meet.enums.VerificationStatus;
 import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
 import com.example.team3final.domain.meet.service.MeetOverdueReservationService;
 import com.example.team3final.domain.meet.util.MeetRedisZSetKeys;
@@ -123,10 +125,31 @@ public class MeetReminderScheduler {
                     continue;
                 }
 
-                LocalDateTime effectiveMeetAt = getEffectiveMeetAt(
-                        matchId.get(),
-                        post.getMeetAt()
-                );
+                // 발송 직전 인증 상태를 확인해 이미 장소 또는 QR 인증을 마친 사용자에게 오발송하지 않는다.
+                Optional<MeetVerification> meetVerification =
+                        meetVerificationRepository.findByMatchId(matchId.get());
+
+                if (meetVerification.isEmpty()) {
+                    log.warn(
+                            "[MeetReminderScheduler] 10분 경과 HOST 알림 스킵"
+                                    + " - 만남 인증 정보 없음 matchId: {}",
+                            matchId.get()
+                    );
+                    continue;
+                }
+
+                if (!shouldSendHostOverdue(meetVerification.get())) {
+                    log.info(
+                            "[MeetReminderScheduler] 10분 경과 HOST 알림 스킵"
+                                    + " - 인증 완료 또는 발송 대상 아님 matchId: {}, status: {}",
+                            matchId.get(),
+                            meetVerification.get().getStatus()
+                    );
+                    continue;
+                }
+
+                LocalDateTime effectiveMeetAt =
+                        getEffectiveMeetAt(meetVerification.get(), post.getMeetAt());
 
                 // 기존 예약 pop과 연장 재예약이 경합했으면 실제 발송 시각으로 다시 예약한다.
                 if (requeueAndSkipIfEarly(
@@ -152,10 +175,31 @@ public class MeetReminderScheduler {
                 MatchInfoDto matchInfo = matchInternalService.getMatchInfo(matchId);
                 Post post = postInternalService.getPostById(matchInfo.postId());
 
-                LocalDateTime effectiveMeetAt = getEffectiveMeetAt(
-                        matchId,
-                        post.getMeetAt()
-                );
+                // QR 인증까지 완료된 DONE 상태와 장소 인증이 끝난 VERIFIED 상태는 발송 대상이 아니다.
+                Optional<MeetVerification> meetVerification =
+                        meetVerificationRepository.findByMatchId(matchId);
+
+                if (meetVerification.isEmpty()) {
+                    log.warn(
+                            "[MeetReminderScheduler] 10분 경과 GUEST 알림 스킵"
+                                    + " - 만남 인증 정보 없음 matchId: {}",
+                            matchId
+                    );
+                    continue;
+                }
+
+                if (!shouldSendGuestOverdue(meetVerification.get())) {
+                    log.info(
+                            "[MeetReminderScheduler] 10분 경과 GUEST 알림 스킵"
+                                    + " - 인증 완료 또는 발송 대상 아님 matchId: {}, status: {}",
+                            matchId,
+                            meetVerification.get().getStatus()
+                    );
+                    continue;
+                }
+
+                LocalDateTime effectiveMeetAt =
+                        getEffectiveMeetAt(meetVerification.get(), post.getMeetAt());
 
                 // 아직 실제 경과 시각 전이면 같은 matchId를 올바른 시각으로 다시 예약한다.
                 if (requeueAndSkipIfEarly(
@@ -242,16 +286,25 @@ public class MeetReminderScheduler {
     // 연장된 시각이 있으면 extendedMeetAt을 사용하고,
     // 연장하지 않았으면 최초 Post.meetAt을 사용한다.
     private LocalDateTime getEffectiveMeetAt(
-            Long matchId,
+            MeetVerification meetVerification,
             LocalDateTime originalMeetAt
     ) {
-        return meetVerificationRepository.findByMatchId(matchId)
-                .map(meetVerification ->
-                        meetVerification.getExtendedMeetAt() != null
-                                ? meetVerification.getExtendedMeetAt()
-                                : originalMeetAt
-                )
-                .orElse(originalMeetAt);
+        return meetVerification.getExtendedMeetAt() != null
+                ? meetVerification.getExtendedMeetAt()
+                : originalMeetAt;
+    }
+
+    private boolean shouldSendHostOverdue(MeetVerification meetVerification) {
+        // 10분 경과 알림은 아직 GPS 장소 인증이 필요한 PENDING 상태에만 발송한다.
+        // VERIFIED와 DONE 상태는 장소 인증이 끝났으므로 알림 대상에서 제외한다.
+        return meetVerification.getStatus() == VerificationStatus.PENDING
+                && !meetVerification.isAuthorPlaceVerified();
+    }
+
+    private boolean shouldSendGuestOverdue(MeetVerification meetVerification) {
+        // 한쪽만 장소 인증한 경우에도 이미 인증한 신청자에게는 알림을 보내지 않는다.
+        return meetVerification.getStatus() == VerificationStatus.PENDING
+                && !meetVerification.isApplicantPlaceVerified();
     }
 
     // Redis 항목이 DB 기준 실제 발송 시각보다 일찍 pop됐는지 확인한다.

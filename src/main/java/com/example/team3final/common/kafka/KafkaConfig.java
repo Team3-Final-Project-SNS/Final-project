@@ -1,5 +1,6 @@
 package com.example.team3final.common.kafka;
 
+import com.example.team3final.domain.notification.exception.InvalidNotificationEventException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.context.annotation.Bean;
@@ -58,6 +59,11 @@ public class KafkaConfig {
         FixedBackOff backOff = new FixedBackOff(1000L, 3L);
 
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, backOff);
+
+        // 잘못된 이벤트 데이터는 재시도해도 복구되지 않으므로 즉시 DLT로 보낸다.
+        errorHandler.addNotRetryableExceptions(
+                InvalidNotificationEventException.class
+        );
 
         // 재시도 시작 로그
         errorHandler.setRetryListeners((record, ex, deliveryAttempt) ->

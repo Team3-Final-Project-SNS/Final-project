@@ -39,7 +39,8 @@ public record NotificationEvent(
     ) {
         this.eventId = eventId;
         this.receiverId = receiverId;
-        this.receiverType = receiverType != null ? receiverType : NotificationReceiverType.USER;
+        // 누락된 receiverType은 Validator에서 잘못된 이벤트로 처리한다.
+        this.receiverType = receiverType;
         this.type = type;
         this.title = title;
         this.content = content;
