@@ -238,10 +238,8 @@ class MatchServiceTest {
     @DisplayName("매칭 취소 - 상태 오류")
     void cancelMatch_InvalidStatus_ThrowsException() {
         Match match = createMatch(1L, 100L, 2L, 1000);
-        match.cancel();
-        Post post = createPost(100L, 1L, PostStatus.OPEN);
-        given(matchRepository.findById(1L)).willReturn(Optional.of(match));
-        given(postService.getPostById(100L)).willReturn(post);
+        match.cancel(); // status = CANCELLED
+        given(matchRepository.findByIdWithLock(1L)).willReturn(Optional.of(match));
 
         assertThatThrownBy(() -> matchService.cancelMatch(1L, 2L, new CancelMatchRequestDto("reason")))
                 .isInstanceOf(RuntimeException.class);

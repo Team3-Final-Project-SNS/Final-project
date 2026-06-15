@@ -14,7 +14,21 @@ import java.time.LocalDateTime;
 
 @Getter
 @Entity
-@Table(name = "point_transactions")
+@Table(
+        name = "point_transactions",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        // (user_id, match_id, transaction_type) 조합이 동일하면 중복 환불로 판단
+                        // NULL 처리: match_id가 NULL인 경우(가입 보너스 등)는 UNIQUE 비교에서 NULL ≠ NULL이므로 제약 위반 아님
+                        //            → 가입 보너스, 신고 보상 등 match_id=NULL 거래는 이 제약에 걸리지 않음 (의도된 동작)
+                        // 왜 amount를 제약에 넣지 않는가:
+                        //   동일 matchId에 같은 type으로 다른 금액이 들어오는 경우는 없음 (금액은 항상 예치금 기준으로 고정)
+                        //   amount를 넣으면 "같은 금액 중복"만 막아서 방어력이 약해짐
+                        name = "uk_point_tx_user_match_type",
+                        columnNames = {"user_id", "match_id", "transaction_type"}
+                )
+        }
+)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PointTransaction extends BaseTimeEntity {
 
