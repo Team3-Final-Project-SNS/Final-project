@@ -66,10 +66,9 @@ public class ReviewServiceImpl implements ReviewService {
 
 
     /**
-     * 태그 점수 변화량을 매너 온도에 반영하는 가중치입니다.
-     * 예: 평균 태그 점수 +2라면 36.5 + (2 * 0.5) = 37.5도
+     * 가중치 수치 설정 (익명성 보장, 역산 방지)
      */
-    private static final BigDecimal MANNER_WEIGHT = new BigDecimal("0.5");
+    private static final BigDecimal MANNER_WEIGHT = new BigDecimal("0.1592");
 
     /**
      * 매너 온도 하한선입니다.
@@ -80,6 +79,12 @@ public class ReviewServiceImpl implements ReviewService {
      * 매너 온도 상한선입니다.
      */
     private static final BigDecimal MAX_MANNER_TEMPERATURE = new BigDecimal("99.0");
+
+    /**
+     * 만남(리뷰 합산)으로 변화할 수 있는 '온도 변동치'의 상한/하한선
+     */
+    private static final BigDecimal MAX_TEMPERATURE_DELTA_LIMIT = new BigDecimal("1.6");
+    private static final BigDecimal MIN_TEMPERATURE_DELTA_LIMIT = new BigDecimal("-1.6");
 
     private final NotificationPublisher notificationPublisher;
     private final ReviewRepository reviewRepository;
@@ -162,10 +167,31 @@ public class ReviewServiceImpl implements ReviewService {
             reviewAvoidanceService.createAvoidRelation(writerId, authorId, review.getId());
         }
 
-        // 매너온도 갱신 — 비관락 버전으로 교체
+        // 이번 만남으로 인한 평균 점수 변화량을 구합니다 (제한 없는 순수 평균).
         BigDecimal currentMeetingAverageScore = calculateMeetingAverageScore(postMatchIds);
         BigDecimal averageScoreDelta = currentMeetingAverageScore.subtract(previousMeetingAverageScore);
-        userMannerService.updateMannerTemperatureWithLock(authorId, averageScoreDelta, MANNER_WEIGHT);
+
+        // 변화량에 가중치(0.1592)를 곱해 '실제 변동할 온도 변동치'를 계산하고 소수점 첫째 자리에서 반올림합니다.
+        BigDecimal temperatureDelta = averageScoreDelta.multiply(MANNER_WEIGHT)
+                .setScale(1, RoundingMode.HALF_UP);
+
+        // 이번 리뷰로 인해 오르내릴 '온도 변동치' 자체를 ±1.6도 범위로 가둡니다.
+        if (temperatureDelta.compareTo(MAX_TEMPERATURE_DELTA_LIMIT) > 0) {
+            temperatureDelta = MAX_TEMPERATURE_DELTA_LIMIT;
+        } else if (temperatureDelta.compareTo(MIN_TEMPERATURE_DELTA_LIMIT) < 0) {
+            temperatureDelta = MIN_TEMPERATURE_DELTA_LIMIT;
+        }
+
+        // 게시물 등록자의 기존 매너 온도를 가져와서 변동치(±1.6)를 더해줍니다.
+        BigDecimal currentTemperature = userMannerService.getMannerTemperature(authorId);
+        BigDecimal nextTemperature = currentTemperature.add(temperatureDelta);
+
+        // 최종 온도가 시스템 전체 매너온도 범위(0도 ~ 99도)를 벗어나지 않도록 안전하게 가둡니다.
+        BigDecimal finalTemperature = clampMannerTemperature(nextTemperature);
+
+        // 비관적 락을 획득하여 최종 확정된 매너 온도(finalTemperature)를 DB에 반영합니다.
+        // (이미 서비스 단에서 가중치 계산이 끝났으므로 가중치 파라미터 자리에는 BigDecimal.ONE을 전달합니다)
+        userMannerService.updateMannerTemperatureWithLock(authorId, finalTemperature, BigDecimal.ONE);
 
         // 12. 매너 온도 상승 알림 - 후기로 인한 매너온도 반영자에게
         notificationPublisher.sendMannerTemperatureChanged(authorId);
