@@ -40,6 +40,9 @@ public class PostVectorRepository {
         this.jdbcTemplate = jdbcTemplate;
         this.embeddingModel = embeddingModel;
         this.ragStore = aiProperties.getRagStore();
+        if (!hasText(ragStore.getPostTableName())) {
+            throw new IllegalStateException("app.ai.rag-store.post-table-name 설정이 필요합니다.");
+        }
         this.qualifiedTableName = qualify(ragStore.getSchemaName(), ragStore.getPostTableName());
         initializeSchema();
     }
@@ -254,12 +257,12 @@ public class PostVectorRepository {
     }
 
     private static String indexName(String tableName) {
-        String normalized = tableName == null ? "post_vector_index" : tableName.replaceAll("[^a-zA-Z0-9_]", "_");
+        String normalized = tableName.replaceAll("[^a-zA-Z0-9_]", "_");
         return quoteIdentifier(normalized + "_embedding_idx");
     }
 
     private static String metadataIndexName(String tableName) {
-        String normalized = tableName == null ? "post_vector_index" : tableName.replaceAll("[^a-zA-Z0-9_]", "_");
+        String normalized = tableName.replaceAll("[^a-zA-Z0-9_]", "_");
         return quoteIdentifier(normalized + "_metadata_idx");
     }
 

@@ -12,7 +12,7 @@ import org.springframework.context.annotation.Configuration;
  *
  * 참고:
  * - spring.ai.openai.* 값은 Spring AI 자동 설정이 사용합니다.
- * - app.ai.* 값은 한끼팟의 매칭 AI, 고객센터 AI, 신고 요약 AI,
+ * - app.ai.* 값은 한끼팟의 매칭 AI, 고객센터 AI, 관리자 AI,
  *   채팅 검열 AI 서비스 코드에서 직접 사용합니다.
  */
 

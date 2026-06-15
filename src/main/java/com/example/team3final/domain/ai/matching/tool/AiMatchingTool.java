@@ -31,7 +31,7 @@ import java.util.regex.Pattern;
  * 같은 학교의 모집 중인 식사팟 후보를 조회하고,
  * 로그인 사용자의 신청 가능 여부와 책임비 포인트 충족 여부를 검증합니다.
  *
- * 추천 후보 조회는 PostgreSQL pgvector의 post_vector_index를 의미 검색용 보조 인덱스로 먼저 사용합니다.
+ * 추천 후보 조회는 PostgreSQL pgvector의 매칭 게시글 벡터 인덱스를 의미 검색용 보조 인덱스로 먼저 사용합니다.
  * pgvector에는 장소명(placeName), 한마디(content), 시간대 표현의 embedding과 후보 필터링용 메타데이터를 저장하고,
  * 신청 가능 여부와 실시간 정합성은 기존 MySQL posts/matches/users 데이터를 기준으로 최종 검증합니다.
  */
