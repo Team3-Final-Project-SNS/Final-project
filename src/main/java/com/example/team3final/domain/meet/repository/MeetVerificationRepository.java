@@ -64,4 +64,33 @@ public interface MeetVerificationRepository extends JpaRepository<MeetVerificati
             List<Long> matchIds,
             List<VerificationStatus> statuses
     );
+
+    @Query(value = """
+           SELECT mv.extended_meet_at
+           FROM meet_verifications mv
+           WHERE mv.match_id = :matchId
+             AND mv.extended_meet_at IS NOT NULL
+           ORDER BY mv.extended_meet_at DESC
+           LIMIT 1
+           """, nativeQuery = true)
+    Optional<LocalDateTime> findEffectiveExtendedMeetAtByMatchId(@Param("matchId") Long matchId);
+
+    @Query(value = """
+           SELECT mv.extended_meet_at
+           FROM meet_verifications mv
+           JOIN matches m ON m.match_id = mv.match_id
+           WHERE m.post_id = :postId
+             AND mv.extended_meet_at IS NOT NULL
+           ORDER BY mv.extended_meet_at DESC
+           LIMIT 1
+           """, nativeQuery = true)
+    Optional<LocalDateTime> findEffectiveExtendedMeetAtByPostId(@Param("postId") Long postId);
+
+    @Query("""
+           SELECT mv.matchId, mv.extendedMeetAt
+           FROM MeetVerification mv
+           WHERE mv.matchId IN :matchIds
+             AND mv.extendedMeetAt IS NOT NULL
+           """)
+    List<Object[]> findExtendedMeetAtRowsByMatchIds(@Param("matchIds") List<Long> matchIds);
 }

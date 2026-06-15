@@ -41,7 +41,7 @@ const getNotificationContextLabel = (notification: NotificationResponse) => {
   if (!notification.relatedId) return null;
 
   if (notification.domain === 'MATCH' || notification.domain === 'MEET') {
-    return `matchId ${notification.relatedId}`;
+    return `#매치 ${notification.relatedId}`;
   }
 
   if (notification.domain === 'CHAT') {

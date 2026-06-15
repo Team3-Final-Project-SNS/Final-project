@@ -26,6 +26,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
@@ -391,23 +392,20 @@ public class AuthServiceImpl implements AuthService{
             throw new AuthException(ErrorCode.AUTH_INVALID_TOKEN);
         }
 
-        // 5. 새 Access Token + 새 Refresh Token 발급 (RTR: Refresh Token Rotation)
+        // 5. 새 Access Token만 발급한다. Refresh Token은 만료/로그아웃 전까지 유지한다.
         String newAccessToken = jwtProvider.generateAccessToken(email);
 
-        // 새 Refresh Token 발급 시에도 동일한 deviceId 유지
-        // deviceId는 로그아웃 전까지 재사용 → 같은 디바이스 세션 연속성 유지
-        String newRefreshToken = jwtProvider.generateRefreshToken(email, deviceId);
+        String currentRefreshToken = refreshToken;
 
-        // 6. Redis 업데이트: 동일 key에 새 토큰으로 덮어쓰기 (RTR)
+        // 6. 동일 토큰으로 TTL만 갱신해 도메인 환경에서 쿠키/Redis 불일치를 막는다.
         redisTemplate.opsForValue().set(
                 buildRefreshKey(email, deviceId),  // 같은 key 유지
-                newRefreshToken,
+                currentRefreshToken,
                 Duration.ofMillis(jwtProvider.getRefreshTokenValidityTime())
         );
 
-        // 7. 새 Refresh Token 쿠키 재전송
-        // device_id 쿠키는 바뀌지 않으므로 재발급 불필요
-        addRefreshTokenCookie(response, newRefreshToken);
+        // 7. 쿠키 Max-Age도 Redis TTL과 맞춰 재전송한다.
+        addRefreshTokenCookie(response, currentRefreshToken);
 
         return new TokenResponseDto(newAccessToken);
     }
@@ -466,11 +464,13 @@ public class AuthServiceImpl implements AuthService{
 
     // refresh_token 전용 HttpOnly 쿠키 추가 헬퍼
     private void addRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
-        Cookie cookie = new Cookie("refresh_token", refreshToken);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true);
-        cookie.setPath("/");
-        response.addCookie(cookie);
+        addSecureCookie(
+                response,
+                "refresh_token",
+                refreshToken,
+                "/",
+                Duration.ofMillis(jwtProvider.getRefreshTokenValidityTime())
+        );
     }
 
     // 범용 쿠키 추가 헬퍼
@@ -487,31 +487,40 @@ public class AuthServiceImpl implements AuthService{
     // 쿠키 만료(삭제) 헬퍼
     // Max-Age=0으로 설정하면 브라우저가 즉시 해당 쿠키를 삭제
     private void expireRefreshTokenCookie(HttpServletResponse response) {
-        Cookie cookie = new Cookie("refresh_token", "");
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true);
-        cookie.setPath("/");
-        cookie.setMaxAge(0);
-        response.addCookie(cookie);
+        addSecureCookie(response, "refresh_token", "", "/", Duration.ZERO);
     }
 
     // device_id 전용 HttpOnly 쿠키 추가 헬퍼
     private void addDeviceIdCookie(HttpServletResponse response, String deviceId) {
-        Cookie cookie = new Cookie(DEVICE_ID_COOKIE_NAME, deviceId);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true);   // 운영(HTTPS)에서만 전송 / 로컬 테스트 시 false로 변경
-        cookie.setPath("/");      // 모든 경로에서 자동 전송
-        response.addCookie(cookie);
+        addSecureCookie(
+                response,
+                DEVICE_ID_COOKIE_NAME,
+                deviceId,
+                "/",
+                Duration.ofMillis(jwtProvider.getRefreshTokenValidityTime())
+        );
     }
 
     // device_id 쿠키 만료 헬퍼
     private void expireDeviceIdCookie(HttpServletResponse response) {
-        Cookie cookie = new Cookie(DEVICE_ID_COOKIE_NAME, "");
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true);
-        cookie.setPath("/");
-        cookie.setMaxAge(0);  // 즉시 만료
-        response.addCookie(cookie);
+        addSecureCookie(response, DEVICE_ID_COOKIE_NAME, "", "/", Duration.ZERO);
+    }
+
+    private void addSecureCookie(
+            HttpServletResponse response,
+            String name,
+            String value,
+            String path,
+            Duration maxAge
+    ) {
+        ResponseCookie cookie = ResponseCookie.from(name, value)
+                .httpOnly(true)
+                .secure(true)
+                .path(path)
+                .maxAge(maxAge)
+                .sameSite("None")
+                .build();
+        response.addHeader("Set-Cookie", cookie.toString());
     }
 
     // Redis key 조합 헬퍼

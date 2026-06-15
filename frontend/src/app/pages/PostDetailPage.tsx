@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
-import { ArrowLeft, MapPin, Clock, User, AlertCircle, Loader2, Flag } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, User, Users, AlertCircle, Loader2, Flag } from 'lucide-react';
 import { getDeletedPostReason, getPost, GetPostResponse } from '../../api/postApi';
 import axiosInstance from '../../api/axiosInstance'; // 임시로 matchApi 대신 사용 (아직 안만듦)
 import { createReport, ReportReason } from '../../api/reportApi';
@@ -157,17 +157,28 @@ export default function PostDetailPage() {
               <Clock size={20} className="text-[#d84315]" />
               <div>
                 <p className="text-xs text-[#9e9e9e]">시간</p>
-                <p className="font-medium text-[#212121]">
-                    {new Date(post.meetAt).toLocaleString()}
-                </p>
+                <p className="font-medium text-[#212121]">{new Date(post.meetAt).toLocaleString()}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Users size={20} className="text-[#d84315]" />
+              <div>
+                <p className="text-xs text-[#9e9e9e]">참여 인원</p>
+                <p className="font-medium text-[#212121]">{post.currentApplicants}/{post.maxApplicants}명</p>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
               <User size={20} className="text-[#d84315]" />
               <div>
-                <p className="text-xs text-[#9e9e9e]">작성자</p>
-                <p className="font-medium text-[#212121]">{post.authorNickname}</p>
+                <p className="text-xs text-[#9e9e9e]">게시글 등록자</p>
+                <p className="font-medium text-[#212121]">
+                  {post.authorNickname}
+                  {post.authorMannerTemperature !== null && post.authorMannerTemperature !== undefined
+                    ? ` · 매너온도 ${Number(post.authorMannerTemperature).toFixed(1)}°C`
+                    : ''}
+                </p>
               </div>
             </div>
           </div>

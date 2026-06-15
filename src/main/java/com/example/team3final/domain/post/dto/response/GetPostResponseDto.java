@@ -12,6 +12,7 @@ public record GetPostResponseDto(
         String authorNickname,
         String authorMajor,
         String authorStudentNumber,
+        BigDecimal authorMannerTemperature,
         LocalDateTime meetAt,
         String placeName,
         BigDecimal placeLat,
@@ -41,13 +42,26 @@ public record GetPostResponseDto(
             String authorStudentNumber,
             boolean isMine
     ) {
+        return from(post, authorNickname, authorMajor, authorStudentNumber, null, isMine, post.getMeetAt());
+    }
+
+    public static GetPostResponseDto from(
+            Post post,
+            String authorNickname,
+            String authorMajor,
+            String authorStudentNumber,
+            BigDecimal authorMannerTemperature,
+            boolean isMine,
+            LocalDateTime meetAt
+    ) {
         return new GetPostResponseDto(
                 post.getId(),
                 post.getAuthorId(),
                 authorNickname,
                 authorMajor,
                 authorStudentNumber,
-                post.getMeetAt(),
+                authorMannerTemperature,
+                meetAt,
                 post.getPlaceName(),
                 post.getPlaceLat(),
                 post.getPlaceLng(),

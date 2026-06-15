@@ -10,6 +10,7 @@ import {
   MapPin,
   MessageCircle,
   UserRound,
+  Users,
 } from 'lucide-react';
 import { getMatchDetail, GetMatchResponse, MatchStatus } from '../../api/matchApi';
 import { getUserMe } from '../../api/userApi';
@@ -129,8 +130,7 @@ export default function MatchDetailPage() {
   const myDeposit = isAuthor ? match.authorDeposit : match.applicantDeposit;
   const postAuthor = {
     nickname: match.authorNickname,
-    major: match.authorMajor,
-    studentNumber: match.authorStudentNumber,
+    mannerTemperature: match.authorMannerTemperature,
   };
   const isNoShow = ['AUTHOR_NO_SHOW', 'APPLICANT_NO_SHOW', 'BOTH_NO_SHOW'].includes(match.status);
 
@@ -169,7 +169,12 @@ export default function MatchDetailPage() {
             <DetailItem
                 icon={UserRound}
                 label="게시글 등록자"
-                value={`${postAuthor.nickname} · ${postAuthor.major} · ${postAuthor.studentNumber}`}
+                value={`${postAuthor.nickname}${postAuthor.mannerTemperature !== null && postAuthor.mannerTemperature !== undefined ? ` · 매너온도 ${Number(postAuthor.mannerTemperature).toFixed(1)}°C` : ''}`}
+            />
+            <DetailItem
+                icon={Users}
+                label="참여 인원"
+                value={`${match.currentApplicants}/${match.maxApplicants}명`}
             />
             <DetailItem
                 icon={CircleDollarSign}

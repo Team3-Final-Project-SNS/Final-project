@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { AlertCircle, ArrowLeft, FileText, Loader2, MessageSquare, Send, Siren, Trash2 } from 'lucide-react';
-import { useSearchParams } from 'react-router';
+import { AlertCircle, ArrowLeft, FileText, HelpCircle, Loader2, MessageSquare, Send, Siren, Trash2 } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { useAuthStatus } from '@/store/authStatusStore';
 import {
@@ -379,6 +379,23 @@ export default function InquiryCenterPage() {
                 <ArrowLeft size={15} className="rotate-180 transition-transform group-hover:translate-x-1" />
               </span>
             </button>
+
+            <Link
+              to="/faq"
+              className="group rounded-2xl border border-[#e0e0e0] bg-white p-7 text-left shadow-sm transition-all hover:border-[#d84315] hover:shadow-md"
+            >
+              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[#e8f5e9] text-[#2e7d32]">
+                <HelpCircle size={24} />
+              </div>
+              <h2 className="text-xl font-bold text-[#212121]">FAQ</h2>
+              <p className="mt-3 text-sm leading-6 text-[#757575]">
+                자주 묻는 질문과 서비스 이용 안내를 확인합니다.
+              </p>
+              <span className="mt-6 inline-flex items-center gap-1 text-sm font-bold text-[#d84315]">
+                FAQ 보기
+                <ArrowLeft size={15} className="rotate-180 transition-transform group-hover:translate-x-1" />
+              </span>
+            </Link>
           </div>
         ) : (
           <>

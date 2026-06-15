@@ -238,11 +238,13 @@ public class MeetReminderScheduler {
         for (String postIdStr : postIds) {
             Long postId = Long.parseLong(postIdStr);
             Post post = postInternalService.getPostById(postId);
+            LocalDateTime effectiveMeetAt = meetVerificationRepository.findEffectiveExtendedMeetAtByPostId(postId)
+                    .orElse(post.getMeetAt());
 
             // 스킵 조건 체크
             LocalDateTime skipBoundary = skipIfAfterMinutes > 0
-                    ? post.getMeetAt().minusMinutes(skipIfAfterMinutes)
-                    : post.getMeetAt();
+                    ? effectiveMeetAt.minusMinutes(skipIfAfterMinutes)
+                    : effectiveMeetAt;
 
             if (LocalDateTime.now().isAfter(skipBoundary)) {
                 log.info("[MeetReminderScheduler] {} HOST 알림 스킵 - postId: {}", label, postId);
@@ -274,11 +276,13 @@ public class MeetReminderScheduler {
             Long matchId = Long.parseLong(matchIdStr);
             MatchInfoDto matchInfo = matchInternalService.getMatchInfo(matchId);
             Post post = postInternalService.getPostById(matchInfo.postId());
+            LocalDateTime effectiveMeetAt = meetVerificationRepository.findEffectiveExtendedMeetAtByMatchId(matchId)
+                    .orElse(post.getMeetAt());
 
             // 스킵 조건 체크
             LocalDateTime skipBoundary = skipIfAfterMinutes > 0
-                    ? post.getMeetAt().minusMinutes(skipIfAfterMinutes)
-                    : post.getMeetAt();
+                    ? effectiveMeetAt.minusMinutes(skipIfAfterMinutes)
+                    : effectiveMeetAt;
 
             if (LocalDateTime.now().isAfter(skipBoundary)) {
                 log.info("[MeetReminderScheduler] {} GUEST 알림 스킵 - matchId: {}", label, matchId);

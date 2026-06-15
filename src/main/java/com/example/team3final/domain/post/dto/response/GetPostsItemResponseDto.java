@@ -37,6 +37,17 @@ public record GetPostsItemResponseDto(
             String authorStudentNumber,
             BigDecimal authorMannerTemperature
     ) {
+        return from(post, authorNickname, authorMajor, authorStudentNumber, authorMannerTemperature, post.getMeetAt());
+    }
+
+    public static GetPostsItemResponseDto from(
+            Post post,
+            String authorNickname,
+            String authorMajor,
+            String authorStudentNumber,
+            BigDecimal authorMannerTemperature,
+            LocalDateTime meetAt
+    ) {
         return new GetPostsItemResponseDto(
                 post.getId(),
                 post.getAuthorId(),
@@ -44,7 +55,7 @@ public record GetPostsItemResponseDto(
                 authorMajor,
                 authorStudentNumber,
                 authorMannerTemperature,
-                post.getMeetAt(),
+                meetAt,
                 post.getPlaceName(),
                 post.getAuthorDeposit(),
                 Math.max(post.getCurrentApplicants(), 1),

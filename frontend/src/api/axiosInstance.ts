@@ -204,7 +204,7 @@ axiosInstance.interceptors.response.use(
         // - 403: 토큰이 깨졌거나 유효하지 않을 때 Spring Security가 403을 반환하는 케이스 존재
         // - 관리자는 refresh token이 없으므로 두 경우 모두 재로그인이 유일한 해결책
         // - 메인 화면(/)으로 이동 후, 메인의 로그인 버튼을 통해 재로그인
-        if ((error.response?.status === 401 || error.response?.status === 403) && isAdminEndpoint) {
+        if (error.response?.status === 401 && isAdminEndpoint) {
             forceAdminLogout("세션이 만료되었습니다. 다시 로그인해주세요.");
             return Promise.reject(error);
         }

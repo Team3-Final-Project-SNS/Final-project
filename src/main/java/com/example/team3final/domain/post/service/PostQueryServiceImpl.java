@@ -3,6 +3,7 @@ package com.example.team3final.domain.post.service;
 import com.example.team3final.common.dto.response.PageResponseDto;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.PostException;
+import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
 import com.example.team3final.domain.post.dto.response.DeletedPostReasonResponseDto;
 import com.example.team3final.domain.post.dto.response.GetPostResponseDto;
 import com.example.team3final.domain.post.dto.response.GetPostsItemResponseDto;
@@ -22,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 // Post 도메인의 조회 기능을 담당하는 서비스
 @Service
@@ -34,6 +36,7 @@ public class PostQueryServiceImpl implements PostQueryService {
     private final UserInternalService userInternalService;
     private final RedisPostService redisPostService;
     private final ReviewAvoidanceService reviewAvoidanceService;
+    private final MeetVerificationRepository meetVerificationRepository;
 
     @Override
     public PageResponseDto<GetPostsItemResponseDto> getPosts(
@@ -102,17 +105,20 @@ public class PostQueryServiceImpl implements PostQueryService {
         // 6. 이제 루프 안에서는 DB를 건드리지 않고 Map에서 꺼내 쓰기만 함
         Page<GetPostsItemResponseDto> dtoPage = postPage.map(post -> {
             UserInfoDto authorInfo = authorMap.get(post.getAuthorId());
+            LocalDateTime meetAt = meetVerificationRepository.findEffectiveExtendedMeetAtByPostId(post.getId())
+                    .orElse(post.getMeetAt());
 
             // 방어 코드: 혹시 작성자가 빠졌다면(탈퇴/삭제 등) NPE 대신 안전 처리
             if (authorInfo == null) {
-                return GetPostsItemResponseDto.from(post, null, null, null, null);
+                return GetPostsItemResponseDto.from(post, null, null, null, null, meetAt);
             }
             return GetPostsItemResponseDto.from(
                     post,
                     authorInfo.nickname(),
                     authorInfo.major(),
                     authorInfo.studentNumber(),
-                    authorInfo.mannerTemperature()
+                    authorInfo.mannerTemperature(),
+                    meetAt
             );
         });
 
@@ -152,9 +158,11 @@ public class PostQueryServiceImpl implements PostQueryService {
         // 3. Page<Post> → Page<GetPostsItemResponseDto> 변환
         Page<GetPostsItemResponseDto> dtoPage = postPage.map(post -> {
             UserInfoDto authorInfo = authorMap.get(post.getAuthorId());
+            LocalDateTime meetAt = meetVerificationRepository.findEffectiveExtendedMeetAtByPostId(post.getId())
+                    .orElse(post.getMeetAt());
 
             if (authorInfo == null) {
-                return GetPostsItemResponseDto.from(post, null, null, null, null);
+                return GetPostsItemResponseDto.from(post, null, null, null, null, meetAt);
             }
 
             return GetPostsItemResponseDto.from(
@@ -162,7 +170,8 @@ public class PostQueryServiceImpl implements PostQueryService {
                     authorInfo.nickname(),
                     authorInfo.major(),
                     authorInfo.studentNumber(),
-                    authorInfo.mannerTemperature()
+                    authorInfo.mannerTemperature(),
+                    meetAt
             );
         });
 
@@ -188,6 +197,8 @@ public class PostQueryServiceImpl implements PostQueryService {
 
         // 3. isMine 결정
         boolean isMine = post.isAuthor(currentUserId);
+        LocalDateTime meetAt = meetVerificationRepository.findEffectiveExtendedMeetAtByPostId(postId)
+                .orElse(post.getMeetAt());
 
         // 4. 작성자 정보 (null 방어 — 탈퇴 유저 게시글 처리)
         return GetPostResponseDto.from(
@@ -195,7 +206,9 @@ public class PostQueryServiceImpl implements PostQueryService {
                 author != null ? author.nickname()       : null,
                 author != null ? author.major()          : null,
                 author != null ? author.studentNumber()  : null,
-                isMine
+                author != null ? author.mannerTemperature() : null,
+                isMine,
+                meetAt
         );
     }
 

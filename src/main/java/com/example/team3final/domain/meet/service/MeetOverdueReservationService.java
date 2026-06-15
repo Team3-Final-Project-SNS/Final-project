@@ -26,22 +26,20 @@ public class MeetOverdueReservationService {
             List<Long> activeMatchIds,
             LocalDateTime extendedMeetAt
     ) {
-        LocalDateTime overdueAt = extendedMeetAt.plusMinutes(10);
+        LocalDateTime now = LocalDateTime.now();
+        String postMember = postId.toString();
 
-        // HOST 알림은 postId를 Redis member로 사용한다.
-        updateReservation(
-                MeetRedisZSetKeys.REMINDER_OVERDUE_HOST,
-                postId.toString(),
-                overdueAt
-        );
+        updateOrRemoveReservation(MeetRedisZSetKeys.REMINDER_30_HOST, postMember, extendedMeetAt.minusMinutes(30), now);
+        updateOrRemoveReservation(MeetRedisZSetKeys.REMINDER_15_HOST, postMember, extendedMeetAt.minusMinutes(15), now);
+        updateOrRemoveReservation(MeetRedisZSetKeys.REMINDER_IMMINENT_HOST, postMember, extendedMeetAt.minusMinutes(5), now);
+        updateOrRemoveReservation(MeetRedisZSetKeys.REMINDER_OVERDUE_HOST, postMember, extendedMeetAt.plusMinutes(10), now);
 
-        // GUEST 알림은 각 신청자의 matchId를 Redis member로 사용한다.
         for (Long matchId : activeMatchIds) {
-            updateReservation(
-                    MeetRedisZSetKeys.REMINDER_OVERDUE_GUEST,
-                    matchId.toString(),
-                    overdueAt
-            );
+            String matchMember = matchId.toString();
+            updateOrRemoveReservation(MeetRedisZSetKeys.REMINDER_30_GUEST, matchMember, extendedMeetAt.minusMinutes(30), now);
+            updateOrRemoveReservation(MeetRedisZSetKeys.REMINDER_15_GUEST, matchMember, extendedMeetAt.minusMinutes(15), now);
+            updateOrRemoveReservation(MeetRedisZSetKeys.REMINDER_IMMINENT_GUEST, matchMember, extendedMeetAt.minusMinutes(5), now);
+            updateOrRemoveReservation(MeetRedisZSetKeys.REMINDER_OVERDUE_GUEST, matchMember, extendedMeetAt.plusMinutes(10), now);
         }
     }
 
@@ -66,5 +64,17 @@ public class MeetOverdueReservationService {
             );
             return false;
         }
+    }
+    private void updateOrRemoveReservation(
+            String key,
+            String member,
+            LocalDateTime targetAt,
+            LocalDateTime now
+    ) {
+        if (now.isBefore(targetAt)) {
+            updateReservation(key, member, targetAt);
+            return;
+        }
+        redisTemplate.opsForZSet().remove(key, member);
     }
 }

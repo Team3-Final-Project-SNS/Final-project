@@ -35,6 +35,15 @@ const bottomItems = [
   { to: '/admin/payments', label: '결제내역', icon: CreditCard },
 ];
 
+const isJwtExpired = (token: string) => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1] || '')) as { exp?: number };
+    return !payload.exp || payload.exp * 1000 <= Date.now();
+  } catch {
+    return true;
+  }
+};
+
 export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -48,7 +57,11 @@ export default function AdminLayout() {
   //   API 호출이 없는 페이지(또는 진입 즉시)에서도 보호되도록 여기서 1차 체크
   useEffect(() => {
     const adminAccessToken = sessionStorage.getItem('adminAccessToken');
-    if (!adminAccessToken) {
+    if (!adminAccessToken || isJwtExpired(adminAccessToken)) {
+      sessionStorage.removeItem('adminAccessToken');
+      sessionStorage.removeItem('adminId');
+      sessionStorage.removeItem('adminName');
+      sessionStorage.removeItem('adminRole');
       navigate('/admin/login', { replace: true });
     }
   }, [navigate]);

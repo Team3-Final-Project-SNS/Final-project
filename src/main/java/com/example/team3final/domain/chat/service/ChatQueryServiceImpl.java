@@ -8,6 +8,7 @@ import com.example.team3final.domain.chat.dto.response.ChatMessageResponseDto;
 import com.example.team3final.domain.chat.entity.ChatMember;
 import com.example.team3final.domain.chat.entity.ChatMessage;
 import com.example.team3final.domain.chat.entity.ChatRoom;
+import com.example.team3final.domain.chat.enums.ChatMemberStatus;
 import com.example.team3final.domain.chat.repository.ChatMemberRepository;
 import com.example.team3final.domain.chat.repository.ChatMessageRepository;
 import com.example.team3final.domain.chat.repository.ChatRoomRepository;
@@ -61,6 +62,9 @@ public class ChatQueryServiceImpl implements ChatQueryService {
         // 채팅방 참여자 여부 확인 + joinedAt 조회
         ChatMember chatMember = chatMemberRepository.findByChatRoomIdAndUserId(chatRoomId, userId)
                 .orElseThrow(() -> new ChatException(ErrorCode.CHAT_NOT_PARTICIPANT));
+        if (chatMember.getStatus() == ChatMemberStatus.LEFT) {
+            throw new ChatException(ErrorCode.CHAT_CANCELLED_PARTICIPANT);
+        }
 
         // 참여자 입장 시각 (이 시각 이후 메시지만 반환)
         LocalDateTime joinedAt = chatMember.getCreatedAt();
@@ -127,8 +131,10 @@ public class ChatQueryServiceImpl implements ChatQueryService {
         }
 
         // 채팅방 참여자 여부 확인
-        if (!chatMemberRepository.existsByChatRoomIdAndUserId(chatRoomId, userId)) {
-            throw new ChatException(ErrorCode.CHAT_NOT_PARTICIPANT);
+        ChatMember chatMember = chatMemberRepository.findByChatRoomIdAndUserId(chatRoomId, userId)
+                .orElseThrow(() -> new ChatException(ErrorCode.CHAT_NOT_PARTICIPANT));
+        if (chatMember.getStatus() == ChatMemberStatus.LEFT) {
+            throw new ChatException(ErrorCode.CHAT_CANCELLED_PARTICIPANT);
         }
 
         // leftAt이 null인 현재 참여 중인 멤버만 조회 (취소 퇴장한 멤버 제외)
