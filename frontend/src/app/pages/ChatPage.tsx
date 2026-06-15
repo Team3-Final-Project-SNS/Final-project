@@ -66,7 +66,7 @@ export default function ChatPage() {
   const stompClient = useRef<Client | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isCancelledMatch = matchInfo?.status === 'CANCELLED';
-  const isChatWritable = connected && !isReadOnlyChat && !isCancelledMatch && (!matchInfo || matchInfo.status === 'MATCHED');
+  const isChatWritable = connected && !isReadOnlyChat && !isCancelledMatch;
 
   const blockCancelledChatAccess = () => {
     alert('매칭 취소자는 채팅방에 접근할 수 없습니다.');
@@ -105,7 +105,7 @@ export default function ChatPage() {
         setMatchInfo(nextMatchInfo);
         setChatRoomId(currentChatRoomId);
         setCurrentUserId(userRes.data.data.userId);
-        setIsReadOnlyChat(Boolean(nextMatchInfo && nextMatchInfo.status !== 'MATCHED'));
+        setIsReadOnlyChat(false);
       } catch (err: any) {
         console.error(err);
         const code = err.response?.data?.code;
@@ -405,7 +405,7 @@ export default function ChatPage() {
       </div>
 
       <form onSubmit={handleSend} className="flex items-center gap-3 rounded-b-2xl border border-[#e0e0e0] bg-white p-5 shadow-sm">
-        <input type="text" value={message} onChange={(event) => setMessage(event.target.value)} placeholder={isCancelledMatch || isReadOnlyChat || (matchInfo && matchInfo.status !== 'MATCHED') ? '조회만 가능한 채팅방입니다.' : connected ? '메시지를 입력하세요...' : '연결 중입니다...'} disabled={!isChatWritable} className="flex-1 rounded-lg border border-[#e0e0e0] px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#d84315] disabled:bg-[#f5f5f5] disabled:text-[#9e9e9e]" />
+        <input type="text" value={message} onChange={(event) => setMessage(event.target.value)} placeholder={isCancelledMatch || isReadOnlyChat ? '조회만 가능한 채팅방입니다.' : connected ? '메시지를 입력하세요...' : '연결 중입니다...'} disabled={!isChatWritable} className="flex-1 rounded-lg border border-[#e0e0e0] px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#d84315] disabled:bg-[#f5f5f5] disabled:text-[#9e9e9e]" />
         <button type="submit" disabled={!isChatWritable || !message.trim()} className="flex items-center gap-2 rounded-xl bg-[#d84315] px-6 py-3 font-semibold text-white shadow-md transition-all hover:bg-[#bf360c] hover:shadow-lg disabled:bg-[#e0e0e0]"><Send size={18} />전송</button>
       </form>
 

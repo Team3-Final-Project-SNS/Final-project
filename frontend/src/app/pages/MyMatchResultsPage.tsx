@@ -560,7 +560,6 @@ function ReviewViewModal({ review, onClose }: { review: WrittenReview; onClose: 
                   </span>
               ))}
             </div>
-            <p className="mt-4 text-sm text-[#757575]">매너 온도 반영 점수: {review.tagScoreDelta > 0 ? '+' : ''}{review.tagScoreDelta}</p>
             <p className="mt-1 text-xs text-[#9e9e9e]">{formatDateTime(review.createdAt)} 작성</p>
           </div>
           <button

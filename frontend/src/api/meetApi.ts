@@ -29,6 +29,9 @@ export interface ParticipantVerification {
     nickname: string;
     verified: boolean;
     verifiedAt: string | null;
+    verificationStatus?: string;
+    meetVerified?: boolean;
+    completedAt?: string | null;
 }
 
 export interface MeetVerificationResponse {

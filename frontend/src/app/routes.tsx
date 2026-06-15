@@ -36,6 +36,8 @@ import TermsOfServicePage from "./pages/terms/TermsOfServicePage";
 import PrivacyPolicyPage from "./pages/terms/PrivacyPolicyPage";
 import LocationTermsPage from "./pages/terms/LocationTermsPage";
 import MarketingConsentPage from "./pages/terms/MarketingConsentPage";
+import TermsMarkdownPage from "./pages/terms/TermsMarkdownPage";
+import faqContent from "../assets/terms/FAQ.md?raw";
 import RequireAuth from "./components/RequireAuth";
 
 export const router = createBrowserRouter([
@@ -156,6 +158,10 @@ export const router = createBrowserRouter([
   {
     path: "/terms/marketing",
     Component: MarketingConsentPage,
+  },
+  {
+    path: "/faq",
+    element: <TermsMarkdownPage title="자주 묻는 질문" content={faqContent} />,
   },
   {
     path: "*",

@@ -144,6 +144,15 @@ export default function LoginPage() {
               </Link>
             </div>
 
+            <div className="mt-4 grid grid-cols-2 gap-2 text-center">
+              <Link to="/faq" className="rounded-lg border border-[#eeeeee] px-3 py-2 text-xs font-semibold text-[#616161] hover:border-[#d84315] hover:text-[#d84315]">
+                비밀번호를 잊어버렸어요
+              </Link>
+              <Link to="/faq" className="rounded-lg border border-[#eeeeee] px-3 py-2 text-xs font-semibold text-[#616161] hover:border-[#d84315] hover:text-[#d84315]">
+                고객센터 FAQ
+              </Link>
+            </div>
+
             <div className="mt-6 border-t border-[#eeeeee] pt-5 text-center">
               <p className="mb-3 text-xs font-semibold text-[#9e9e9e]">운영자 계정으로 접속하시나요?</p>
               <Link

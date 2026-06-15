@@ -16,6 +16,20 @@ import {
 import MobileLoggedInNavigation from './MobileLoggedInNavigation';
 import { getNotificationTargetPath } from '../notificationNavigation';
 
+export const getNotificationContextLabel = (notification: NotificationResponse) => {
+  if (!notification.relatedId) return null;
+
+  if (notification.domain === 'MATCH' || notification.domain === 'MEET') {
+    return `matchId ${notification.relatedId}`;
+  }
+
+  if (notification.domain === 'CHAT') {
+    return `chatRoomId ${notification.relatedId}`;
+  }
+
+  return `${notification.domain.toLowerCase()}Id ${notification.relatedId}`;
+};
+
 export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -47,19 +61,27 @@ export default function Layout() {
 
       try {
         const userRes = await getUserMe();
-        setPoint(userRes.data.data.point);
-        setUserStatus(userRes.data.data.status);
+        const user = userRes.data.data;
+        setPoint(user.point);
+        setUserStatus(user.status);
 
-        if (userRes.data.data.status === 'SUSPENDED') {
+        if (user.status === 'SUSPENDED') {
           setUnreadCount(0);
           return;
         }
+      } catch (err) {
+        console.error('Failed to load user header data', err);
+        setPoint(null);
+        setUnreadCount(0);
+        return;
+      }
 
+      try {
         const unreadRes = await getUnreadNotificationCount();
         setUnreadCount(unreadRes.data.data.unreadCount);
       } catch (err) {
-        console.error('Failed to load header data', err);
-        setPoint(null);
+        console.error('Failed to load unread notification count', err);
+        setUnreadCount(0);
       }
     };
 
@@ -357,6 +379,11 @@ export default function Layout() {
                                     )}
                                   </div>
                                   <p className="line-clamp-2 text-xs text-[#616161]">{notification.content}</p>
+                                  {getNotificationContextLabel(notification) && (
+                                      <p className="mt-1 text-[11px] font-bold text-[#d84315]">
+                                        {getNotificationContextLabel(notification)}
+                                      </p>
+                                  )}
                                   <p className="mt-2 text-[11px] font-semibold text-[#9e9e9e]">
                                     {new Date(notification.createdAt).toLocaleString('ko-KR', {
                                       month: 'numeric',
