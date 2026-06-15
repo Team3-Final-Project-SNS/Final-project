@@ -29,8 +29,6 @@ const PUBLIC_ENDPOINTS = [
 // ─────────────────────────────────────────────
 let accessTokenMemory: string | null = null;
 
-// 외부에서 토큰을 저장/조회/삭제하는 헬퍼 함수
-// LoginPage, ChatPage 등에서 import해서 사용
 export const setAccessToken = (token: string) => {
     accessTokenMemory = token;
 };
@@ -67,8 +65,6 @@ let failedQueue: {
     reject: (error: unknown) => void;
 }[] = [];
 
-// 큐에 쌓인 요청들을 일괄 처리
-// 재발급 성공 → 새 토큰으로 resolve / 실패 → reject
 const processQueue = (error: unknown, token: string | null) => {
     failedQueue.forEach(({ resolve, reject }) => {
         if (error) {
@@ -112,10 +108,14 @@ axiosInstance.interceptors.request.use((config) => {
 });
 
 // ─────────────────────────────────────────────
-// 무한 루프 방지용 플래그
+// [추가] 일반 유저 강제 로그아웃 공통 처리 함수
+// - 멀티 디바이스 로그인으로 세션이 끊겼거나, refresh_token/device_id가
+//   모두 무효화된 경우 호출됨
+// ─────────────────────────────────────────────
+
+// [추가] 무한 루프 방지용 플래그
 // - 이미 강제 로그아웃 처리 중이면 중복 실행 차단
 // - 풀 새로고침 대신 history API로 이동 → React 앱 재부트스트랩 방지
-// ─────────────────────────────────────────────
 let isLoggingOut = false;
 
 const forceLogoutToMain = (message?: string) => {
@@ -132,16 +132,53 @@ const forceLogoutToMain = (message?: string) => {
         toast.error(message);
     }
 
-    // window.location.href (풀 새로고침) 대신
+    // [수정] window.location.href (풀 새로고침) 대신
+    // 현재 위치가 이미 "/"가 아닐 때만 이동
+    // history.pushState + popstate 이벤트로 React Router에 알림
+    // → 풀 새로고침 없이 라우트만 전환되어 무한루프 발생 안 함
     if (window.location.pathname !== "/") {
         window.history.pushState({}, "", "/");
         window.dispatchEvent(new PopStateEvent("popstate"));
     }
 
     // 플래그는 짧은 시간 뒤 해제 (다음 정상 401 처리를 위해)
-    // 새로고침 없이 처리되므로 굳이 길게 유지할 필요 없음
     setTimeout(() => {
         isLoggingOut = false;
+    }, 1000);
+};
+
+// ─────────────────────────────────────────────
+// [추가] 관리자 강제 로그아웃 처리
+// - 관리자는 refresh token이 없으므로(15분 Access Token만 사용)
+//   재발급 시도 없이 즉시 로그아웃
+// - sessionStorage에 저장된 관리자 정보 전부 삭제 후 메인 화면으로 이동
+//   (관리자 전용 로그인 페이지로의 이동은 다른 처리와 충돌이 있어
+//    일반 로그아웃과 동일하게 메인 화면으로 통일)
+// ─────────────────────────────────────────────
+let isAdminLoggingOut = false;
+
+const forceAdminLogout = (message?: string) => {
+    if (isAdminLoggingOut) {
+        return;
+    }
+    isAdminLoggingOut = true;
+
+    sessionStorage.removeItem("adminAccessToken");
+    sessionStorage.removeItem("adminId");
+    sessionStorage.removeItem("adminName");
+    sessionStorage.removeItem("adminRole");
+
+    if (message) {
+        toast.error(message);
+    }
+
+    // 메인 화면으로 이동 (풀 새로고침으로 React 상태 완전 초기화)
+    if (window.location.pathname !== "/") {
+        window.location.replace("/");
+    }
+
+    setTimeout(() => {
+        isAdminLoggingOut = false;
     }, 1000);
 };
 
@@ -162,14 +199,24 @@ axiosInstance.interceptors.response.use(
         );
         const isAdminEndpoint = originalRequest.url?.includes("/api/v1/admin");
 
+        // [핵심] 관리자 API에서 401 또는 403 발생 시 즉시 로그아웃 처리
+        // - 401: 토큰 없음/만료
+        // - 403: 토큰이 깨졌거나 유효하지 않을 때 Spring Security가 403을 반환하는 케이스 존재
+        // - 관리자는 refresh token이 없으므로 두 경우 모두 재로그인이 유일한 해결책
+        // - 메인 화면(/)으로 이동 후, 메인의 로그인 버튼을 통해 재로그인
+        if ((error.response?.status === 401 || error.response?.status === 403) && isAdminEndpoint) {
+            forceAdminLogout("세션이 만료되었습니다. 다시 로그인해주세요.");
+            return Promise.reject(error);
+        }
+
         if (
             error.response?.status === 401 &&
             !originalRequest._retry &&   // 이미 재시도한 요청 → 무한루프 방지
             !isAuthEndpoint &&           // 로그인/회원가입/refresh 자체의 401은 별도 처리
-            !isAdminEndpoint             // 관리자는 리프레시 없이 재로그인 강제 (기획서 정책)
+            !isAdminEndpoint &&          // 관리자는 위에서 이미 처리됨
+            !isLoggingOut                // 이미 로그아웃 처리 중이면 재발급 시도 자체를 건너뜀
         ) {
             // 이미 재발급 중이면 → 대기열에 추가
-            // 재발급 완료되면 새 토큰 받아서 원래 요청 재시도
             if (isRefreshing) {
                 return new Promise((resolve, reject) => {
                     failedQueue.push({ resolve, reject });
@@ -186,14 +233,10 @@ axiosInstance.interceptors.response.use(
             isRefreshing = true;
 
             try {
-                // 재발급 요청 (refresh_token, device_id는 HttpOnly 쿠키로 자동 전송)
                 const { data } = await axiosInstance.post("/api/v1/auth/refresh");
                 const newAccessToken = data.data.accessToken;
 
-                // [수정] sessionStorage 대신 메모리에 저장
                 setAccessToken(newAccessToken);
-
-                // 대기 중이던 요청들도 새 토큰으로 재시도
                 processQueue(null, newAccessToken);
 
                 originalRequest.headers = {
@@ -203,8 +246,6 @@ axiosInstance.interceptors.response.use(
                 return axiosInstance(originalRequest);
 
             } catch (refreshError) {
-                // [디버깅] refresh 실패 원인을 정확히 확인하기 위한 로그
-                // axios 에러인 경우 response, status, data를 모두 출력
                 if (axios.isAxiosError(refreshError)) {
                     console.error("[REFRESH 실패]", {
                         status: refreshError.response?.status,
@@ -215,8 +256,6 @@ axiosInstance.interceptors.response.use(
                     console.error("[REFRESH 실패 - 알 수 없는 에러]", refreshError);
                 }
 
-                // [핵심] refresh_token/device_id도 무효 (다른 디바이스 로그인,
-                // 만료, 로그아웃 등) → 강제 로그아웃 처리
                 processQueue(refreshError, null);
                 forceLogoutToMain("다른 기기에서 로그인되어 로그아웃되었습니다.");
 
@@ -226,9 +265,7 @@ axiosInstance.interceptors.response.use(
             }
         }
 
-        // [추가] refresh 요청(/api/v1/auth/refresh) 자체가 401을 반환하는 경우
-        // - 위 if문은 isAuthEndpoint가 true이므로 건너뛰게 됨
-        // - 이 분기에서 별도로 잡아서 강제 로그아웃 처리
+        // refresh 요청 자체가 401인 경우
         if (error.response?.status === 401 && originalRequest.url?.includes("/api/v1/auth/refresh")) {
             console.error("[REFRESH 요청 자체가 401]", error.response?.data);
             forceLogoutToMain("다른 기기에서 로그인되어 로그아웃되었습니다.");
