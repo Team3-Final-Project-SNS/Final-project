@@ -49,7 +49,7 @@ public class NotificationCachePolicy {
         // ex) {"@class":"com.example...GetNotificationsResponseDto", ...}
         mapper.activateDefaultTyping(
                 mapper.getPolymorphicTypeValidator(),
-                ObjectMapper.DefaultTyping.EVERYTHING,
+                ObjectMapper.DefaultTyping.NON_FINAL,
                 JsonTypeInfo.As.PROPERTY
         );
 
