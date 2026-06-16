@@ -114,6 +114,15 @@ public class DataInitializer implements ApplicationRunner {
                         .build()
         );
 
+        University googleUniversity = getOrCreateUniversity(
+                "google.com",
+                University.builder()
+                        .universityName("구글대학교")
+                        .eDomain("google.com")
+                        .isActive(true)
+                        .build()
+        );
+
         // ===================================================
         // 2. 유저 생성 (초기 생성 시 point는 자동으로 0 세팅됨)
         // ===================================================
@@ -225,6 +234,22 @@ public class DataInitializer implements ApplicationRunner {
                         .build()
         );
 
+        User koreaAiSeedUser = getOrCreateAiMatchingSeedUser(
+                "ai-seed-korea@korea.ac.kr",
+                "한국AI추천",
+                university.getId()
+        );
+        User naverAiSeedUser = getOrCreateAiMatchingSeedUser(
+                "ai-seed-naver@naver.com",
+                "네이버AI추천",
+                university1.getId()
+        );
+        User googleAiSeedUser = getOrCreateAiMatchingSeedUser(
+                "ai-seed-google@google.com",
+                "구글AI추천",
+                googleUniversity.getId()
+        );
+
         // ===================================================
         // 3. 약관 동의 이력 생성
         // ===================================================
@@ -235,6 +260,9 @@ public class DataInitializer implements ApplicationRunner {
         saveTermAgreementIfNotExists(naverApplicant1.getId(), "v1.0");
         saveTermAgreementIfNotExists(naverApplicant2.getId(), "v1.0");
         saveTermAgreementIfNotExists(naverApplicant3.getId(), "v1.0");
+        saveTermAgreementIfNotExists(koreaAiSeedUser.getId(), "v1.0");
+        saveTermAgreementIfNotExists(naverAiSeedUser.getId(), "v1.0");
+        saveTermAgreementIfNotExists(googleAiSeedUser.getId(), "v1.0");
 
         // ===================================================
         // 4. 포인트 가입 보너스 지급 (기본 10,000포인트 충전)
@@ -246,6 +274,7 @@ public class DataInitializer implements ApplicationRunner {
         int naverApplicant1Bonus = 10000;
         int naverApplicant2Bonus = 10000;
         int naverApplicant3Bonus = 10000;
+        int aiSeedUserBonus = 10000;
 
         giveSignupBonusIfNotExists(author, authorBonus);
         giveSignupBonusIfNotExists(applicant, applicantBonus);
@@ -254,6 +283,9 @@ public class DataInitializer implements ApplicationRunner {
         giveSignupBonusIfNotExists(naverApplicant1, naverApplicant1Bonus);
         giveSignupBonusIfNotExists(naverApplicant2, naverApplicant2Bonus);
         giveSignupBonusIfNotExists(naverApplicant3, naverApplicant3Bonus);
+        giveSignupBonusIfNotExists(koreaAiSeedUser, aiSeedUserBonus);
+        giveSignupBonusIfNotExists(naverAiSeedUser, aiSeedUserBonus);
+        giveSignupBonusIfNotExists(googleAiSeedUser, aiSeedUserBonus);
 
         // ===================================================
         // NAVER CASE A. 네이버대학교 OPEN 게시글 2개
@@ -652,7 +684,7 @@ public class DataInitializer implements ApplicationRunner {
                         .build()
         );
 
-        seedAiMatchingRecommendationPosts(hacker);
+        seedAiMatchingRecommendationPosts(List.of(koreaAiSeedUser, naverAiSeedUser, googleAiSeedUser));
 
         // ===================================================
         // CASE E. 노쇼 상태 MeetVerification
@@ -1031,21 +1063,76 @@ public class DataInitializer implements ApplicationRunner {
     }
 
     private void seedAiMatchingRecommendationPostsIfPossible() {
-        userRepository.findByEmail("dalsun_rin@naver.com")
-                .ifPresent(this::seedAiMatchingRecommendationPosts);
+        University koreaUniversity = getOrCreateUniversity(
+                "korea.ac.kr",
+                University.builder()
+                        .universityName("한국대학교")
+                        .eDomain("korea.ac.kr")
+                        .isActive(true)
+                        .build()
+        );
+        University naverUniversity = getOrCreateUniversity(
+                "naver.com",
+                University.builder()
+                        .universityName("네이버대학교")
+                        .eDomain("naver.com")
+                        .isActive(true)
+                        .build()
+        );
+        University googleUniversity = getOrCreateUniversity(
+                "google.com",
+                University.builder()
+                        .universityName("구글대학교")
+                        .eDomain("google.com")
+                        .isActive(true)
+                        .build()
+        );
+
+        User koreaAiSeedUser = getOrCreateAiMatchingSeedUser(
+                "ai-seed-korea@korea.ac.kr",
+                "한국AI추천",
+                koreaUniversity.getId()
+        );
+        User naverAiSeedUser = getOrCreateAiMatchingSeedUser(
+                "ai-seed-naver@naver.com",
+                "네이버AI추천",
+                naverUniversity.getId()
+        );
+        User googleAiSeedUser = getOrCreateAiMatchingSeedUser(
+                "ai-seed-google@google.com",
+                "구글AI추천",
+                googleUniversity.getId()
+        );
+
+        saveTermAgreementIfNotExists(koreaAiSeedUser.getId(), "v1.0");
+        saveTermAgreementIfNotExists(naverAiSeedUser.getId(), "v1.0");
+        saveTermAgreementIfNotExists(googleAiSeedUser.getId(), "v1.0");
+        giveSignupBonusIfNotExists(koreaAiSeedUser, 10000);
+        giveSignupBonusIfNotExists(naverAiSeedUser, 10000);
+        giveSignupBonusIfNotExists(googleAiSeedUser, 10000);
+
+        seedAiMatchingRecommendationPosts(List.of(koreaAiSeedUser, naverAiSeedUser, googleAiSeedUser));
     }
 
-    private void seedAiMatchingRecommendationPosts(User author) {
-        // 매칭 AI 추천 품질 확인용 대량 OPEN 게시글입니다.
-        // 작성자는 "정당한참여자아님" 계정으로 고정하고, 메뉴/시간대/분위기/책임비/인원 조건을 다양하게 섞습니다.
-        if (normalizeExistingAiMatchingRecommendationPosts()) {
-            return;
-        }
+    private User getOrCreateAiMatchingSeedUser(String email, String nickname, Long universityId) {
+        return getOrCreateUser(
+                email,
+                User.builder()
+                        .email(email)
+                        .password(passwordEncoder.encode("password123!"))
+                        .name(nickname)
+                        .nickname(nickname)
+                        .universityId(universityId)
+                        .major("AI추천학과")
+                        .studentNumber("25")
+                        .birthDate(LocalDate.of(2005, 1, 1))
+                        .gender(Gender.MALE)
+                        .build()
+        );
+    }
 
-        // 대표 content가 이미 있으면 중복 생성을 막습니다.
-        if (existsPostByContent("치킨 같이 먹을 분 구해요. 활발하게 대화하면서 저녁 식사해요.")) {
-            return;
-        }
+    private void seedAiMatchingRecommendationPosts(List<User> authors) {
+        normalizeExistingAiMatchingRecommendationPosts();
 
         List<AiMatchingSeedPost> seeds = List.of(
                 new AiMatchingSeedPost("후문 치킨집", "치킨", "활발하게 대화하면서", "저녁", 300, 4),
@@ -1071,21 +1158,29 @@ public class DataInitializer implements ApplicationRunner {
         );
 
         LocalDateTime base = LocalDateTime.now().plusMinutes(30);
-        int sequence = 1;
 
-        for (int round = 0; round < 6; round++) {
-            for (AiMatchingSeedPost seed : seeds) {
+        for (User author : authors) {
+            for (int i = 0; i < 150; i++) {
+                AiMatchingSeedPost seed = seeds.get(i % seeds.size());
+                int cycle = i / seeds.size();
+                int sequence = i + 1;
                 LocalDateTime meetAt = base
-                        .plusDays(round / 2)
-                        .plusMinutes((long) sequence * 17);
-                int deposit = seed.deposit() + (round % 3) * 100;
-                int maxApplicants = Math.min(5, Math.max(2, seed.maxApplicants() + (round % 2)));
-                String content = "%s 같이 먹을 분 구해요. %s %s 식사해요."
+                        .plusDays(cycle / 2)
+                        .plusMinutes((long) sequence * 13);
+                int deposit = seed.deposit() + (cycle % 3) * 100;
+                int maxApplicants = Math.min(5, Math.max(2, seed.maxApplicants() + (cycle % 2)));
+                String content = "[AI추천150-%s-%03d] %s 같이 먹을 분 구해요. %s %s 식사해요."
                         .formatted(
+                                author.getEmail(),
+                                sequence,
                                 seed.menu(),
                                 seed.atmosphere(),
                                 seed.timeKeyword()
                         );
+
+                if (existsPostByContent(content)) {
+                    continue;
+                }
 
                 postRepository.save(
                         Post.builder()
@@ -1099,8 +1194,6 @@ public class DataInitializer implements ApplicationRunner {
                                 .maxApplicants(maxApplicants)
                                 .build()
                 );
-
-                sequence++;
             }
         }
     }
