@@ -12,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum AiErrorType {
 
+
+    // 추후 확장성을 위해 남긴다.
     TIMEOUT("AI 호출 시간 초과"),
     RATE_LIMIT("AI API 요청 한도 초과"),
     SERVER_ERROR("서버 내부 오류"),

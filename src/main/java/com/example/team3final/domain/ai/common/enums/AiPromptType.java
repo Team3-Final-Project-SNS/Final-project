@@ -15,7 +15,7 @@ public enum AiPromptType {
 
     MATCHING_CHAT("매칭 AI 채팅 프롬프트"),
     SUPPORT_CHAT("고객센터 AI 채팅 프롬프트"),
-    REPORT_SUMMARY("신고 AI 분석 프롬프트");
+    REPORT_SUMMARY("관리자 AI 분석 프롬프트");
 
 
     private final String description;
