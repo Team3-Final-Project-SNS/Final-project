@@ -118,23 +118,27 @@ public class MeetReminderScheduler {
                 Post post = postInternalService.getPostById(postId);
 
                 // postId에 연결된 활성(MATCHED) 매칭의 matchId 조회
-                Optional<Long> matchId = matchInternalService.getActiveMatchIdByPostId(postId);
+                // 그룹 만남의 모든 활성 matchId 기준으로 HOST 알림 대상 판단
+                List<Long> activeMatchIds = matchInternalService.getActiveMatchIdsByPostId(postId);
 
                 // 활성 매칭이 없으면(이미 취소됨) 알림 보낼 대상 없음 → 스킵
-                if (matchId.isEmpty()) {
+                if (activeMatchIds.isEmpty()) {
                     log.warn("[MeetReminderScheduler] 10분 경과 HOST 알림 스킵 - 활성 매칭 없음 postId: {}", postId);
                     continue;
                 }
 
                 // 발송 직전 인증 상태를 확인해 이미 장소 또는 QR 인증을 마친 사용자에게 오발송하지 않는다.
+                // 첫 번째 match만 보지 않고, HOST 장소 인증이 필요한 참여자 row 선택
                 Optional<MeetVerification> meetVerification =
-                        meetVerificationRepository.findByMatchId(matchId.get());
+                        meetVerificationRepository.findAllByMatchIdIn(activeMatchIds).stream()
+                                .filter(this::shouldSendHostOverdue)
+                                .findFirst();
 
                 if (meetVerification.isEmpty()) {
                     log.warn(
                             "[MeetReminderScheduler] 10분 경과 HOST 알림 스킵"
                                     + " - 만남 인증 정보 없음 matchId: {}",
-                            matchId.get()
+                            postId
                     );
                     continue;
                 }
@@ -143,7 +147,7 @@ public class MeetReminderScheduler {
                     log.info(
                             "[MeetReminderScheduler] 10분 경과 HOST 알림 스킵"
                                     + " - 인증 완료 또는 발송 대상 아님 matchId: {}, status: {}",
-                            matchId.get(),
+                            meetVerification.get().getMatchId(),
                             meetVerification.get().getStatus()
                     );
                     continue;
@@ -163,7 +167,7 @@ public class MeetReminderScheduler {
                 }
 
                 // relatedId로 matchId를 전달 → 알림 클릭 시 올바른 매칭 화면으로 이동
-                notificationPublisher.sendMeetOverdue(post.getAuthorId(), matchId.get());
+                notificationPublisher.sendMeetOverdue(post.getAuthorId(), meetVerification.get().getMatchId());
             }
         }
 
@@ -253,14 +257,15 @@ public class MeetReminderScheduler {
 
             // postId에 연결된 활성(MATCHED) 매칭의 matchId를 조회
             // (CANCELLED/COMPLETED 매칭은 자동 제외되고, 그룹 매칭이어도 항상 동일한 매칭 선택됨)
-            Optional<Long> matchId = matchInternalService.getActiveMatchIdByPostId(postId);
+            // HOST 리마인드는 만남 단위 1회 발송, relatedId는 대표 matchId 사용
+            List<Long> activeMatchIds = matchInternalService.getActiveMatchIdsByPostId(postId);
 
-            if (matchId.isEmpty()) {
+            if (activeMatchIds.isEmpty()) {
                 log.warn("[MeetReminderScheduler] {} HOST 알림 스킵 - 활성 매칭 없음 postId: {}", label, postId);
                 continue;
             }
 
-            notifier.send(post.getAuthorId(), matchId.get());
+            notifier.send(post.getAuthorId(), activeMatchIds.get(0));
         }
     }
 

@@ -178,7 +178,7 @@ public class MatchConcurrencyService {
     //   기존 트랜잭션은 새 트랜잭션 끝날 때까지 일시 정지
     // ====================================================================
     // @Transactional 없음 — 트랜잭션은 attemptMatchWithNewTransaction() 안에서 관리
-    public CreateMatchResponseDto applyMatchWithOptimisticLockAndRetry(Long postId, Long applicantId) {
+    public synchronized CreateMatchResponseDto applyMatchWithOptimisticLockAndRetry(Long postId, Long applicantId) {
 
         int attempt = 0;
 
@@ -363,65 +363,70 @@ public class MatchConcurrencyService {
     // ====================================================================
     private CreateMatchResponseDto processMatch(Post post, Long applicantId) {
 
-        // 1. 게시글 상태 검증
-        // 락 획득 후에도 반드시 다시 확인 (Double-Checked Locking 패턴)
-        // 이유: 락 잡기 전 짧은 순간 다른 스레드가 MATCHED로 바꿨을 수 있음
         if (post.getStatus() != PostStatus.OPEN) {
-            // 기존 프로젝트의 MatchException + ErrorCode 사용
             throw new MatchException(ErrorCode.MATCH_ALREADY_MATCHED);
         }
 
-        // 2. 본인 게시글 신청 방지
         if (post.getAuthorId().equals(applicantId)) {
             throw new MatchException(ErrorCode.MATCH_SELF_APPLY);
         }
 
-        // 3. 신청자 포인트 잔액 검증
-        // UserPointService.getTotalPoint()를 통해 조회
-        // → UserPointService 내부에서 user.getTotalPoint() 호출
-        // → UserRepository 직접 접근 없음 (Service to Service 원칙 유지)
+        if (matchRepository.existsByPostIdAndApplicantId(post.getId(), applicantId)) {
+            throw new MatchException(ErrorCode.MATCH_DUPLICATE_APPLY);
+        }
+
+        if (post.isFull()) {
+            throw new MatchException(ErrorCode.MATCH_ALREADY_MATCHED);
+        }
+
+        // 신청자 책임비 잔액 검증
         int totalPoint = userPointService.getTotalPoint(applicantId);
-        int requiredPoint = post.getAuthorDeposit(); // 등록자와 동일한 책임비
+        int requiredPoint = post.getAuthorDeposit();
 
         if (totalPoint < requiredPoint) {
             throw new MatchException(ErrorCode.POINT_NOT_ENOUGH);
         }
 
-        // 4. 게시글 상태 MATCHED로 변경
-        // PostService.changePostStatus()를 통해 처리
-        // → PostService가 내부에서 post.changeStatus() 도메인 메서드 호출
-        // → JPA Dirty Checking으로 UPDATE 자동 발생
-        postLifecycleService.changePostStatus(post.getId(), PostStatus.MATCHED);
-
-        // 5. 매칭 엔티티 생성 및 저장
-        // MatchRepository는 같은 도메인 → 직접 사용 OK
         Match match = Match.builder()
                 .postId(post.getId())
                 .applicantId(applicantId)
-                .applicantDeposit(requiredPoint) // 등록자 책임비와 동일한 금액 예치
+                .applicantDeposit(requiredPoint)
                 .build();
         Match savedMatch = matchRepository.save(match);
 
-        // 6. 신청자 포인트 차감 + PointTransaction 기록
-        // UserPointService.deductPoint() 호출
-        // → 내부에서 무료/유료 포인트 자동 분리 처리 (user.deduct(amount))
-        // → PointTransactionType.DEPOSIT 으로 기록
         userPointService.deductPoint(applicantId, requiredPoint, savedMatch.getId());
 
-        // 7. 채팅방 생성
-        chatInternalService.createChatRoom(post.getId(), post.getAuthorId(), applicantId);
+        // 그룹 매칭 정원 판정을 위한 현재 참여 인원 증가
+        post.increaseCurrentApplicants();
 
-        // 8. 응답 DTO 생성
-        // [테스트 목적] 닉네임·chatRoomId는 null 처리
-        // → 동시성 테스트는 DB 매칭 건수 검증이 목적이므로 닉네임 불필요
-        // → 프로덕션 createMatch()에서는 UserService로 닉네임 조회 후 채워야 함
+        Long chatRoomId;
+        if (!chatInternalService.existsChatRoomByPostId(post.getId())) {
+            // 첫 신청자는 게시글 정원에 맞는 타입의 채팅방 생성
+            chatRoomId = chatInternalService.createChatRoom(
+                    post.getId(),
+                    post.getAuthorId(),
+                    applicantId,
+                    post.getMaxApplicants()
+            );
+        } else {
+            // 이후 신청자는 기존 그룹 채팅방에 GUEST로 추가
+            chatInternalService.addChatMember(post.getId(), applicantId);
+            chatRoomId = chatInternalService.getChatRoomIdByPostId(post.getId());
+        }
+
+        if (post.isFull()) {
+            // 정원 도달 시점에만 게시글 MATCHED 전환
+            post.match();
+            postLifecycleService.changePostStatus(post.getId(), PostStatus.MATCHED);
+        }
+
         return CreateMatchResponseDto.of(
                 savedMatch,
-                post.getAuthorId(),       // authorId (Post에서 추출)
-                post.getAuthorDeposit(),   // authorDeposit (Post에서 추출)
-                null,                      // authorNickname — 테스트 목적, null 처리
-                null,                      // applicantNickname — 테스트 목적, null 처리
-                null                       // chatRoomId — 테스트 목적, null 처리
+                post.getAuthorId(),
+                post.getAuthorDeposit(),
+                null,
+                null,
+                chatRoomId
         );
     }
 }
