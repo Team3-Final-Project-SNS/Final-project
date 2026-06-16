@@ -1037,55 +1037,71 @@ public class DataInitializer implements ApplicationRunner {
 
     private void seedAiMatchingRecommendationPosts(User author) {
         // 매칭 AI 추천 품질 확인용 대량 OPEN 게시글입니다.
-        // 작성자는 "정당한참여자아님" 계정으로 고정하고, 메뉴/시간대/분위기/책임비/인원 조건을 다양하게 섞습니다.
-        if (normalizeExistingAiMatchingRecommendationPosts()) {
+        // 40개의 개성 있는 seed pool을 기반으로 시간/책임비/인원만 변형해 총 120개를 생성합니다.
+        normalizeExistingAiMatchingRecommendationPosts();
+
+        if (author == null) {
             return;
         }
 
         // 대표 content가 이미 있으면 중복 생성을 막습니다.
-        if (existsPostByContent("치킨 같이 먹을 분 구해요. 활발하게 대화하면서 저녁 식사해요.")) {
+        if (existsPostByContent("치킨이랑 감자튀김 시켜서 야식 먹을 분 구해요. 수다 많고 활발한 분위기면 좋아요.")) {
             return;
         }
 
         List<AiMatchingSeedPost> seeds = List.of(
-                new AiMatchingSeedPost("후문 치킨집", "치킨", "활발하게 대화하면서", "저녁", 300, 4),
-                new AiMatchingSeedPost("정문 짜장면집", "짜장면", "가볍게 빠르게", "점심", 400, 2),
-                new AiMatchingSeedPost("중앙 짬뽕집", "짬뽕", "든든하게", "저녁", 500, 3),
-                new AiMatchingSeedPost("학생회관 분식집", "떡볶이랑 김밥", "편하게 수다 떨면서", "점심", 300, 3),
-                new AiMatchingSeedPost("공대 파스타집", "파스타", "조용하게 이야기하면서", "저녁", 800, 2),
-                new AiMatchingSeedPost("도서관 샌드위치 카페", "샌드위치", "짧고 부담 없이", "브런치", 300, 2),
-                new AiMatchingSeedPost("기숙사 국밥집", "국밥", "든든하게 먹고", "아침", 600, 4),
-                new AiMatchingSeedPost("후문 마라탕집", "마라탕", "매운 음식 좋아하는 사람끼리", "저녁", 700, 3),
-                new AiMatchingSeedPost("정문 돈까스집", "돈까스", "말수 적어도 편하게", "점심", 500, 2),
-                new AiMatchingSeedPost("중앙 카페", "커피랑 디저트", "가볍게 이야기하면서", "오후", 300, 2),
-                new AiMatchingSeedPost("학생회관 한식코너", "백반", "조용히 식사만", "점심", 400, 5),
-                new AiMatchingSeedPost("후문 라멘집", "라멘", "혼밥 싫은 사람끼리", "저녁", 600, 2),
-                new AiMatchingSeedPost("정문 김치찌개집", "김치찌개", "든든한 한 끼", "저녁", 500, 4),
-                new AiMatchingSeedPost("공학관 편의점", "삼각김밥이랑 컵라면", "빠르게 먹고 헤어지기", "밤", 200, 2),
-                new AiMatchingSeedPost("중앙광장 푸드트럭", "타코야끼", "가볍고 재밌게", "오후", 300, 3),
-                new AiMatchingSeedPost("후문 중국집", "탕수육이랑 짜장", "여럿이 나눠 먹기", "저녁", 900, 5),
-                new AiMatchingSeedPost("정문 쌀국수집", "쌀국수", "차분하게", "점심", 600, 2),
-                new AiMatchingSeedPost("학생회관 덮밥집", "덮밥", "수업 사이 빠르게", "점심", 400, 3),
-                new AiMatchingSeedPost("도서관 앞 카페", "샐러드와 샌드위치", "조용한 분위기", "브런치", 500, 2),
-                new AiMatchingSeedPost("기숙사 치킨집", "치킨과 감자튀김", "수다 많고 활발하게", "야식", 1000, 5)
+                new AiMatchingSeedPost("후문 치킨집", "치킨이랑 감자튀김 시켜서 야식 먹을 분 구해요. 수다 많고 활발한 분위기면 좋아요.", 300, 4),
+                new AiMatchingSeedPost("정문 국밥골목", "수업 전에 국밥으로 든든하게 먹고 바로 헤어질 분 찾습니다.", 500, 2),
+                new AiMatchingSeedPost("공대 앞 파스타집", "크림파스타 먹으면서 조용하게 저녁 먹을 분 구해요. 말 많이 안 해도 편해요.", 900, 2),
+                new AiMatchingSeedPost("학생회관 라멘집", "라멘 한 그릇 빠르게 먹고 다음 수업 가실 분 있나요?", 400, 2),
+                new AiMatchingSeedPost("정문 돈까스집", "돈까스 먹으면서 가볍게 이야기할 사람 구해요. 처음 봐도 부담 없는 분위기 좋아요.", 500, 3),
+                new AiMatchingSeedPost("후문 쌀국수집", "쌀국수 먹으면서 차분하게 점심 드실 분 구합니다.", 600, 2),
+                new AiMatchingSeedPost("학생회관 덮밥집", "덮밥으로 든든하게 점심 먹고 짧게 헤어질 분 찾아요.", 400, 3),
+                new AiMatchingSeedPost("중앙광장 분식집", "떡볶이랑 김밥 같이 먹을 분 구해요. 편하게 수다 떨면 좋겠습니다.", 300, 3),
+                new AiMatchingSeedPost("후문 마라탕집", "마라탕 같이 담아서 먹을 분 구합니다. 매운 음식 좋아하는 분이면 좋아요.", 700, 3),
+                new AiMatchingSeedPost("정문 중국집", "짜장면이나 짬뽕 먹을 사람 구해요. 빠르게 먹고 헤어져도 괜찮아요.", 400, 2),
+                new AiMatchingSeedPost("도서관 샌드위치 카페", "샌드위치로 간단하게 브런치 먹을 분 찾아요. 조용한 사람 환영합니다.", 300, 2),
+                new AiMatchingSeedPost("기숙사 컵밥집", "컵밥 먹으면서 혼밥 피하고 싶은 분 있으면 같이 먹어요.", 300, 2),
+                new AiMatchingSeedPost("정문 김치찌개집", "김치찌개 보글보글 끓여서 든든하게 저녁 먹을 분 구합니다.", 500, 4),
+                new AiMatchingSeedPost("후문 초밥집", "초밥 조금씩 나눠 먹을 분 찾아요. 말수 적어도 괜찮습니다.", 800, 2),
+                new AiMatchingSeedPost("공학관 편의점", "삼각김밥이랑 컵라면으로 빠르게 밥 먹고 갈 분 구해요.", 200, 2),
+                new AiMatchingSeedPost("중앙광장 푸드트럭", "타코야끼랑 음료 들고 가볍게 이야기할 분 찾습니다.", 300, 3),
+                new AiMatchingSeedPost("후문 부대찌개집", "부대찌개 같이 끓여 먹을 분 구해요. 든든한 저녁 원합니다.", 600, 4),
+                new AiMatchingSeedPost("정문 샐러드집", "샐러드랑 샌드위치로 가볍게 먹을 사람 있나요?", 400, 2),
+                new AiMatchingSeedPost("학생회관 한식코너", "백반 조용히 먹고 각자 할 일 하러 갈 분 구합니다.", 400, 2),
+                new AiMatchingSeedPost("후문 카레집", "카레 먹으면서 편하게 대화할 분 찾아요. 어색하지 않게 먹어요.", 500, 3),
+                new AiMatchingSeedPost("기숙사 치킨포차", "늦은 밤 치킨이랑 콜라 먹을 분 구합니다. 활발하게 떠드는 분위기 좋아요.", 800, 5),
+                new AiMatchingSeedPost("정문 칼국수집", "칼국수로 따뜻하게 한 끼 먹을 분 찾습니다. 차분한 분위기 선호해요.", 400, 2),
+                new AiMatchingSeedPost("후문 제육덮밥집", "제육덮밥 든든하게 먹고 바로 헤어질 분 구해요.", 400, 2),
+                new AiMatchingSeedPost("공대 브런치카페", "파스타나 샌드위치 먹으면서 점심 겸 브런치 하실 분 있나요?", 700, 2),
+                new AiMatchingSeedPost("학생회관 김밥집", "김밥이랑 라면으로 간단하게 먹을 분 찾아요. 부담 없이 와주세요.", 300, 3),
+                new AiMatchingSeedPost("중앙 짬뽕집", "짬뽕으로 얼큰하게 점심 먹을 사람 구해요. 말 많지 않아도 괜찮아요.", 500, 2),
+                new AiMatchingSeedPost("후문 파스타바", "토마토파스타 먹으면서 천천히 이야기할 분 구합니다.", 900, 2),
+                new AiMatchingSeedPost("정문 라멘야", "라멘 먹고 카페까지는 안 가고 바로 헤어질 분 찾습니다.", 500, 2),
+                new AiMatchingSeedPost("기숙사 국밥집", "국밥 한 그릇 먹고 힘내실 분 구해요. 든든하게 먹을 사람 환영합니다.", 600, 3),
+                new AiMatchingSeedPost("후문 돈까스골목", "치즈돈까스 먹을 분 구해요. 재밌게 이야기하면서 먹으면 좋겠습니다.", 600, 3),
+                new AiMatchingSeedPost("정문 베트남식당", "쌀국수랑 볶음밥 같이 먹을 분 찾아요. 조용하게 먹어도 좋아요.", 600, 2),
+                new AiMatchingSeedPost("학생회관 오므라이스집", "오므라이스로 가볍게 점심 먹을 분 구합니다. 수업 사이 빠르게 먹어요.", 400, 2),
+                new AiMatchingSeedPost("후문 야식분식", "떡볶이랑 튀김으로 야식 먹을 사람 있나요? 수다 많은 분 좋아요.", 500, 4),
+                new AiMatchingSeedPost("공대 앞 중식당", "짜장면 탕수육 같이 시킬 분 구합니다. 여럿이 나눠 먹어요.", 800, 5),
+                new AiMatchingSeedPost("도서관 앞 죽집", "죽이나 가벼운 한식 먹을 분 찾습니다. 조용한 식사 원해요.", 300, 2),
+                new AiMatchingSeedPost("정문 햄버거집", "햄버거 세트 빠르게 먹고 헤어질 사람 구해요.", 400, 2),
+                new AiMatchingSeedPost("후문 브리또집", "브리또나 타코 먹으면서 재밌게 이야기할 분 찾아요.", 500, 3),
+                new AiMatchingSeedPost("학생회관 찌개코너", "된장찌개로 든든하게 먹을 분 구해요. 혼자 먹기 싫어서 올립니다.", 400, 3),
+                new AiMatchingSeedPost("정문 우동집", "우동 한 그릇 조용하게 먹고 갈 분 있나요?", 300, 2),
+                new AiMatchingSeedPost("기숙사 샌드위치점", "샌드위치랑 커피로 늦은 아침 먹을 분 구합니다. 편한 사람 좋아요.", 300, 2)
         );
 
         LocalDateTime base = LocalDateTime.now().plusMinutes(30);
         int sequence = 1;
 
-        for (int round = 0; round < 6; round++) {
+        for (int round = 0; round < 3; round++) {
             for (AiMatchingSeedPost seed : seeds) {
                 LocalDateTime meetAt = base
                         .plusDays(round / 2)
                         .plusMinutes((long) sequence * 17);
                 int deposit = seed.deposit() + (round % 3) * 100;
                 int maxApplicants = Math.min(5, Math.max(2, seed.maxApplicants() + (round % 2)));
-                String content = "%s 같이 먹을 분 구해요. %s %s 식사해요."
-                        .formatted(
-                                seed.menu(),
-                                seed.atmosphere(),
-                                seed.timeKeyword()
-                        );
 
                 postRepository.save(
                         Post.builder()
@@ -1094,7 +1110,7 @@ public class DataInitializer implements ApplicationRunner {
                                 .placeName(seed.placeName())
                                 .placeLat(DEMO_PLACE_LAT)
                                 .placeLng(DEMO_PLACE_LNG)
-                                .content(content)
+                                .content(seed.content())
                                 .authorDeposit(deposit)
                                 .maxApplicants(maxApplicants)
                                 .build()
@@ -1131,9 +1147,7 @@ public class DataInitializer implements ApplicationRunner {
 
     private record AiMatchingSeedPost(
             String placeName,
-            String menu,
-            String atmosphere,
-            String timeKeyword,
+            String content,
             int deposit,
             int maxApplicants
     ) {
