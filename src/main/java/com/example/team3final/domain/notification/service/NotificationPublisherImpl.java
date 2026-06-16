@@ -313,7 +313,16 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.MEET, matchId);
     }
 
-    // 17. 노쇼 확정 알림 - 관련 사용자 양측에게
+    // 17. 상대방 노쇼 예정 알림 - 정상 도착/대기 중인 상대방에게
+    @Override
+    public void sendOpponentNoShowWarning(Long userId, Long matchId, String noShowNickname) {
+        publish(userId, NotificationType.OPPONENT_NO_SHOW_WARNING,
+                noShowNickname + "님이 노쇼 예정입니다.",
+                noShowNickname + "님이 노쇼 예정 상태입니다. 매칭 상세를 확인해 주세요.",
+                RelatedDomain.MEET, matchId);
+    }
+
+    // 18. 노쇼 확정 알림 - 관련 사용자 양측에게
     @Override
     public void sendNoShowConfirmed(Long userId, Long matchId) {
         publish(userId, NotificationType.NO_SHOW_CONFIRMED,

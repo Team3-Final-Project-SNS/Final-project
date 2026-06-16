@@ -14,6 +14,7 @@ export type NotificationType =
     | "MEET_COMPLETED"
     | "NO_SHOW_CONFIRMED"
     | "NO_SHOW_WARNING"
+    | "OPPONENT_NO_SHOW_WARNING"
     | "DISPUTE_SUBMITTED"
     | "DISPUTE_RESULT"
     | "DISPUTE_PENDING"

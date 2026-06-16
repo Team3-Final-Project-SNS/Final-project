@@ -37,6 +37,7 @@ public final class NotificationPolicy {
 
         // 노쇼
         userRequired(NotificationType.NO_SHOW_WARNING, RelatedDomain.MEET);
+        userRequired(NotificationType.OPPONENT_NO_SHOW_WARNING, RelatedDomain.MEET);
         userRequired(NotificationType.NO_SHOW_CONFIRMED, RelatedDomain.MEET);
 
         // 만남 시간 연장

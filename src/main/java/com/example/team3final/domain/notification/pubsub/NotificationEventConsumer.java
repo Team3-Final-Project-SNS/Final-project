@@ -5,6 +5,7 @@ import com.example.team3final.common.kafka.KafkaTopics;
 import com.example.team3final.domain.notification.dto.event.NotificationEvent;
 import com.example.team3final.domain.notification.dto.response.GetNotificationsResponseDto;
 import com.example.team3final.domain.notification.entity.Notification;
+import com.example.team3final.domain.notification.enums.NotificationType;
 import com.example.team3final.domain.notification.exception.InvalidNotificationEventException;
 import com.example.team3final.domain.notification.repository.NotificationRepository;
 import com.example.team3final.domain.notification.service.NotificationCacheService;
@@ -62,6 +63,24 @@ public class NotificationEventConsumer {
             // eventId가 Redis에 있으면 중복 메시지 → 스킵
             // eventId가 Redis에 없으면 처음 수신 → 정상 처리 후 Redis에 기록
             if (!kafkaIdempotencyService.isFirstProcessing(eventId)) {
+                return;
+            }
+
+            if (isNoShowNotification(event)
+                    && notificationRepository.existsByReceiverTypeAndReceiverIdAndTypeAndRelatedDomainAndRelatedId(
+                    event.receiverType(),
+                    event.receiverId(),
+                    event.type(),
+                    event.relatedDomain(),
+                    event.relatedId()
+            )) {
+                log.warn(
+                        "[Kafka Notification Consumer] 중복 노쇼 알림 스킵 - receiverType: {}, receiverId: {}, type: {}, relatedId: {}",
+                        event.receiverType(),
+                        event.receiverId(),
+                        event.type(),
+                        event.relatedId()
+                );
                 return;
             }
 
@@ -136,6 +155,12 @@ public class NotificationEventConsumer {
             //    → DltEventConsumer가 최종 실패 로그 기록
             throw new RuntimeException("알림 이벤트 처리 실패", e);
         }
+    }
+
+    private boolean isNoShowNotification(NotificationEvent event) {
+        return event.type() == NotificationType.NO_SHOW_WARNING
+                || event.type() == NotificationType.OPPONENT_NO_SHOW_WARNING
+                || event.type() == NotificationType.NO_SHOW_CONFIRMED;
     }
 
     private NotificationEvent deserialize(String message) {
