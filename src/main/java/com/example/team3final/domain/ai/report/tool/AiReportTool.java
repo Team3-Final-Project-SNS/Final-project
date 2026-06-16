@@ -4,6 +4,8 @@ import com.example.team3final.domain.admin.dispute.dto.response.GetAdminDisputeR
 import com.example.team3final.domain.admin.dispute.service.AdminDisputeService;
 import com.example.team3final.domain.ai.report.dashboard.dto.AiReportDashboardSnapshotDto;
 import com.example.team3final.domain.ai.report.dashboard.service.AiReportDashboardQueryService;
+import com.example.team3final.domain.dispute.entity.Dispute;
+import com.example.team3final.domain.dispute.repository.DisputeRepository;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.service.PostInternalService;
 import com.example.team3final.domain.report.entity.Report;
@@ -37,6 +39,7 @@ public class AiReportTool {
     private final UserInternalService userInternalService;
     private final AiReportDashboardQueryService aiReportDashboardQueryService;
     private final AdminDisputeService adminDisputeService;
+    private final DisputeRepository disputeRepository;
 
     /**
      * 특정 신고 건의 분석에 필요한 전체 맥락을 조회합니다.
@@ -104,6 +107,76 @@ public class AiReportTool {
                 counts.pendingCount(),
                 counts.acceptedCount()
         );
+    }
+
+    /**
+     * 신고 ID를 모르는 관리자 질문을 위해 닉네임, 게시글 장소, 게시글 한마디, 신고 상세에서
+     * 키워드와 가까운 최근 신고 후보를 조회합니다.
+     */
+    @Tool(
+            description = "신고 ID가 없을 때 닉네임, 게시글 장소명, 게시글 한마디, 신고 상세 키워드로 최근 신고 후보를 검색합니다.",
+            resultConverter = AiReportToolResultConverter.class
+    )
+    public List<AiReportSearchToolResult> searchReportsByKeyword(
+            @ToolParam(description = "관리자가 입력한 닉네임, 게시글명, 장소명, 한마디 키워드", required = true)
+            String keyword,
+            @ToolParam(description = "조회할 후보 수. 기본값은 5", required = false)
+            Integer limit
+    ) {
+        String normalizedKeyword = normalizeForSearch(keyword);
+        if (normalizedKeyword.isBlank()) {
+            return List.of();
+        }
+
+        int resultLimit = limit == null || limit <= 0 ? 5 : Math.min(limit, 10);
+        List<Report> reports = reportInternalService
+                .getReportsForAdmin(null, PageRequest.of(0, MAX_REPORT_SCAN_SIZE))
+                .getContent();
+
+        return reports.stream()
+                .map(this::toSearchCandidate)
+                .filter(Objects::nonNull)
+                .filter(candidate -> matchesKeyword(candidate, normalizedKeyword))
+                .limit(resultLimit)
+                .toList();
+    }
+
+    /**
+     * 이의제기 ID를 모르는 관리자 질문을 위해 제출자 닉네임이나 이의제기 사유에서
+     * 키워드와 가까운 최근 이의제기 후보를 조회합니다.
+     */
+    @Tool(
+            description = "이의제기 ID가 없을 때 제출자 닉네임 또는 이의제기 사유 키워드로 최근 이의제기 후보를 검색합니다.",
+            resultConverter = AiReportToolResultConverter.class
+    )
+    public List<AiDisputeSearchToolResult> searchDisputesByKeyword(
+            @ToolParam(description = "관리자가 입력한 제출자 닉네임 또는 이의제기 사유 키워드", required = true)
+            String keyword,
+            @ToolParam(description = "조회할 후보 수. 기본값은 5", required = false)
+            Integer limit
+    ) {
+        String normalizedKeyword = normalizeForSearch(keyword);
+        if (normalizedKeyword.isBlank()) {
+            return List.of();
+        }
+
+        int resultLimit = limit == null || limit <= 0 ? 5 : Math.min(limit, 10);
+        Map<Long, String> nicknameMap = userInternalService.getUserNicknameMap(
+                disputeRepository.findAll(PageRequest.of(0, MAX_REPORT_SCAN_SIZE))
+                        .getContent()
+                        .stream()
+                        .map(Dispute::getSubmitterId)
+                        .distinct()
+                        .toList()
+        );
+
+        return disputeRepository.findAll(PageRequest.of(0, MAX_REPORT_SCAN_SIZE))
+                .getContent()
+                .stream()
+                .map(dispute -> toDisputeSearchCandidate(dispute, nicknameMap))
+                .filter(candidate -> matchesKeyword(candidate, normalizedKeyword))
+                .limit(resultLimit)
+                .toList();
     }
 
     /**
@@ -200,7 +273,12 @@ public class AiReportTool {
                 snapshot.paidPaymentCount(),
                 snapshot.cancelledPaymentCount(),
                 snapshot.failedPaymentCount(),
-                snapshot.paidPaymentAmount()
+                snapshot.paidPaymentAmount(),
+                snapshot.todayReadyPaymentCount(),
+                snapshot.todayPaidPaymentCount(),
+                snapshot.todayCancelledPaymentCount(),
+                snapshot.todayFailedPaymentCount(),
+                snapshot.todayPaidPaymentAmount()
         );
     }
 
@@ -267,6 +345,80 @@ public class AiReportTool {
                 risk.reportIds(),
                 risk.reasonSummary()
         );
+    }
+
+    private AiReportSearchToolResult toSearchCandidate(Report report) {
+        UserInfoDto reporter = userInternalService.getUserInfo(report.getReporterId());
+
+        try {
+            Post post = postInternalService.getPostById(report.getTargetId());
+            UserInfoDto targetUser = userInternalService.getUserInfo(post.getAuthorId());
+
+            return new AiReportSearchToolResult(
+                    report.getId(),
+                    report.getReason(),
+                    report.getStatus(),
+                    report.getDetail(),
+                    report.getReporterId(),
+                    reporter.nickname(),
+                    post.getId(),
+                    post.getAuthorId(),
+                    targetUser.nickname(),
+                    post.getContent(),
+                    post.getPlaceName(),
+                    post.getMeetAt().toString()
+            );
+        } catch (Exception e) {
+            return new AiReportSearchToolResult(
+                    report.getId(),
+                    report.getReason(),
+                    report.getStatus(),
+                    report.getDetail(),
+                    report.getReporterId(),
+                    reporter.nickname(),
+                    report.getTargetId(),
+                    null,
+                    null,
+                    null,
+                    null,
+                    null
+            );
+        }
+    }
+
+    private boolean matchesKeyword(AiReportSearchToolResult candidate, String normalizedKeyword) {
+        return normalizeForSearch(candidate.reporterNickname()).contains(normalizedKeyword)
+                || normalizeForSearch(candidate.targetUserNickname()).contains(normalizedKeyword)
+                || normalizeForSearch(candidate.targetPlaceName()).contains(normalizedKeyword)
+                || normalizeForSearch(candidate.targetPostContent()).contains(normalizedKeyword)
+                || normalizeForSearch(candidate.reportDetail()).contains(normalizedKeyword);
+    }
+
+    private AiDisputeSearchToolResult toDisputeSearchCandidate(Dispute dispute, Map<Long, String> nicknameMap) {
+        return new AiDisputeSearchToolResult(
+                dispute.getId(),
+                dispute.getMatchId(),
+                dispute.getSubmitterId(),
+                nicknameMap.getOrDefault(dispute.getSubmitterId(), null),
+                dispute.getDisputeType(),
+                dispute.getReason(),
+                dispute.getStatus(),
+                dispute.getCreatedAt()
+        );
+    }
+
+    private boolean matchesKeyword(AiDisputeSearchToolResult candidate, String normalizedKeyword) {
+        return normalizeForSearch(candidate.submitterNickname()).contains(normalizedKeyword)
+                || normalizeForSearch(candidate.reason()).contains(normalizedKeyword)
+                || normalizeForSearch(candidate.disputeType() == null ? null : candidate.disputeType().name()).contains(normalizedKeyword);
+    }
+
+    private String normalizeForSearch(String value) {
+        if (value == null) {
+            return "";
+        }
+
+        return value.toLowerCase(Locale.ROOT).replaceAll("\\s+", "");
     }
 
     /**

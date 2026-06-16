@@ -36,6 +36,7 @@ public record AiReportDisputeAnalysisResponseDto(
 
         String evidence = """
                 - 이의제기 사유: %s
+                - 제출 상세: %s
                 - 현재 이의제기 상태: %s
                 - 만남 인증 상태: %s
                 - 등록자 GPS 인증 시각: %s
@@ -43,6 +44,7 @@ public record AiReportDisputeAnalysisResponseDto(
                 - 관련 채팅 메시지 수: %d건
                 """.formatted(
                 context.disputeType(),
+                context.reason(),
                 context.status(),
                 context.verificationStatus(),
                 hasAuthorGps ? context.authorPlaceVerifiedAt() : "없음",

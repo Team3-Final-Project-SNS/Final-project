@@ -20,10 +20,20 @@ import com.example.team3final.domain.pointTransaction.enums.PointReferenceType;
 import com.example.team3final.domain.pointTransaction.enums.PointSettlementReason;
 import com.example.team3final.domain.pointTransaction.enums.PointTransactionType;
 import com.example.team3final.domain.pointTransaction.repository.PointTransactionRepository;
+import com.example.team3final.domain.payment.entity.Payment;
+import com.example.team3final.domain.payment.enums.ChargePackage;
+import com.example.team3final.domain.payment.repository.PaymentRepository;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.event.PostVectorUpsertEvent;
 import com.example.team3final.domain.post.repository.PostRepository;
+import com.example.team3final.domain.dispute.entity.Dispute;
+import com.example.team3final.domain.dispute.enums.DisputeType;
+import com.example.team3final.domain.dispute.repository.DisputeRepository;
+import com.example.team3final.domain.report.entity.Report;
+import com.example.team3final.domain.report.enums.ReportReason;
+import com.example.team3final.domain.report.enums.ReportStatus;
+import com.example.team3final.domain.report.repository.ReportRepository;
 import com.example.team3final.domain.university.entity.University;
 import com.example.team3final.domain.university.repository.UniversityRepository;
 import com.example.team3final.domain.user.entity.TermAgreement;
@@ -66,6 +76,9 @@ public class DataInitializer implements ApplicationRunner {
     private final PointTransactionRepository pointTransactionRepository;
     private final PasswordEncoder passwordEncoder;
     private final ChatMemberRepository chatMemberRepository;
+    private final ReportRepository reportRepository;
+    private final DisputeRepository disputeRepository;
+    private final PaymentRepository paymentRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
 
     @Override
@@ -75,6 +88,7 @@ public class DataInitializer implements ApplicationRunner {
         // 서버 재시작 때마다 중복 데이터가 쌓이는 것을 막기 위한 방어 코드입니다.
         if (existsPostByContent("1:N 리뷰 테스트용 완료된 단체 식사입니다.")) {
             seedAiMatchingRecommendationPostsIfPossible();
+            seedAdminAiReviewDataIfPossible();
             publishSeedPostVectorEvents();
             return;
         }
@@ -742,6 +756,9 @@ public class DataInitializer implements ApplicationRunner {
         verifiedOnly.verifyApplicantPlace(); // 여기서 자동으로 VERIFIED
         meetVerificationRepository.save(verifiedOnly);
 
+        seedAdminAiReviewData(author, applicant, hacker);
+        seedAdminAiPaymentData(author, applicant, hacker);
+
         publishSeedPostVectorEvents();
     }
 
@@ -751,6 +768,266 @@ public class DataInitializer implements ApplicationRunner {
     private boolean existsPostByContent(String content) {
         return postRepository.findAll().stream()
                 .anyMatch(post -> content.equals(post.getContent()));
+    }
+
+    private void seedAdminAiReviewDataIfPossible() {
+        User author = userRepository.findByEmail("author@korea.ac.kr").orElse(null);
+        User applicant = userRepository.findByEmail("applicant@korea.ac.kr").orElse(null);
+        User hacker = userRepository.findByEmail("dalsun_rin@naver.com").orElse(null);
+
+        if (author == null || applicant == null || hacker == null) {
+            return;
+        }
+
+        seedAdminAiReviewData(author, applicant, hacker);
+        seedAdminAiPaymentData(author, applicant, hacker);
+    }
+
+    private void seedAdminAiReviewData(User author, User applicant, User reportTargetUser) {
+        Post reportTargetPost = getOrCreateSeedPostByContent(
+                reportTargetUser,
+                "관리자 AI 신고 분석 테스트용 게시글입니다. 반복 신고와 욕설/비방 판단 확인용입니다.",
+                "관리자 AI 신고 테스트 식당",
+                LocalDateTime.now().plusHours(3),
+                500
+        );
+        saveReportIfMissing(
+                applicant.getId(),
+                reportTargetPost.getId(),
+                ReportReason.ABUSE,
+                "관리자 AI 신고 분석 seed: 게시글 한마디와 채팅에서 비방성 표현이 반복되어 신고합니다."
+        );
+        saveReportIfMissing(
+                author.getId(),
+                reportTargetPost.getId(),
+                ReportReason.SPAM,
+                "관리자 AI 신고 분석 seed: 같은 모집글을 반복적으로 올리는 스팸 의심 사용자입니다."
+        );
+
+        Post disputePost = getOrCreateSeedPostByContent(
+                author,
+                "관리자 AI 이의제기 분석 테스트용 게시글입니다. GPS 오류로 인증에 실패한 상황입니다.",
+                "관리자 AI 이의제기 테스트 장소",
+                LocalDateTime.now().minusHours(2),
+                400
+        );
+        disputePost.match();
+
+        Match disputeMatch = getOrCreateSeedMatch(disputePost, applicant, 400);
+        disputeMatch.dispute();
+
+        MeetVerification disputeVerification = getOrCreateDisputeMeetVerification(disputeMatch.getId());
+        saveDisputeIfMissing(
+                disputeMatch.getId(),
+                applicant.getId(),
+                DisputeType.GPS_ERROR,
+                "관리자 AI 이의제기 seed: 약속 장소에는 도착했지만 GPS 인증 버튼이 계속 실패했습니다. 채팅으로 도착 사실을 알렸습니다."
+        );
+        saveAdminAiDisputeChatMessages(disputePost, author, applicant);
+    }
+
+    private void seedAdminAiPaymentData(User author, User applicant, User hacker) {
+        savePaymentSeedIfMissing(
+                author,
+                "hankki_admin_ai_paid_author_001",
+                ChargePackage.P_10000,
+                "card",
+                "PAID"
+        );
+        savePaymentSeedIfMissing(
+                applicant,
+                "hankki_admin_ai_paid_applicant_001",
+                ChargePackage.P_5000,
+                "kakaopay",
+                "PAID"
+        );
+        savePaymentSeedIfMissing(
+                applicant,
+                "hankki_admin_ai_ready_applicant_001",
+                ChargePackage.P_3000,
+                "card",
+                "READY"
+        );
+        savePaymentSeedIfMissing(
+                author,
+                "hankki_admin_ai_cancelled_author_001",
+                ChargePackage.P_3000,
+                "card",
+                "CANCELLED"
+        );
+        savePaymentSeedIfMissing(
+                hacker,
+                "hankki_admin_ai_failed_hacker_001",
+                ChargePackage.P_20000,
+                "card",
+                "FAILED"
+        );
+    }
+
+    private void savePaymentSeedIfMissing(
+            User user,
+            String merchantUid,
+            ChargePackage chargePackage,
+            String payMethod,
+            String status
+    ) {
+        if (paymentRepository.existsByMerchantUid(merchantUid)) {
+            return;
+        }
+
+        Payment payment = Payment.builder()
+                .userId(user.getId())
+                .merchantUid(merchantUid)
+                .chargePackage(chargePackage)
+                .payMethod(payMethod)
+                .build();
+
+        if ("PAID".equals(status)) {
+            payment.markPaid();
+        } else if ("CANCELLED".equals(status)) {
+            payment.markPaid();
+            payment.markCancelled("관리자 AI 결제 요약 seed: 결제 취소 테스트 데이터");
+        } else if ("FAILED".equals(status)) {
+            payment.markFailed("관리자 AI 결제 요약 seed: 결제 실패 테스트 데이터");
+        }
+
+        paymentRepository.save(payment);
+    }
+
+    private Post getOrCreateSeedPostByContent(
+            User author,
+            String content,
+            String placeName,
+            LocalDateTime meetAt,
+            int authorDeposit
+    ) {
+        return postRepository.findAll().stream()
+                .filter(post -> content.equals(post.getContent()))
+                .findFirst()
+                .orElseGet(() -> postRepository.save(
+                        Post.builder()
+                                .authorId(author.getId())
+                                .meetAt(meetAt)
+                                .placeName(placeName)
+                                .placeLat(DEMO_PLACE_LAT)
+                                .placeLng(DEMO_PLACE_LNG)
+                                .content(content)
+                                .authorDeposit(authorDeposit)
+                                .maxApplicants(2)
+                                .build()
+                ));
+    }
+
+    private void saveReportIfMissing(Long reporterId, Long targetPostId, ReportReason reason, String detail) {
+        boolean exists = reportRepository.existsByReporterIdAndTargetIdAndStatusIn(
+                reporterId,
+                targetPostId,
+                List.of(ReportStatus.PENDING, ReportStatus.ACCEPTED, ReportStatus.REJECTED)
+        );
+
+        if (exists) {
+            return;
+        }
+
+        reportRepository.save(
+                Report.builder()
+                        .reporterId(reporterId)
+                        .targetId(targetPostId)
+                        .reason(reason)
+                        .detail(detail)
+                        .build()
+        );
+    }
+
+    private Match getOrCreateSeedMatch(Post post, User applicant, int applicantDeposit) {
+        return matchRepository.findAllByPostId(post.getId()).stream()
+                .filter(match -> match.getApplicantId().equals(applicant.getId()))
+                .findFirst()
+                .orElseGet(() -> matchRepository.save(
+                        Match.builder()
+                                .postId(post.getId())
+                                .applicantId(applicant.getId())
+                                .applicantDeposit(applicantDeposit)
+                                .build()
+                ));
+    }
+
+    private MeetVerification getOrCreateDisputeMeetVerification(Long matchId) {
+        return meetVerificationRepository.findByMatchId(matchId)
+                .orElseGet(() -> {
+                    MeetVerification verification = MeetVerification.createPending(matchId);
+                    verification.verifyAuthorPlace();
+                    verification.markApplicantNoShow();
+                    verification.markDispute();
+                    return meetVerificationRepository.save(verification);
+                });
+    }
+
+    private void saveDisputeIfMissing(Long matchId, Long submitterId, DisputeType disputeType, String reason) {
+        if (disputeRepository.existsByMatchIdAndSubmitterId(matchId, submitterId)) {
+            return;
+        }
+
+        disputeRepository.save(
+                Dispute.builder()
+                        .matchId(matchId)
+                        .submitterId(submitterId)
+                        .disputeType(disputeType)
+                        .reason(reason)
+                        .evidenceUrl("https://example.com/admin-ai-dispute-gps-evidence.png")
+                        .build()
+        );
+    }
+
+    private void saveAdminAiDisputeChatMessages(Post post, User author, User applicant) {
+        ChatRoom chatRoom = chatRoomRepository.findByPostId(post.getId())
+                .orElseGet(() -> chatRoomRepository.save(
+                        ChatRoom.builder()
+                                .postId(post.getId())
+                                .roomType(ChatRoomType.ONE_TO_ONE)
+                                .build()
+                ));
+
+        saveChatMemberIfMissing(chatRoom.getId(), author.getId(), ChatMemberRole.HOST);
+        saveChatMemberIfMissing(chatRoom.getId(), applicant.getId(), ChatMemberRole.GUEST);
+
+        saveChatMessageIfMissing(chatRoom.getId(), applicant.getId(), "관리자 AI seed: 저 장소 앞에 도착했는데 GPS 인증이 실패해요.");
+        saveChatMessageIfMissing(chatRoom.getId(), author.getId(), "관리자 AI seed: 저는 먼저 도착해서 기다리고 있습니다.");
+        saveChatMessageIfMissing(chatRoom.getId(), applicant.getId(), "관리자 AI seed: 앱 위치 권한을 다시 켰는데도 인증 버튼이 안 됩니다.");
+    }
+
+    private void saveChatMemberIfMissing(Long chatRoomId, Long userId, ChatMemberRole role) {
+        boolean exists = chatMemberRepository.findAll().stream()
+                .anyMatch(member -> member.getChatRoomId().equals(chatRoomId) && member.getUserId().equals(userId));
+
+        if (exists) {
+            return;
+        }
+
+        chatMemberRepository.save(
+                ChatMember.builder()
+                        .chatRoomId(chatRoomId)
+                        .userId(userId)
+                        .role(role)
+                        .build()
+        );
+    }
+
+    private void saveChatMessageIfMissing(Long chatRoomId, Long senderId, String content) {
+        boolean exists = chatMessageRepository.findByChatRoomIdOrderByIdAsc(chatRoomId).stream()
+                .anyMatch(message -> content.equals(message.getContent()));
+
+        if (exists) {
+            return;
+        }
+
+        chatMessageRepository.save(
+                ChatMessage.builder()
+                        .chatRoomId(chatRoomId)
+                        .senderId(senderId)
+                        .content(content)
+                        .build()
+        );
     }
 
     private void seedAiMatchingRecommendationPostsIfPossible() {

@@ -32,6 +32,11 @@ public record AiReportDashboardSnapshotDto(
         long paidPaymentCount,
         long cancelledPaymentCount,
         long failedPaymentCount,
-        long paidPaymentAmount
+        long paidPaymentAmount,
+        long todayReadyPaymentCount,
+        long todayPaidPaymentCount,
+        long todayCancelledPaymentCount,
+        long todayFailedPaymentCount,
+        long todayPaidPaymentAmount
 ) {
 }
