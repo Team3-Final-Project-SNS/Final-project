@@ -10,6 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Getter
 @Entity
@@ -55,7 +56,8 @@ public class ChatRoom extends BaseTimeEntity {
     @Builder
     private ChatRoom(Long postId, ChatRoomType roomType) {
         this.postId = postId;
-        this.roomType = (roomType != null) ? roomType : ChatRoomType.ONE_TO_ONE;
+        // 채팅방 타입 누락 시 잘못된 1:1/그룹 데이터 저장 차단
+        this.roomType = Objects.requireNonNull(roomType, "roomType은 필수입니다.");
         this.status = ChatRoomStatus.ACTIVE; // 생성 시 항상 ACTIVE
     }
 

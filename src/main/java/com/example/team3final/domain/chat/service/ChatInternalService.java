@@ -9,8 +9,9 @@ import java.util.Map;
 public interface ChatInternalService {
 
     // 채팅방 생성 - 매칭 확정 시 내부 호출
+    // maxApplicants 기준 1:1/GROUP 채팅방 타입 결정
     // TODO: 고도화 시 카프카로 교체 예정 → void로 변경될 예정
-    Long createChatRoom(Long postId, Long authorId, Long applicantId);
+    Long createChatRoom(Long postId, Long authorId, Long applicantId, int maxApplicants);
 
     // 채팅방 즉시 비활성화 - 취소/노쇼 시
     void deactivateChatRoom(Long postId);

@@ -437,7 +437,13 @@ public class DataInitializer implements ApplicationRunner {
         saveUserLocationIfNotExists(activeMatch.getId(), author.getId());
         saveUserLocationIfNotExists(activeMatch.getId(), applicant.getId());
 
-        ChatRoom activeChatRoom = chatRoomRepository.save(ChatRoom.builder().postId(activePost.getId()).build());
+        ChatRoom activeChatRoom = chatRoomRepository.save(
+                ChatRoom.builder()
+                        .postId(activePost.getId())
+                        // seed 채팅방도 게시글 정원 기준 타입 명시
+                        .roomType(activePost.getMaxApplicants() > 2 ? ChatRoomType.GROUP : ChatRoomType.ONE_TO_ONE)
+                        .build()
+        );
 
         saveChatMemberIfNotExists(activeChatRoom.getId(), author.getId(), ChatMemberRole.HOST);
         saveChatMemberIfNotExists(activeChatRoom.getId(), applicant.getId(), ChatMemberRole.GUEST);
@@ -471,7 +477,13 @@ public class DataInitializer implements ApplicationRunner {
                         .build()
         );
 
-        ChatRoom completedChatRoom = chatRoomRepository.save(ChatRoom.builder().postId(completedPost.getId()).build());
+        ChatRoom completedChatRoom = chatRoomRepository.save(
+                ChatRoom.builder()
+                        .postId(completedPost.getId())
+                        // seed 채팅방도 게시글 정원 기준 타입 명시
+                        .roomType(completedPost.getMaxApplicants() > 2 ? ChatRoomType.GROUP : ChatRoomType.ONE_TO_ONE)
+                        .build()
+        );
 
         saveChatMemberIfNotExists(completedChatRoom.getId(), author.getId(), ChatMemberRole.HOST);
         saveChatMemberIfNotExists(completedChatRoom.getId(), applicant.getId(), ChatMemberRole.GUEST);
@@ -984,7 +996,8 @@ public class DataInitializer implements ApplicationRunner {
                 .orElseGet(() -> chatRoomRepository.save(
                         ChatRoom.builder()
                                 .postId(post.getId())
-                                .roomType(ChatRoomType.ONE_TO_ONE)
+                                // 분쟁 seed 채팅방도 게시글 정원 기준 타입 명시
+                                .roomType(post.getMaxApplicants() > 2 ? ChatRoomType.GROUP : ChatRoomType.ONE_TO_ONE)
                                 .build()
                 ));
 
@@ -1200,7 +1213,8 @@ public class DataInitializer implements ApplicationRunner {
                 .orElseGet(() -> chatRoomRepository.save(
                         ChatRoom.builder()
                                 .postId(post.getId())
-                                .roomType(ChatRoomType.ONE_TO_ONE)
+                                // 관리자 AI seed 채팅방도 게시글 정원 기준 타입 명시
+                                .roomType(post.getMaxApplicants() > 2 ? ChatRoomType.GROUP : ChatRoomType.ONE_TO_ONE)
                                 .build()
                 ));
 
