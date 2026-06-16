@@ -49,6 +49,16 @@ public class AiPromptDataInitializer implements ApplicationRunner {
                 "한끼팟 매칭 AI pgvector 보조 인덱스 기반 추천 프롬프트"
         );
 
+        // v4는 멀티턴 대화에서 조건을 종류별로 병합하고, 같은 종류의 새 조건만 교체하는 규칙을 강화한 프롬프트입니다.
+        saveIfMissing(
+                AiPromptType.MATCHING_CHAT,
+                AiFeature.MATCHING,
+                "v4",
+                "matching-chat-v4.st",
+                true,
+                "한끼팟 매칭 AI 멀티턴 조건 병합 우선순위 강화 프롬프트"
+        );
+
         saveIfMissing(
                 AiPromptType.SUPPORT_CHAT,
                 AiFeature.SUPPORT,
