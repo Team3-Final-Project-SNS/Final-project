@@ -142,7 +142,9 @@ export default function PostDetailPage() {
             <span className="text-2xl font-bold text-[#d84315]">{post.authorDeposit.toLocaleString()}P</span>
           </div>
 
-          <p className="text-[#424242] leading-relaxed mb-6 whitespace-pre-wrap">{post.content || '내용 없음'}</p>
+          {post.content && (
+            <p className="text-[#424242] leading-relaxed mb-6 whitespace-pre-wrap">{post.content}</p>
+          )}
 
           <div className="bg-[#fafafa] rounded-lg p-4 space-y-3 mb-6">
             <div className="flex items-center gap-3">

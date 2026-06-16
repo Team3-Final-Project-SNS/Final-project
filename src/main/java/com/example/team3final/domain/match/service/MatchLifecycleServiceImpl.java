@@ -7,6 +7,7 @@ import com.example.team3final.domain.location.service.UserLocationCleanupService
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.repository.MatchRepository;
+import com.example.team3final.domain.meet.util.MeetRedisZSetKeys;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.event.PostVectorDeleteEvent;
@@ -97,6 +98,7 @@ public class MatchLifecycleServiceImpl implements MatchLifecycleService {
 
         // Match 엔티티의 도메인 메서드로 MATCHED -> COMPLETED 상태 전이
         match.complete();
+        removeGuestMeetReminderReservations(match.getId());
 
         // 신청자 예치금 환급
         // Meet 도메인에서 하지 않고 Match 도메인에서 처리
@@ -164,6 +166,24 @@ public class MatchLifecycleServiceImpl implements MatchLifecycleService {
                     post.getId()
             );
         }
+
+        removeHostMeetReminderReservations(postId);
+    }
+
+    private void removeGuestMeetReminderReservations(Long matchId) {
+        String matchIdStr = String.valueOf(matchId);
+        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_30_GUEST, matchIdStr);
+        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_15_GUEST, matchIdStr);
+        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_IMMINENT_GUEST, matchIdStr);
+        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_OVERDUE_GUEST, matchIdStr);
+    }
+
+    private void removeHostMeetReminderReservations(Long postId) {
+        String postIdStr = String.valueOf(postId);
+        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_30_HOST, postIdStr);
+        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_15_HOST, postIdStr);
+        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_IMMINENT_HOST, postIdStr);
+        redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_OVERDUE_HOST, postIdStr);
     }
 
     private void publishPostVectorDeleteEvent(Long postId) {

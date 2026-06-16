@@ -70,7 +70,7 @@ export default function ChatPage() {
   const memberStatusLabel = matchInfo?.status === 'COMPLETED' || isReadOnlyChat ? '참여 완료' : '참여 중';
 
   const blockCancelledChatAccess = () => {
-    alert('매칭 취소자는 채팅방에 접근할 수 없습니다.');
+    alert('접근할 수 없는 채팅방입니다.');
     navigate('/matches', { replace: true });
   };
 
@@ -90,6 +90,10 @@ export default function ChatPage() {
         if (currentMatchId) {
           const matchRes = await getMatchDetail(currentMatchId);
           nextMatchInfo = matchRes.data.data;
+          if (nextMatchInfo.status === 'CANCELLED') {
+            blockCancelledChatAccess();
+            return;
+          }
           currentChatRoomId = currentChatRoomId ?? nextMatchInfo.chatRoomId;
         }
 
@@ -110,12 +114,12 @@ export default function ChatPage() {
       } catch (err: any) {
         console.error(err);
         const code = err.response?.data?.code;
-        if (code === 'CHAT_002' || code === 'CHAT_004' || code === 'CHAT_007' || code === 'MATCH_002') {
+        if (code === 'CHAT_003' || code === 'CHAT_004' || code === 'CHAT_007' || code === 'MATCH_002') {
           blockCancelledChatAccess();
           return;
         }
 
-        if (code === 'CHAT_003') {
+        if (code === 'CHAT_002') {
           setIsReadOnlyChat(true);
         }
 
@@ -159,12 +163,12 @@ export default function ChatPage() {
         client.subscribe('/user/queue/errors', (payload) => {
           try {
             const parsedError = JSON.parse(payload.body);
-            if (parsedError.code === 'CHAT_003') {
+            if (parsedError.code === 'CHAT_002') {
               setIsReadOnlyChat(true);
               setError('조회만 가능한 채팅방입니다. 메시지를 보낼 수 없습니다.');
               return;
             }
-            if (parsedError.code === 'CHAT_004' || parsedError.code === 'CHAT_007') {
+            if (parsedError.code === 'CHAT_003' || parsedError.code === 'CHAT_004' || parsedError.code === 'CHAT_007') {
               blockCancelledChatAccess();
               return;
             }
