@@ -15,6 +15,7 @@ import com.example.team3final.domain.post.service.PostInternalService;
 import com.example.team3final.domain.review.util.ReviewRedisZSetKeys;
 import com.example.team3final.domain.user.service.UserPointService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 // Match 도메인의 노쇼 및 이의제기 결과 반영을 담당하는 서비스
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -383,7 +385,11 @@ public class MatchNoShowServiceImpl implements MatchNoShowService {
 
         post.complete();
         publishPostVectorDeleteEvent(post.getId());
-        chatInternalService.scheduleChatRoomDeactivation(post.getId());
+        if (chatInternalService.existsChatRoomByPostId(post.getId())) {
+            chatInternalService.scheduleChatRoomDeactivation(post.getId());
+        } else {
+            log.warn("[노쇼확정] 채팅방 없음 - 채팅방 종료 예약 스킵, postId={}", post.getId());
+        }
         return true;
     }
 
