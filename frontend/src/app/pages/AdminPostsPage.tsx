@@ -45,10 +45,12 @@ export default function AdminPostsPage() {
     setLoading(true);
     setMessage('');
     try {
+      const isDeletedFilter = status === 'DELETED';
       const response = await getAdminPosts(
         universityId === 'ALL' ? undefined : Number(universityId),
         searchType === 'AUTHOR' ? keyword.trim() || undefined : undefined,
-        status === 'ALL' ? undefined : status,
+        status === 'ALL' || isDeletedFilter ? undefined : status,
+        isDeletedFilter ? true : status === 'ALL' ? undefined : false,
         searchType === 'PLACE' ? keyword.trim() || undefined : undefined,
         nextPage,
         20,
@@ -106,7 +108,7 @@ export default function AdminPostsPage() {
     try {
       await deleteAdminPost(deleteTarget.postId, null, trimmedReason);
       setMessage('게시글을 삭제했습니다.');
-      setPosts((prev) => prev.map((post) => post.postId === deleteTarget.postId ? { ...post, status: 'DELETED' as PostStatus } : post));
+      setPosts((prev) => prev.map((post) => post.postId === deleteTarget.postId ? { ...post, deleted: true, deletedAt: new Date().toISOString() } : post));
       setDeleteTarget(null);
       setDeleteReason('');
     } catch (err: any) {
@@ -210,8 +212,8 @@ export default function AdminPostsPage() {
             </div>
 
             {posts.length > 0 ? posts.map((post, index) => {
-              const label = statusLabels[post.status] || post.status || '상태 없음';
-              const className = statusClasses[post.status] || 'bg-[#f5f5f5] text-[#757575]';
+              const label = post.deleted ? '삭제됨' : statusLabels[post.status] || post.status || '상태 없음';
+              const className = post.deleted ? 'bg-[#ffebee] text-[#c62828]' : statusClasses[post.status] || 'bg-[#f5f5f5] text-[#757575]';
               return (
                 <div key={post.postId} className="grid grid-cols-[0.35fr_0.8fr_1fr_2.5fr_1fr_0.7fr_0.7fr_1fr] items-start gap-4 border-b border-[#f5f5f5] px-5 py-5 text-sm last:border-b-0">
                   <span className="text-center font-semibold text-[#9e9e9e]">{page * 20 + index + 1}</span>
@@ -226,7 +228,7 @@ export default function AdminPostsPage() {
                       {detailLoadingId === post.postId ? <Loader2 className="animate-spin" size={14} /> : <Eye size={14} />}
                       상세
                     </button>
-                    {post.status === 'DELETED' ? (
+                    {post.deleted ? (
                       <button type="button" disabled={restoringId === post.postId} onClick={() => handleRestore(post)} className="inline-flex items-center justify-center gap-1 rounded-lg border border-[#c8e6c9] px-3 py-2 text-xs font-bold text-[#2e7d32] transition-colors hover:bg-[#e8f5e9] disabled:opacity-60">
                         {restoringId === post.postId ? <Loader2 className="animate-spin" size={14} /> : <RotateCcw size={14} />}
                         복구
@@ -331,7 +333,7 @@ function PostDetailModal({ post, onClose }: { post: AdminPostDetail; onClose: ()
         </div>
         <div className="space-y-3 rounded-xl bg-[#fafafa] p-4 text-sm">
           <InfoRow label="작성자" value={post.authorNickname} />
-          <InfoRow label="상태" value={statusLabels[post.status] || post.status || '상태 없음'} />
+          <InfoRow label="상태" value={post.deleted ? '삭제됨' : statusLabels[post.status] || post.status || '상태 없음'} />
           <InfoRow label="책임비" value={`${post.authorDeposit.toLocaleString()}P`} />
           <InfoRow label="만남 시간" value={formatDateTime(post.meetAt)} />
           <InfoRow label="작성일" value={formatDateTime(post.createdAt)} />

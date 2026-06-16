@@ -118,6 +118,7 @@ public class AdminPostServiceImpl implements AdminPostService {
             Long universityId,
             String authorNickname,
             PostStatus status,
+            Boolean deleted,
             String keyword,
             Pageable pageable) {
 
@@ -164,7 +165,7 @@ public class AdminPostServiceImpl implements AdminPostService {
         }
 
         // Post 목록 조회
-        Page<Post> posts = postModerationService.getPostsForAdmin(authorIds, status, keyword, pageable);
+        Page<Post> posts = postModerationService.getPostsForAdmin(authorIds, status, deleted, keyword, pageable);
 
         // N+1 방지, authorId 목록 한 번에 추출 후 닉네임 bulk 조회
         List<Long> postAuthorIds = posts.getContent()
@@ -194,7 +195,7 @@ public class AdminPostServiceImpl implements AdminPostService {
                 .orElseThrow(() -> new AdminException(ErrorCode.ADMIN_NOT_FOUND));
 
         // postId 조회
-        Post post = postInternalService.getPostById(postId);
+        Post post = postInternalService.getPostByIdIncludingDeleted(postId);
 
         // 작성자 닉네임 단건 조회
         String authorNickname = userInternalService.getUserInfo(post.getAuthorId()).nickname();

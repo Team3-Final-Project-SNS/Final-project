@@ -13,7 +13,7 @@ public interface PostRepositoryCustom {
     // PostRepository의 findAllForAdmin 메서드명과 반환 타입을 유지
     // 서비스 계층 코드를 수정하지 않기 위해 외부 시그니처는 그대로 두고,
     // 실제 QueryDSL 조회 로직은 searchPostsForAdmin() 공통 메서드에 위임
-    Page<Post> findAllForAdmin(PostStatus status, String keyword, Pageable pageable);
+    Page<Post> findAllForAdmin(PostStatus status, Boolean deleted, String keyword, Pageable pageable);
 
     // 관리자 게시글 조회 - 작성자 ID 목록 필터 포함
     // universityId 또는 authorNickname 조건은 서비스 계층에서 authorIds로 변환된 뒤 전달되는데,
@@ -21,6 +21,7 @@ public interface PostRepositoryCustom {
     Page<Post> findAllForAdminByAuthorIds(
             List<Long> authorIds,
             PostStatus status,
+            Boolean deleted,
             String keyword,
             Pageable pageable
     );

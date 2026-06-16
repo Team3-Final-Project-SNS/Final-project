@@ -20,6 +20,7 @@ public interface PostModerationService {
     Page<Post> getPostsForAdmin(
             List<Long> authorIds,
             PostStatus status,
+            Boolean deleted,
             String keyword,
             Pageable pageable
     );
