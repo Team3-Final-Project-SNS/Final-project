@@ -46,17 +46,16 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
             @Param("receiverId") Long receiverId,
             @Param("now") LocalDateTime now);
 
-    // 오래된 알림 삭제 (스케줄러용)
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query(
-            value = """
-                    DELETE FROM notifications
-                    WHERE created_at < :cutoff
-                    ORDER BY created_at ASC
-                    LIMIT :limit
-                    """,
-            nativeQuery = true
-    )
-    int deleteByCreatedAtBeforeLimit(@Param("cutoff") LocalDateTime cutoff, @Param("limit") int limit);
+    // 오래된 알림 ID 조회 (스케줄러용)
+    @Query("""
+            SELECT n.id
+            FROM Notification n
+            WHERE n.createdAt < :cutoff
+            ORDER BY n.createdAt ASC
+            """)
+    List<Long> findOldNotificationIds(
+            @Param("cutoff") LocalDateTime cutoff,
+            Pageable pageable
+    );
 
 }

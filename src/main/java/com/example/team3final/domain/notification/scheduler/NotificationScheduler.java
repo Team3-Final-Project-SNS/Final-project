@@ -4,11 +4,13 @@ import com.example.team3final.domain.notification.repository.NotificationReposit
 import com.example.team3final.domain.notification.service.NotificationCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Slf4j
 @Component
@@ -37,12 +39,25 @@ public class NotificationScheduler {
 
         // 청크 단위로 나눠서 삭제 (DB 부하 최소화)
         int chunkSize = 1000;
-        int deletedCount;
         int totalDeletedCount = 0;
-        do {
-            deletedCount = notificationRepository.deleteByCreatedAtBeforeLimit(cutoff, chunkSize);
-            totalDeletedCount += deletedCount;
-        } while (deletedCount == chunkSize);
+
+        while (true) {
+            List<Long> oldNotificationIds = notificationRepository.findOldNotificationIds(
+                    cutoff,
+                    PageRequest.of(0, chunkSize)
+            );
+
+            if (oldNotificationIds.isEmpty()) {
+                break;
+            }
+
+            notificationRepository.deleteAllByIdInBatch(oldNotificationIds);
+            totalDeletedCount += oldNotificationIds.size();
+
+            if (oldNotificationIds.size() < chunkSize) {
+                break;
+            }
+        }
 
         if (totalDeletedCount > 0) {
             notificationCacheService.evictAll();
