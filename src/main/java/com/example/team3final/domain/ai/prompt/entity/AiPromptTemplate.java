@@ -30,6 +30,9 @@ import lombok.*;
 )
 public class AiPromptTemplate extends BaseTimeEntity {
 
+    /**
+     * 프롬프트 템플릿 row 식별자입니다.
+     */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -44,6 +47,7 @@ public class AiPromptTemplate extends BaseTimeEntity {
 
     /**
      * 프롬프트가 속한 AI 기능입니다.
+     * 기능별 활성 프롬프트를 분리하기 위한 값입니다.
      */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -52,6 +56,8 @@ public class AiPromptTemplate extends BaseTimeEntity {
     /**
      * 프롬프트 버전입니다.
      * 예: v1, v2, v3
+     *
+     * 응답 결과와 AiCallMetric에 함께 저장되어 버전별 품질과 비용을 비교할 수 있습니다.
      */
     @Column(nullable = false, length = 30)
     private String version;
@@ -66,12 +72,14 @@ public class AiPromptTemplate extends BaseTimeEntity {
 
     /**
      * 현재 활성화된 프롬프트인지 여부입니다.
+     * 같은 promptType 안에서 실제 서비스가 사용할 프롬프트를 선택하는 기준입니다.
      */
     @Column(nullable = false)
     private boolean active;
 
     /**
      * 프롬프트 설명 또는 적용 목적입니다.
+     * 예: SSE 가독성 개선, 매칭 추천 후보 검증 강화, 관리자 결제 요약 추가.
      */
     @Column(length = 500)
     private String description;

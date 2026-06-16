@@ -33,6 +33,9 @@ import lombok.*;
 )
 public class AiSupportChatMessage extends BaseTimeEntity {
 
+    /**
+     * 메시지 row 식별자입니다.
+     */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -93,6 +96,8 @@ public class AiSupportChatMessage extends BaseTimeEntity {
      * AI 응답 요약입니다.
      *
      * 관리자 검토, 검색, 품질 분석에 사용할 수 있습니다.
+     * 현재 대화 맥락 구성은 주로 content를 사용하지만,
+     * 향후 관리자 화면에서 문의 목록을 짧게 보여줄 때 활용할 수 있습니다.
      */
     @Column(length = 500)
     private String summary;
@@ -106,6 +111,8 @@ public class AiSupportChatMessage extends BaseTimeEntity {
      * - 포인트 내역 확인 필요
      *
      * USER 메시지에서는 null일 수 있습니다.
+     *
+     * 정책 답변이 단순 안내인지, 사용자가 추가 행동을 해야 하는 답변인지 구분하기 위한 값입니다.
      */
     private Boolean actionRequired;
 
@@ -116,6 +123,8 @@ public class AiSupportChatMessage extends BaseTimeEntity {
      * 기본 안내 응답을 반환한 경우 true로 저장합니다.
      *
      * USER 메시지에서는 null일 수 있습니다.
+     *
+     * 고객센터 AI 장애나 정책 RAG 실패가 얼마나 자주 발생하는지 집계할 때 사용합니다.
      */
     private Boolean fallbackUsed;
 
@@ -123,6 +132,7 @@ public class AiSupportChatMessage extends BaseTimeEntity {
      * 응답 생성에 사용한 모델명입니다.
      *
      * ASSISTANT 메시지에 저장합니다.
+     * 모델 교체 후 고객센터 답변 품질을 비교하기 위한 운영 분석용 값입니다.
      */
     @Column(length = 80)
     private String model;
@@ -131,11 +141,14 @@ public class AiSupportChatMessage extends BaseTimeEntity {
      * 응답 생성에 사용한 프롬프트 템플릿 ID입니다.
      *
      * ASSISTANT 메시지에서 프롬프트 버전별 품질 분석에 사용할 수 있습니다.
+     * ai_prompt_templates.id와 연결됩니다.
      */
     private Long promptTemplateId;
 
     /**
      * 응답 생성에 사용한 프롬프트 버전입니다.
+     *
+     * support-chat-v2, support-chat-v3처럼 정책 답변 구조와 SSE 가독성 개선 효과를 비교하는 데 사용합니다.
      */
     @Column(length = 30)
     private String promptVersion;

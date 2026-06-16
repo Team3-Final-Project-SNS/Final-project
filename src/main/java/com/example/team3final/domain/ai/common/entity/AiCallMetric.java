@@ -21,6 +21,9 @@ import lombok.*;
 @Builder
 public class AiCallMetric extends BaseTimeEntity {
 
+    /**
+     * AI 호출 메트릭 row 식별자입니다.
+     */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -40,6 +43,7 @@ public class AiCallMetric extends BaseTimeEntity {
 
     /**
      * 호출된 AI 기능입니다.
+     * 매칭 AI, 고객센터 AI, 관리자 AI 등 기능별 비용과 장애율을 나눠 보기 위한 기준입니다.
      */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -47,17 +51,20 @@ public class AiCallMetric extends BaseTimeEntity {
 
     /**
      * 호출에 사용한 모델명입니다.
+     * 모델별 비용, 응답 시간, 실패율을 비교할 때 사용합니다.
      */
     @Column(nullable = false, length = 80)
     private String model;
 
     /**
      * 프롬프트 입력 토큰 수입니다.
+     * 모델 호출 비용 계산과 긴 프롬프트 탐지에 사용합니다.
      */
     private Integer promptTokens;
 
     /**
      * AI 응답 생성 토큰 수입니다.
+     * 응답 길이와 비용 추적에 사용합니다.
      */
     private Integer completionTokens;
 
@@ -77,16 +84,19 @@ public class AiCallMetric extends BaseTimeEntity {
 
     /**
      * 전체 토큰 수입니다.
+     * promptTokens + completionTokens 기준이며, AI 사용량 급증 알림의 기초 데이터입니다.
      */
     private Integer totalTokens;
 
     /**
      * AI 호출 응답 시간입니다. millisecond 단위입니다.
+     * 외부 AI API 지연이나 프롬프트 변경 후 성능 저하를 확인하는 데 사용합니다.
      */
     private Long latencyMs;
 
     /**
      * AI 호출 처리 상태입니다.
+     * 성공, 실패, fallback 여부를 기능별로 집계하기 위한 기준입니다.
      */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -103,6 +113,7 @@ public class AiCallMetric extends BaseTimeEntity {
     /**
      * 실패 상세 메시지입니다.
      * 민감정보, JWT, 프롬프트 전문은 저장하지 않습니다.
+     * 장애 원인 파악에 필요한 짧은 에러 설명만 저장합니다.
      */
     @Column(length = 500)
     private String errorMessage;
