@@ -17,8 +17,10 @@ import com.example.team3final.domain.ai.report.enums.*;
 import com.example.team3final.domain.ai.report.repository.AiAdminResultRepository;
 import com.example.team3final.domain.ai.report.repository.AiReportChatMemoryRepository;
 import com.example.team3final.domain.ai.report.tool.AiDisputeContextToolResult;
+import com.example.team3final.domain.ai.report.tool.AiDisputeSearchToolResult;
 import com.example.team3final.domain.ai.report.tool.AiReportDashboardToolResult;
 import com.example.team3final.domain.ai.report.tool.AiReportHighRiskUserToolResult;
+import com.example.team3final.domain.ai.report.tool.AiReportSearchToolResult;
 import com.example.team3final.domain.ai.report.tool.AiReportTool;
 import com.example.team3final.domain.report.entity.Report;
 import com.example.team3final.domain.report.service.ReportInternalService;
@@ -96,6 +98,7 @@ public class AiReportServiceImpl implements AiReportService {
 
             Tool 사용 규칙:
             - 신고 단건 분석이면 getReportContext(reportId)를 호출한다.
+            - 신고 ID가 없고 닉네임, 게시글 장소, 게시글 한마디 같은 이름 단서가 있으면 searchReportsByKeyword(keyword, limit)를 먼저 호출한다.
             - 이의제기 단건 분석이면 getDisputeContext(adminId, disputeId)를 호출한다.
             - 고위험 유저 조회이면 findHighRiskUserCandidates(limit)를 호출한다.
             - 운영 현황 요약이면 getAdminDashboardSnapshot()을 호출한다.
@@ -248,6 +251,10 @@ public class AiReportServiceImpl implements AiReportService {
             String contextualUserMessage = buildContextualUserMessage(request.message(), conversationContext);
             boolean reportCommand = looksLikeReportAiCommand(request.message());
             AiAdminCategory adminCategory = resolveAdminCategory(request.message());
+            String keywordDataContext = buildKeywordDataSearchContext(request.message());
+            if (!keywordDataContext.isBlank()) {
+                contextualUserMessage = contextualUserMessage + keywordDataContext;
+            }
             boolean ragUsed = false;
             String ragSources = "";
             String systemPrompt;
@@ -696,8 +703,85 @@ public class AiReportServiceImpl implements AiReportService {
                 - 특정 신고 분석, 특정 이의제기 분석, 고위험 유저 조회, 관리자 대시보드 운영 현황 요약, 정책 안내가 필요하면 Tool 결과와 정책을 근거로 한다.
                 - 게시글, 신고, 고객 문의, 이의제기, 유저, 주문 결제, FAQ 정책 질문에 답할 수 있다.
                 - "12번 신고 분석"처럼 신고 ID가 있으면 getReportContext Tool을 호출한다.
+                - "닉네임/게시글명 + 왜 신고?", "닉네임/게시글명 + 신고 이유"처럼 신고 ID 없이 이름 단서가 있으면 searchReportsByKeyword Tool을 호출한다.
+                - [키워드 신고 검색 결과]가 제공되면 그 결과를 실제 콘솔 데이터로 보고, 정책 일반론보다 검색된 신고의 신고자, 피신고자, 신고 사유, 상세 내용을 우선 설명한다.
+                - 검색 결과가 여러 개이면 가장 관련 있어 보이는 후보들을 신고 ID와 함께 짧게 비교하고, 단정이 어려우면 관리자에게 신고 ID 선택을 안내한다.
+                - 특정 신고나 검색된 신고 후보를 설명할 때는 반드시 아래 형식으로 줄바꿈한다.
+                  신고 분석
+
+                  핵심 요약:
+                  - 신고 ID:
+                  - 신고 사유:
+                  - 신고자:
+                  - 피신고자:
+                  - 현재 상태:
+
+                  관리자 확인 항목:
+                  - 확인 항목 1
+                  - 확인 항목 2
+
+                  판단 방향:
+                  - 판단 기준 1
+                  - 판단 기준 2
+
+                  다음 조치:
+                  - 관리자에게 필요한 다음 행동
                 - "3번 이의제기 분석"처럼 이의제기 ID가 있으면 getDisputeContext Tool을 호출한다. 이때 adminId는 현재 관리자 ID인 %d를 사용한다.
-                - 운영 현황, 처리 대기, 대시보드 요약을 물으면 getAdminDashboardSnapshot Tool을 호출해 답한다.
+                - "닉네임/제출자 + 이의제기 이유", "닉네임/제출자 + 이의제기 사유"처럼 이의제기 ID 없이 이름 단서가 있으면 searchDisputesByKeyword Tool을 호출한다.
+                - [키워드 이의제기 검색 결과]가 제공되면 그 결과를 실제 콘솔 데이터로 보고, 신고 검색 결과나 신고 정책보다 이의제기 ID, 제출자, 이의제기 유형, 제출 사유, 현재 상태를 우선 설명한다.
+                - 사용자 메시지에 "이의제기", "이의 제기", "노쇼 이의"가 있으면 신고 분석 형식을 쓰지 말고 반드시 이의제기 검토 형식을 사용한다.
+                - 이의제기 답변에서는 신고자, 피신고자, 신고 이력, 비방성 표현, 스팸 여부 같은 신고 처리 표현을 쓰지 않는다.
+                - 이의제기 답변에서는 이의제기 유형, 제출 사유, 만남 인증 상태, 등록자/신청자 GPS 인증 시각, 증빙 자료, 관련 채팅 기록을 기준으로 설명한다.
+                - 이의제기 유형은 핵심 요약에 반드시 포함하고, Tool 결과의 disputeType 값을 그대로 사용한다.
+                - 이의제기 정책 근거만 필요한 경우 노쇼 및 이의제기 정책을 우선하고, 유저 신고 정책을 주 근거로 삼지 않는다.
+                - 특정 이의제기를 설명할 때는 반드시 아래 형식으로 줄바꿈한다.
+                  이의제기 검토
+
+                  핵심 요약:
+                  - 이의제기 ID:
+                  - 매칭 ID:
+                  - 제출자:
+                  - 이의제기 유형:
+                  - 제출 사유:
+                  - 현재 상태:
+                  - 만남 인증 상태:
+
+                  관리자 확인 항목:
+                  - 확인 항목 1
+                  - 확인 항목 2
+
+                  판단 방향:
+                  - 판단 기준 1
+                  - 판단 기준 2
+
+                  다음 조치:
+                  - 관리자에게 필요한 다음 행동
+                - 운영 현황, 처리 대기, 대시보드 요약, 결제 요약, 오늘 결제, 총결제액, 결제 완료/대기/취소/실패 건수를 물으면 getAdminDashboardSnapshot Tool을 호출해 답한다.
+                - 결제 요약 답변은 결제 취소 건수 또는 결제 실패 건수가 1건 이상일 때만 "관리자 확인 항목", "판단 방향", "다음 조치", "출처" 섹션을 붙인다.
+                - 결제 취소 건수와 결제 실패 건수가 모두 0건이면 "오늘 결제 요약"과 핵심 숫자만 답하고, 출처 섹션을 만들지 않는다.
+                - 결제 취소/실패가 있는 결제 요약은 아래 형식으로 답한다.
+                  오늘 결제 요약
+
+                  핵심 요약:
+                  - 오늘 결제 완료 금액:
+                  - 오늘 결제 완료 건수:
+                  - 오늘 결제 대기 건수:
+                  - 오늘 결제 취소 건수:
+                  - 오늘 결제 실패 건수:
+
+                  관리자 확인 항목:
+                  - 결제 취소 건의 취소 사유와 환불 처리 상태를 확인하세요.
+                  - 결제 실패 건의 실패 사유와 사용자 재시도 필요 여부를 확인하세요.
+
+                  판단 방향:
+                  - 취소/실패 건은 결제 정책 기준에 따라 후속 안내 또는 재처리 필요 여부를 검토하세요.
+                  - 완료 건은 정상 처리로 보고, 대기 건은 장시간 READY 상태인지 확인하세요.
+
+                  다음 조치:
+                  - 결제 내역 관리에서 취소/실패 건 상세를 확인하고 필요한 안내를 진행하세요.
+
+                  출처:
+                  - 관리자 주문 결제 관리 정책
                 - 정책이나 제재 기준을 설명할 때는 반드시 제목, 빈 줄, 짧은 목록, 빈 줄, 출처 순서로 작성한다.
                 - Markdown 제목 기호인 "#", "##", "###"를 쓰지 않는다.
                 - 정책 목록은 각 항목을 새 줄의 "- "로 시작한다. 절대 "1.내용 2.내용"처럼 한 문단에 붙여 쓰지 않는다.
@@ -707,6 +791,9 @@ public class AiReportServiceImpl implements AiReportService {
                 - "출처:" 섹션에는 [REPORT RAG 출처]에 제공된 정책명만 그대로 표시한다.
                 - 출처 정책명을 요약하거나 바꾸거나 새로 만들지 않는다.
                 - REPORT RAG 출처가 비어 있으면 출처를 만들지 않는다.
+                - "출처 없음", "출처없음", "없음" 같은 빈 출처 표현을 절대 출력하지 않는다.
+                - 결제 요약, 오늘 결제, 결제 완료/대기/취소/실패 건수처럼 Tool 집계만으로 답하고 REPORT RAG 출처가 비어 있으면 출처 섹션을 생략한다.
+                - 결제 정책 문서 출처가 제공된 경우에만 출처에 "관리자 주문 결제 관리 정책" 등 제공된 정책명을 표시한다.
                 - 출력 형식은 반드시 아래처럼 줄바꿈을 지킨다.
                   제목
 
@@ -870,6 +957,11 @@ public class AiReportServiceImpl implements AiReportService {
     }
 
     private AiReportRagContext buildReportRagContext(String message) {
+        AiReportRagContext forcedPolicyContext = forcedPolicyRagContext(message);
+        if (forcedPolicyContext != null) {
+            return forcedPolicyContext;
+        }
+
         if (aiRagRetrieverService == null) {
             return new AiReportRagContext(
                     """
@@ -907,6 +999,193 @@ public class AiReportServiceImpl implements AiReportService {
                     ""
             );
         }
+    }
+
+    private AiReportRagContext forcedPolicyRagContext(String message) {
+        String normalized = normalizeMessage(message);
+
+        if (!containsAny(normalized, "정책", "기준", "규정", "절차", "관리 원칙", "관리원칙")) {
+            return null;
+        }
+
+        if (containsAny(normalized, "결제", "주문", "환불", "충전", "포인트 충전", "portone", "imp_uid", "merchant_uid")) {
+            return forcedPolicyRagContext(
+                    "관리자 주문 결제 관리 정책",
+                    """
+                    - 관리자는 결제 내역과 주문 상태를 확인할 수 있다.
+                    - 결제 완료 후 PortOne API로 실제 결제 금액을 검증한다.
+                    - 선택한 충전 패키지 금액과 실제 결제 금액이 일치할 때만 포인트를 지급한다.
+                    - 현금 환불은 유료 포인트에 대해서만 가능하며 무료 포인트는 환불할 수 없다.
+                    - 결제 장애는 PortOne 결제 상태와 서버 거래 내역을 함께 확인한다.
+                    - AI는 환불이나 포인트 지급을 직접 실행하지 않는다.
+                    """
+            );
+        }
+
+        if (containsAny(normalized, "이의제기", "이의 제기", "노쇼 이의", "노쇼")) {
+            return forcedPolicyRagContext(
+                    "관리자 노쇼 이의제기 판정 정책",
+                    """
+                    - 장소 인증 완료자만 노쇼 예정 상태에 대해 이의제기할 수 있다.
+                    - 이의제기는 노쇼 예정 알림 발송 시점부터 24시간 동안 가능하다.
+                    - 관리자는 제출 사유, 증빙자료, 만남 시간, 장소 인증 상태, QR 인증 상태, 채팅 기록을 확인한다.
+                    - 판정은 ACCEPTED, PARTIALLY_ACCEPTED, REJECTED, HOLD 중 하나로 처리한다.
+                    - AI는 최종 판정을 직접 내리지 않고 관리자 검토를 보조한다.
+                    """
+            );
+        }
+
+        if (containsAny(normalized, "신고", "리포트", "제재", "정지", "포상")) {
+            return forcedPolicyRagContext(
+                    "관리자 신고 처리 정책",
+                    """
+                    - 신고 처리는 관리자 검토를 통해 채택 또는 기각한다.
+                    - AI는 신고를 직접 채택하거나 기각하지 않는다.
+                    - 신고 채택 시 신고자에게 50P 포상을 지급한다.
+                    - 기각된 동일 게시물 신고는 3일 이내 재신고가 제한된다.
+                    - 신고 채택 누적 횟수에 따라 경고, 정지, 영구 정지 제재를 적용할 수 있다.
+                    """
+            );
+        }
+
+        if (containsAny(normalized, "유저", "사용자", "회원", "계정 정지", "계정제재", "계정 제재")) {
+            return forcedPolicyRagContext(
+                    "관리자 유저 관리 정책",
+                    """
+                    - 관리자는 학교별 유저 목록과 계정 상태를 확인할 수 있다.
+                    - 정지된 유저는 서비스 이용이 제한된다.
+                    - 신고 채택 누적과 게시글 삭제 이력 등을 함께 확인한다.
+                    - AI는 계정 정지를 직접 실행하지 않고 관리자 검토 필요 여부를 안내한다.
+                    - 민감한 개인정보는 관리자 권한 범위 안에서만 확인한다.
+                    """
+            );
+        }
+
+        if (containsAny(normalized, "게시글", "게시물", "글삭제", "강제삭제")) {
+            return forcedPolicyRagContext(
+                    "관리자 게시글 관리 정책",
+                    """
+                    - 관리자는 게시글 목록과 상태를 확인할 수 있다.
+                    - 정책 위반 게시글은 관리자 판단으로 강제 삭제할 수 있다.
+                    - 신고된 게시글은 신고 처리와 게시글 삭제를 함께 고려할 수 있다.
+                    - 게시글 삭제 사유는 작성자에게 안내해야 한다.
+                    - AI는 삭제를 직접 실행하지 않고 검토 기준을 안내한다.
+                    """
+            );
+        }
+
+        if (containsAny(normalized, "문의", "고객문의", "faq", "에프에이큐", "답변")) {
+            return forcedPolicyRagContext(
+                    "관리자 고객 문의 관리 정책",
+                    """
+                    - 관리자는 고객 문의 접수 내역과 답변 상태를 확인할 수 있다.
+                    - FAQ는 반복 문의를 줄이기 위한 기준 답변으로 관리한다.
+                    - 결제, 신고, 계정, 매칭 등 카테고리별로 답변 방향을 구분한다.
+                    - AI는 답변 초안을 보조하되 최종 답변 등록은 관리자가 수행한다.
+                    """
+            );
+        }
+
+        if (containsAny(normalized, "포인트", "책임비", "예치", "무료 포인트", "유료 포인트")) {
+            return forcedPolicyRagContext(
+                    "포인트 정책",
+                    """
+                    - 포인트는 무료 포인트와 유료 포인트로 구분할 수 있다.
+                    - 게시글 작성이나 매칭 신청 시 예치 포인트가 필요할 수 있다.
+                    - 차감 시 무료 포인트를 먼저 사용하고 부족분을 유료 포인트에서 차감한다.
+                    - 환불 가능 여부는 유료 포인트와 사용 내역을 기준으로 확인한다.
+                    """
+            );
+        }
+
+        if (containsAny(normalized, "매칭", "식사팟", "모집글", "신청", "취소")) {
+            return forcedPolicyRagContext(
+                    "매칭 및 게시글 정책",
+                    """
+                    - 사용자는 모집글을 작성하거나 매칭을 신청할 수 있다.
+                    - 매칭 상태와 게시글 상태에 따라 신청, 취소, 완료 흐름이 달라진다.
+                    - 책임비는 약속 이행을 위한 예치 성격으로 사용된다.
+                    - AI는 매칭 처리나 취소를 직접 실행하지 않고 정책 기준을 안내한다.
+                    """
+            );
+        }
+
+        if (containsAny(normalized, "후기", "리뷰", "매너온도", "온도")) {
+            return forcedPolicyRagContext(
+                    "후기 및 매너온도 정책",
+                    """
+                    - 만남 완료 후 후기와 매너 평가를 작성할 수 있다.
+                    - 후기는 매너온도 등 사용자 신뢰 지표에 반영될 수 있다.
+                    - 부적절한 후기나 악의적 평가는 관리자 검토 대상이 될 수 있다.
+                    - AI는 후기 처리나 점수 변경을 직접 실행하지 않는다.
+                    """
+            );
+        }
+
+        if (containsAny(normalized, "채팅", "알림", "메시지", "notification")) {
+            return forcedPolicyRagContext(
+                    "채팅 및 알림 정책",
+                    """
+                    - 채팅과 알림은 매칭, 신고, 결제, 이의제기 등 주요 상태 변화를 안내한다.
+                    - 관리자는 필요한 경우 관련 채팅 기록을 검토할 수 있다.
+                    - 알림은 사용자에게 처리 결과와 필요한 후속 행동을 안내하는 용도로 사용된다.
+                    - AI는 알림 발송을 직접 실행하지 않는다.
+                    """
+            );
+        }
+
+        if (containsAny(normalized, "계정", "가입", "재가입", "탈퇴", "관리자")) {
+            return forcedPolicyRagContext(
+                    "계정 및 관리자 정책",
+                    """
+                    - 계정은 가입, 인증, 상태 관리 기준에 따라 운영된다.
+                    - 정지 또는 탈퇴 상태에 따라 서비스 이용과 재가입 가능 여부가 달라질 수 있다.
+                    - 관리자 권한은 일반 사용자 권한과 분리해 관리한다.
+                    - AI는 계정 상태 변경을 직접 실행하지 않고 관리자 검토를 안내한다.
+                    """
+            );
+        }
+
+        return forcedPolicyRagContext(
+                "관리자 콘솔 운영 가이드",
+                """
+                - 관리자 콘솔은 게시글, 신고, 고객 문의, 이의제기, 유저, 결제, FAQ 관리를 지원한다.
+                - AI는 운영 현황과 정책 기준을 요약해 관리자 검토를 돕는다.
+                - 실제 처리와 최종 판단은 관리자 화면에서 수행한다.
+                """
+        );
+    }
+
+    private AiReportRagContext forcedPolicyRagContext(String policyName, String bullets) {
+        return new AiReportRagContext(
+                """
+                [정책 문서 1]
+                출처: %s
+                내용:
+                %s
+                """.formatted(policyName, bullets),
+                "- " + policyName
+        );
+    }
+
+    private boolean looksLikePaymentPolicyRequest(String message) {
+        String normalized = normalizeMessage(message);
+
+        return containsAny(
+                normalized,
+                "결제 정책",
+                "결제정책",
+                "주문 결제 정책",
+                "주문결제정책",
+                "결제 환불 정책",
+                "결제환불정책",
+                "환불 정책",
+                "환불정책",
+                "포인트 충전 정책",
+                "포인트충전정책",
+                "결제 장애",
+                "결제장애"
+        );
     }
 
     private List<AiRagSearchResultDto> searchPolicyRag(String message) {
@@ -1044,6 +1323,7 @@ public class AiReportServiceImpl implements AiReportService {
 
                             규칙:
                             - "대시보드", "운영 현황", "처리 대기", "현황 요약", "오늘 관리할 것"처럼 관리자 콘솔 현황을 묻는 요청이면 DASHBOARD_SUMMARY로 판단한다.
+                            - "오늘 결제", "결제 요약", "총결제액", "결제 완료 건수", "결제 대기", "결제 취소", "결제 실패"처럼 결제 집계를 묻는 요청이면 DASHBOARD_SUMMARY로 판단한다.
                             - "12번 신고", "신고 12 분석"처럼 숫자와 신고 분석 의도가 있으면 ANALYZE_REPORT로 판단하고 reportId에 숫자를 넣는다.
                             - "3번 이의제기", "이의제기 3 분석", "노쇼 이의제기 3번 검토"처럼 숫자와 이의제기 분석 의도가 있으면 ANALYZE_DISPUTE로 판단하고 disputeId에 숫자를 넣는다.
                             - "고위험", "위험 유저", "신고 많은 유저", "블랙리스트 후보"처럼 유저 목록 요청이면 HIGH_RISK_USERS로 판단한다.
@@ -1373,6 +1653,242 @@ public class AiReportServiceImpl implements AiReportService {
         return "현재 관리자 AI 답변 생성이 원활하지 않습니다. 잠시 후 다시 질문하시거나, 관련 관리자 메뉴에서 정책 문서를 직접 확인해주세요.";
     }
 
+    private String buildKeywordDataSearchContext(String message) {
+        if (looksLikeDisputeKeywordRequest(message)) {
+            return buildKeywordDisputeSearchContext(message);
+        }
+
+        return buildKeywordReportSearchContext(message);
+    }
+
+    private String buildKeywordReportSearchContext(String message) {
+        if (!looksLikeReportAiCommand(message)
+                || looksLikeDisputeKeywordRequest(message)
+                || findFirstNumber(normalizeMessage(message)) != null) {
+            return "";
+        }
+
+        String keyword = extractReportSearchKeyword(message);
+        if (keyword.isBlank()) {
+            return "";
+        }
+
+        List<AiReportSearchToolResult> results = aiReportTool.searchReportsByKeyword(keyword, 5);
+        return formatKeywordReportSearchContext(keyword, results);
+    }
+
+    private String buildKeywordDisputeSearchContext(String message) {
+        if (!looksLikeReportAiCommand(message) || findFirstNumber(normalizeMessage(message)) != null) {
+            return "";
+        }
+
+        String keyword = extractDisputeSearchKeyword(message);
+        if (keyword.isBlank()) {
+            return "";
+        }
+
+        List<AiDisputeSearchToolResult> results = aiReportTool.searchDisputesByKeyword(keyword, 5);
+        return formatKeywordDisputeSearchContext(keyword, results);
+    }
+
+    private String extractReportSearchKeyword(String message) {
+        if (message == null || message.isBlank()) {
+            return "";
+        }
+
+        String normalized = message.strip()
+                .replaceAll("[\"'“”‘’]", "")
+                .replace("?", " ")
+                .replace("？", " ")
+                .replace("\\", " ");
+
+        List<Pattern> patterns = List.of(
+                Pattern.compile("^(.+?)(?:은|는|이|가)?\\s*(?:왜\\s*)?(?:신고|리포트).*$"),
+                Pattern.compile("^(?:왜\\s*)?(.+?)(?:을|를|은|는|이|가)?\\s*(?:신고|리포트).*$"),
+                Pattern.compile("^(?:신고|리포트)\\s*(?:당한|받은)?\\s*(.+?)(?:\\s|$).*$")
+        );
+
+        for (Pattern pattern : patterns) {
+            Matcher matcher = pattern.matcher(normalized);
+            if (matcher.matches()) {
+                String keyword = cleanupReportSearchKeyword(matcher.group(1));
+                if (!keyword.isBlank()) {
+                    return keyword;
+                }
+            }
+        }
+
+        String[] tokens = normalized.split("\\s+");
+        for (String token : tokens) {
+            String keyword = cleanupReportSearchKeyword(token);
+            if (!keyword.isBlank()) {
+                return keyword;
+            }
+        }
+
+        return "";
+    }
+
+    private String extractDisputeSearchKeyword(String message) {
+        if (message == null || message.isBlank()) {
+            return "";
+        }
+
+        String normalized = message.strip()
+                .replaceAll("[\"'“”‘’]", "")
+                .replace("?", " ")
+                .replace("？", " ")
+                .replace("\\", " ");
+
+        List<Pattern> patterns = List.of(
+                Pattern.compile("^(.+?)(?:은|는|이|가)?\\s*(?:왜\\s*)?(?:이의제기|이의 제기|노쇼 이의).*$"),
+                Pattern.compile("^(?:왜\\s*)?(.+?)(?:을|를|은|는|이|가)?\\s*(?:이의제기|이의 제기|노쇼 이의).*$"),
+                Pattern.compile("^(?:이의제기|이의 제기|노쇼 이의)\\s*(?:낸|제출한|신청한)?\\s*(.+?)(?:\\s|$).*$")
+        );
+
+        for (Pattern pattern : patterns) {
+            Matcher matcher = pattern.matcher(normalized);
+            if (matcher.matches()) {
+                String keyword = cleanupDisputeSearchKeyword(matcher.group(1));
+                if (!keyword.isBlank()) {
+                    return keyword;
+                }
+            }
+        }
+
+        String[] tokens = normalized.split("\\s+");
+        for (String token : tokens) {
+            String keyword = cleanupDisputeSearchKeyword(token);
+            if (!keyword.isBlank()) {
+                return keyword;
+            }
+        }
+
+        return "";
+    }
+
+    private String cleanupReportSearchKeyword(String keyword) {
+        if (keyword == null) {
+            return "";
+        }
+
+        String cleaned = keyword.strip()
+                .replaceAll("[^0-9A-Za-z가-힣_@.\\-]", "")
+                .replaceAll("(이라는|라는|이라고|라고|에게|한테|으로|로|에서|은|는|이|가|을|를|왜|신고|리포트|당함|당했|받음|받았|이유)$", "")
+                .strip();
+
+        if (cleaned.length() < 2 || isGenericReportKeyword(cleaned)) {
+            return "";
+        }
+
+        return cleaned;
+    }
+
+    private String cleanupDisputeSearchKeyword(String keyword) {
+        if (keyword == null) {
+            return "";
+        }
+
+        String cleaned = keyword.strip()
+                .replaceAll("[^0-9A-Za-z가-힣_@.\\-]", "")
+                .replaceAll("(이라는|라는|이라고|라고|에게|한테|으로|로|에서|은|는|이|가|을|를|왜|이의제기|이의|제기|노쇼|당함|당했|받음|받았|이유)$", "")
+                .strip();
+
+        if (cleaned.length() < 2 || isGenericDisputeKeyword(cleaned)) {
+            return "";
+        }
+
+        return cleaned;
+    }
+
+    private boolean isGenericReportKeyword(String keyword) {
+        String normalized = normalizeMessage(keyword);
+        return containsAny(
+                normalized,
+                "왜",
+                "신고",
+                "리포트",
+                "이유",
+                "분석",
+                "처리",
+                "정책",
+                "게시글",
+                "게시물",
+                "유저",
+                "사용자"
+        );
+    }
+
+    private boolean isGenericDisputeKeyword(String keyword) {
+        String normalized = normalizeMessage(keyword);
+        return containsAny(
+                normalized,
+                "왜",
+                "이의제기",
+                "이의 제기",
+                "이의",
+                "제기",
+                "노쇼",
+                "이유",
+                "분석",
+                "처리",
+                "정책",
+                "유저",
+                "사용자"
+        );
+    }
+
+    private String formatKeywordReportSearchContext(String keyword, List<AiReportSearchToolResult> results) {
+        StringBuilder sb = new StringBuilder("\n\n[키워드 신고 검색 결과]\n");
+        sb.append("검색 키워드: ").append(keyword).append("\n");
+
+        if (results == null || results.isEmpty()) {
+            sb.append("일치하는 신고 후보가 없습니다. 실제 신고 데이터가 확인되지 않으면 정책 일반론으로 단정하지 말고, 신고 ID나 닉네임 확인을 요청하세요.\n");
+            return sb.toString();
+        }
+
+        for (AiReportSearchToolResult result : results) {
+            sb.append("- 신고 ID: ").append(result.reportId()).append("\n")
+                    .append("  신고 사유: ").append(result.reportReason()).append("\n")
+                    .append("  신고 상태: ").append(result.reportStatus()).append("\n")
+                    .append("  신고 상세: ").append(blankToDefault(result.reportDetail())).append("\n")
+                    .append("  신고자: ").append(blankToDefault(result.reporterNickname())).append("(").append(result.reporterId()).append(")\n")
+                    .append("  피신고자: ").append(blankToDefault(result.targetUserNickname())).append("(")
+                    .append(result.targetUserId() == null ? "알 수 없음" : result.targetUserId()).append(")\n")
+                    .append("  대상 게시글 ID: ").append(result.targetPostId()).append("\n")
+                    .append("  게시글 장소: ").append(blankToDefault(result.targetPlaceName())).append("\n")
+                    .append("  게시글 내용: ").append(blankToDefault(result.targetPostContent())).append("\n");
+        }
+
+        return sb.toString();
+    }
+
+    private String formatKeywordDisputeSearchContext(String keyword, List<AiDisputeSearchToolResult> results) {
+        StringBuilder sb = new StringBuilder("\n\n[키워드 이의제기 검색 결과]\n");
+        sb.append("검색 키워드: ").append(keyword).append("\n");
+
+        if (results == null || results.isEmpty()) {
+            sb.append("일치하는 이의제기 후보가 없습니다. 실제 이의제기 데이터가 확인되지 않으면 신고 데이터로 답하지 말고, 이의제기 ID나 제출자 닉네임 확인을 요청하세요.\n");
+            return sb.toString();
+        }
+
+        for (AiDisputeSearchToolResult result : results) {
+            sb.append("- 이의제기 ID: ").append(result.disputeId()).append("\n")
+                    .append("  매칭 ID: ").append(result.matchId()).append("\n")
+                    .append("  제출자: ").append(blankToDefault(result.submitterNickname())).append("(").append(result.submitterId()).append(")\n")
+                    .append("  이의제기 유형: ").append(result.disputeType()).append("\n")
+                    .append("  현재 상태: ").append(result.status()).append("\n")
+                    .append("  제출 사유: ").append(blankToDefault(result.reason())).append("\n")
+                    .append("  제출 시각: ").append(result.submittedAt()).append("\n");
+        }
+
+        return sb.toString();
+    }
+
+    private String blankToDefault(String value) {
+        return value == null || value.isBlank() ? "정보 없음" : value;
+    }
+
     /**
      * 신고 분석 결과를 관리자 챗봇 응답 문구로 변환합니다.
      *
@@ -1400,26 +1916,36 @@ public class AiReportServiceImpl implements AiReportService {
      */
     private String buildDisputeAnalysisChatAnswer(AiReportDisputeAnalysisResponseDto analysis) {
         return """
-                %d번 이의제기 검토 정보를 조회했습니다.
-                매칭 ID: %d
-                제출자: %s
-                이의제기 유형: %s
-                현재 상태: %s
-                만남 인증 상태: %s
+                이의제기 검토
 
-                판단 근거:
-                %s
+                핵심 요약:
+                - 이의제기 ID: %d
+                - 매칭 ID: %d
+                - 제출자: %s
+                - 이의제기 유형: %s
+                - 제출 사유: %s
+                - 현재 상태: %s
+                - 만남 인증 상태: %s
 
-                관리자 액션:
+                관리자 확인 항목:
+                - 제출 사유와 이의제기 유형이 맞는지 확인하세요.
+                - 등록자/신청자 GPS 인증 시각과 만남 인증 상태를 확인하세요.
+                - 관련 채팅 기록에서 도착 알림, 인증 오류, 지각 공지, 연장 요청 정황을 확인하세요.
+
+                판단 방향:
+                - GPS/QR 인증 실패, 장소 도착 정황, 채팅 기록, 증빙 자료가 서로 일치하는지 확인하세요.
+                - 이의제기 유형과 제출 사유가 맞으면 수용 또는 부분 수용을 검토하고, 근거가 부족하면 보류 또는 기각을 검토하세요.
+
+                다음 조치:
                 %s
                 """.formatted(
                 analysis.disputeId(),
                 analysis.matchId(),
                 analysis.applicantNickname(),
                 analysis.disputeType(),
+                blankToDefault(analysis.reason()),
                 analysis.status(),
                 analysis.verificationStatus(),
-                analysis.evidence(),
                 analysis.actionGuide()
         );
     }
@@ -1438,6 +1964,7 @@ public class AiReportServiceImpl implements AiReportService {
                 - 이의제기: 전체 %d건, 검토 대기 %d건, 제출 %d건, 검토 중 %d건, 보류 %d건, 수용 %d건, 부분 수용 %d건, 기각 %d건
                 - 유저: 전체 %d명, 활성 %d명, 정지 %d명, 탈퇴 %d명
                 - 결제: 전체 %d건, 결제 대기 %d건, 결제 완료 %d건, 취소 %d건, 실패 %d건, 완료 결제 금액 합계 %d원
+                - 오늘 결제: 완료 금액 %d원, 완료 %d건, 대기 %d건, 취소 %d건, 실패 %d건
 
                 처리 대기 업무가 많은 영역부터 확인해 주세요. AI는 현황 요약만 제공하며 실제 처리와 판정은 관리자가 수행해야 합니다.
                 """.formatted(
@@ -1470,7 +1997,12 @@ public class AiReportServiceImpl implements AiReportService {
                 dashboard.paidPaymentCount(),
                 dashboard.cancelledPaymentCount(),
                 dashboard.failedPaymentCount(),
-                dashboard.paidPaymentAmount()
+                dashboard.paidPaymentAmount(),
+                dashboard.todayPaidPaymentAmount(),
+                dashboard.todayPaidPaymentCount(),
+                dashboard.todayReadyPaymentCount(),
+                dashboard.todayCancelledPaymentCount(),
+                dashboard.todayFailedPaymentCount()
         );
     }
 
@@ -1591,6 +2123,26 @@ public class AiReportServiceImpl implements AiReportService {
     private boolean isDashboardSummaryRequest(String message) {
         String normalized = normalizeMessage(message);
 
+        if (containsAny(
+                normalized,
+                "오늘 결제",
+                "오늘결제",
+                "결제 요약",
+                "결제요약",
+                "총결제액",
+                "총결재액",
+                "결제 완료",
+                "결제완료",
+                "결제 대기",
+                "결제대기",
+                "결제 취소",
+                "결제취소",
+                "결제 실패",
+                "결제실패"
+        )) {
+            return true;
+        }
+
         return containsAny(
                 normalized,
                 "대시보드",
@@ -1654,6 +2206,17 @@ public class AiReportServiceImpl implements AiReportService {
                 "이의 제기 봐",
                 "노쇼 이의제기",
                 "노쇼 이의 제기"
+        );
+    }
+
+    private boolean looksLikeDisputeKeywordRequest(String message) {
+        String normalized = normalizeMessage(message);
+
+        return containsAny(
+                normalized,
+                "이의제기",
+                "이의 제기",
+                "노쇼 이의"
         );
     }
 

@@ -17,6 +17,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
 /**
  * 관리자 콘솔 AI 답변에 필요한 운영 카운트를 조회합니다.
  *
@@ -48,6 +51,8 @@ public class AiReportDashboardQueryServiceImpl implements AiReportDashboardQuery
         long submittedDisputeCount = disputeRepository.countByStatus(DisputeStatus.SUBMITTED);
         long underReviewDisputeCount = disputeRepository.countByStatus(DisputeStatus.UNDER_REVIEW);
         long holdDisputeCount = disputeRepository.countByStatus(DisputeStatus.HOLD);
+        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+        LocalDateTime tomorrowStart = todayStart.plusDays(1);
 
         return new AiReportDashboardSnapshotDto(
                 postRepository.count(),
@@ -78,7 +83,12 @@ public class AiReportDashboardQueryServiceImpl implements AiReportDashboardQuery
                 paymentRepository.countByStatus(PaymentStatus.PAID),
                 paymentRepository.countByStatus(PaymentStatus.CANCELLED),
                 paymentRepository.countByStatus(PaymentStatus.FAILED),
-                paymentRepository.sumAmountByStatus(PaymentStatus.PAID)
+                paymentRepository.sumAmountByStatus(PaymentStatus.PAID),
+                paymentRepository.countByStatusAndCreatedAtBetween(PaymentStatus.READY, todayStart, tomorrowStart),
+                paymentRepository.countByStatusAndCompletedAtBetween(PaymentStatus.PAID, todayStart, tomorrowStart),
+                paymentRepository.countByStatusAndCancelledAtBetween(PaymentStatus.CANCELLED, todayStart, tomorrowStart),
+                paymentRepository.countByStatusAndCreatedAtBetween(PaymentStatus.FAILED, todayStart, tomorrowStart),
+                paymentRepository.sumAmountByStatusAndCompletedAtBetween(PaymentStatus.PAID, todayStart, tomorrowStart)
         );
     }
 }
