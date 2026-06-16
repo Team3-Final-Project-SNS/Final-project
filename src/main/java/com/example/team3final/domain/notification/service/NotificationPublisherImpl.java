@@ -276,11 +276,11 @@ public class NotificationPublisherImpl implements NotificationPublisher {
 
     // 13. 채팅 메시지 수신 알림 - 메시지 수신자에게
     @Override
-    public void sendChatReceived(Long userId, Long matchId) {
+    public void sendChatReceived(Long userId, Long chatRoomId) {
         publish(userId, NotificationType.CHAT_RECEIVED,
                 "새로운 채팅 메시지가 도착했습니다.",
                 "새로운 채팅 메시지가 도착했습니다.",
-                RelatedDomain.CHAT, matchId);
+                RelatedDomain.CHAT, chatRoomId);
     }
 
     // 14. 장소 인증 완료 알림
@@ -295,11 +295,11 @@ public class NotificationPublisherImpl implements NotificationPublisher {
 
     // 15. 그룹 채팅방 신청자 퇴장 알림 - 등록자에게만
     @Override
-    public void sendChatMemberLeft(Long userId, Long matchId) {
+    public void sendChatMemberLeft(Long userId, Long chatRoomId) {
         publish(userId, NotificationType.CHAT_MEMBER_LEFT,
                 "신청자가 채팅방에서 퇴장했습니다.",
                 "신청자가 채팅방에서 퇴장했습니다.",
-                RelatedDomain.CHAT, matchId);
+                RelatedDomain.CHAT, chatRoomId);
     }
 
     // ── 노쇼 ──────────────────────────────────────────────────────────────

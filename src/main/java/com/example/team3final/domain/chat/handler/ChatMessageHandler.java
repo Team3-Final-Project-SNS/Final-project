@@ -13,9 +13,6 @@ import com.example.team3final.domain.chat.repository.ChatMemberRepository;
 import com.example.team3final.domain.chat.repository.ChatMessageRepository;
 import com.example.team3final.domain.chat.repository.ChatRoomRepository;
 import com.example.team3final.domain.chat.service.BadWordFilterService;
-import com.example.team3final.domain.match.entity.Match;
-import com.example.team3final.domain.match.enums.MatchStatus;
-import com.example.team3final.domain.match.repository.MatchRepository;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.user.service.UserCommandService;
 import com.example.team3final.domain.user.service.UserInternalService;
@@ -28,8 +25,6 @@ import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Slf4j
 @Controller
@@ -46,7 +41,6 @@ public class ChatMessageHandler {
     private final UserCommandService userCommandService;
     private final BadWordFilterService badWordFilterService;     // 욕설 필터링
     private final NotificationPublisher notificationPublisher;   // 알림 발송
-    private final MatchRepository matchRepository;
 
     // 메시지 전송
     // 클라이언트가 /pub/chat/rooms/{chatRoomId} 로 메시지 보내면 여기서 처리
@@ -151,46 +145,9 @@ public class ChatMessageHandler {
         chatMemberRepository.findByChatRoomId(chatRoomId).stream()
                 .filter(ChatMember::isActive)
                 .filter(member -> !member.getUserId().equals(senderId))
-                .forEach(member -> {
-                    Long notificationMatchId = resolveNotificationMatchId(chatRoom.getPostId(), sender, member);
-                    if (notificationMatchId == null) {
-                        log.warn(
-                                "[WebSocket] 채팅 수신 알림 matchId 조회 실패 - chatRoomId: {}, receiverId: {}",
-                                chatRoomId,
-                                member.getUserId()
-                        );
-                        return;
-                    }
-                    notificationPublisher.sendChatReceived(member.getUserId(), notificationMatchId);
-                });
+                .forEach(member ->
+                        notificationPublisher.sendChatReceived(member.getUserId(), chatRoomId)
+                );
 
-    }
-
-    private Long resolveNotificationMatchId(Long postId, ChatMember sender, ChatMember receiver) {
-        List<MatchStatus> activeStatuses = List.of(MatchStatus.MATCHED, MatchStatus.DISPUTED);
-
-        if (receiver.isGuest()) {
-            return matchRepository.findFirstByPostIdAndApplicantIdAndStatusInOrderByIdAsc(
-                            postId,
-                            receiver.getUserId(),
-                            activeStatuses
-                    )
-                    .map(Match::getId)
-                    .orElse(null);
-        }
-
-        if (sender.isGuest()) {
-            return matchRepository.findFirstByPostIdAndApplicantIdAndStatusInOrderByIdAsc(
-                            postId,
-                            sender.getUserId(),
-                            activeStatuses
-                    )
-                    .map(Match::getId)
-                    .orElse(null);
-        }
-
-        return matchRepository.findFirstByPostIdAndStatusInOrderByIdAsc(postId, activeStatuses)
-                .map(Match::getId)
-                .orElse(null);
     }
 }

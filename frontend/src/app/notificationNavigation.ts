@@ -3,7 +3,9 @@ import { NotificationResponse } from '../api/notificationApi';
 export const getNotificationContextLabel = (notification: NotificationResponse) => {
   if (!notification.relatedId) return null;
 
-  if (notification.domain === 'MATCH' || notification.domain === 'MEET' || notification.domain === 'CHAT') {
+  if (notification.domain === 'CHAT') return null;
+
+  if (notification.domain === 'MATCH' || notification.domain === 'MEET') {
     return `매칭 #${notification.relatedId}`;
   }
 
@@ -65,7 +67,7 @@ export const getNotificationTargetPath = (notification: NotificationResponse) =>
     case 'MEET':
       return relatedId ? `/matches/${relatedId}` : '/matches';
     case 'CHAT':
-      return relatedId ? `/matches/${relatedId}/chat` : '/matches';
+      return relatedId ? `/chat/${relatedId}` : '/matches';
     case 'POINT':
       return '/me/points';
     case 'REPORT':

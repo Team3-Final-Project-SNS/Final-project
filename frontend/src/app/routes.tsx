@@ -103,13 +103,6 @@ export const router = createBrowserRouter([
         ],
       },
       {
-        path: "/matches/:id/chat",
-        Component: Layout,
-        children: [
-          { index: true, Component: ChatPage },
-        ],
-      },
-      {
         // 내 정보: 기존과 동일
         path: "/me",
         Component: Layout,
