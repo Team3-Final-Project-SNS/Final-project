@@ -6,6 +6,7 @@ import com.example.team3final.common.exception.MatchException;
 import com.example.team3final.domain.chat.service.ChatInternalService;
 import com.example.team3final.domain.match.dto.response.GetMatchResponseDto;
 import com.example.team3final.domain.match.dto.response.GetMatchesResponseDto;
+import com.example.team3final.domain.match.dto.response.MatchParticipantDto;
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.repository.MatchRepository;
@@ -22,10 +23,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
-// Match 도메인의 조회 전용 기능을 담당하는 서비스
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -42,7 +47,6 @@ public class MatchQueryServiceImpl implements MatchQueryService {
     public GetMatchResponseDto getMatch(Long matchId, Long currentUserId) {
 
         Match match = matchInternalService.getMatchById(matchId);
-
         Post post = postInternalService.getPostById(match.getPostId());
 
         if (!match.isParticipant(currentUserId, post.getAuthorId())) {
@@ -53,6 +57,22 @@ public class MatchQueryServiceImpl implements MatchQueryService {
 
         UserInfoDto authorInfo = userInternalService.getUserInfo(post.getAuthorId());
         UserInfoDto applicantInfo = userInternalService.getUserInfo(match.getApplicantId());
+        // 상세 응답용 postId 기준 전체 참여자 수집
+        List<Match> postMatches = matchRepository.findAllByPostId(match.getPostId());
+        List<Long> participantUserIds = postMatches.stream()
+                .filter(this::isVisibleParticipantMatch)
+                .map(Match::getApplicantId)
+                .distinct()
+                .toList();
+        Map<Long, UserInfoDto> participantUserInfoMap = participantUserIds.isEmpty()
+                ? Collections.emptyMap()
+                : userInternalService.getUserInfos(participantUserIds);
+        List<MatchParticipantDto> participants = buildParticipants(
+                post.getAuthorId(),
+                authorInfo,
+                postMatches,
+                participantUserInfoMap
+        );
         LocalDateTime meetAt = meetVerificationRepository.findEffectiveExtendedMeetAtByMatchId(matchId)
                 .orElse(post.getMeetAt());
 
@@ -61,6 +81,7 @@ public class MatchQueryServiceImpl implements MatchQueryService {
                 authorInfo.nickname(), authorInfo.major(), authorInfo.studentNumber(),
                 applicantInfo.nickname(), applicantInfo.major(), applicantInfo.studentNumber(),
                 authorInfo.mannerTemperature(),
+                participants,
                 meetAt,
                 chatRoomId
         );
@@ -68,92 +89,138 @@ public class MatchQueryServiceImpl implements MatchQueryService {
 
     @Override
     public PageResponseDto<GetMatchesResponseDto> getMatches(
-
             Long userId, MatchStatus status, Pageable pageable
     ) {
-        // 0. 매칭 목록 조회 (기존 그대로) — 쿼리 1번
         Page<Match> matchPage = (status == null)
                 ? matchRepository.findAllByUserId(userId, pageable)
                 : matchRepository.findAllByUserIdAndStatus(userId, status, pageable);
 
-        // 현재 페이지의 실제 매칭 리스트 (ID 수집·룩업에 사용)
         List<Match> matches = matchPage.getContent();
-
-        // 1: 게시글 정보를 벌크로 가져와 "상대방"을 계산
-
-        // 1-1. 이번 페이지 매칭들의 postId만 중복 없이 추출
         List<Long> postIds = matches.stream()
                 .map(Match::getPostId)
                 .distinct()
                 .toList();
 
-        // 1-2. 게시글 정보를 IN 쿼리 1번으로
         Map<Long, PostMatchInfoDto> postMap = postInternalService.getPostMatchInfos(postIds);
+        // 그룹 매칭 목록용 postId별 신청자 묶음
+        Map<Long, List<Match>> matchesByPostId = postIds.isEmpty()
+                ? Collections.emptyMap()
+                : matchRepository.findAllByPostIdIn(postIds).stream()
+                .collect(Collectors.groupingBy(Match::getPostId));
 
-        // 1-3. 각 매칭마다 내가 author인지 판단 → 상대방 ID 결정
-        Map<Long, Long> opponentIdByMatch = new java.util.HashMap<>();
-        for (Match match : matches) {
-            PostMatchInfoDto postInfo = postMap.get(match.getPostId());
-            if (postInfo == null) continue; // 게시글이 없으면(이상 케이스) 스킵
+        List<Long> userIds = new ArrayList<>();
+        postMap.values().stream()
+                .map(PostMatchInfoDto::authorId)
+                .filter(Objects::nonNull)
+                .forEach(userIds::add);
+        matchesByPostId.values().stream()
+                .flatMap(List::stream)
+                .filter(this::isVisibleParticipantMatch)
+                .map(Match::getApplicantId)
+                .filter(Objects::nonNull)
+                .forEach(userIds::add);
 
-            boolean isAuthor = postInfo.authorId().equals(userId);
-            Long opponentId = isAuthor ? match.getApplicantId() : postInfo.authorId();
-            opponentIdByMatch.put(match.getId(), opponentId);
-        }
+        Map<Long, UserInfoDto> userInfoMap = userIds.isEmpty()
+                ? Collections.emptyMap()
+                : userInternalService.getUserInfos(userIds.stream().distinct().toList());
 
-        // 2: 상대방 유저 + 채팅방을 각각 가져오기
-
-        // 2-1. 상대방 ID 목록
-        List<Long> opponentIds = opponentIdByMatch.values().stream()
-                .distinct()
-                .toList();
-
-        // 2-2. 상대방 유저 정보 IN 쿼리 1번
-        Map<Long, UserInfoDto> opponentMap = userInternalService.getUserInfos(opponentIds);
-
-        // 2-3. 채팅방 ID IN 쿼리 1번
         Map<Long, Long> chatRoomMap = chatInternalService.getChatRoomIdsByPostIds(postIds);
         List<Long> matchIds = matches.stream().map(Match::getId).toList();
         Map<Long, LocalDateTime> extendedMeetAtMap = matchIds.isEmpty()
-                ? java.util.Collections.emptyMap()
+                ? Collections.emptyMap()
                 : meetVerificationRepository.findExtendedMeetAtRowsByMatchIds(matchIds).stream()
-                .collect(java.util.stream.Collectors.toMap(
+                .collect(Collectors.toMap(
                         row -> (Long) row[0],
                         row -> (LocalDateTime) row[1],
                         (first, second) -> second
                 ));
 
+        Map<Long, List<MatchParticipantDto>> participantsByPostId = new HashMap<>();
+        // postId별 작성자 1명 + 취소되지 않은 신청자 목록 변환
+        for (Long postId : postIds) {
+            PostMatchInfoDto postInfo = postMap.get(postId);
+            if (postInfo == null) {
+                continue;
+            }
+            UserInfoDto authorInfo = userInfoMap.get(postInfo.authorId());
+            participantsByPostId.put(
+                    postId,
+                    buildParticipants(
+                            postInfo.authorId(),
+                            authorInfo,
+                            matchesByPostId.getOrDefault(postId, Collections.emptyList()),
+                            userInfoMap
+                    )
+            );
+        }
+
         Page<GetMatchesResponseDto> dtoPage = matchPage.map(match -> {
             PostMatchInfoDto postInfo = postMap.get(match.getPostId());
-            Long opponentId = opponentIdByMatch.get(match.getId());
-            UserInfoDto opponentInfo = (opponentId != null) ? opponentMap.get(opponentId) : null;
+            boolean isAuthor = postInfo != null && postInfo.authorId().equals(userId);
+            Long opponentId = isAuthor
+                    ? match.getApplicantId()
+                    : (postInfo != null ? postInfo.authorId() : null);
+            UserInfoDto opponentInfo = opponentId != null ? userInfoMap.get(opponentId) : null;
             Long chatRoomId = chatRoomMap.get(match.getPostId());
 
-            // 내 예치금 계산 — 내가 author면 authorDeposit, 아니면 applicantDeposit
-            boolean isAuthor = (postInfo != null) && postInfo.authorId().equals(userId);
-            int myDeposit = isAuthor ? postInfo.authorDeposit() : match.getApplicantDeposit();
-
-            // 방어: 게시글/상대방 정보가 빠진 이상 케이스 (탈퇴 등) — null-safe 처리
-            String oppNickname = (opponentInfo != null) ? opponentInfo.nickname() : null;
-            String oppMajor    = (opponentInfo != null) ? opponentInfo.major() : null;
-            String oppStudentNo= (opponentInfo != null) ? opponentInfo.studentNumber() : null;
+            int myDeposit = isAuthor
+                    ? (postInfo != null ? postInfo.authorDeposit() : 0)
+                    : match.getApplicantDeposit();
             LocalDateTime meetAt = extendedMeetAtMap.getOrDefault(
                     match.getId(),
-                    (postInfo != null) ? postInfo.meetAt() : null
+                    postInfo != null ? postInfo.meetAt() : null
             );
-            String placeName     = (postInfo != null) ? postInfo.placeName() : null;
-            int currentApplicants = (postInfo != null) ? postInfo.currentApplicants() : 0;
-            int maxApplicants = (postInfo != null) ? postInfo.maxApplicants() : 0;
+            List<MatchParticipantDto> participants = participantsByPostId.getOrDefault(
+                    match.getPostId(),
+                    Collections.emptyList()
+            );
 
             return GetMatchesResponseDto.of(
-                    match, opponentId,
-                    oppNickname, oppMajor, oppStudentNo,
-                    meetAt, placeName,
-                    currentApplicants, maxApplicants,
-                    myDeposit, isAuthor, chatRoomId
+                    match,
+                    opponentId,
+                    opponentInfo != null ? opponentInfo.nickname() : null,
+                    opponentInfo != null ? opponentInfo.major() : null,
+                    opponentInfo != null ? opponentInfo.studentNumber() : null,
+                    meetAt,
+                    postInfo != null ? postInfo.placeName() : null,
+                    postInfo != null ? postInfo.currentApplicants() : 0,
+                    postInfo != null ? postInfo.maxApplicants() : 0,
+                    myDeposit,
+                    isAuthor,
+                    participants,
+                    chatRoomId
             );
         });
 
         return PageResponseDto.from(dtoPage);
+    }
+
+    private List<MatchParticipantDto> buildParticipants(
+            Long authorId,
+            UserInfoDto authorInfo,
+            List<Match> matches,
+            Map<Long, UserInfoDto> userInfoMap
+    ) {
+        List<MatchParticipantDto> participants = new ArrayList<>();
+        // 작성자는 match row가 없으므로 Post authorId와 UserInfo로 별도 추가
+        if (authorId != null && authorInfo != null) {
+            participants.add(MatchParticipantDto.author(authorId, authorInfo));
+        }
+
+        matches.stream()
+                .filter(this::isVisibleParticipantMatch)
+                .forEach(match -> {
+                    UserInfoDto applicantInfo = userInfoMap.get(match.getApplicantId());
+                    if (applicantInfo != null) {
+                        participants.add(MatchParticipantDto.applicant(match, applicantInfo));
+                    }
+                });
+
+        return participants;
+    }
+
+    private boolean isVisibleParticipantMatch(Match match) {
+        // 취소된 신청자는 현재 모임 참여자 목록에서 제외
+        return match.getStatus() != MatchStatus.CANCELLED;
     }
 }

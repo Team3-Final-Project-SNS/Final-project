@@ -7,6 +7,7 @@ import com.example.team3final.domain.post.entity.Post;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record GetMatchResponseDto(
         Long matchId,
@@ -28,6 +29,8 @@ public record GetMatchResponseDto(
         int currentApplicants,
         int maxApplicants,
         BigDecimal authorMannerTemperature,
+        // 그룹 매칭 상세 화면용 전체 참여자 목록
+        List<MatchParticipantDto> participants,
         MatchStatus status,
         Long chatRoomId,
         LocalDateTime matchedAt,
@@ -56,6 +59,7 @@ public record GetMatchResponseDto(
             String applicantMajor,
             String applicantStudentNumber,
             BigDecimal authorMannerTemperature,
+            List<MatchParticipantDto> participants,
             LocalDateTime meetAt,
             Long chatRoomId
     ) {
@@ -79,6 +83,7 @@ public record GetMatchResponseDto(
                 Math.max(post.getCurrentApplicants(), 1),
                 Math.max(post.getMaxApplicants(), 2),
                 authorMannerTemperature,
+                participants,
                 match.getStatus(),
                 chatRoomId,
                 match.getCreatedAt(),

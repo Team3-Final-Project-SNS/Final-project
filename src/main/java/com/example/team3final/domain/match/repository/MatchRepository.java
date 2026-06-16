@@ -38,6 +38,9 @@ public interface MatchRepository extends JpaRepository<Match, Long>, MatchReposi
     // Review 도메인에서 단체 만남의 전체 신청자 리뷰 평균을 계산할 때 사용합니다.
     List<Match> findAllByPostId(Long postId);
 
+    // 매칭 목록 응답에서 postId별 참여자 일괄 조회
+    List<Match> findAllByPostIdIn(List<Long> postIds);
+
     // 만남 완료 후 채팅방 READ_ONLY 전환 시 신청자에게 후기 작성 유도 알림을 보낼 때 사용합니다.
     List<Match> findAllByPostIdAndStatus(Long postId, MatchStatus status);
 
@@ -67,5 +70,4 @@ public interface MatchRepository extends JpaRepository<Match, Long>, MatchReposi
      //postId에 연결된 활성(MATCHED) 매칭 중 id가 가장 작은 1건 조회
      // - MATCHED 상태만 조회하므로 CANCELLED/COMPLETED/노쇼/이의제기 상태는 제외
      // - 그룹 미팅이어도 항상 동일한 매칭이 선택되도록 ORDER BY id ASC로 결정성 보장
-    Optional<Match> findFirstByPostIdAndStatusOrderByIdAsc(Long postId, MatchStatus status);
 }
