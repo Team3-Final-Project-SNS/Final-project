@@ -34,8 +34,6 @@ public interface DisputeRepository extends JpaRepository<Dispute, Long> {
 
     /**
      * HOLD 상태인 이의제기 조회 (재이의제기 신청 시 원본 검증용).
-     * 관리자가 HOLD 판정을 내린 이의제기에 대해서만 재이의제기 가능.
-     * HOLD 가 아닌 상태(ACCEPTED / REJECTED 등)는 재이의제기 불가.
      */
     @Query("""
        SELECT d
@@ -48,8 +46,7 @@ public interface DisputeRepository extends JpaRepository<Dispute, Long> {
             @Param("matchId") Long matchId,
             @Param("submitterId") Long submitterId);
 
-    // 재이의제기 중복 제출 방지용, 같은 parentDisputeId 로 이미 재신청한 기록이 있는지 확인
-    // parentDisputeId = 원본 이의제기 ID.
+    // 재이의제기 중복 제출 방지용
     boolean existsByMatchIdAndSubmitterIdAndParentDisputeId(Long matchId, Long submitterId, Long parentDisputeId);
 
     // 특정 matchId 목록 중 지정 상태인 이의제기의 matchId만 반환
@@ -58,4 +55,10 @@ public interface DisputeRepository extends JpaRepository<Dispute, Long> {
             @Param("matchIds") List<Long> matchIds,
             @Param("statuses") List<DisputeStatus> statuses
     );
+
+    // 내가 제출한 이의제기 전체 목록 조회 — 최신 제출순(createdAt DESC) 정렬
+    // submitterId = 로그인 유저 ID
+    // JPA 메서드 네이밍 규칙: findAllBy + 필드명 + OrderBy + 필드명 + Desc
+    // → SQL 없이 메서드 이름만으로 쿼리가 자동 생성됨
+    List<Dispute> findAllBySubmitterIdOrderByCreatedAtDesc(Long submitterId);
 }
