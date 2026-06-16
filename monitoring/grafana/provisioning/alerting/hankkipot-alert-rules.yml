@@ -160,7 +160,7 @@ groups:
               to: 0
             model:
               refId: A
-              expr: 'min(up{job="spring-boot-app"})'
+              expr: 'max(up{job="spring-boot-app"})'
               range: true
               instant: false
               maxDataPoints: 43200

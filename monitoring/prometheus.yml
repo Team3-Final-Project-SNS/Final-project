@@ -9,7 +9,12 @@ scrape_configs:
     static_configs:
       - targets:
           - "host.docker.internal:8080"
-          - "app:8080"
+        labels:
+          color: "blue"
+      - targets:
+          - "host.docker.internal:8081"
+        labels:
+          color: "green"
 
   - job_name: "prometheus"
     static_configs:
