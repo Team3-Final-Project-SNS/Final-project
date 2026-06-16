@@ -19,8 +19,8 @@ const filters: FilterStatus[] = [
   'MATCHED',
   'COMPLETED',
   'CANCELLED',
-  'AUTHOR_NO_SHOW',
-  'APPLICANT_NO_SHOW',
+  'HOST_NO_SHOW',
+  'GUEST_NO_SHOW',
   'BOTH_NO_SHOW',
   'DISPUTED',
 ];
@@ -29,8 +29,8 @@ const statusLabels: Record<MatchStatus, string> = {
   MATCHED: '진행 중',
   COMPLETED: '만남 완료',
   CANCELLED: '취소됨',
-  AUTHOR_NO_SHOW: '등록자 노쇼',
-  APPLICANT_NO_SHOW: '신청자 노쇼',
+  HOST_NO_SHOW: '등록자 노쇼',
+  GUEST_NO_SHOW: '신청자 노쇼',
   BOTH_NO_SHOW: '양측 노쇼',
   DISPUTED: '이의제기',
 };
@@ -39,8 +39,8 @@ const statusClasses: Record<MatchStatus, string> = {
   MATCHED: 'bg-[#fff3e0] text-[#ef6c00]',
   COMPLETED: 'bg-[#e8f5e9] text-[#2e7d32]',
   CANCELLED: 'bg-[#f5f5f5] text-[#757575]',
-  AUTHOR_NO_SHOW: 'bg-[#ffebee] text-[#c62828]',
-  APPLICANT_NO_SHOW: 'bg-[#ffebee] text-[#c62828]',
+  HOST_NO_SHOW: 'bg-[#ffebee] text-[#c62828]',
+  GUEST_NO_SHOW: 'bg-[#ffebee] text-[#c62828]',
   BOTH_NO_SHOW: 'bg-[#ffebee] text-[#c62828]',
   DISPUTED: 'bg-[#fce4ec] text-[#ad1457]',
 };
