@@ -173,8 +173,8 @@ const forceAdminLogout = (message?: string) => {
     }
 
     // 메인 화면으로 이동 (풀 새로고침으로 React 상태 완전 초기화)
-    if (window.location.pathname !== "/") {
-        window.location.replace("/");
+    if (window.location.pathname !== "/admin/login") {
+        window.location.replace("/admin/login");
     }
 
     setTimeout(() => {

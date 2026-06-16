@@ -1,37 +1,26 @@
 package com.example.team3final.domain.pointTransaction.entity;
 
-
 import com.example.team3final.common.entity.BaseTimeEntity;
-import com.example.team3final.domain.pointTransaction.enums.PointSource;
 import com.example.team3final.domain.pointTransaction.enums.PointReferenceType;
 import com.example.team3final.domain.pointTransaction.enums.PointSettlementReason;
+import com.example.team3final.domain.pointTransaction.enums.PointSource;
 import com.example.team3final.domain.pointTransaction.enums.PointTransactionType;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-
 @Getter
 @Entity
-@Table(
-        name = "point_transactions",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        // transaction_type을 제외해 동일 책임비에 REFUND와 PENALTY가 함께 생기는 것도 차단한다.
-                        // settlement_reason이 NULL인 예치/충전/보상 거래는 이 제약의 대상이 아니다.
-                        name = "uk_point_tx_settlement",
-                        columnNames = {
-                                "user_id",
-                                "reference_type",
-                                "reference_id",
-                                "settlement_reason"
-                        }
-                )
-        }
-)
+@Table(name = "point_transactions")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PointTransaction extends BaseTimeEntity {
 
@@ -43,7 +32,7 @@ public class PointTransaction extends BaseTimeEntity {
     @Column(name = "user_id", nullable = false, updatable = false)
     private Long userId;
 
-    @Column(name = "match_id", nullable = true, updatable = false)
+    @Column(name = "match_id", updatable = false)
     private Long matchId;
 
     @Enumerated(EnumType.STRING)
@@ -57,14 +46,14 @@ public class PointTransaction extends BaseTimeEntity {
     @Column(name = "settlement_reason", length = 30, updatable = false)
     private PointSettlementReason settlementReason;
 
-    @Column(name = "amount", nullable = false) //  포인트 변동량
+    @Column(name = "amount", nullable = false)
     private int amount;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "transaction_type", nullable = false, length = 30) // 거래 상태
+    @Column(name = "transaction_type", nullable = false, length = 30)
     private PointTransactionType transactionType;
 
-    @Column(name = "balance_after", nullable = false) // 거래 후 잔액
+    @Column(name = "balance_after", nullable = false)
     private int balanceAfter;
 
     @Enumerated(EnumType.STRING)
@@ -73,7 +62,6 @@ public class PointTransaction extends BaseTimeEntity {
 
     @Column(name = "description")
     private String description;
-
 
     @Builder
     private PointTransaction(

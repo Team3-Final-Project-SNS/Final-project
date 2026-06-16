@@ -12,6 +12,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 
 public interface PointTransactionRepository extends JpaRepository<PointTransaction, Long> {
@@ -33,6 +34,13 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
 
     // 동일 책임비에 최종 정산 결과가 이미 기록됐는지 확인한다.
     boolean existsByUserIdAndReferenceTypeAndReferenceIdAndSettlementReason(
+            Long userId,
+            PointReferenceType referenceType,
+            Long referenceId,
+            PointSettlementReason settlementReason
+    );
+
+    Optional<PointTransaction> findFirstByUserIdAndReferenceTypeAndReferenceIdAndSettlementReasonOrderByCreatedAtDesc(
             Long userId,
             PointReferenceType referenceType,
             Long referenceId,

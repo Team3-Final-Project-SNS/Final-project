@@ -139,6 +139,12 @@ public class UserPointServiceImpl implements UserPointService{
     }
 
     @Override
+    public void redepositAuthorDeposit(Long userId, int amount, Long postId) {
+        settleDeposit(userId, amount, postId, PointReferenceType.POST,
+                PointSettlementReason.AUTHOR_DEPOSIT, PointTransactionType.DEPOSIT);
+    }
+
+    @Override
     public void partialRefundAuthorDeposit(Long userId, int amount, Long postId) {
         settleDeposit(userId, amount, postId, PointReferenceType.POST,
                 PointSettlementReason.AUTHOR_DEPOSIT, PointTransactionType.PARTIAL_REFUND);
@@ -290,7 +296,12 @@ public class UserPointServiceImpl implements UserPointService{
         User user = getUserOrThrowWithLock(userId);
 
         // 락을 얻은 뒤 다시 확인해 재시도/동시 요청을 멱등하게 처리한다.
-        if (hasSettlement(userId, referenceType, referenceId, settlementReason)) {
+        if (isLatestSettlementType(userId, referenceType, referenceId, settlementReason, transactionType)) {
+            return;
+        }
+
+        if (transactionType == PointTransactionType.DEPOSIT) {
+            saveDepositSettlement(user, userId, depositAmount, referenceId, referenceType, settlementReason);
             return;
         }
 
@@ -322,6 +333,45 @@ public class UserPointServiceImpl implements UserPointService{
     }
 
     // 유저 포인트 총 보유량 조회 (유료 + 무료 포인트)
+    private void saveDepositSettlement(
+            User user,
+            Long userId,
+            int depositAmount,
+            Long referenceId,
+            PointReferenceType referenceType,
+            PointSettlementReason settlementReason
+    ) {
+        User.DeductResult result = user.deduct(depositAmount);
+
+        if (result.fromFree() > 0) {
+            saveTransaction(
+                    userId,
+                    referenceType == PointReferenceType.MATCH ? referenceId : null,
+                    referenceType,
+                    referenceId,
+                    settlementReason,
+                    -result.fromFree(),
+                    PointTransactionType.DEPOSIT,
+                    user.getTotalPoint(),
+                    PointSource.FREE
+            );
+        }
+
+        if (result.fromPaid() > 0) {
+            saveTransaction(
+                    userId,
+                    referenceType == PointReferenceType.MATCH ? referenceId : null,
+                    referenceType,
+                    referenceId,
+                    settlementReason,
+                    -result.fromPaid(),
+                    PointTransactionType.DEPOSIT,
+                    user.getTotalPoint(),
+                    PointSource.PAID
+            );
+        }
+    }
+
     @Override
     @Transactional(readOnly = true)
     public int getTotalPoint(Long userId) {
@@ -350,11 +400,31 @@ public class UserPointServiceImpl implements UserPointService{
             PointSettlementReason settlementReason
     ) {
         return pointTransactionRepository
-                .existsByUserIdAndReferenceTypeAndReferenceIdAndSettlementReason(
+                .findFirstByUserIdAndReferenceTypeAndReferenceIdAndSettlementReasonOrderByCreatedAtDesc(
                         userId,
                         referenceType,
                         referenceId,
                         settlementReason
-                );
+                )
+                .map(pointTransaction -> pointTransaction.getTransactionType() != PointTransactionType.DEPOSIT)
+                .orElse(false);
+    }
+
+    private boolean isLatestSettlementType(
+            Long userId,
+            PointReferenceType referenceType,
+            Long referenceId,
+            PointSettlementReason settlementReason,
+            PointTransactionType transactionType
+    ) {
+        return pointTransactionRepository
+                .findFirstByUserIdAndReferenceTypeAndReferenceIdAndSettlementReasonOrderByCreatedAtDesc(
+                        userId,
+                        referenceType,
+                        referenceId,
+                        settlementReason
+                )
+                .map(pointTransaction -> pointTransaction.getTransactionType() == transactionType)
+                .orElse(false);
     }
 }

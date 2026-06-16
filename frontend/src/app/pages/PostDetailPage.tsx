@@ -129,6 +129,8 @@ export default function PostDetailPage() {
         )}
 
         <div className="bg-white border border-[#e0e0e0] rounded-2xl p-8 shadow-sm">
+          <p className="mb-2 text-sm font-semibold text-[#757575]">게시글 #{post.postId}</p>
+
           <div className="flex items-start justify-between mb-4">
           <span
               className={`px-3 py-1 rounded text-xs font-semibold ${

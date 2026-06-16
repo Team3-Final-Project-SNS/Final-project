@@ -43,6 +43,7 @@ public class AdminPostController {
             @RequestParam(required = false) Long universityId,
             @RequestParam(required = false) String authorNickname,
             @RequestParam(required = false) PostStatus status,
+            @RequestParam(required = false) Boolean deleted,
             @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
@@ -51,7 +52,7 @@ public class AdminPostController {
         Pageable pageable = PageRequest.of(page, size);
 
         return ResponseEntity.ok(
-                ApiResponseDto.success(adminPostService.getPosts(adminId, universityId, authorNickname, status, keyword, pageable)));
+                ApiResponseDto.success(adminPostService.getPosts(adminId, universityId, authorNickname, status, deleted, keyword, pageable)));
     }
 
     // 관리자 게시글 상세 조회

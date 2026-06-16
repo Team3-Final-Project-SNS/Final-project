@@ -21,6 +21,7 @@ public interface UserPointService {
 
     // 등록자 책임비 최종 정산 — Post 단위로 한 번만 허용
     void refundAuthorDeposit(Long userId, int amount, Long postId);
+    void redepositAuthorDeposit(Long userId, int amount, Long postId);
     void partialRefundAuthorDeposit(Long userId, int amount, Long postId);
     void penaltyAuthorDeposit(Long userId, int amount, Long postId);
 

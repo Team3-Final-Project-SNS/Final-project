@@ -20,6 +20,7 @@ public interface AdminPostService {
             Long universityId, // 추가 — null이면 전체 대학
             String authorNickname,
             PostStatus status,
+            Boolean deleted,
             String keyword,
             Pageable pageable
     );
