@@ -55,7 +55,7 @@ public class MatchCreateService {
                 throw new MatchException(ErrorCode.MATCH_SELF_APPLY);
             }
 
-            // 1:1 매칭: 즉시 실패(waitTime=0), 단체 매칭: 설정값만큼 대기
+            // 최소 정원 매칭은 즉시 실패, 그룹 매칭은 남은 정원을 순차적으로 채우기 위해 설정값만큼 대기
             long waitTime = (post.getMaxApplicants() == 2) ? 0L : groupLockWaitMs;
 
             acquired = lock.tryLock(waitTime, REDIS_LOCK_LEASE_SECONDS * 1000, TimeUnit.MILLISECONDS);
