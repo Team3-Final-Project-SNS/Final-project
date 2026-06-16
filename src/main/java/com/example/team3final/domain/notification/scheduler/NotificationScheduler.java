@@ -17,18 +17,21 @@ public class NotificationScheduler {
     private final NotificationRepository notificationRepository;
 
     /**
-     * 10일 경과 알림 자동 삭제 스케줄러
-     * 매일 자정에 실행
-     * - 생성일 기준 10일 경과한 알림 하드 딜리트
+     * 20분 경과 알림 자동 삭제 스케줄러
+     * 1분마다 실행
+     * - 생성일 기준 20분 경과한 알림 하드 딜리트
      * - 소프트 딜리트 불필요! (알림은 이력 보존 필요 없음)
+     * TODO 임시 테스트용 설정입니다. 추후 기존 정책인 10일로 되돌릴 예정입니다.
      */
 
-    @Scheduled(cron = "0 0 0 * * *")  // 매일 자정 실행
+    @Scheduled(fixedDelay = 60000)
+    // @Scheduled(cron = "0 0 0 * * *")  // 매일 자정 실행
     @Transactional
     public void deleteOldNotifications() {
 
-        // 10일 전 시각 계산
-        LocalDateTime cutoff = LocalDateTime.now().minusDays(10);
+        // 20분 전 시각 계산
+        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(20);
+        // LocalDateTime cutoff = LocalDateTime.now().minusDays(10);
 
         // 청크 단위로 나눠서 삭제 (DB 부하 최소화)
         int chunkSize = 1000;
@@ -37,6 +40,6 @@ public class NotificationScheduler {
             deletedCount = notificationRepository.deleteByCreatedAtBeforeLimit(cutoff, chunkSize);
         } while (deletedCount == chunkSize);
 
-        log.info("[NotificationScheduler] 10일 경과 알림 삭제 완료 - cutoff: {}", cutoff);
+        log.info("[NotificationScheduler] 20분 경과 알림 삭제 완료 - cutoff: {}", cutoff);
     }
 }

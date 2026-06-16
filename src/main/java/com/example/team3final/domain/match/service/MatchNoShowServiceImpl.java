@@ -429,9 +429,12 @@ public class MatchNoShowServiceImpl implements MatchNoShowService {
 
     private void scheduleReviewReminder(Match match) {
         LocalDateTime reminderAt = match.getCompletedAt()
-                .plusDays(7)
-                .toLocalDate()
-                .atTime(9, 0);
+                .plusMinutes(7);
+        // TODO 임시 테스트용 설정입니다. 추후 기존 정책인 7일 마지막 날 오전 9시로 되돌릴 예정입니다.
+        // LocalDateTime reminderAt = match.getCompletedAt()
+        //         .plusDays(7)
+        //         .toLocalDate()
+        //         .atTime(9, 0);
         redisTemplate.opsForZSet().add(
                 ReviewRedisZSetKeys.DEADLINE_REMINDER,
                 String.valueOf(match.getId()),

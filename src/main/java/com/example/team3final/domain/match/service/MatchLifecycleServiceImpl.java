@@ -108,14 +108,17 @@ public class MatchLifecycleServiceImpl implements MatchLifecycleService {
                 match.getId()
         );
 
-        // 정상 만남 완료 후 후기 작성 마지막 날 알림 예약
+        // 정상 만남 완료 후 후기 작성 마감 알림 예약
         // 기존 completeMatch()에서 하던 역할을 completeSingleMatch()에도 반영
         LocalDateTime reviewDeadlineReminderAt = match.getCompletedAt()
-                .plusDays(7)
-                .toLocalDate()
-                .atTime(9, 0);
+                .plusMinutes(7);
+        // TODO 임시 테스트용 설정입니다. 추후 기존 정책인 7일 마지막 날 오전 9시로 되돌릴 예정입니다.
+        // LocalDateTime reviewDeadlineReminderAt = match.getCompletedAt()
+        //         .plusDays(7)
+        //         .toLocalDate()
+        //         .atTime(9, 0);
 
-        // 후기 작성 마지막 날 오전 9시에 알림 발송되도록 ZSet에 예약
+        // 후기 작성 마감 시각에 알림 발송되도록 ZSet에 예약
         redisTemplate.opsForZSet().add(
                 ReviewRedisZSetKeys.DEADLINE_REMINDER,
                 String.valueOf(match.getId()),
