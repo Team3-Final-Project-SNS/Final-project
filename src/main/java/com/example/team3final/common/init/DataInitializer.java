@@ -43,6 +43,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Profile({"prod", "docker", "local"})
 @Component
@@ -73,6 +74,7 @@ public class DataInitializer implements ApplicationRunner {
         // 이미 대표 seed 게시글이 있으면 local 이닛데이터를 다시 만들지 않습니다.
         // 서버 재시작 때마다 중복 데이터가 쌓이는 것을 막기 위한 방어 코드입니다.
         if (existsPostByContent("1:N 리뷰 테스트용 완료된 단체 식사입니다.")) {
+            seedAiMatchingRecommendationPostsIfPossible();
             publishSeedPostVectorEvents();
             return;
         }
@@ -636,6 +638,8 @@ public class DataInitializer implements ApplicationRunner {
                         .build()
         );
 
+        seedAiMatchingRecommendationPosts(hacker);
+
         // ===================================================
         // CASE E. 노쇼 상태 MeetVerification
         // ===================================================
@@ -747,6 +751,115 @@ public class DataInitializer implements ApplicationRunner {
     private boolean existsPostByContent(String content) {
         return postRepository.findAll().stream()
                 .anyMatch(post -> content.equals(post.getContent()));
+    }
+
+    private void seedAiMatchingRecommendationPostsIfPossible() {
+        userRepository.findByEmail("dalsun_rin@naver.com")
+                .ifPresent(this::seedAiMatchingRecommendationPosts);
+    }
+
+    private void seedAiMatchingRecommendationPosts(User author) {
+        // 매칭 AI 추천 품질 확인용 대량 OPEN 게시글입니다.
+        // 작성자는 "정당한참여자아님" 계정으로 고정하고, 메뉴/시간대/분위기/책임비/인원 조건을 다양하게 섞습니다.
+        if (normalizeExistingAiMatchingRecommendationPosts()) {
+            return;
+        }
+
+        // 대표 content가 이미 있으면 중복 생성을 막습니다.
+        if (existsPostByContent("치킨 같이 먹을 분 구해요. 활발하게 대화하면서 저녁 식사해요.")) {
+            return;
+        }
+
+        List<AiMatchingSeedPost> seeds = List.of(
+                new AiMatchingSeedPost("후문 치킨집", "치킨", "활발하게 대화하면서", "저녁", 300, 4),
+                new AiMatchingSeedPost("정문 짜장면집", "짜장면", "가볍게 빠르게", "점심", 400, 2),
+                new AiMatchingSeedPost("중앙 짬뽕집", "짬뽕", "든든하게", "저녁", 500, 3),
+                new AiMatchingSeedPost("학생회관 분식집", "떡볶이랑 김밥", "편하게 수다 떨면서", "점심", 300, 3),
+                new AiMatchingSeedPost("공대 파스타집", "파스타", "조용하게 이야기하면서", "저녁", 800, 2),
+                new AiMatchingSeedPost("도서관 샌드위치 카페", "샌드위치", "짧고 부담 없이", "브런치", 300, 2),
+                new AiMatchingSeedPost("기숙사 국밥집", "국밥", "든든하게 먹고", "아침", 600, 4),
+                new AiMatchingSeedPost("후문 마라탕집", "마라탕", "매운 음식 좋아하는 사람끼리", "저녁", 700, 3),
+                new AiMatchingSeedPost("정문 돈까스집", "돈까스", "말수 적어도 편하게", "점심", 500, 2),
+                new AiMatchingSeedPost("중앙 카페", "커피랑 디저트", "가볍게 이야기하면서", "오후", 300, 2),
+                new AiMatchingSeedPost("학생회관 한식코너", "백반", "조용히 식사만", "점심", 400, 5),
+                new AiMatchingSeedPost("후문 라멘집", "라멘", "혼밥 싫은 사람끼리", "저녁", 600, 2),
+                new AiMatchingSeedPost("정문 김치찌개집", "김치찌개", "든든한 한 끼", "저녁", 500, 4),
+                new AiMatchingSeedPost("공학관 편의점", "삼각김밥이랑 컵라면", "빠르게 먹고 헤어지기", "밤", 200, 2),
+                new AiMatchingSeedPost("중앙광장 푸드트럭", "타코야끼", "가볍고 재밌게", "오후", 300, 3),
+                new AiMatchingSeedPost("후문 중국집", "탕수육이랑 짜장", "여럿이 나눠 먹기", "저녁", 900, 5),
+                new AiMatchingSeedPost("정문 쌀국수집", "쌀국수", "차분하게", "점심", 600, 2),
+                new AiMatchingSeedPost("학생회관 덮밥집", "덮밥", "수업 사이 빠르게", "점심", 400, 3),
+                new AiMatchingSeedPost("도서관 앞 카페", "샐러드와 샌드위치", "조용한 분위기", "브런치", 500, 2),
+                new AiMatchingSeedPost("기숙사 치킨집", "치킨과 감자튀김", "수다 많고 활발하게", "야식", 1000, 5)
+        );
+
+        LocalDateTime base = LocalDateTime.now().plusMinutes(30);
+        int sequence = 1;
+
+        for (int round = 0; round < 6; round++) {
+            for (AiMatchingSeedPost seed : seeds) {
+                LocalDateTime meetAt = base
+                        .plusDays(round / 2)
+                        .plusMinutes((long) sequence * 17);
+                int deposit = seed.deposit() + (round % 3) * 100;
+                int maxApplicants = Math.min(5, Math.max(2, seed.maxApplicants() + (round % 2)));
+                String content = "%s 같이 먹을 분 구해요. %s %s 식사해요."
+                        .formatted(
+                                seed.menu(),
+                                seed.atmosphere(),
+                                seed.timeKeyword()
+                        );
+
+                postRepository.save(
+                        Post.builder()
+                                .authorId(author.getId())
+                                .meetAt(meetAt)
+                                .placeName(seed.placeName())
+                                .placeLat(DEMO_PLACE_LAT)
+                                .placeLng(DEMO_PLACE_LNG)
+                                .content(content)
+                                .authorDeposit(deposit)
+                                .maxApplicants(maxApplicants)
+                                .build()
+                );
+
+                sequence++;
+            }
+        }
+    }
+
+    private boolean normalizeExistingAiMatchingRecommendationPosts() {
+        List<Post> aiSeedPosts = postRepository.findAll().stream()
+                .filter(post -> post.getContent() != null && post.getContent().startsWith("[AI추천120-"))
+                .toList();
+
+        for (Post post : aiSeedPosts) {
+            String normalizedContent = post.getContent()
+                    .replaceFirst("^\\[AI추천120-\\d{3}]\\s*", "")
+                    .replaceFirst("\\s*책임비는\\s*\\d+P입니다\\.$", "");
+            String normalizedPlaceName = post.getPlaceName().replaceFirst("\\s+\\d{2}$", "");
+
+            post.update(
+                    null,
+                    normalizedPlaceName,
+                    null,
+                    null,
+                    normalizedContent,
+                    null
+            );
+        }
+
+        return !aiSeedPosts.isEmpty();
+    }
+
+    private record AiMatchingSeedPost(
+            String placeName,
+            String menu,
+            String atmosphere,
+            String timeKeyword,
+            int deposit,
+            int maxApplicants
+    ) {
     }
 
     // local seed 게시글도 매칭 AI가 추천할 수 있도록 OPEN + 미래 약속 게시글을 벡터 인덱스에 등록합니다.
