@@ -105,7 +105,7 @@ public class MatchNoShowServiceImpl implements MatchNoShowService {
             // 일반 MATCHED 형제와 현재 판정 중인 DISPUTED Match만 처리한다.
             // 다른 사용자의 DISPUTED Match는 해당 이의제기 판정 전까지 그대로 보존한다.
             for (Match targetMatch : getAuthorNoShowTargets(post.getId(), triggerMatch)) {
-                targetMatch.markNoShow(MatchStatus.AUTHOR_NO_SHOW);
+                targetMatch.markNoShow(MatchStatus.HOST_NO_SHOW);
                 userPointService.refundApplicantDeposit(
                         targetMatch.getApplicantId(),
                         targetMatch.getApplicantDeposit(),
@@ -127,7 +127,7 @@ public class MatchNoShowServiceImpl implements MatchNoShowService {
         }
 
         if (restoredStatus == VerificationStatus.GUEST_NO_SHOW) {
-            triggerMatch.markNoShow(MatchStatus.APPLICANT_NO_SHOW);
+            triggerMatch.markNoShow(MatchStatus.GUEST_NO_SHOW);
             if (submitterIsApplicant) {
                 userPointService.partialRefundApplicantDeposit(
                         triggerMatch.getApplicantId(),
@@ -162,7 +162,7 @@ public class MatchNoShowServiceImpl implements MatchNoShowService {
                         );
                     }
                 } else {
-                    targetMatch.markNoShow(MatchStatus.AUTHOR_NO_SHOW);
+                    targetMatch.markNoShow(MatchStatus.HOST_NO_SHOW);
                     userPointService.refundApplicantDeposit(
                             targetMatch.getApplicantId(),
                             targetMatch.getApplicantDeposit(),
@@ -196,7 +196,7 @@ public class MatchNoShowServiceImpl implements MatchNoShowService {
 
         List<Long> processedIds = new ArrayList<>();
         for (Match activeMatch : activeMatches) {
-            activeMatch.markNoShow(MatchStatus.AUTHOR_NO_SHOW);
+            activeMatch.markNoShow(MatchStatus.HOST_NO_SHOW);
             userPointService.refundApplicantDeposit(
                     activeMatch.getApplicantId(),
                     activeMatch.getApplicantDeposit(),
@@ -219,7 +219,7 @@ public class MatchNoShowServiceImpl implements MatchNoShowService {
             return NoShowSettlementResult.empty(post.getId());
         }
 
-        match.markNoShow(MatchStatus.APPLICANT_NO_SHOW);
+        match.markNoShow(MatchStatus.GUEST_NO_SHOW);
         userPointService.penaltyApplicantDeposit(
                 match.getApplicantId(),
                 match.getApplicantDeposit(),
@@ -251,7 +251,7 @@ public class MatchNoShowServiceImpl implements MatchNoShowService {
                 );
             } else {
                 // 등록자 결석은 그룹 전체에 적용되지만, 다른 신청자의 귀책까지 만들지는 않는다.
-                activeMatch.markNoShow(MatchStatus.AUTHOR_NO_SHOW);
+                activeMatch.markNoShow(MatchStatus.HOST_NO_SHOW);
                 userPointService.refundApplicantDeposit(
                         activeMatch.getApplicantId(),
                         activeMatch.getApplicantDeposit(),
@@ -305,7 +305,7 @@ public class MatchNoShowServiceImpl implements MatchNoShowService {
                             match.getId()
                     );
                 } else {
-                    match.markNoShow(MatchStatus.AUTHOR_NO_SHOW);
+                    match.markNoShow(MatchStatus.HOST_NO_SHOW);
                     userPointService.refundApplicantDeposit(
                             match.getApplicantId(),
                             match.getApplicantDeposit(),
@@ -313,7 +313,7 @@ public class MatchNoShowServiceImpl implements MatchNoShowService {
                     );
                 }
             } else if (decision.status() == VerificationStatus.GUEST_NO_SHOW) {
-                match.markNoShow(MatchStatus.APPLICANT_NO_SHOW);
+                match.markNoShow(MatchStatus.GUEST_NO_SHOW);
                 userPointService.penaltyApplicantDeposit(
                         match.getApplicantId(),
                         match.getApplicantDeposit(),
@@ -372,7 +372,7 @@ public class MatchNoShowServiceImpl implements MatchNoShowService {
         // 등록자 정산이 아직 없다면 종료된 Match 결과를 기준으로 최종 환급/패널티를 한 번 결정한다.
         if (!userPointService.hasAuthorDepositSettlement(post.getAuthorId(), post.getId())) {
             boolean authorWasNoShow = matchRepository.findAllByPostId(post.getId()).stream()
-                    .anyMatch(match -> match.getStatus() == MatchStatus.AUTHOR_NO_SHOW
+                    .anyMatch(match -> match.getStatus() == MatchStatus.HOST_NO_SHOW
                             || match.getStatus() == MatchStatus.BOTH_NO_SHOW);
             if (authorWasNoShow) {
                 settleAuthorPenalty(post);

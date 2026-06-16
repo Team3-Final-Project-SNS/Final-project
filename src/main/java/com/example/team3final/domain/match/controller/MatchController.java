@@ -176,7 +176,7 @@ public class MatchController {
                     매칭 ID로 단건 상세 정보를 조회합니다.
                     - 매칭 당사자(등록자 또는 신청자)만 조회 가능합니다.
                     - 상태값: MATCHED(매칭완료) / COMPLETED(만남완료) / CANCELLED(취소) /
-                      AUTHOR_NO_SHOW(등록자노쇼) / APPLICANT_NO_SHOW(신청자노쇼) /
+                      HOST_NO_SHOW(등록자노쇼) / GUEST_NO_SHOW(신청자노쇼) /
                       BOTH_NO_SHOW(양측노쇼) / DISPUTED(이의제기중)
                     """
     )
@@ -224,7 +224,7 @@ public class MatchController {
                     - 최대 페이지 크기: 50 (초과 시 50으로 고정)
                     - 정렬: 매칭 생성일 내림차순(최신순)
                     - status 가능 값: MATCHED / COMPLETED / CANCELLED /
-                      AUTHOR_NO_SHOW / APPLICANT_NO_SHOW / BOTH_NO_SHOW / DISPUTED
+                      HOST_NO_SHOW / GUEST_NO_SHOW / BOTH_NO_SHOW / DISPUTED
                     """
     )
     @ApiResponses({
