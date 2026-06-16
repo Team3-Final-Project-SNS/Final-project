@@ -37,6 +37,10 @@ public final class AiMatchingMenuEvidence {
             "치킨",
             "닭",
             "국밥",
+            "덮밥",
+            "백반",
+            "라멘",
+            "쌀국수",
             "파스타",
             "떡볶이",
             "김밥",
@@ -81,6 +85,31 @@ public final class AiMatchingMenuEvidence {
             "중식"
     );
 
+    // "튀김"은 단일 음식명이라기보다 조리 방식/범주에 가깝습니다.
+    // 사용자가 "튀김"이라고 요청하면 게시글에는 "치킨", "돈까스", "분식"처럼
+    // 구체 메뉴명만 적혀 있을 수 있으므로 대표 튀김류 키워드로 확장합니다.
+    //
+    // 예:
+    // - 사용자 요청: "튀김"
+    // - 게시글 장소명: "후문 치킨집", "정문 돈까스집"
+    // - 게시글에 "튀김"이라는 단어가 직접 없어도 튀김류 후보로 인정합니다.
+    //
+    // 반대로 너무 넓게 잡으면 무관한 후보가 섞이므로,
+    // 실제 메뉴 범주로 설명 가능한 키워드만 이 목록에 넣습니다.
+    private static final List<String> FRIED_MENU_KEYWORDS = List.of(
+            "튀김",
+            "치킨",
+            "돈까스",
+            "돈가스",
+            "분식"
+    );
+
+    private static final List<String> FRIED_MENU_INTENTS = List.of(
+            "튀김",
+            "튀김류",
+            "튀킴"
+    );
+
     // 특정 메뉴명이 없어도 "메뉴 추천", "음식 먹고 싶어", "요리 추천"처럼
     // 음식/메뉴 탐색 의도가 있다고 볼 수 있는 일반 표현입니다.
     //
@@ -117,7 +146,8 @@ public final class AiMatchingMenuEvidence {
         String normalized = normalize(text);
         return containsAny(normalized, MENU_INTENT_KEYWORDS)
                 || containsAny(normalized, MENU_KEYWORDS)
-                || containsAny(normalized, CHINESE_MENU_INTENTS);
+                || containsAny(normalized, CHINESE_MENU_INTENTS)
+                || containsAny(normalized, FRIED_MENU_INTENTS);
     }
 
     /**
@@ -130,7 +160,12 @@ public final class AiMatchingMenuEvidence {
      * 예:
      * - "치킨 먹고 싶어" -> ["치킨"]
      * - "중국 음식 먹고 싶어" -> ["중국", "중식", "짜장", "짬뽕", "탕수육", "마라탕"]
+     * - "튀김 먹고 싶어" -> ["튀김", "치킨", "돈까스", "돈가스", "분식"]
      * - "정문에서 조용하게 먹고 싶어" -> []
+     *
+     * 단순히 사용자 문장에 들어 있는 단어만 돌려주지 않고,
+     * 중국 음식, 튀김류처럼 실제 게시글에는 대표 메뉴명으로 적히는 범주형 조건은
+     * 비교 가능한 메뉴 토큰으로 확장합니다.
      *
      * 반환 타입을 List로 둔 이유:
      * - 프롬프트 답변과 추천 이유에서 "치킨, 짜장"처럼 순서가 있는 문장으로 보여줄 수 있습니다.
@@ -147,6 +182,10 @@ public final class AiMatchingMenuEvidence {
 
         if (containsAny(normalized, CHINESE_MENU_INTENTS)) {
             tokens.addAll(CHINESE_MENU_KEYWORDS);
+        }
+
+        if (containsAny(normalized, FRIED_MENU_INTENTS)) {
+            tokens.addAll(FRIED_MENU_KEYWORDS);
         }
 
         return List.copyOf(tokens);

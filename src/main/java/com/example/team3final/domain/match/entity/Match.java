@@ -69,8 +69,8 @@ public class Match extends BaseTimeEntity {
 
     // 노쇼 판정 (장소/QR 인증 단계별 결과)
     public void markNoShow(MatchStatus noShowStatus) {
-        if (noShowStatus != MatchStatus.AUTHOR_NO_SHOW
-        && noShowStatus != MatchStatus.APPLICANT_NO_SHOW
+        if (noShowStatus != MatchStatus.HOST_NO_SHOW
+        && noShowStatus != MatchStatus.GUEST_NO_SHOW
         && noShowStatus != MatchStatus.BOTH_NO_SHOW) {
             throw new IllegalArgumentException("노쇼 상태가 아닙니다:" + noShowStatus);
         }

@@ -36,12 +36,12 @@ const statusPresentation: Record<MatchStatus, {
     description: '취소 처리된 매칭입니다.',
     className: 'bg-[#f5f5f5] text-[#757575]',
   },
-  AUTHOR_NO_SHOW: {
+  HOST_NO_SHOW: {
     label: '등록자 노쇼 확정',
     description: '게시글 등록자의 노쇼가 확정된 매칭입니다.',
     className: 'bg-[#ffebee] text-[#c62828]',
   },
-  APPLICANT_NO_SHOW: {
+  GUEST_NO_SHOW: {
     label: '신청자 노쇼 확정',
     description: '매칭 신청자의 노쇼가 확정된 매칭입니다.',
     className: 'bg-[#ffebee] text-[#c62828]',

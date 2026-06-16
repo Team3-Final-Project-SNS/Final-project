@@ -32,11 +32,11 @@ public interface MatchNoShowService {
     );
 
     // 등록자 노쇼 확정 — 배치(judgeNoShowConfirmed) 또는 이의제기 REJECTED 판정 시 호출
-    // 처리: Match→AUTHOR_NO_SHOW, Post→COMPLETED, 등록자 예치금 몰수, 신청자 전액 환급
+    // 처리: Match→HOST_NO_SHOW, Post→COMPLETED, 등록자 예치금 몰수, 신청자 전액 환급
     NoShowSettlementResult markAuthorNoShow(Long matchId);
 
     // 신청자 노쇼 확정 — 배치(judgeNoShowConfirmed) 또는 이의제기 REJECTED 판정 시 호출
-    // 처리: Match→APPLICANT_NO_SHOW, Post→COMPLETED, 신청자 예치금 몰수, 등록자 전액 환급
+    // 처리: Match→GUEST_NO_SHOW, Post→COMPLETED, 신청자 예치금 몰수, 등록자 전액 환급
     NoShowSettlementResult markApplicantNoShow(Long matchId);
 
     // 양측 노쇼 확정 — 배치(judgeNoShowConfirmed) 또는 이의제기 REJECTED 판정 시 호출

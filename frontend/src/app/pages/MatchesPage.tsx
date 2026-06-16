@@ -14,7 +14,7 @@ import { applyExtendedMeetAt } from '../../store/matchStore';
 
 type FilterStatus = MatchStatus | '전체' | 'NO_SHOW';
 
-const noShowStatuses: MatchStatus[] = ['AUTHOR_NO_SHOW', 'APPLICANT_NO_SHOW', 'BOTH_NO_SHOW'];
+const noShowStatuses: MatchStatus[] = ['HOST_NO_SHOW', 'GUEST_NO_SHOW', 'BOTH_NO_SHOW'];
 
 const filterOptions: { value: FilterStatus; label: string }[] = [
   { value: '전체', label: '전체' },
@@ -221,8 +221,8 @@ export default function MatchesPage() {
         return { text: '만남 완료', color: 'bg-[#2196f3] text-white' };
       case 'CANCELLED':
         return { text: '취소됨', color: 'bg-[#9e9e9e] text-white' };
-      case 'AUTHOR_NO_SHOW':
-      case 'APPLICANT_NO_SHOW':
+      case 'HOST_NO_SHOW':
+      case 'GUEST_NO_SHOW':
       case 'BOTH_NO_SHOW':
         return { text: '노쇼', color: 'bg-[#c62828] text-white' };
       default:
