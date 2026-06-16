@@ -103,6 +103,13 @@ export const router = createBrowserRouter([
         ],
       },
       {
+        path: "/matches/:id/chat",
+        Component: Layout,
+        children: [
+          { index: true, Component: ChatPage },
+        ],
+      },
+      {
         // 내 정보: 기존과 동일
         path: "/me",
         Component: Layout,
@@ -113,6 +120,25 @@ export const router = createBrowserRouter([
           { path: "matches", Component: MyMatchResultsPage },
           { path: "inquiries", Component: InquiryCenterPage },
           { path: "reports", Component: ReportCenterPage },
+        ],
+      },
+      {
+        path: "/faq",
+        Component: Layout,
+        children: [
+          {
+            index: true,
+            element: (
+              <TermsMarkdownPage
+                title="자주 묻는 질문"
+                content={faqContent}
+                eyebrow="FAQ"
+                backTo="/me/inquiries"
+                backLabel="고객센터"
+                variant="support"
+              />
+            ),
+          },
         ],
       },
     ],
@@ -158,10 +184,6 @@ export const router = createBrowserRouter([
   {
     path: "/terms/marketing",
     Component: MarketingConsentPage,
-  },
-  {
-    path: "/faq",
-    element: <TermsMarkdownPage title="자주 묻는 질문" content={faqContent} />,
   },
   {
     path: "*",

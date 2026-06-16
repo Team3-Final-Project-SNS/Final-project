@@ -63,13 +63,13 @@ public interface NotificationPublisher {
 
     // ── 채팅 / 장소 인증 ──────────────────────────────────────────────────
     // 13. 채팅 메시지 수신 알림 - 메시지 수신자에게
-    void sendChatReceived(Long userId, Long chatRoomId);
+    void sendChatReceived(Long userId, Long matchId);
 
     // 14. 장소 인증 완료 알림 - 1:1: 상대방에게 / 그룹: 모임 참여자 전원에게
     void sendPlaceVerified(Long userId, Long matchId);
 
     // 15. 그룹 채팅방 신청자 퇴장 알림 - 등록자에게만
-    void sendChatMemberLeft(Long userId, Long chatRoomId);
+    void sendChatMemberLeft(Long userId, Long matchId);
 
     // ── 노쇼 ──────────────────────────────────────────────────────────────
     // 16. 노쇼 예정 알림 - 노쇼 예정 유저에게

@@ -35,6 +35,14 @@ public interface MatchRepository extends JpaRepository<Match, Long>, MatchReposi
 
     boolean existsByPostIdAndApplicantId(Long postId, Long applicantId);
 
+    Optional<Match> findFirstByPostIdAndApplicantIdAndStatusInOrderByIdAsc(
+            Long postId,
+            Long applicantId,
+            List<MatchStatus> statuses
+    );
+
+    Optional<Match> findFirstByPostIdAndStatusInOrderByIdAsc(Long postId, List<MatchStatus> statuses);
+
     // Review 도메인에서 단체 만남의 전체 신청자 리뷰 평균을 계산할 때 사용합니다.
     List<Match> findAllByPostId(Long postId);
 

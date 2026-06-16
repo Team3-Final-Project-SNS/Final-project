@@ -1,5 +1,15 @@
 import { NotificationResponse } from '../api/notificationApi';
 
+export const getNotificationContextLabel = (notification: NotificationResponse) => {
+  if (!notification.relatedId) return null;
+
+  if (notification.domain === 'MATCH' || notification.domain === 'MEET' || notification.domain === 'CHAT') {
+    return `매칭 #${notification.relatedId}`;
+  }
+
+  return `${notification.domain.toLowerCase()}Id ${notification.relatedId}`;
+};
+
 export const getNotificationTargetPath = (notification: NotificationResponse) => {
   const { type, domain, relatedId } = notification;
   const title = notification.title || '';
@@ -55,7 +65,7 @@ export const getNotificationTargetPath = (notification: NotificationResponse) =>
     case 'MEET':
       return relatedId ? `/matches/${relatedId}` : '/matches';
     case 'CHAT':
-      return relatedId ? `/chat/${relatedId}` : '/matches';
+      return relatedId ? `/matches/${relatedId}/chat` : '/matches';
     case 'POINT':
       return '/me/points';
     case 'REPORT':

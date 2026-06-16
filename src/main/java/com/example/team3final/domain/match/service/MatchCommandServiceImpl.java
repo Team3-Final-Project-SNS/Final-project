@@ -120,8 +120,7 @@ public class MatchCommandServiceImpl implements MatchCommandService {
             chatInternalService.removeChatMember(match.getPostId(), userId);
 
             // 6. HOST에게 "GUEST가 퇴장했습니다" 알림
-            Long chatRoomId = chatInternalService.getChatRoomIdByPostId(match.getPostId());
-            notificationPublisher.sendChatMemberLeft(post.getAuthorId(), chatRoomId);
+            notificationPublisher.sendChatMemberLeft(post.getAuthorId(), matchId);
 
             // 7. HOST에게 "GUEST가 매칭을 취소했습니다" 알림
             notificationPublisher.sendGuestCancelled(post.getAuthorId(), matchId);
