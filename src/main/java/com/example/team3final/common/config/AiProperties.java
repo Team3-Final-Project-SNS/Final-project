@@ -58,6 +58,8 @@ public class AiProperties {
     public static class Rag {
         private Integer topK = 5;
         private Double similarityThreshold = 0.65;
+        private Double menuSimilarityThreshold = 0.35;
+        private Double atmosphereSimilarityThreshold = 0.40;
     }
 
     @Getter

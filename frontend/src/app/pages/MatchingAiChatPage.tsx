@@ -4,12 +4,19 @@ import { AlertCircle, ArrowRight, Bot, CalendarClock, CheckCircle2, Coins, Loade
 import { clearMatchingConversation, RecommendedPost, streamMatchingChat } from '@/api/aiApi';
 
 const EXAMPLE_QUESTIONS = [
-  '오늘 3시쯤 밥 먹을 사람 추천해줘',
-  '양식 먹을 사람 2명 정도 추천해줘',
-  '중식 먹을 사람 있어?',
-  '빠르게 밥 먹고 헤어질 사람 추천해줘',
-  '조용하게 저녁 먹을 사람 있어?',
   '책임비 낮은 식사팟 추천해줘',
+  '조용한 사람으로 추천해줘',
+  '활발한 사람으로 추천해줘',
+  '오늘 오후 3시 근처에 모집 중인 식사팟 추천해줘',
+  '치킨',
+  '국밥',
+  '파스타',
+  '돈까스',
+  '쌀국수',
+  '라멘',
+  '덮밥',
+  '혼자 먹기 싫어',
+  '든든하게 먹을 사람',
 ];
 
 type ChatMessage = {
@@ -91,7 +98,7 @@ export default function MatchingAiChatPage() {
 
     try {
       await showThinkingForMoment();
-      const answer = await streamMatchingChat({
+      const response = await streamMatchingChat({
         conversationId: nextConversationId,
         message: trimmed,
       }, (chunk) => {
@@ -104,7 +111,21 @@ export default function MatchingAiChatPage() {
         );
       });
 
-      if (!answer.trim()) {
+      setMessages((prev) =>
+        prev.map((item) =>
+          item.id === assistantMessageId
+            ? {
+              ...item,
+              content: response.answer || item.content,
+              isThinking: false,
+              recommendedPosts: response.recommendedPosts ?? [],
+              fallbackUsed: response.fallbackUsed,
+            }
+            : item
+        )
+      );
+
+      if (!response.answer.trim()) {
         setMessages((prev) =>
           prev.map((item) =>
             item.id === assistantMessageId
@@ -214,7 +235,7 @@ export default function MatchingAiChatPage() {
               <input
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
-                placeholder="예: 오늘 3시쯤 양식 먹을 사람 2명 정도 추천해줘"
+                placeholder="조건을 입력하면 어울리는 식사팟을 추천해드려요."
                 disabled={loading}
                 className="h-14 min-w-0 flex-1 rounded-2xl border border-[#ead8c5] px-4 text-base outline-none transition-colors focus:border-[#d84315]"
               />
@@ -238,7 +259,9 @@ export default function MatchingAiChatPage() {
 function ChatBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === 'user';
   const displayRecommendedPosts = getDisplayRecommendedPosts(message);
-  const parsedRecommendations = !isUser ? parseRecommendationCards(message.content) : [];
+  const parsedRecommendations = !isUser && displayRecommendedPosts.length === 0
+      ? parseRecommendationCards(message.content)
+      : [];
   const linkedPostIds = !isUser && displayRecommendedPosts.length === 0 && parsedRecommendations.length === 0
       ? getMentionedPostIds(message.content)
       : [];
@@ -247,7 +270,8 @@ function ChatBubble({ message }: { message: ChatMessage }) {
       parsedRecommendations.length > 0 ||
       linkedPostIds.length > 0
   );
-  const displayText = parsedRecommendations.length > 0
+  const hasStructuredRecommendationText = displayRecommendedPosts.length > 0 || parsedRecommendations.length > 0;
+  const displayText = hasStructuredRecommendationText
       ? getRecommendationIntro(message.content)
       : formatMatchingContent(message.content);
   const recommendationReasons = getRecommendationReasons(displayRecommendedPosts, parsedRecommendations);
@@ -323,7 +347,7 @@ function ChatBubble({ message }: { message: ChatMessage }) {
             )}
           </div>
 
-          {!isUser && displayRecommendedPosts.length === 0 && parsedRecommendations.length === 0 && linkedPostIds.length === 0 && hasRecommendedAnswer(message) && (
+          {!isUser && displayRecommendedPosts.length === 0 && parsedRecommendations.length === 0 && linkedPostIds.length === 0 && hasRecommendedAnswer(message) && !isClarificationQuestion(message.content) && (
               <div className="mt-3 rounded-2xl border border-[#eeeeee] bg-white p-3">
                 <p className="text-sm font-bold text-[#212121]">게시글에서 직접 확인하기</p>
                 <p className="mt-0.5 text-xs text-[#9e9e9e]">
@@ -502,7 +526,7 @@ function getRecommendationReasons(
       .map((reason) => cleanupRecommendationReason(reason))
       .filter((reason): reason is string => Boolean(reason));
 
-  return Array.from(new Set(reasons)).slice(0, 3);
+  return reasons.slice(0, 3);
 }
 
 function cleanupRecommendationReason(reason?: string) {
@@ -578,6 +602,7 @@ function getRecommendationIntro(content: string) {
   const formatted = formatMatchingContent(content);
   const intro = formatted.split(/\n-\s*게시글\s*ID\s*:/)[0]
       .replace(/추천한?계시는? 참고하여 신청하세요\.?/g, '')
+      .split(/\n추천\s*이유\s*\n?/)[0]
       .trim();
 
   return intro || '조건에 맞는 식사팟을 찾았어요.';
@@ -632,6 +657,12 @@ function hasRecommendedAnswer(message: ChatMessage) {
   if (message.fallbackUsed) return false;
 
   return ['찾았어요', '후보', '추천', '신청 가능'].some((keyword) => message.content.includes(keyword));
+}
+
+function isClarificationQuestion(content: string) {
+  return ['알려주실래요', '넓혀볼까요', '뜻하시나요', '말씀해 주실 수 있나요', '?'].some((keyword) =>
+      content.includes(keyword)
+  );
 }
 
 function normalizeForMatching(value: string) {

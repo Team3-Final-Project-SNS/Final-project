@@ -12,12 +12,15 @@ import com.example.team3final.domain.ai.matching.entity.AiMatchingChatMemory;
 import com.example.team3final.domain.ai.matching.entity.AiMatchingChatMessage;
 import com.example.team3final.domain.ai.matching.repository.AiMatchingChatMemoryRepository;
 import com.example.team3final.domain.ai.matching.repository.AiMatchingChatMessageRepository;
+import com.example.team3final.domain.ai.matching.tool.AiMatchingPostToolResult;
 import com.example.team3final.domain.ai.matching.tool.AiMatchingSessionTool;
 import com.example.team3final.domain.ai.matching.tool.AiMatchingTool;
+import com.example.team3final.domain.ai.matching.util.AiMatchingMenuEvidence;
 import com.example.team3final.domain.ai.prompt.service.AiPromptFileService;
 import com.example.team3final.domain.user.entity.User;
 import com.example.team3final.domain.user.service.UserInternalService;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.ResponseEntity;
 import org.springframework.ai.chat.metadata.Usage;
@@ -31,6 +34,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -55,9 +59,9 @@ import java.util.regex.Pattern;
  * fallback 응답을 반환합니다.
  */
 
-@Slf4j
 @Service
 public class AiMatchingServiceImpl implements AiMatchingService {
+    private static final Logger log = LoggerFactory.getLogger(AiMatchingServiceImpl.class);
 
     private final ChatClient chatClient;
     private final AiPromptFileService aiPromptFileService;
@@ -79,6 +83,9 @@ public class AiMatchingServiceImpl implements AiMatchingService {
             "(?:게시글\\s*(?:ID|아이디)?|글\\s*ID)\\s*[:#]?\\s*(\\d+)",
             Pattern.CASE_INSENSITIVE
     );
+    private static final Pattern PARTY_SIZE_CONDITION_PATTERN = Pattern.compile("\\d+\\s*(?:명|인)");
+    private static final Pattern HOUR_CONDITION_PATTERN = Pattern.compile("\\d{1,2}\\s*시");
+    private static final String SSE_RECOMMENDATION_MARKER = "__MATCHING_RECOMMENDATIONS__";
 
     private static final PromptTemplate MATCHING_REWRITE_PROMPT_TEMPLATE = new PromptTemplate("""
             너는 한끼팟 매칭 검색용 질문을 만드는 AI다.
@@ -87,6 +94,9 @@ public class AiMatchingServiceImpl implements AiMatchingService {
             규칙:
             - 답변하지 말고 검색 조건만 작성한다.
             - 장소, 메뉴, 날짜, 시간대, 분위기, 책임비 정렬 조건, 인원 조건을 보존한다.
+            - 음식 범주 조건은 범주명만 쓰지 말고 대표 메뉴 단어를 함께 작성한다.
+              예: "중국 음식"은 "중국 음식 짜장면 짬뽕 탕수육 마라탕"처럼 작성한다.
+              예: "매운 음식"은 "매운 음식 떡볶이 마라탕 매운 국물"처럼 작성한다.
             - 숫자 또는 한글 수사와 인원 단위가 결합된 표현은 식사팟 정원 조건이므로 삭제하지 않는다.
             - "혼밥 싫어", "같이 먹고 싶어"는 함께 식사할 사람을 찾는 조건으로 바꾼다.
             - "조용하게", "가볍게", "든든하게", "대화하면서" 같은 분위기 표현을 검색 가능한 말로 유지한다.
@@ -283,7 +293,18 @@ public class AiMatchingServiceImpl implements AiMatchingService {
             completionTokens = tokenUsage.completionTokens();
             totalTokens = tokenUsage.totalTokens();
 
-            List<RecommendedPostDto> recommendedPosts = buildRecommendedPosts(email, result, recommendationScope);
+            ValidatedRecommendationResult validatedRecommendationResult = buildValidatedRecommendations(
+                    email,
+                    result,
+                    recommendationScope,
+                    request.message(),
+                    rewrittenUserMessage,
+                    conversationContext
+            );
+            if (hasText(validatedRecommendationResult.answerOverride())) {
+                answer = validatedRecommendationResult.answerOverride();
+            }
+            List<RecommendedPostDto> recommendedPosts = validatedRecommendationResult.recommendedPosts();
 
             saveMemory(user.getId(), conversationId, requestId, AiChatMemoryRole.ASSISTANT, answer);
             saveChatMessage(
@@ -293,7 +314,7 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                     AiChatMemoryRole.ASSISTANT,
                     answer,
                     rewrittenUserMessage,
-                    result == null ? List.of() : result.recommendedPostIds(),
+                    validatedRecommendationResult.recommendedPostIds(),
                     false,
                     aiProperties.getMatching().getModel(),
                     promptTemplateId,
@@ -378,230 +399,14 @@ public class AiMatchingServiceImpl implements AiMatchingService {
     @Override
     @Transactional
     public Flux<String> streamChat(String email, AiMatchingChatRequestDto request) {
-        String requestId = UUID.randomUUID().toString();
-        long startedAt = System.currentTimeMillis();
-        Long userId = null;
-        Long promptTemplateId = null;
-        String promptVersion = null;
-        String conversationId = resolveConversationId(request.conversationId());
+        // SSE 엔드포인트는 유지하되, 추천 결과는 서버 검증이 끝난 뒤 전송합니다.
+        // 토큰을 즉시 흘려보내면 LLM이 잘못 고른 게시글 ID를 화면에 보낸 뒤 회수할 방법이 없습니다.
+        AiMatchingChatResponseDto response = createAiMatchingChat(email, request);
+        List<String> chunks = new ArrayList<>(toSseChunks(response.answer()));
+        chunks.add(SSE_RECOMMENDATION_MARKER + serializeRecommendedPosts(response.recommendedPosts()));
 
-        try {
-            User user = userInternalService.findByEmail(email);
-            userId = user.getId();
-            cleanupExpiredMatchingMemory();
-
-            saveMemory(userId, conversationId, requestId, AiChatMemoryRole.USER, request.message());
-            String conversationContext = buildTokenWindowConversationContext(userId, conversationId, requestId);
-            // 스트리밍 응답도 일반 응답과 같은 스코프 판단을 사용해 추천 정책이 서로 달라지지 않게 합니다.
-            RecommendationScope recommendationScope = resolveRecommendationScope(
-                    userId,
-                    conversationId,
-                    request.message(),
-                    conversationContext
-            );
-            String rewrittenUserMessage = rewriteQuery(request.message(), conversationContext);
-            saveChatMessage(
-                    userId,
-                    conversationId,
-                    requestId,
-                    AiChatMemoryRole.USER,
-                    request.message(),
-                    rewrittenUserMessage,
-                    List.of(),
-                    null,
-                    null,
-                    null,
-                    null
-            );
-
-            if (recommendationScope.isGeneralResponse()) {
-                // SSE에서도 일반 대화는 바로 Flux로 반환합니다. 프론트는 일반 스트림처럼 그대로 렌더링하면 됩니다.
-                String answer = recommendationScope.generalAnswerOrDefault();
-                TokenUsage estimatedTokenUsage = estimateStreamingTokenUsage(
-                        conversationContext + "\n" + request.message(),
-                        answer
-                );
-                saveMemory(userId, conversationId, requestId, AiChatMemoryRole.ASSISTANT, answer);
-                saveChatMessage(
-                        userId,
-                        conversationId,
-                        requestId,
-                        AiChatMemoryRole.ASSISTANT,
-                        answer,
-                        rewrittenUserMessage,
-                        List.of(),
-                        false,
-                        aiProperties.getMatching().getModel(),
-                        null,
-                        null
-                );
-                saveMetric(
-                        requestId,
-                        userId,
-                        startedAt,
-                        AiCallStatus.SUCCESS,
-                        null,
-                        null,
-                        null,
-                        null,
-                        estimatedTokenUsage.promptTokens(),
-                        estimatedTokenUsage.completionTokens(),
-                        estimatedTokenUsage.totalTokens()
-                );
-
-                return Flux.just(answer);
-            }
-
-            AiPromptFileService.RenderedPrompt prompt = aiPromptFileService.renderWithMetadata(
-                    AiPromptType.MATCHING_CHAT,
-                    Map.of(
-                            "userMessage", request.message(),
-                            "rewrittenUserMessage", rewrittenUserMessage,
-                            "userId", user.getId(),
-                            "universityId", user.getUniversityId(),
-                            "userPoint", user.getTotalPoint(),
-                            "conversationContext", conversationContext
-                    )
-            );
-            promptTemplateId = prompt.promptTemplateId();
-            promptVersion = prompt.version();
-            String systemPrompt = prompt.content() + recommendationScope.toPromptInstruction();
-            Long metricUserId = userId;
-            Long metricPromptTemplateId = promptTemplateId;
-            String metricPromptVersion = promptVersion;
-            String metricConversationId = conversationId;
-            String metricRewrittenUserMessage = rewrittenUserMessage;
-            StringBuilder streamedAnswer = new StringBuilder();
-            String estimatedPromptSource = systemPrompt + "\n" + request.message() + "\n" + rewrittenUserMessage;
-
-            return chatClient.prompt()
-                    .system(systemPrompt + """
-
-                            [SSE 스트리밍 응답 규칙]
-                            - 이 요청에서는 JSON이나 Java record 형식으로 답하지 않는다.
-                            - 사용자에게 보여줄 추천 답변 본문만 자연어로 작성한다.
-                            - 추천한 게시글은 최대 %d개까지만 작성한다.
-                            - 추천한 게시글이 있다면 각 항목을 새 줄의 "- 게시글 ID:"로 시작하고, 장소, 시간, 책임비, 이유를 짧게 포함한다.
-                            - 단일 선택형 요청이면 "- 게시글 ID:" 항목도 정확히 1개만 작성한다.
-                            - 마크다운 볼드 기호(**)나 표 형식은 사용하지 않는다.
-                            """.formatted(recommendationScope.maxRecommendations()))
-                    .user("""
-                            원 질문:
-                            %s
-
-                            Rewrite Query Transformer가 정리한 검색 조건:
-                            %s
-                            """.formatted(request.message(), rewrittenUserMessage))
-                    .options(OpenAiChatOptions.builder()
-                            .model(aiProperties.getMatching().getModel())
-                            .maxTokens(aiProperties.getMatching().getMaxTokens())
-                            .temperature(aiProperties.getMatching().getTemperature())
-                            .build())
-                    .tools(new AiMatchingSessionTool(aiMatchingTool, email, recommendationScope.scopedPostIds(), request.message()))
-                    .stream()
-                    .content()
-                    .doOnNext(streamedAnswer::append)
-                    .doOnComplete(() -> {
-                        TokenUsage estimatedTokenUsage = estimateStreamingTokenUsage(
-                                estimatedPromptSource,
-                                streamedAnswer.toString()
-                        );
-                        List<Long> streamedRecommendedPostIds = extractRecommendedPostIds(
-                                streamedAnswer.toString(),
-                                recommendationScope.maxRecommendations()
-                        );
-                        saveMemory(metricUserId, metricConversationId, requestId, AiChatMemoryRole.ASSISTANT, streamedAnswer.toString());
-                        saveChatMessage(
-                                metricUserId,
-                                metricConversationId,
-                                requestId,
-                                AiChatMemoryRole.ASSISTANT,
-                                streamedAnswer.toString(),
-                                metricRewrittenUserMessage,
-                                streamedRecommendedPostIds,
-                                false,
-                                aiProperties.getMatching().getModel(),
-                                metricPromptTemplateId,
-                                metricPromptVersion
-                        );
-                        saveMetric(
-                                requestId,
-                                metricUserId,
-                                startedAt,
-                                AiCallStatus.SUCCESS,
-                                null,
-                                null,
-                                metricPromptTemplateId,
-                                metricPromptVersion,
-                                estimatedTokenUsage.promptTokens(),
-                                estimatedTokenUsage.completionTokens(),
-                                estimatedTokenUsage.totalTokens()
-                        );
-                    })
-                    .onErrorResume(e -> {
-                        log.error("[AiMatchingService] 매칭 AI 스트리밍 응답 생성 실패", e);
-                        String fallbackAnswer = "현재 AI 매칭 응답 생성이 원활하지 않습니다. 잠시 후 다시 시도해주세요.";
-                        TokenUsage estimatedTokenUsage = estimateStreamingTokenUsage(estimatedPromptSource, fallbackAnswer);
-                        saveMemory(metricUserId, metricConversationId, requestId, AiChatMemoryRole.ASSISTANT, fallbackAnswer);
-                        saveChatMessage(
-                                metricUserId,
-                                metricConversationId,
-                                requestId,
-                                AiChatMemoryRole.ASSISTANT,
-                                fallbackAnswer,
-                                metricRewrittenUserMessage,
-                                List.of(),
-                                true,
-                                aiProperties.getMatching().getModel(),
-                                metricPromptTemplateId,
-                                metricPromptVersion
-                        );
-                        saveMetric(
-                                requestId,
-                                metricUserId,
-                                startedAt,
-                                AiCallStatus.FALLBACK,
-                                e instanceof Exception exception ? resolveErrorType(exception) : AiErrorType.SERVER_ERROR,
-                                e.getMessage(),
-                                metricPromptTemplateId,
-                                metricPromptVersion,
-                                estimatedTokenUsage.promptTokens(),
-                                estimatedTokenUsage.completionTokens(),
-                                estimatedTokenUsage.totalTokens()
-                        );
-                        return Flux.just(fallbackAnswer);
-                    });
-        } catch (AiException e) {
-            saveMetric(
-                    requestId,
-                    userId,
-                    startedAt,
-                    AiCallStatus.FALLBACK,
-                    AiErrorType.PROMPT_LOAD_ERROR,
-                e.getMessage(),
-                promptTemplateId,
-                promptVersion,
-                estimateTokenCount(request.message()),
-                estimateTokenCount("AI 추천 기능을 잠시 사용할 수 없습니다. 대신 모집글 목록에서 직접 조건에 맞는 식사팟을 확인해주세요."),
-                estimateTokenCount(request.message()) + estimateTokenCount("AI 추천 기능을 잠시 사용할 수 없습니다. 대신 모집글 목록에서 직접 조건에 맞는 식사팟을 확인해주세요.")
-        );
-        return Flux.just("AI 추천 기능을 잠시 사용할 수 없습니다. 대신 모집글 목록에서 직접 조건에 맞는 식사팟을 확인해주세요.");
-        } catch (Exception e) {
-            saveMetric(
-                    requestId,
-                    userId,
-                    startedAt,
-                    AiCallStatus.FALLBACK,
-                    resolveErrorType(e),
-                e.getMessage(),
-                promptTemplateId,
-                promptVersion,
-                estimateTokenCount(request.message()),
-                estimateTokenCount("현재 AI 매칭 응답 생성이 원활하지 않습니다. 잠시 후 다시 시도해주세요."),
-                estimateTokenCount(request.message()) + estimateTokenCount("현재 AI 매칭 응답 생성이 원활하지 않습니다. 잠시 후 다시 시도해주세요.")
-        );
-            return Flux.just("현재 AI 매칭 응답 생성이 원활하지 않습니다. 잠시 후 다시 시도해주세요.");
-        }
+        return Flux.fromIterable(chunks)
+                .delayElements(Duration.ofMillis(80));
     }
 
     /**
@@ -879,32 +684,659 @@ public class AiMatchingServiceImpl implements AiMatchingService {
         return message;
     }
 
-    private List<RecommendedPostDto> buildRecommendedPosts(
+    private ValidatedRecommendationResult buildValidatedRecommendations(
             String email,
             AiMatchingLlmResult result,
-            RecommendationScope recommendationScope
+            RecommendationScope recommendationScope,
+            String userMessage,
+            String rewrittenUserMessage,
+            String conversationContext
     ) {
-        if (result == null || result.recommendedPostIds() == null || result.recommendedPostIds().isEmpty()) {
-            return List.of();
-        }
-
+        // LLM이 만든 recommendedPostIds를 그대로 화면에 내려보내지 않고,
+        // 서버 Tool로 다시 조회해 실제 신청 가능 여부와 메뉴 조건 근거를 검증합니다.
+        // 이 단계에서 자연어 답변(answer)과 카드 렌더링용 recommendedPosts를 함께 확정합니다.
         List<Long> allowedPostIds = recommendationScope == null ? List.of() : recommendationScope.scopedPostIds();
         int maxRecommendations = recommendationScope == null ? 3 : recommendationScope.maxRecommendations();
-        return new LinkedHashSet<>(result.recommendedPostIds()).stream()
+        boolean menuCondition = hasMenuCondition(userMessage, rewrittenUserMessage, conversationContext);
+        boolean depositSortRequest = isDepositSortRequest(userMessage, rewrittenUserMessage);
+        List<String> menuEvidenceTokens = menuCondition
+                ? extractCurrentMenuEvidenceTokens(userMessage, rewrittenUserMessage, conversationContext, result)
+                : List.of();
+
+        if (depositSortRequest) {
+            // 책임비 정렬 요청은 LLM이 선택한 순서보다 서버 정렬 결과가 우선입니다.
+            // 새 검색이면 후보를 복구하고, 후속 질문이면 직전 추천 ID 안에서만 재정렬합니다.
+            List<AiMatchingPostToolResult> depositSortedCandidates = allowedPostIds.isEmpty()
+                    ? recoverGeneralCandidates(
+                            email,
+                            userMessage,
+                            rewrittenUserMessage,
+                            conversationContext,
+                            maxRecommendations
+                    )
+                    : allowedPostIds.stream()
+                            .map(postId -> aiMatchingTool.checkApplicationAvailability(email, postId))
+                            .toList();
+
+            return buildValidatedRecommendationResult(
+                    sortCandidatesForRequest(depositSortedCandidates, userMessage, rewrittenUserMessage).stream()
+                            .limit(maxRecommendations)
+                            .toList(),
+                    true,
+                    List.of(),
+                    userMessage,
+                    rewrittenUserMessage
+            );
+        }
+
+        if (result == null || result.recommendedPostIds() == null || result.recommendedPostIds().isEmpty()) {
+            // LLM이 추천 ID를 못 뽑았더라도 Tool 후보가 있으면 사용자에게 빈 응답을 주지 않습니다.
+            // 메뉴 요청은 메뉴 근거가 있는 후보를 우선 복구하고, 일반 요청은 현재 조건 기반 후보를 다시 조회합니다.
+            if (menuCondition) {
+                List<AiMatchingPostToolResult> recoveredCandidates = recoverMenuCandidates(
+                        email,
+                        userMessage,
+                        rewrittenUserMessage,
+                        conversationContext,
+                        menuEvidenceTokens,
+                        maxRecommendations
+                );
+                return buildValidatedRecommendationResult(recoveredCandidates, true, menuEvidenceTokens);
+            }
+
+            List<AiMatchingPostToolResult> recoveredCandidates = recoverGeneralCandidates(
+                    email,
+                    userMessage,
+                    rewrittenUserMessage,
+                    conversationContext,
+                    maxRecommendations
+            );
+            return buildValidatedRecommendationResult(
+                    recoveredCandidates,
+                    true,
+                    List.of(),
+                    userMessage,
+                    rewrittenUserMessage
+            );
+        }
+
+        List<AiMatchingPostToolResult> candidates = new LinkedHashSet<>(result.recommendedPostIds()).stream()
                 // 후속 질문 스코프가 있는 경우, LLM이 허용 목록 밖 ID를 반환해도 응답 DTO에는 싣지 않습니다.
                 .filter(postId -> allowedPostIds.isEmpty() || allowedPostIds.contains(postId))
-                .limit(maxRecommendations)
                 .map(postId -> aiMatchingTool.checkApplicationAvailability(email, postId))
+                .toList();
+
+        // 메뉴 조건이 있는 요청에서는 게시글 장소명/한마디에 실제 메뉴 단서가 있는 후보만 남깁니다.
+        // 예를 들어 "치킨" 요청에 카페 글이 섞여도 카드와 답변에서 제거됩니다.
+        List<AiMatchingPostToolResult> validatedCandidates = candidates.stream()
+                .filter(candidate -> !menuCondition || hasMenuEvidence(candidate, menuEvidenceTokens))
+                .limit(maxRecommendations)
+                .toList();
+
+        if (menuCondition && validatedCandidates.isEmpty()) {
+            validatedCandidates = recoverMenuCandidates(
+                    email,
+                    userMessage,
+                    rewrittenUserMessage,
+                    conversationContext,
+                    menuEvidenceTokens,
+                    maxRecommendations
+            );
+        }
+
+        if (menuCondition
+                && allowedPostIds.isEmpty()
+                && !menuEvidenceTokens.isEmpty()
+                && validatedCandidates.size() < maxRecommendations) {
+            List<AiMatchingPostToolResult> recoveredCandidates = recoverMenuCandidates(
+                    email,
+                    userMessage,
+                    rewrittenUserMessage,
+                    conversationContext,
+                    menuEvidenceTokens,
+                    maxRecommendations
+            );
+            validatedCandidates = mergeCandidatesByPostId(validatedCandidates, recoveredCandidates).stream()
+                    .limit(maxRecommendations)
+                    .toList();
+        }
+
+        return buildValidatedRecommendationResult(
+                sortCandidatesForRequest(validatedCandidates, userMessage, rewrittenUserMessage),
+                menuCondition,
+                menuEvidenceTokens,
+                userMessage,
+                rewrittenUserMessage
+        );
+    }
+
+    private ValidatedRecommendationResult buildValidatedRecommendationResult(
+            List<AiMatchingPostToolResult> candidates,
+            boolean overrideAnswer,
+            List<String> menuEvidenceTokens,
+            String userMessage,
+            String rewrittenUserMessage
+    ) {
+        // 프론트는 answer를 채팅 말풍선에, recommendedPosts를 카드 목록에 사용합니다.
+        // 그래서 LLM 답변 문자열 파싱에 의존하지 않도록 서버에서 카드 DTO를 별도로 구성합니다.
+        List<RecommendedPostDto> recommendedPosts = candidates.stream()
                 .map(candidate -> new RecommendedPostDto(
                         candidate.postId(),
                         candidate.placeName(),
                         candidate.meetAt(),
                         candidate.deposit(),
-                        "AI 추천 후보입니다.",
+                        buildRecommendationReason(candidate, userMessage, rewrittenUserMessage, menuEvidenceTokens),
                         candidate.applicationAvailable(),
                         candidate.pointAffordable()
                 ))
                 .toList();
+
+        List<Long> recommendedPostIds = recommendedPosts.stream()
+                .map(RecommendedPostDto::postId)
+                .toList();
+
+        String answerOverride = overrideAnswer
+                ? buildValidatedAnswer(candidates, menuEvidenceTokens, userMessage, rewrittenUserMessage)
+                : null;
+
+        return new ValidatedRecommendationResult(answerOverride, recommendedPosts, recommendedPostIds);
+    }
+
+    private List<AiMatchingPostToolResult> sortCandidatesForRequest(
+            List<AiMatchingPostToolResult> candidates,
+            String userMessage,
+            String rewrittenUserMessage
+    ) {
+        if (candidates == null || candidates.isEmpty()) {
+            return List.of();
+        }
+
+        String normalized = normalizeForAiMatching(userMessage + " " + rewrittenUserMessage);
+
+        // 책임비가 같으면 더 빠른 약속 시간을 먼저 보여줍니다.
+        // 같은 가격대 후보가 여러 개일 때 사용자가 바로 선택하기 쉬운 순서입니다.
+        Comparator<AiMatchingPostToolResult> meetAtAsc =
+                Comparator.comparing(candidate -> LocalDateTime.parse(candidate.meetAt()));
+
+        if (isLowDepositRequest(normalized)) {
+            return candidates.stream()
+                    .sorted(Comparator.comparingInt(AiMatchingPostToolResult::deposit)
+                            .thenComparing(meetAtAsc))
+                    .toList();
+        }
+
+        if (isHighDepositRequest(normalized)) {
+            return candidates.stream()
+                    .sorted(Comparator.comparingInt(AiMatchingPostToolResult::deposit)
+                            .reversed()
+                            .thenComparing(meetAtAsc))
+                    .toList();
+        }
+
+        return candidates;
+    }
+
+    private List<AiMatchingPostToolResult> mergeCandidatesByPostId(
+            List<AiMatchingPostToolResult> primary,
+            List<AiMatchingPostToolResult> fallback
+    ) {
+        Map<Long, AiMatchingPostToolResult> merged = new LinkedHashMap<>();
+
+        if (primary != null) {
+            primary.forEach(candidate -> merged.put(candidate.postId(), candidate));
+        }
+
+        if (fallback != null) {
+            fallback.forEach(candidate -> merged.putIfAbsent(candidate.postId(), candidate));
+        }
+
+        return new ArrayList<>(merged.values());
+    }
+
+    private ValidatedRecommendationResult buildValidatedRecommendationResult(
+            List<AiMatchingPostToolResult> candidates,
+            boolean overrideAnswer,
+            List<String> menuEvidenceTokens
+    ) {
+        return buildValidatedRecommendationResult(candidates, overrideAnswer, menuEvidenceTokens, "", "");
+    }
+
+    private List<AiMatchingPostToolResult> recoverGeneralCandidates(
+            String email,
+            String userMessage,
+            String rewrittenUserMessage,
+            String conversationContext,
+            int maxRecommendations
+    ) {
+        // LLM이 추천 ID를 비워도 Tool 검색 결과가 있을 수 있으므로,
+        // 현재 요청과 최근 대화 맥락을 묶어 후보를 다시 확보합니다.
+        String condition = """
+                검색 조건:
+                %s
+
+                이전 대화:
+                %s
+
+                현재 요청:
+                %s
+                """.formatted(
+                hasText(rewrittenUserMessage) ? rewrittenUserMessage : userMessage,
+                truncate(conversationContext, 1000),
+                userMessage
+        );
+
+        return aiMatchingTool.searchRecruitingMealPostsForAi(email, condition).stream()
+                .limit(maxRecommendations)
+                .toList();
+    }
+
+    private List<AiMatchingPostToolResult> recoverMenuCandidates(
+            String email,
+            String userMessage,
+            String rewrittenUserMessage,
+            String conversationContext,
+            List<String> menuEvidenceTokens,
+            int maxRecommendations
+    ) {
+        // 메뉴 요청은 벡터 유사도가 낮게 나와 후보가 누락될 수 있어,
+        // 추출한 메뉴 토큰을 condition에 명시해 한 번 더 후보를 복구합니다.
+        String condition = """
+                검색 조건:
+                %s
+
+                이전 대화:
+                %s
+
+                현재 요청:
+                %s
+                """.formatted(
+                hasText(rewrittenUserMessage) ? rewrittenUserMessage : userMessage,
+                truncate(conversationContext, 1000),
+                userMessage
+        );
+        List<AiMatchingPostToolResult> candidates = aiMatchingTool.searchRecruitingMealPostsForAi(email, condition);
+        List<AiMatchingPostToolResult> exactMenuCandidates = candidates.stream()
+                .filter(candidate -> hasMenuEvidence(candidate, menuEvidenceTokens))
+                .limit(maxRecommendations)
+                .toList();
+
+        if (!exactMenuCandidates.isEmpty()) {
+            return exactMenuCandidates;
+        }
+
+        String nearTimeCondition = """
+                현재 시간에 가장 가까운 모집글을 추천해줘.
+                요청 조건과 정확히 일치하지 않아도 신청 가능한 열린 글 중 가까운 시간대 후보를 보여줘.
+                """;
+
+        return aiMatchingTool.searchRecruitingMealPostsForAi(email, nearTimeCondition).stream()
+                .limit(maxRecommendations)
+                .toList();
+    }
+
+    private boolean hasMenuCondition(String userMessage, String rewrittenUserMessage, String conversationContext) {
+        String currentSource = userMessage + " " + rewrittenUserMessage;
+        if (!extractExplicitMenuEvidenceTokens(currentSource).isEmpty()) {
+            return true;
+        }
+
+        return isMenuClarificationFollowUp(userMessage)
+                && !extractExplicitMenuEvidenceTokens(conversationContext).isEmpty();
+    }
+
+    private boolean isMenuClarificationFollowUp(String message) {
+        String normalized = normalizeForAiMatching(message);
+        return containsAny(normalized,
+                "맞음", "맞아", "ㅇㅇ", "응", "네", "그거", "그렇", "상관없", "무관");
+    }
+
+    private List<String> extractCurrentMenuEvidenceTokens(
+            String userMessage,
+            String rewrittenUserMessage,
+            String conversationContext,
+            AiMatchingLlmResult result
+    ) {
+        List<String> explicitUserMenuTokens = extractExplicitMenuEvidenceTokens(userMessage);
+        if (!explicitUserMenuTokens.isEmpty()) {
+            return explicitUserMenuTokens;
+        }
+
+        List<String> explicitRewrittenMenuTokens = extractExplicitMenuEvidenceTokens(rewrittenUserMessage);
+        if (!explicitRewrittenMenuTokens.isEmpty()) {
+            return explicitRewrittenMenuTokens;
+        }
+
+        String currentSource = userMessage + " " + rewrittenUserMessage;
+        List<String> currentTokens = extractMenuEvidenceTokens(currentSource);
+        if (!currentTokens.isEmpty()) {
+            return currentTokens;
+        }
+
+        return extractMenuEvidenceTokens(conversationContext);
+    }
+
+    private List<String> extractExplicitMenuEvidenceTokens(String text) {
+        return AiMatchingMenuEvidence.extractTokens(text);
+    }
+
+    private List<String> extractMenuEvidenceTokens(String text) {
+        return Arrays.stream(normalizeForTokenization(text).split(" "))
+                .map(String::trim)
+                .filter(token -> token.length() >= 2)
+                .filter(token -> !isRecommendationNoiseToken(token))
+                .distinct()
+                .toList();
+    }
+
+    private boolean hasMenuEvidence(AiMatchingPostToolResult candidate, List<String> evidenceTokens) {
+        if (candidate == null || evidenceTokens == null || evidenceTokens.isEmpty()) {
+            return false;
+        }
+
+        List<String> postTokens = extractPostEvidenceTokens(candidate.placeName() + " " + candidate.content());
+        if (postTokens.isEmpty()) {
+            return false;
+        }
+
+        for (String evidenceToken : evidenceTokens) {
+            for (String postToken : postTokens) {
+                if (hasTokenOverlap(evidenceToken, postToken)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private List<String> extractPostEvidenceTokens(String text) {
+        return Arrays.stream(normalizeForTokenization(text).split(" "))
+                .map(String::trim)
+                .filter(token -> token.length() >= 2)
+                .distinct()
+                .toList();
+    }
+
+    private boolean hasTokenOverlap(String queryToken, String postToken) {
+        if (!hasText(queryToken) || !hasText(postToken)) {
+            return false;
+        }
+
+        return queryToken.contains(postToken) || postToken.contains(queryToken);
+    }
+
+    private boolean isRecommendationNoiseToken(String token) {
+        return switch (token) {
+            case "조건", "추천", "모집글", "게시글", "사람", "함께", "같이", "찾는", "찾고",
+                 "원문", "검색", "시간", "장소", "분위기", "책임비", "현재", "질문",
+                 "시간대", "시간대는", "상관없음", "상관없어", "무관", "인원수", "인원수는",
+                 "오늘", "내일", "아침", "점심", "저녁", "밤", "식사", "음식", "메뉴", "요리",
+                 "먹고", "먹을", "먹고싶", "있어", "있나요", "있는" -> true;
+            default -> false;
+        };
+    }
+
+    private static boolean containsAny(String text, String... keywords) {
+        if (text == null || keywords == null) {
+            return false;
+        }
+
+        for (String keyword : keywords) {
+            if (keyword != null && text.contains(keyword)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private String buildRecommendationReason(
+            AiMatchingPostToolResult candidate,
+            String userMessage,
+            String rewrittenUserMessage,
+            List<String> menuEvidenceTokens
+    ) {
+        String normalized = normalizeForAiMatching(userMessage + " " + rewrittenUserMessage);
+
+        if (isLowDepositRequest(normalized)) {
+            return "책임비가 낮은 순으로 확인한 추천 후보입니다.";
+        }
+
+        if (isHighDepositRequest(normalized)) {
+            return "책임비가 높은 순으로 확인한 추천 후보입니다.";
+        }
+
+        if (menuEvidenceTokens != null
+                && !menuEvidenceTokens.isEmpty()
+                && hasMenuEvidence(candidate, menuEvidenceTokens)) {
+            return "장소나 한마디에 "
+                    + String.join(", ", menuEvidenceTokens)
+                    + " 단서가 있어 음식 조건과 직접 관련된 모집글입니다.";
+        }
+
+        String postText = candidate.placeName() + " " + candidate.content();
+        String normalizedPostText = normalizeForAiMatching(postText);
+
+        if (isHeartyMealRequest(normalized)) {
+            if (containsAny(normalizedPostText, "든든", "국밥", "찌개", "백반", "덮밥", "짬뽕", "밥")) {
+                return candidate.placeName() + "은 든든한 식사로 이어지기 좋은 메뉴 단서가 있는 모집글입니다.";
+            }
+            return candidate.placeName() + "은 식사량이 있는 메뉴로 가볍지 않은 한 끼를 찾을 때 가까운 후보입니다.";
+        }
+
+        if (isQuickMealRequest(normalized)) {
+            if (containsAny(normalizedPostText, "빠르게", "간단", "짧고", "부담없이", "바로헤어")) {
+                return "한마디에 빠르고 부담 없는 식사 분위기가 드러나 요청하신 방식과 잘 맞습니다.";
+            }
+            return candidate.placeName() + "은 시간 부담이 적은 식사 후보로 추천할 수 있습니다.";
+        }
+
+        if (isEatTogetherRequest(normalized)) {
+            if (containsAny(normalizedPostText, "혼밥", "같이", "함께")) {
+                return "한마디에 같이 먹을 사람을 찾는 의도가 있어 혼자 먹기 싫다는 요청과 잘 맞습니다.";
+            }
+            return "모집 중인 식사팟이라 혼자 먹지 않고 함께 식사할 수 있는 후보입니다.";
+        }
+
+        if (isQuietMoodRequest(normalized)) {
+            if (containsAny(normalizedPostText, "조용", "차분", "말수적", "시끄럽지")) {
+                return "한마디에 조용하거나 차분한 분위기 단서가 있어 요청하신 분위기와 잘 맞습니다.";
+            }
+            return candidate.placeName() + "은 비교적 차분한 식사 후보로 볼 수 있습니다.";
+        }
+
+        if (isActiveMoodRequest(normalized)) {
+            if (containsAny(normalizedPostText, "활발", "수다", "대화", "재밌", "이야기")) {
+                return "한마디에 대화나 활발한 분위기 단서가 있어 요청하신 분위기와 잘 맞습니다.";
+            }
+            return candidate.placeName() + "은 함께 대화하며 먹기 좋은 후보로 추천할 수 있습니다.";
+        }
+
+        return candidate.placeName()
+                + "은 요청 조건과 가까운 시간과 내용으로 확인된 모집글입니다.";
+    }
+
+    private boolean isHeartyMealRequest(String normalized) {
+        return containsAny(normalized, "든든하게먹", "든든하게밥", "든든한한끼", "든든");
+    }
+
+    private boolean isQuickMealRequest(String normalized) {
+        return containsAny(normalized,
+                "빠르게먹", "빠르게밥", "빨리먹", "바로헤어", "헤어질",
+                "가볍게먹", "가볍게밥", "간단하게먹", "간단히먹", "간단하게밥", "간단히밥");
+    }
+
+    private boolean isEatTogetherRequest(String normalized) {
+        return containsAny(normalized, "혼밥싫", "혼자먹기싫", "같이먹", "함께먹");
+    }
+
+    private boolean isQuietMoodRequest(String normalized) {
+        return containsAny(normalized, "조용", "차분", "말수적", "시끄럽지");
+    }
+
+    private boolean isActiveMoodRequest(String normalized) {
+        return containsAny(normalized, "활발", "수다", "대화", "말많", "말많은");
+    }
+
+    private String buildValidatedAnswer(
+            List<AiMatchingPostToolResult> candidates,
+            List<String> menuEvidenceTokens,
+            String userMessage,
+            String rewrittenUserMessage
+    ) {
+        if (candidates == null || candidates.isEmpty()) {
+            String menuText = menuEvidenceTokens == null || menuEvidenceTokens.isEmpty()
+                    ? "현재 조건"
+                    : String.join(", ", menuEvidenceTokens);
+            return "%s에 맞는 열린 글을 찾지 못했어요. 시간대나 장소 조건을 조금 넓혀볼까요?"
+                    .formatted(menuText);
+        }
+
+        String normalized = normalizeForAiMatching(userMessage + " " + rewrittenUserMessage);
+        boolean exactMenuMatch = menuEvidenceTokens != null
+                && !menuEvidenceTokens.isEmpty()
+                && candidates.stream().allMatch(candidate -> hasMenuEvidence(candidate, menuEvidenceTokens));
+
+        StringBuilder answer = new StringBuilder();
+        if (isLowDepositRequest(normalized)) {
+            answer.append("책임비가 낮은 순으로 모집글 ")
+                    .append(candidates.size())
+                    .append("개를 추천드립니다.\n\n");
+        } else if (isHighDepositRequest(normalized)) {
+            answer.append("책임비가 높은 순으로 모집글 ")
+                    .append(candidates.size())
+                    .append("개를 추천드립니다.\n\n");
+        } else if (exactMenuMatch) {
+            answer.append("조건에 맞는 모집글이 ")
+                    .append(candidates.size())
+                    .append("개만 있어 ")
+                    .append(candidates.size())
+                    .append("개를 추천드립니다.\n\n");
+        } else {
+            String menuText = menuEvidenceTokens == null || menuEvidenceTokens.isEmpty()
+                    ? "찾는 조건"
+                    : String.join(", ", menuEvidenceTokens);
+            answer.append(menuText)
+                    .append(" 조건에 정확히 맞는 글은 아직 없어요. 대신 지금 시간에 가까운 모집글 ")
+                    .append(candidates.size())
+                    .append("개는 어떠세요?\n\n");
+        }
+
+        for (AiMatchingPostToolResult candidate : candidates) {
+            answer.append("- 게시글 ID: ")
+                    .append(candidate.postId())
+                    .append(" / 장소: ")
+                    .append(candidate.placeName())
+                    .append(" / 시간: ")
+                    .append(formatMeetAt(candidate.meetAt()))
+                    .append(" / 책임비: ")
+                    .append(candidate.deposit())
+                    .append("P / 이유: ");
+
+            if (isLowDepositRequest(normalized)) {
+                answer.append("요청하신 책임비 낮은 조건을 반영해 낮은 책임비 순으로 정렬한 후보입니다.\n");
+            } else if (isHighDepositRequest(normalized)) {
+                answer.append("요청하신 책임비 높은 조건을 반영해 높은 책임비 순으로 정렬한 후보입니다.\n");
+            } else if (exactMenuMatch) {
+                answer.append("요청하신 음식 조건과 게시글 내용이 직접 관련되어 있습니다.\n");
+            } else {
+                answer.append("요청한 조건과 완전히 일치하진 않지만, 현재 시점에서 가까운 시간대의 모집글입니다.\n");
+            }
+        }
+
+        return answer.toString().trim();
+    }
+
+    private boolean isLowDepositRequest(String normalized) {
+        return containsAny(normalized,
+                "책임비낮", "책임비가낮", "책임비가장낮", "책임비가가장낮", "책임비제일낮",
+                "낮은순", "가장낮", "제일낮", "저렴", "싼");
+    }
+
+    private boolean isHighDepositRequest(String normalized) {
+        return containsAny(normalized,
+                "책임비높", "책임비가높", "책임비가장높", "책임비가가장높", "책임비제일높",
+                "높은순", "가장높", "제일높", "비싼");
+    }
+
+    private boolean isDepositSortRequest(String userMessage, String rewrittenUserMessage) {
+        String normalized = normalizeForAiMatching(userMessage + " " + rewrittenUserMessage);
+
+        return isLowDepositRequest(normalized) || isHighDepositRequest(normalized);
+    }
+
+    private String formatMeetAt(String meetAt) {
+        if (!hasText(meetAt)) {
+            return "";
+        }
+
+        return meetAt.length() >= 16 ? meetAt.substring(0, 16).replace("T", " ") : meetAt.replace("T", " ");
+    }
+
+    private static String normalizeForAiMatching(String text) {
+        if (text == null) {
+            return "";
+        }
+
+        return text.replace(" ", "").toLowerCase();
+    }
+
+    private static String normalizeForTokenization(String text) {
+        if (text == null) {
+            return "";
+        }
+
+        return text.toLowerCase()
+                .replaceAll("[^가-힣a-z0-9]+", " ")
+                .trim();
+    }
+
+    private List<String> toSseChunks(String answer) {
+        if (!hasText(answer)) {
+            return List.of("");
+        }
+
+        int chunkSize = 12;
+        List<String> chunks = new ArrayList<>();
+        for (int start = 0; start < answer.length(); start += chunkSize) {
+            int end = Math.min(answer.length(), start + chunkSize);
+            chunks.add(answer.substring(start, end));
+        }
+
+        return chunks;
+    }
+
+    private String serializeRecommendedPosts(List<RecommendedPostDto> recommendedPosts) {
+        if (recommendedPosts == null || recommendedPosts.isEmpty()) {
+            return "[]";
+        }
+
+        return recommendedPosts.stream()
+                .map(post -> """
+                        {"postId":%d,"placeName":"%s","meetAt":"%s","deposit":%d,"reason":"%s","applicationAvailable":%s,"pointAffordable":%s}
+                        """.formatted(
+                        post.postId(),
+                        escapeJson(post.placeName()),
+                        escapeJson(post.meetAt()),
+                        post.deposit(),
+                        escapeJson(post.reason()),
+                        post.applicationAvailable(),
+                        post.pointAffordable()
+                ).trim())
+                .collect(java.util.stream.Collectors.joining(",", "[", "]"));
+    }
+
+    private String escapeJson(String value) {
+        if (value == null) {
+            return "";
+        }
+
+        return value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
     }
 
     private RecommendationScope resolveRecommendationScope(
@@ -931,17 +1363,22 @@ public class AiMatchingServiceImpl implements AiMatchingService {
         );
 
         log.info(
-                "[AiMatchingService] 추천 대화 상태 판단 | conversationId={} | previousPostIds={} | usePreviousRecommendations={} | requestType={} | recommendationRequest={} | reason={}",
+                "[AiMatchingService] 추천 대화 상태 판단 | conversationId={} | previousPostIds={} | usePreviousRecommendations={} | requestType={} | recommendationRequest={} | needsClarification={} | reason={}",
                 conversationId,
                 previousRecommendedPostIds,
                 decision.usePreviousRecommendations(),
                 decision.requestType(),
                 decision.isRecommendationRequest(),
+                decision.needsClarificationResponse(),
                 decision.reason()
         );
 
         List<Long> scopedPostIds = decision.usePreviousRecommendations() ? previousRecommendedPostIds : List.of();
-        return new RecommendationScope(scopedPostIds, decision.resolvedRequestType(), decision.generalAnswer());
+        return new RecommendationScope(
+                scopedPostIds,
+                decision.resolvedRequestType(),
+                decision.responseAnswer()
+        );
     }
 
     private List<Long> findPreviousRecommendedPostIds(Long userId, String conversationId) {
@@ -978,6 +1415,8 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                             - usePreviousRecommendations: boolean
                             - requestType: 반드시 GENERAL_RESPONSE, CANDIDATE_EXPLORATION, SINGLE_SELECTION 중 하나의 문자열
                             - isRecommendationRequest: boolean
+                            - needsClarification: boolean
+                            - clarificationMessage: 추가 질문이 필요할 때 사용자에게 보여줄 짧은 한국어 질문, 아니면 null
                             - reason: 짧은 한국어 판단 이유
                             - generalAnswer: GENERAL_RESPONSE일 때 사용자에게 보여줄 짧은 답변
                             - extractedConditions: 아래 조건 추출 객체
@@ -996,6 +1435,28 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                             판단 기준:
                             - GENERAL_RESPONSE는 추천, 검색, 비교, 정렬, 선택 의도가 전혀 없는 일반 대화에만 사용한다.
                             - 사용자가 서비스 안의 식사 모임 또는 모집글을 찾고, 고르고, 비교하고, 정렬하고, 추천받으려는 의도이면 isRecommendationRequest=true다.
+                            - 사용자의 추천 의도는 있으나 핵심 조건이 서로 다른 의미로 해석될 수 있고 대화 맥락으로도 확정할 수 없으면 needsClarification=true로 둔다.
+                            - needsClarification=true이면 requestType=GENERAL_RESPONSE, isRecommendationRequest=false, usePreviousRecommendations=false로 둔다.
+                            - needsClarification=true이면 clarificationMessage에 사용자가 한 번에 답할 수 있는 짧은 추가 질문을 작성한다.
+                            - 추가 질문이 필요한 경우에는 게시글 후보를 찾거나 추천하지 않는다.
+                            - 예: "중식 먹을 사람 있어?"에서 "중식"은 점심 시간대와 중국 음식 모두 가능하므로 "말씀하신 중식이 점심 시간대를 뜻하시나요, 아니면 짜장면·짬뽕 같은 중국 음식을 뜻하시나요?"라고 묻는다.
+                            - 예: "가벼운 거 추천해줘"가 식사량이 가벼운 것인지, 분위기가 부담 없는 것인지, 책임비가 낮은 것인지 맥락상 불명확하면 한 가지를 확인한다.
+                            - 단, "중식 짜장면", "중국집", "중식 메뉴"처럼 메뉴 단서가 있으면 중국 음식 조건으로 판단하고 추가 질문하지 않는다.
+                            - 단, "중식 점심시간", "낮 12시", "런치"처럼 시간 단서가 있으면 점심 시간대 조건으로 판단하고 추가 질문하지 않는다.
+                            - 특정 음식명이나 메뉴명이 직접 나온 경우에는 시간대, 인원, 세부 종류가 없어도 추가 질문하지 말고 후보 탐색으로 처리한다.
+                            - 예: "치킨", "국밥", "파스타", "돈까스", "쌀국수", "라멘", "덮밥", "떡볶이", "김밥", "마라탕", "짜장면", "짬뽕", "샌드위치"는 메뉴 조건의 후보 탐색이다. 세부 종류나 시간대를 되묻지 않는다.
+                            - 시간 조건이 직접 나온 경우에는 추가 질문하지 말고 후보 탐색으로 처리한다.
+                            - 예: "오늘 3시쯤", "저녁", "점심", "야식", "내일", "오후 6시"는 시간 조건의 후보 탐색이다.
+                            - 책임비 조건이 직접 나온 경우에는 추가 질문하지 말고 후보 탐색으로 처리한다.
+                            - 예: "책임비 낮은", "저렴한", "싼", "책임비 높은", "비싼", "높은 순"은 책임비 정렬 조건의 후보 탐색이다.
+                            - 인원 조건이 직접 나온 경우에는 추가 질문하지 말고 후보 탐색으로 처리한다.
+                            - 예: "2명", "두 명", "3인", "여럿이", "소규모"는 인원 조건의 후보 탐색이다.
+                            - 식사 방식 조건이 직접 나온 경우에는 추가 질문하지 말고 후보 탐색으로 처리한다.
+                            - 예: "빠르게 먹고 헤어질 사람", "가볍게 먹을 사람", "간단하게 먹을 사람", "든든하게 먹을 사람", "혼밥 싫어", "같이 먹을 사람", "혼자 먹기 싫어"는 식사 방식 조건이다.
+                            - 분위기 조건이 직접 나온 경우에는 추가 질문하지 말고 후보 탐색으로 처리한다.
+                            - 예: "조용한 사람", "조용하게", "말수 적은 사람"은 조용한 분위기 조건이다.
+                            - 예: "활발한 사람", "활발하게", "수다 많은 사람", "대화 많은 사람"은 대화가 활발한 분위기 조건이다.
+                            - 사용자가 "시간대는 상관없어", "인원수는 상관없어"처럼 직전 추가 질문에 답하면, 이전 대화의 메뉴/조건을 유지해 후보 탐색으로 처리한다.
                             - 추천 조건은 완전할 필요가 없다. 시간, 메뉴, 장소, 분위기, 비용, 인원, 식사 목적 중 하나만 있어도 extractedConditions.hasAnyCondition=true로 둔다.
                             - 조건이 하나뿐이거나 넓어도 후보를 찾을 수 있는 요청이면 requestType=CANDIDATE_EXPLORATION으로 분류한다.
                             - 비용 기준만 있는 요청도 후보 탐색 요청으로 판단할 수 있다.
@@ -1078,6 +1539,34 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                     "이전 추천 후보가 없어 새 검색으로 진행합니다.",
                     null,
                     decision.isRecommendationRequest(),
+                    false,
+                    null,
+                    decision.extractedConditions()
+            );
+        }
+
+        if (decision.needsClarificationResponse() && hasDeterministicSearchCondition(decision)) {
+            return new RecommendationScopeDecision(
+                    usePreviousRecommendations,
+                    RecommendationRequestType.CANDIDATE_EXPLORATION.name(),
+                    "시간, 책임비, 인원처럼 서버에서 해석 가능한 조건이 있어 추가 질문 없이 후보 탐색으로 진행합니다.",
+                    null,
+                    true,
+                    false,
+                    null,
+                    decision.extractedConditions()
+            );
+        }
+
+        if (decision.needsClarificationResponse()) {
+            return new RecommendationScopeDecision(
+                    false,
+                    RecommendationRequestType.GENERAL_RESPONSE.name(),
+                    decision.reason(),
+                    decision.responseAnswer(),
+                    false,
+                    true,
+                    decision.responseAnswer(),
                     decision.extractedConditions()
             );
         }
@@ -1091,6 +1580,8 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                     "LLM이 추출한 추천 의도 또는 조건이 있어 후보 탐색으로 진행합니다.",
                     null,
                     true,
+                    false,
+                    null,
                     decision.extractedConditions()
             );
         }
@@ -1102,11 +1593,102 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                     decision.reason(),
                     decision.generalAnswer(),
                     decision.isRecommendationRequest(),
+                    decision.clarificationNeeded(),
+                    decision.clarificationMessage(),
                     decision.extractedConditions()
             );
         }
 
         return decision;
+    }
+
+    private boolean hasDeterministicSearchCondition(RecommendationScopeDecision decision) {
+        RecommendationConditionExtraction conditions = decision.extractedConditions();
+
+        if (conditions != null
+                && (hasText(conditions.timeCondition())
+                || hasText(conditions.depositCondition())
+                || hasText(conditions.partySizeCondition())
+                || hasText(conditions.moodCondition())
+                || hasText(conditions.countCondition()))) {
+            return true;
+        }
+
+        String source = buildConditionSource(decision);
+        String normalized = normalizeConditionText(source);
+
+        return hasDeterministicTimeCondition(source, normalized)
+                || hasDeterministicDepositCondition(normalized)
+                || hasDeterministicPartySizeCondition(source, normalized)
+                || hasDeterministicMoodCondition(normalized)
+                || hasDeterministicMealStyleCondition(normalized)
+                || hasDeterministicMenuCondition(source);
+    }
+
+    private String buildConditionSource(RecommendationScopeDecision decision) {
+        RecommendationConditionExtraction conditions = decision.extractedConditions();
+        if (conditions == null) {
+            return "";
+        }
+
+        return String.join(" ",
+                nullToBlank(conditions.timeCondition()),
+                nullToBlank(conditions.menuCondition()),
+                nullToBlank(conditions.placeCondition()),
+                nullToBlank(conditions.moodCondition()),
+                nullToBlank(conditions.depositCondition()),
+                nullToBlank(conditions.partySizeCondition()),
+                nullToBlank(conditions.countCondition())
+        );
+    }
+
+    private boolean hasDeterministicTimeCondition(String source, String normalized) {
+        return HOUR_CONDITION_PATTERN.matcher(source).find()
+                || containsAny(normalized,
+                "오늘", "내일", "아침", "조식", "모닝", "브런치", "점심", "런치", "저녁", "퇴근후", "밤", "야식", "오전", "오후");
+    }
+
+    private boolean hasDeterministicDepositCondition(String normalized) {
+        return containsAny(normalized,
+                "책임비낮", "책임비가낮", "책임비가장낮", "책임비가가장낮", "책임비제일낮",
+                "낮은순", "가장낮", "제일낮", "저렴", "싼",
+                "책임비높", "책임비가높", "책임비가장높", "책임비가가장높", "책임비제일높",
+                "높은순", "가장높", "제일높", "비싼");
+    }
+
+    private boolean hasDeterministicPartySizeCondition(String source, String normalized) {
+        return PARTY_SIZE_CONDITION_PATTERN.matcher(source).find()
+                || containsAny(normalized,
+                "한명", "두명", "세명", "네명", "다섯명",
+                "한인", "두인", "세인", "네인", "다섯인",
+                "여럿", "소규모", "많은사람", "인원수", "자리", "정원");
+    }
+
+    private boolean hasDeterministicMoodCondition(String normalized) {
+        return containsAny(normalized,
+                "조용", "차분", "말수적", "시끄럽지",
+                "활발", "수다", "대화", "말많", "말많은",
+                "편한분위기", "가볍게", "부담없이");
+    }
+
+    private boolean hasDeterministicMealStyleCondition(String normalized) {
+        return containsAny(normalized,
+                "빠르게먹", "빠르게밥", "빨리먹", "바로헤어", "헤어질",
+                "가볍게먹", "가볍게밥", "간단하게먹", "간단히먹", "간단하게밥", "간단히밥",
+                "든든하게먹", "든든하게밥", "든든한한끼",
+                "혼밥싫", "혼자먹기싫", "같이먹", "함께먹");
+    }
+
+    private boolean hasDeterministicMenuCondition(String source) {
+        return !extractExplicitMenuEvidenceTokens(source).isEmpty();
+    }
+
+    private String normalizeConditionText(String value) {
+        return nullToBlank(value).replace(" ", "").toLowerCase();
+    }
+
+    private String nullToBlank(String value) {
+        return value == null ? "" : value;
     }
 
     private List<Long> parseRecommendedPostIds(String recommendedPostIds) {
@@ -1215,6 +1797,13 @@ public class AiMatchingServiceImpl implements AiMatchingService {
     ) {
     }
 
+    private record ValidatedRecommendationResult(
+            String answerOverride,
+            List<RecommendedPostDto> recommendedPosts,
+            List<Long> recommendedPostIds
+    ) {
+    }
+
     private record RecommendationScope(
             List<Long> scopedPostIds,
             RecommendationRequestType requestType,
@@ -1267,12 +1856,16 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                         - 선택하지 않은 후보는 필요한 경우 한 문장으로만 비교 설명한다.
                         """);
             } else {
-                // 일반 후보 탐색은 조건에 맞는 글만 최대 3개까지 보여주는 기본 추천 흐름입니다.
+                // 일반 후보 탐색은 정확 후보를 우선 추천하고, 없으면 가까운 시간대 후보를 대체 추천하는 흐름입니다.
                 instruction.append("""
 
                         [추천 요청 유형: 후보 탐색형]
                         - 사용자는 조건에 맞는 후보를 찾거나 비교 가능한 추천 목록을 보고 싶어 한다.
-                        - 조건에 맞는 후보만 최대 3개까지 추천한다.
+                        - 정확히 조건에 맞는 후보가 있으면 그 후보를 최대 3개까지 추천한다.
+                        - 특정 음식/메뉴 조건에 맞는 후보가 1개뿐이면 최종 답변과 recommendedPostIds에는 그 1개만 포함한다.
+                        - 정확히 맞는 후보가 없으면 추천을 중단하지 말고, 현재 채팅 시점에 가까운 모집글을 최대 3개까지 대체 추천한다.
+                        - 대체 추천일 때는 "찾는 조건에 정확히 맞는 글은 아직 없어요. 대신 지금 시간에 가까운 모집글은 어떠세요?"처럼 정확 후보가 아님을 먼저 밝힌다.
+                        - 대체 추천 이유에는 요청 조건과 완전히 일치하지 않는 점과, 현재 시간에 가까운 후보라는 점을 함께 설명한다.
                         """);
             }
 
@@ -1292,6 +1885,8 @@ public class AiMatchingServiceImpl implements AiMatchingService {
             String reason,
             String generalAnswer,
             Boolean isRecommendationRequest,
+            Boolean clarificationNeeded,
+            String clarificationMessage,
             RecommendationConditionExtraction extractedConditions
     ) {
         private RecommendationRequestType resolvedRequestType() {
@@ -1306,6 +1901,17 @@ public class AiMatchingServiceImpl implements AiMatchingService {
 
         private boolean hasRecommendationIntent() {
             return Boolean.TRUE.equals(isRecommendationRequest) || hasAnyExtractedCondition();
+        }
+
+        private boolean needsClarificationResponse() {
+            return Boolean.TRUE.equals(clarificationNeeded) && hasText(responseAnswer());
+        }
+
+        private String responseAnswer() {
+            if (hasText(clarificationMessage)) {
+                return clarificationMessage;
+            }
+            return generalAnswer;
         }
 
         private boolean refersToPreviousRecommendations() {
@@ -1324,8 +1930,14 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                     "새 검색으로 처리합니다.",
                     null,
                     true,
+                    false,
+                    null,
                     null
             );
+        }
+
+        private boolean hasText(String value) {
+            return value != null && !value.isBlank();
         }
     }
 

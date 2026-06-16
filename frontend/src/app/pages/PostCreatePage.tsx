@@ -498,7 +498,7 @@ export default function PostCreatePage() {
                             <textarea
                                 value={content}
                                 onChange={(e) => setContent(e.target.value)}
-                                placeholder="간단히 소개해주세요"
+                                placeholder="한마디를 남기면 더 잘 맞는 사람과 매칭될 수 있어요."
                                 rows={4}
                                 className="w-full px-4 py-3 border border-[#e0e0e0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#d84315] focus:border-transparent resize-none"
                             />
