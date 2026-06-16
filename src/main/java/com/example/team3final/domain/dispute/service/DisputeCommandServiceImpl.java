@@ -150,22 +150,13 @@ public class DisputeCommandServiceImpl implements DisputeCommandService {
             throw new DisputeException(ErrorCode.DISPUTE_HOLD_DEADLINE_EXCEEDED);
         }
 
-        // 재이의제기 중복 제출 방지
-        if (disputeRepository.existsByMatchIdAndSubmitterIdAndParentDisputeId(matchId, userId, parentDispute.getId())) {
-            throw new DisputeException(ErrorCode.DISPUTE_ALREADY_SUBMITTED);
-        }
-
-        // 재이의제기 저장
-        Dispute reDispute = Dispute.builder()
-                .matchId(matchId)
-                .submitterId(userId)
-                .disputeType(request.getDisputeType())
-                .reason(request.getReason())
-                // TODO: S3 도입 후 evidenceUrl 처리 추가
-                .evidenceUrl(null)
-                .parentDisputeId(parentDispute.getId()) // 원본 이의제기 ID 연결
-                .build();
-        Dispute savedReDispute = disputeRepository.save(reDispute);
+        // UNIQUE(match_id, submitter_id)를 유지하므로 새 레코드를 만들지 않고
+        // 기존 HOLD 이의제기 row를 SUBMITTED 상태로 재전환한다.
+        parentDispute.resubmit(
+                request.getDisputeType(),
+                request.getReason(),
+                null
+        );
 
         // 재이의제기 완료 → 마감 임박 알림 예약 취소
         // 원본 이의제기 ID를 ZSet에서 제거해 중복 알림 방지
@@ -176,10 +167,10 @@ public class DisputeCommandServiceImpl implements DisputeCommandService {
 
         // 이의제기 접수 알림 - 활성 관리자 모두에게
         adminService.getActiveAdminIds().forEach(
-                adminId -> notificationPublisher.sendDisputeSubmitted(adminId, savedReDispute.getId())
+                adminId -> notificationPublisher.sendDisputeSubmitted(adminId, parentDispute.getId())
         );
 
-        return CreateDisputeResponseDto.from(savedReDispute);
+        return CreateDisputeResponseDto.from(parentDispute);
     }
 
     // 특정 매칭에 대해 내가 제출한 이의제기 상세 조회

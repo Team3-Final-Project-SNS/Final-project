@@ -118,14 +118,8 @@ export interface DisputeResponse {
     holdDeadlineAt: string | null;
 }
 
-export interface NoShowMatchResponse {
-    matchId: number;
-    verificationStatus: string;
-    noShowDecidedAt: string;
-}
-
-export const getMyNoShowMatches = () =>
-    axiosInstance.get<ApiResponse<NoShowMatchResponse[]>>("/api/v1/matches/me/no-show");
-
 export const getMyDispute = (matchId: number) =>
     axiosInstance.get<ApiResponse<DisputeResponse>>(`/api/v1/matches/${matchId}/disputes/me`);
+
+export const getMyDisputes = () =>
+    axiosInstance.get<ApiResponse<DisputeResponse[]>>("/api/v1/disputes/me");

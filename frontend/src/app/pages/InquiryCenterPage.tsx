@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { AlertCircle, ArrowLeft, FileText, HelpCircle, Loader2, MessageSquare, Send, Siren, Trash2 } from 'lucide-react';
-import { Link, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { useAuthStatus } from '@/store/authStatusStore';
 import {
@@ -18,7 +18,7 @@ import {
   DisputeResponse,
   DisputeType,
   getMyDispute,
-  getMyNoShowMatches,
+  getMyDisputes,
 } from '../../api/matchApi';
 import AdminFloatingChatbot from '../components/AdminFloatingChatbot';
 
@@ -76,17 +76,20 @@ const getInquiryStatusClass = (status: InquiryAnswerStatus) =>
   statusDisplayClasses[status] || statusClasses[status] || 'bg-[#f5f5f5] text-[#757575]';
 
 export default function InquiryCenterPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const requestedNoShowMatchId = searchParams.get('matchId');
   const requestedNoShowMatchIdNumber = Number(requestedNoShowMatchId);
   const hasRequestedNoShowMatchId = Number.isInteger(requestedNoShowMatchIdNumber) && requestedNoShowMatchIdNumber > 0;
   const requestedInquiryId = searchParams.get('inquiryId');
+  const routeView = location.pathname.endsWith('/disputes/no-show') || searchParams.get('view') === 'noShow'
+      ? 'noShow'
+      : location.pathname.endsWith('/inquiries') || requestedInquiryId
+          ? 'inquiry'
+          : 'menu';
   const [view, setView] = useState<'menu' | 'inquiry' | 'noShow'>(
-      searchParams.get('view') === 'noShow'
-          ? 'noShow'
-          : requestedInquiryId
-              ? 'inquiry'
-              : 'menu',
+      routeView,
   );
   const [items, setItems] = useState<InquiryListItem[]>([]);
   const [selected, setSelected] = useState<InquiryDetail | null>(null);
@@ -119,6 +122,7 @@ export default function InquiryCenterPage() {
     setSelected(null);
     setSelectedDispute(null);
     setView('inquiry');
+    navigate('/me/support/inquiries');
   };
 
   const openNoShowObjectionForm = () => {
@@ -126,6 +130,7 @@ export default function InquiryCenterPage() {
       toast.warning('정지된 계정입니다. 문의하기로 이의를 제기해 주세요.');
       setView('inquiry');
       setType('ACCOUNT');
+      navigate('/me/support/inquiries');
       return;
     }
 
@@ -139,19 +144,15 @@ export default function InquiryCenterPage() {
     setSelected(null);
     setSelectedDispute(null);
     setView('noShow');
+    navigate('/me/support/disputes/no-show');
   };
 
   const loadDisputes = async () => {
     setLoading(true);
     setError('');
     try {
-      const noShowRes = await getMyNoShowMatches();
-      const results = await Promise.allSettled(
-        noShowRes.data.data.map((match) => getMyDispute(match.matchId)),
-      );
-      const disputes = results
-        .filter((result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof getMyDispute>>> => result.status === 'fulfilled')
-        .map((result) => result.value.data.data)
+      const res = await getMyDisputes();
+      const disputes = res.data.data
         .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
 
       setDisputeItems(disputes);
@@ -186,9 +187,14 @@ export default function InquiryCenterPage() {
   };
 
   useEffect(() => {
+    setView(routeView);
+  }, [routeView]);
+
+  useEffect(() => {
     if (isSuspended && view === 'noShow') {
       setView('inquiry');
       setType('ACCOUNT');
+      navigate('/me/support/inquiries', { replace: true });
       return;
     }
 
@@ -381,7 +387,7 @@ export default function InquiryCenterPage() {
             </button>
 
             <Link
-              to="/faq"
+              to="/me/support/faq"
               className="group rounded-2xl border border-[#e0e0e0] bg-white p-7 text-left shadow-sm transition-all hover:border-[#d84315] hover:shadow-md"
             >
               <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[#e8f5e9] text-[#2e7d32]">
@@ -401,7 +407,7 @@ export default function InquiryCenterPage() {
           <>
             <button
               type="button"
-              onClick={() => setView('menu')}
+              onClick={() => navigate('/me/support')}
               className="mb-5 inline-flex items-center gap-1 text-sm font-semibold text-[#616161] transition-colors hover:text-[#d84315]"
             >
               <ArrowLeft size={16} />

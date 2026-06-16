@@ -25,7 +25,7 @@ const menuItems = [
   { label: '게시글', to: '/posts' },
   { label: '매칭', to: '/matches' },
   { label: '결제', to: '/payments' },
-  { label: '고객센터', to: '/me/inquiries' },
+  { label: '고객센터', to: '/me/support' },
   { label: 'AI 추천', to: '/ai/matching' },
   { label: '마이페이지', to: '/me' },
 ];
@@ -82,7 +82,7 @@ export default function MobileLoggedInNavigation({
     }
     return location.pathname.startsWith(path);
   };
-  const isAllowedForSuspended = (path: string) => path === '/me' || path.startsWith('/me/inquiries');
+  const isAllowedForSuspended = (path: string) => path === '/me' || path.startsWith('/me/support') || path.startsWith('/me/inquiries');
   const isDisabledForSuspended = (path: string) => isSuspended && !isAllowedForSuspended(path);
 
   const handleSuspendedClick = (event: React.MouseEvent<HTMLAnchorElement>) => {

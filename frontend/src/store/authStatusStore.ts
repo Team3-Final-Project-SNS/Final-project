@@ -46,6 +46,8 @@ export const useAuthStatus = () =>
 
 export const isSuspendedAllowedPath = (pathname: string) =>
   pathname === '/me' ||
+  pathname.startsWith('/me/support') ||
   pathname.startsWith('/me/inquiries') ||
   pathname === '/app/me' ||
+  pathname.startsWith('/app/me/support') ||
   pathname.startsWith('/app/me/inquiries');

@@ -79,7 +79,7 @@ export default function DeletedPostReasonPage() {
 
               <div className="mt-5 flex justify-end">
                 <Link
-                  to="/me/inquiries"
+                  to="/me/support/inquiries"
                   className="inline-flex items-center gap-2 rounded-lg bg-[#d84315] px-5 py-3 text-sm font-bold text-white hover:bg-[#bf360c]"
                 >
                   <MessageSquare size={16} />

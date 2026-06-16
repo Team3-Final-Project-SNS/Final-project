@@ -22,7 +22,7 @@ import java.time.LocalDateTime;
                         columnNames = {"match_id", "submitter_id"}
                         // match_id + submitter_id 조합이 유일해야 함
                         // → 같은 매칭에 같은 사용자는 이의제기 1건만 가능
-                        // → 재이의제기(parentDisputeId != null)는 다른 레코드라 제약 위반 없음
+                        // → HOLD 재이의제기는 새 레코드를 만들지 않고 기존 레코드를 SUBMITTED로 재전환
             )
         }
 )
@@ -135,6 +135,21 @@ public class Dispute extends BaseTimeEntity {
         this.adminComment = adminComment;
         this.holdAt = LocalDateTime.now();
         this.processedAt = LocalDateTime.now();
+    }
+
+    public void resubmit(DisputeType disputeType, String reason, String evidenceUrl) {
+        if (this.status != DisputeStatus.HOLD) {
+            throw new IllegalStateException("HOLD 상태에서만 재제출할 수 있습니다.");
+        }
+
+        this.disputeType = disputeType;
+        this.reason = reason;
+        this.evidenceUrl = evidenceUrl;
+        this.status = DisputeStatus.SUBMITTED;
+        this.adminId = null;
+        this.adminComment = null;
+        this.processedAt = null;
+        this.holdAt = null;
     }
 
     // 관리자 강제 상태 변경 (오판정 정정용)
