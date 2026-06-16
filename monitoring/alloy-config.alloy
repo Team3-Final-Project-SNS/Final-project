@@ -7,7 +7,22 @@ discovery.relabel "app_logs" {
 
   rule {
     source_labels = ["__meta_docker_container_name"]
-    regex         = "/?hankkipot-app"
+    regex         = "/?hankkipot-app.*"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    target_label  = "container"
+  }
+}
+
+discovery.relabel "n8n_logs" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/?hankkipot-n8n"
     action        = "keep"
   }
 
@@ -21,6 +36,13 @@ loki.source.docker "app" {
   host       = "unix:///var/run/docker.sock"
   targets    = discovery.relabel.app_logs.output
   labels     = {job = "spring-app"}
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.source.docker "n8n" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.n8n_logs.output
+  labels     = {job = "n8n"}
   forward_to = [loki.write.local.receiver]
 }
 
