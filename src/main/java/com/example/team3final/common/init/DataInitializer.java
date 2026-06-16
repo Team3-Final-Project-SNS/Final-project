@@ -805,6 +805,14 @@ public class DataInitializer implements ApplicationRunner {
                 .anyMatch(post -> content.equals(post.getContent()));
     }
 
+    private boolean existsPostByAuthorAndContent(Long authorId, String content) {
+        return postRepository.findAll().stream()
+                .anyMatch(post ->
+                        authorId.equals(post.getAuthorId())
+                                && content.equals(post.getContent())
+                );
+    }
+
     private void seedAdminAiReviewDataIfPossible() {
         User author = userRepository.findByEmail("author@korea.ac.kr").orElse(null);
         User applicant = userRepository.findByEmail("applicant@korea.ac.kr").orElse(null);
@@ -1373,16 +1381,14 @@ public class DataInitializer implements ApplicationRunner {
                         .plusMinutes((long) sequence * 13);
                 int deposit = seed.deposit() + (cycle % 3) * 100;
                 int maxApplicants = Math.min(5, Math.max(2, seed.maxApplicants() + (cycle % 2)));
-                String content = "[AI추천150-%s-%03d] %s 먹을 분 구해요. %s 선호해요. 키워드: %s."
+                String content = "%s 먹을 분 구해요. %s 선호해요. %s"
                         .formatted(
-                                seed.placeName(),
-                                sequence,
                                 seed.menu(),
                                 seed.atmosphere(),
-                                seed.trimKeyword()
+                                aiMatchingSeedContentVariation(cycle, seed.trimKeyword())
                         );
 
-                if (existsPostByContent(content)) {
+                if (existsPostByAuthorAndContent(author.getId(), content)) {
                     continue;
                 }
 
@@ -1402,14 +1408,27 @@ public class DataInitializer implements ApplicationRunner {
         }
     }
 
+    private String aiMatchingSeedContentVariation(int cycle, String trimKeyword) {
+        return switch (cycle % 4) {
+            case 1 -> "%s 느낌으로 시간 맞으면 가볍게 신청해주세요.".formatted(trimKeyword);
+            case 2 -> "%s 생각날 때 혼자 먹기 애매해서 같이 먹을 분 찾습니다.".formatted(trimKeyword);
+            case 3 -> "%s 분위기로 처음 보는 사람이어도 부담 없는 식사면 좋겠습니다.".formatted(trimKeyword);
+            default -> "%s 느낌으로 편하게 한 끼 같이 먹으면 좋겠습니다.".formatted(trimKeyword);
+        };
+    }
+
     private boolean normalizeExistingAiMatchingRecommendationPosts() {
         List<Post> aiSeedPosts = postRepository.findAll().stream()
-                .filter(post -> post.getContent() != null && post.getContent().startsWith("[AI추천120-"))
+                .filter(post -> post.getContent() != null
+                        && (post.getContent().startsWith("[AI추천120-")
+                        || post.getContent().startsWith("[AI추천150-")))
                 .toList();
 
         for (Post post : aiSeedPosts) {
             String normalizedContent = post.getContent()
                     .replaceFirst("^\\[AI추천120-\\d{3}]\\s*", "")
+                    .replaceFirst("^\\[AI추천150-[^]]+]\\s*", "")
+                    .replaceFirst("\\s*키워드:\\s*[^.]+\\.", ".")
                     .replaceFirst("\\s*책임비는\\s*\\d+P입니다\\.$", "");
             String normalizedPlaceName = post.getPlaceName().replaceFirst("\\s+\\d{2}$", "");
 
