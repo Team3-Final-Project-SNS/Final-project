@@ -161,6 +161,7 @@ export default function MatchDetailPage() {
     nickname: match.authorNickname,
     mannerTemperature: match.authorMannerTemperature,
   };
+  const participantNames = formatParticipantNames(match);
   const noShowVerificationStatuses = ['HOST_NO_SHOW', 'GUEST_NO_SHOW', 'BOTH_NO_SHOW'];
   const isNoShowPending = verification
       ? noShowVerificationStatuses.includes(verification.verificationStatus)
@@ -219,7 +220,7 @@ export default function MatchDetailPage() {
             <DetailItem
                 icon={Users}
                 label="참여 인원"
-                value={`${match.currentApplicants}/${match.maxApplicants}명`}
+                value={`${match.currentApplicants}/${match.maxApplicants}명${participantNames ? ` · ${participantNames}` : ''}`}
             />
             <DetailItem
                 icon={CircleDollarSign}
@@ -275,6 +276,19 @@ export default function MatchDetailPage() {
         </section>
       </div>
   );
+}
+
+function formatParticipantNames(match: GetMatchResponse) {
+  // 상세 화면 참여자 이름 표시용, participants 없으면 기존 단일 필드 fallback
+  const names = (match.participants || [])
+      .map((participant) => participant.nickname)
+      .filter(Boolean);
+
+  if (names.length > 0) {
+    return [...new Set(names)].join(', ');
+  }
+
+  return [match.authorNickname, match.applicantNickname].filter(Boolean).join(', ');
 }
 
 function DetailItem({
