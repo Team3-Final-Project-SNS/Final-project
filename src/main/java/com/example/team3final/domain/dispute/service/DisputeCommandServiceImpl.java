@@ -6,6 +6,7 @@ import com.example.team3final.domain.admin.service.AdminService;
 import com.example.team3final.domain.dispute.dto.request.CreateDisputeRequestDto;
 import com.example.team3final.domain.dispute.dto.response.CreateDisputeResponseDto;
 import com.example.team3final.domain.dispute.dto.response.DisputeResponseDto;
+import com.example.team3final.domain.dispute.dto.response.MyDisputeResponseDto;
 import com.example.team3final.domain.dispute.entity.Dispute;
 import com.example.team3final.domain.dispute.enums.DisputeStatus;
 import com.example.team3final.domain.dispute.repository.DisputeRepository;
@@ -28,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -87,24 +89,24 @@ public class DisputeCommandServiceImpl implements DisputeCommandService {
         }
 
         // 9. 저장
-        // evidenceUrl은 S3도입 전까지 null로 고정
+        // evidenceUrl은 S3 도입 전까지 null로 고정
         Dispute dispute = Dispute.builder()
                 .matchId(matchId)
                 .submitterId(userId)
                 .disputeType(request.getDisputeType())
                 .reason(request.getReason())
-                // TODO: 추 후 S3 도입 이후에 변경 예정
+                // TODO: 추후 S3 도입 이후에 변경 예정
                 .evidenceUrl(null)
                 .parentDisputeId(null)
                 .build();
         Dispute saved = disputeRepository.save(dispute);
 
-        // 이의제기 접수 시 노쇼 예정 상태를 보존하고 관리자 검토 상태로 전환합니다.
+        // 이의제기 접수 시 노쇼 예정 상태를 보존하고 관리자 검토 상태로 전환
         MeetVerification meetVerification = meetVerificationInternalService.getByMatchId(matchId);
         meetVerification.markDispute();
         matchNoShowService.markDisputed(matchId);
 
-        // 22. 이의제기 접수 알림 - 활성 관리자 모두에게
+        // 이의제기 접수 알림 - 활성 관리자 모두에게
         adminService.getActiveAdminIds().forEach(
                 adminId -> notificationPublisher.sendDisputeSubmitted(adminId, saved.getId())
         );
@@ -112,7 +114,7 @@ public class DisputeCommandServiceImpl implements DisputeCommandService {
         return CreateDisputeResponseDto.from(saved);
     }
 
-    // 재이의제기 신청
+    // 재이의제기 제출
     @Override
     public CreateDisputeResponseDto reCreateDispute(Long matchId, Long userId, CreateDisputeRequestDto request) {
 
@@ -129,16 +131,16 @@ public class DisputeCommandServiceImpl implements DisputeCommandService {
         }
 
         // HOLD 상태인 원본 이의제기 조회
-        // 없으면 -> HOLD 상태 이의제기가 없다는 뜻 -> 재이의제기 불가능
+        // 없으면 → HOLD 상태 이의제기가 없다는 뜻 → 재이의제기 불가능
         Dispute parentDispute = disputeRepository.findHoldDisputeByMatchIdAndSubmitterId(matchId, userId)
                 .orElseThrow(() -> new DisputeException(ErrorCode.DISPUTE_HOLD_NOT_FOUND));
 
-        // HOLD 상태인지 재 확인 (동시성 이슈 대비)
+        // HOLD 상태인지 재확인 (동시성 이슈 대비)
         if (parentDispute.getStatus() != DisputeStatus.HOLD) {
             throw new DisputeException(ErrorCode.DISPUTE_NOT_RESUBMITTABLE);
         }
 
-        // 같은 disputeType이 맞는지 검증
+        // 같은 disputeType인지 검증
         if (parentDispute.getDisputeType() != request.getDisputeType()) {
             throw new DisputeException(ErrorCode.DISPUTE_TYPE_MISMATCH);
         }
@@ -153,7 +155,7 @@ public class DisputeCommandServiceImpl implements DisputeCommandService {
             throw new DisputeException(ErrorCode.DISPUTE_ALREADY_SUBMITTED);
         }
 
-        // 이의제기 저장
+        // 재이의제기 저장
         Dispute reDispute = Dispute.builder()
                 .matchId(matchId)
                 .submitterId(userId)
@@ -166,12 +168,13 @@ public class DisputeCommandServiceImpl implements DisputeCommandService {
         Dispute savedReDispute = disputeRepository.save(reDispute);
 
         // 재이의제기 완료 → 마감 임박 알림 예약 취소
+        // 원본 이의제기 ID를 ZSet에서 제거해 중복 알림 방지
         redisTemplate.opsForZSet().remove(
                 DisputeRedisZSetKeys.DEADLINE_REMINDER,
-                String.valueOf(parentDispute.getId()) // 원본 이의제기 ID
+                String.valueOf(parentDispute.getId())
         );
 
-        // 22. 이의제기 접수 알림 - 활성 관리자 모두에게
+        // 이의제기 접수 알림 - 활성 관리자 모두에게
         adminService.getActiveAdminIds().forEach(
                 adminId -> notificationPublisher.sendDisputeSubmitted(adminId, savedReDispute.getId())
         );
@@ -179,23 +182,27 @@ public class DisputeCommandServiceImpl implements DisputeCommandService {
         return CreateDisputeResponseDto.from(savedReDispute);
     }
 
-
-    // 내 이의제기 상태 조회
+    // 특정 매칭에 대해 내가 제출한 이의제기 상세 조회
     @Override
     @Transactional(readOnly = true)
+    // readOnly = true: 이 메서드는 DB를 읽기만 하므로 JPA 더티 체킹(변경 감지)을 비활성화
+    // → 불필요한 스냅샷 비교를 생략해 성능 향상
     public DisputeResponseDto getDispute(Long matchId, Long userId) {
 
-        // 1. 매칭 존재 확인
+        // 매칭 존재 확인
         matchInternalService.getMatchInfo(matchId);
 
         Dispute dispute = disputeRepository.findByMatchIdAndSubmitterId(matchId, userId)
                 .orElseThrow(() -> new DisputeException(ErrorCode.DISPUTE_NOT_FOUND));
 
         // HOLD 상태일 때만 holdAt + 24시간, 아니면 null
-        LocalDateTime holdDeadlineAt = dispute.getHoldAt()
-                != null ? dispute.getHoldAt().plusHours(24) : null;
+        // 프론트에서 재이의제기 마감 카운트다운 표시에 사용
+        LocalDateTime holdDeadlineAt = dispute.getHoldAt() != null
+                ? dispute.getHoldAt().plusHours(24)
+                : null;
 
-        return DisputeResponseDto.of(dispute.getId(),
+        return DisputeResponseDto.of(
+                dispute.getId(),
                 dispute.getMatchId(),
                 dispute.getDisputeType(),
                 dispute.getReason(),
@@ -205,5 +212,20 @@ public class DisputeCommandServiceImpl implements DisputeCommandService {
                 dispute.getProcessedAt(),
                 holdDeadlineAt
         );
+    }
+
+    // 내가 제출한 이의제기 전체 목록 조회
+    @Override
+    @Transactional(readOnly = true)
+    // readOnly = true: 조회 전용이므로 더티 체킹 비활성화
+    public List<MyDisputeResponseDto> getMyDisputes(Long userId) {
+
+        // submitterId = userId 조건으로 내 이의제기 전부 조회, 최신순 정렬
+        // 결과가 없으면 빈 List 반환 (null 반환 X → NullPointerException 방지)
+        return disputeRepository
+                .findAllBySubmitterIdOrderByCreatedAtDesc(userId) // Repository 쿼리 호출
+                .stream()                                          // List → Stream 변환
+                .map(MyDisputeResponseDto::from)                  // 각 엔티티 → DTO 변환
+                .toList();                                         // Stream → List 변환
     }
 }
