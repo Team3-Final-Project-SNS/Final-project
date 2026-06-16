@@ -2,6 +2,8 @@ package com.example.team3final.domain.notification.repository;
 
 import com.example.team3final.domain.notification.entity.Notification;
 import com.example.team3final.domain.notification.enums.NotificationReceiverType;
+import com.example.team3final.domain.notification.enums.NotificationType;
+import com.example.team3final.domain.notification.enums.RelatedDomain;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -26,6 +28,14 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     // 미확인 알림 카운트
     long countByReceiverTypeAndReceiverIdAndIsRead(
             NotificationReceiverType receiverType, Long receiverId, boolean isRead);
+
+    boolean existsByReceiverTypeAndReceiverIdAndTypeAndRelatedDomainAndRelatedId(
+            NotificationReceiverType receiverType,
+            Long receiverId,
+            NotificationType type,
+            RelatedDomain relatedDomain,
+            Long relatedId
+    );
 
     // 전체 읽음 처리 (벌크 업데이트)
     @Modifying

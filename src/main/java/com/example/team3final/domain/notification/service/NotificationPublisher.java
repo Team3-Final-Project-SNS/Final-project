@@ -75,11 +75,14 @@ public interface NotificationPublisher {
     // 16. 노쇼 예정 알림 - 노쇼 예정 유저에게
     void sendNoShowWarning(Long userId, Long matchId);
 
-    // 17. 노쇼 확정 알림 - 관련 사용자 양측에게
+    // 17. 상대방 노쇼 예정 알림 - 정상 도착/대기 중인 상대방에게
+    void sendOpponentNoShowWarning(Long userId, Long matchId, String noShowNickname);
+
+    // 18. 노쇼 확정 알림 - 관련 사용자 양측에게
     void sendNoShowConfirmed(Long userId, Long matchId);
 
     // ── 만남 시간 연장 ────────────────────────────────────────────────────
-    // 18. 만남 시간 연장 요청 알림 - 만남 상대방에게
+    // 19. 만남 시간 연장 요청 알림 - 만남 상대방에게
     void sendMeetExtendRequested(Long userId, Long matchId);
 
     // 19. 만남 시간 연장 수락 알림 - 연장 요청자에게

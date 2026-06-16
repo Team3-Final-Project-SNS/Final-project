@@ -16,6 +16,7 @@ import com.example.team3final.domain.meet.service.support.MeetVerificationPolicy
 import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.dto.response.PostInfoDto;
 import com.example.team3final.domain.post.service.PostInternalService;
+import com.example.team3final.domain.user.service.UserInternalService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -45,6 +46,7 @@ public class MeetVerificationNoShowServiceImpl implements MeetVerificationNoShow
     private final NotificationPublisher notificationPublisher;
     private final MeetVerificationContextReader contextReader;
     private final MeetVerificationNoShowSettlementService noShowSettlementService;
+    private final UserInternalService userInternalService;
 
     // GPS 노쇼 배치 판정 — 스케줄러가 주기적으로 호출
     // 판정 대상: PENDING 상태 (양측 GPS 인증이 모두 완료되지 않은 매칭)
@@ -139,7 +141,7 @@ public class MeetVerificationNoShowServiceImpl implements MeetVerificationNoShow
                 chatInternalService.markGuestNoShow(matchInfoDto.postId(), matchInfoDto.applicantId());
                 // 발송 플래그 확인 → 중복 발송 방지
                 if (!meetVerification.isNoShowWarningSent()) {
-                    notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), meetVerification.getMatchId());
+                    sendApplicantNoShowWarnings(postInfoDto, matchInfoDto, meetVerification.getMatchId());
                     meetVerification.markNoShowWarningSent();
                 }
 
@@ -150,7 +152,7 @@ public class MeetVerificationNoShowServiceImpl implements MeetVerificationNoShow
                 chatInternalService.makeReadOnlyChatRoom(matchInfoDto.postId());
                 // 발송 플래그 확인 → 중복 발송 방지
                 if (!meetVerification.isNoShowWarningSent()) {
-                    notificationPublisher.sendNoShowWarning(postInfoDto.authorId(), meetVerification.getMatchId());
+                    sendAuthorNoShowWarnings(postInfoDto, matchInfoDto, meetVerification.getMatchId());
                     meetVerification.markNoShowWarningSent();
                 }
             }
@@ -271,10 +273,7 @@ public class MeetVerificationNoShowServiceImpl implements MeetVerificationNoShow
 
                     // 노쇼 예정 알림 중복 발송 방지
                     if (!meetVerification.isNoShowWarningSent()) {
-                        notificationPublisher.sendNoShowWarning(
-                                matchInfoDto.applicantId(),
-                                matchId
-                        );
+                        sendApplicantNoShowWarnings(postInfoDto, matchInfoDto, matchId);
                         meetVerification.markNoShowWarningSent();
                     }
                 }
@@ -293,10 +292,7 @@ public class MeetVerificationNoShowServiceImpl implements MeetVerificationNoShow
 
                     // 노쇼 예정 알림 중복 발송 방지
                     if (!meetVerification.isNoShowWarningSent()) {
-                        notificationPublisher.sendNoShowWarning(
-                                postInfoDto.authorId(),
-                                matchId
-                        );
+                        sendAuthorNoShowWarnings(postInfoDto, matchInfoDto, matchId);
                         meetVerification.markNoShowWarningSent();
                     }
 
@@ -322,10 +318,7 @@ public class MeetVerificationNoShowServiceImpl implements MeetVerificationNoShow
 
                             // 노쇼 예정 알림 중복 발송 방지
                             if (!meetVerification.isNoShowWarningSent()) {
-                                notificationPublisher.sendNoShowWarning(
-                                        postInfoDto.authorId(),
-                                        matchId
-                                );
+                                sendAuthorNoShowWarnings(postInfoDto, matchInfoDto, matchId);
                                 meetVerification.markNoShowWarningSent();
                             }
 
@@ -342,10 +335,7 @@ public class MeetVerificationNoShowServiceImpl implements MeetVerificationNoShow
 
                             // 노쇼 예정 알림 중복 발송 방지
                             if (!meetVerification.isNoShowWarningSent()) {
-                                notificationPublisher.sendNoShowWarning(
-                                        matchInfoDto.applicantId(),
-                                        matchId
-                                );
+                                sendApplicantNoShowWarnings(postInfoDto, matchInfoDto, matchId);
                                 meetVerification.markNoShowWarningSent();
                             }
                         }
@@ -380,6 +370,40 @@ public class MeetVerificationNoShowServiceImpl implements MeetVerificationNoShow
             // QR 노쇼/취소 판정이 끝난 Match의 위치 정보는 삭제
             userLocationCleanupService.deleteLocationsByMatchId(matchId);
         }
+    }
+
+    private void sendApplicantNoShowWarnings(
+            PostInfoDto postInfoDto,
+            MatchInfoDto matchInfoDto,
+            Long matchId
+    ) {
+        notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), matchId);
+
+        String applicantNickname = userInternalService
+                .getUserInfo(matchInfoDto.applicantId())
+                .nickname();
+        notificationPublisher.sendOpponentNoShowWarning(
+                postInfoDto.authorId(),
+                matchId,
+                applicantNickname
+        );
+    }
+
+    private void sendAuthorNoShowWarnings(
+            PostInfoDto postInfoDto,
+            MatchInfoDto matchInfoDto,
+            Long matchId
+    ) {
+        notificationPublisher.sendNoShowWarning(postInfoDto.authorId(), matchId);
+
+        String authorNickname = userInternalService
+                .getUserInfo(postInfoDto.authorId())
+                .nickname();
+        notificationPublisher.sendOpponentNoShowWarning(
+                matchInfoDto.applicantId(),
+                matchId,
+                authorNickname
+        );
     }
 
     // 노쇼 확정 — 스케줄러가 주기적으로 호출
