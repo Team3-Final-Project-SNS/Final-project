@@ -84,14 +84,4 @@ public class AiPromptTemplate extends BaseTimeEntity {
     @Column(length = 500)
     private String description;
 
-    /**
-     * 프롬프트 교체 시 활성 상태를 변경합니다.
-     */
-    public void activate() {
-        this.active = true;
-    }
-
-    public void deactivate() {
-        this.active = false;
-    }
 }
