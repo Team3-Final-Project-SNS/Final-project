@@ -14,21 +14,7 @@ import {
   NotificationResponse,
 } from '@/api/notificationApi';
 import MobileLoggedInNavigation from './MobileLoggedInNavigation';
-import { getNotificationTargetPath } from '../notificationNavigation';
-
-export const getNotificationContextLabel = (notification: NotificationResponse) => {
-  if (!notification.relatedId) return null;
-
-  if (notification.domain === 'MATCH' || notification.domain === 'MEET') {
-    return `#매치 ${notification.relatedId}`;
-  }
-
-  if (notification.domain === 'CHAT') {
-    return `chatRoomId ${notification.relatedId}`;
-  }
-
-  return `${notification.domain.toLowerCase()}Id ${notification.relatedId}`;
-};
+import { getNotificationContextLabel, getNotificationTargetPath } from '../notificationNavigation';
 
 export default function Layout() {
   const location = useLocation();

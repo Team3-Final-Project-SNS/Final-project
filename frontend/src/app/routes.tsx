@@ -115,6 +115,25 @@ export const router = createBrowserRouter([
           { path: "reports", Component: ReportCenterPage },
         ],
       },
+      {
+        path: "/faq",
+        Component: Layout,
+        children: [
+          {
+            index: true,
+            element: (
+              <TermsMarkdownPage
+                title="자주 묻는 질문"
+                content={faqContent}
+                eyebrow="FAQ"
+                backTo="/me/inquiries"
+                backLabel="고객센터"
+                variant="support"
+              />
+            ),
+          },
+        ],
+      },
     ],
   },
   {
@@ -158,10 +177,6 @@ export const router = createBrowserRouter([
   {
     path: "/terms/marketing",
     Component: MarketingConsentPage,
-  },
-  {
-    path: "/faq",
-    element: <TermsMarkdownPage title="자주 묻는 질문" content={faqContent} />,
   },
   {
     path: "*",

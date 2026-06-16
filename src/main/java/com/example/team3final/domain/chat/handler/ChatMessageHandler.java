@@ -146,9 +146,8 @@ public class ChatMessageHandler {
                 .filter(ChatMember::isActive)
                 .filter(member -> !member.getUserId().equals(senderId))
                 .forEach(member ->
-                        notificationPublisher.sendChatReceived(
-                                member.getUserId(), chatRoomId
-                        ));
+                        notificationPublisher.sendChatReceived(member.getUserId(), chatRoomId)
+                );
 
     }
 }

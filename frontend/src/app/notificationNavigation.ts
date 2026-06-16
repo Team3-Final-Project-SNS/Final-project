@@ -1,5 +1,17 @@
 import { NotificationResponse } from '../api/notificationApi';
 
+export const getNotificationContextLabel = (notification: NotificationResponse) => {
+  if (!notification.relatedId) return null;
+
+  if (notification.domain === 'CHAT') return null;
+
+  if (notification.domain === 'MATCH' || notification.domain === 'MEET') {
+    return `매칭 #${notification.relatedId}`;
+  }
+
+  return `${notification.domain.toLowerCase()}Id ${notification.relatedId}`;
+};
+
 export const getNotificationTargetPath = (notification: NotificationResponse) => {
   const { type, domain, relatedId } = notification;
   const title = notification.title || '';

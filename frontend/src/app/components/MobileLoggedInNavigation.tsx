@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Bell, FileText, Handshake, Home, Menu, Sparkles, User } from 'lucide-react';
 import { Link, useLocation } from 'react-router';
 import { NotificationResponse } from '../../api/notificationApi';
+import { getNotificationContextLabel } from '../notificationNavigation';
 
 interface MobileLoggedInNavigationProps {
   point: number | null;
@@ -36,20 +37,6 @@ const bottomItems = [
   { label: 'AI 추천', to: '/ai/matching', icon: Sparkles },
   { label: 'MY', to: '/me', icon: User },
 ];
-
-const getNotificationContextLabel = (notification: NotificationResponse) => {
-  if (!notification.relatedId) return null;
-
-  if (notification.domain === 'MATCH' || notification.domain === 'MEET') {
-    return `#매치 ${notification.relatedId}`;
-  }
-
-  if (notification.domain === 'CHAT') {
-    return `chatRoomId ${notification.relatedId}`;
-  }
-
-  return `${notification.domain.toLowerCase()}Id ${notification.relatedId}`;
-};
 
 export default function MobileLoggedInNavigation({
   point,

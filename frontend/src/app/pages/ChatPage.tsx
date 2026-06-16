@@ -67,6 +67,7 @@ export default function ChatPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isCancelledMatch = matchInfo?.status === 'CANCELLED';
   const isChatWritable = connected && !isReadOnlyChat && !isCancelledMatch;
+  const memberStatusLabel = matchInfo?.status === 'COMPLETED' || isReadOnlyChat ? '참여 완료' : '참여 중';
 
   const blockCancelledChatAccess = () => {
     alert('매칭 취소자는 채팅방에 접근할 수 없습니다.');
@@ -426,7 +427,7 @@ export default function ChatPage() {
                 {members.map((member) => (
                   <div key={member.userId} className="flex items-center justify-between rounded-xl border border-[#eeeeee] px-4 py-3">
                     <span className="font-semibold text-[#212121]">{member.nickname || '탈퇴한 사용자'}</span>
-                    <span className="text-xs text-[#9e9e9e]">참여 중</span>
+                    <span className="text-xs text-[#9e9e9e]">{memberStatusLabel}</span>
                   </div>
                 ))}
               </div>
