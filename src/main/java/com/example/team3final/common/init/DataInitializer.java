@@ -13,6 +13,7 @@ import com.example.team3final.domain.location.repository.UserLocationRepository;
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.repository.MatchRepository;
 import com.example.team3final.domain.meet.entity.MeetVerification;
+import com.example.team3final.domain.meet.enums.VerificationStatus;
 import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
 import com.example.team3final.domain.pointTransaction.entity.PointTransaction;
 import com.example.team3final.domain.pointTransaction.enums.PointSource;
@@ -89,6 +90,7 @@ public class DataInitializer implements ApplicationRunner {
         if (existsPostByContent("1:N 리뷰 테스트용 완료된 단체 식사입니다.")) {
             seedAiMatchingRecommendationPostsIfPossible();
             seedAdminAiReviewDataIfPossible();
+            seedNoShowDisputeScenarioDataIfPossible();
             publishSeedPostVectorEvents();
             return;
         }
@@ -790,6 +792,7 @@ public class DataInitializer implements ApplicationRunner {
 
         seedAdminAiReviewData(author, applicant, hacker);
         seedAdminAiPaymentData(author, applicant, hacker);
+        seedNoShowDisputeScenarioDataIfPossible();
 
         publishSeedPostVectorEvents();
     }
@@ -813,6 +816,187 @@ public class DataInitializer implements ApplicationRunner {
 
         seedAdminAiReviewData(author, applicant, hacker);
         seedAdminAiPaymentData(author, applicant, hacker);
+    }
+
+    private void seedNoShowDisputeScenarioDataIfPossible() {
+        University university = getOrCreateUniversity(
+                "korea.ac.kr",
+                University.builder()
+                        .universityName("한국대학교")
+                        .eDomain("korea.ac.kr")
+                        .isActive(true)
+                        .build()
+        );
+
+        User author = getOrCreateUser(
+                "dsp-author@korea.ac.kr",
+                User.builder()
+                        .email("dsp-author@korea.ac.kr")
+                        .password(passwordEncoder.encode("password123!"))
+                        .name("노쇼등록")
+                        .nickname("DSP등록자")
+                        .universityId(university.getId())
+                        .major("테스트학과")
+                        .studentNumber("25")
+                        .birthDate(LocalDate.of(2005, 4, 1))
+                        .gender(Gender.MALE)
+                        .build()
+        );
+        User applicant = getOrCreateUser(
+                "dsp-applicant@korea.ac.kr",
+                User.builder()
+                        .email("dsp-applicant@korea.ac.kr")
+                        .password(passwordEncoder.encode("password123!"))
+                        .name("노쇼신청")
+                        .nickname("DSP신청자")
+                        .universityId(university.getId())
+                        .major("테스트학과")
+                        .studentNumber("25")
+                        .birthDate(LocalDate.of(2005, 5, 1))
+                        .gender(Gender.FEMALE)
+                        .build()
+        );
+
+        saveTermAgreementIfNotExists(author.getId(), "v1.0");
+        saveTermAgreementIfNotExists(applicant.getId(), "v1.0");
+        giveSignupBonusIfNotExists(author, 10000);
+        giveSignupBonusIfNotExists(applicant, 10000);
+
+        seedNoShowDisputeScenarioData(author, applicant);
+    }
+
+    private void seedNoShowDisputeScenarioData(User author, User applicant) {
+        seedNoShowDisputeScenario(
+                author,
+                applicant,
+                "DSP-SEED-46 제출 전: 신청자 노쇼 예정 상태에서 이의제기 제출 테스트",
+                "DSP-01 제출 전 테스트 식당",
+                VerificationStatus.GUEST_NO_SHOW,
+                null
+        );
+        seedNoShowDisputeScenario(
+                author,
+                applicant,
+                "DSP-SEED-47A 관리자 ACCEPTED 판정용 SUBMITTED 이의제기",
+                "ADM-DSP ACCEPTED 테스트 식당",
+                VerificationStatus.GUEST_NO_SHOW,
+                DisputeSeedStatus.SUBMITTED
+        );
+        seedNoShowDisputeScenario(
+                author,
+                applicant,
+                "DSP-SEED-47B 관리자 REJECTED 판정용 SUBMITTED 이의제기",
+                "ADM-DSP REJECTED 테스트 식당",
+                VerificationStatus.GUEST_NO_SHOW,
+                DisputeSeedStatus.SUBMITTED
+        );
+        seedNoShowDisputeScenario(
+                author,
+                applicant,
+                "DSP-SEED-47C 관리자 HOLD 판정용 SUBMITTED 이의제기",
+                "ADM-DSP HOLD 테스트 식당",
+                VerificationStatus.GUEST_NO_SHOW,
+                DisputeSeedStatus.SUBMITTED
+        );
+        seedNoShowDisputeScenario(
+                author,
+                applicant,
+                "DSP-SEED-48 HOLD 재제출 테스트용 원본 이의제기",
+                "DSP-03 HOLD 재제출 테스트 식당",
+                VerificationStatus.GUEST_NO_SHOW,
+                DisputeSeedStatus.HOLD
+        );
+    }
+
+    private void seedNoShowDisputeScenario(
+            User author,
+            User applicant,
+            String content,
+            String placeName,
+            VerificationStatus noShowStatus,
+            DisputeSeedStatus disputeSeedStatus
+    ) {
+        Post post = getOrCreateSeedPostByContent(
+                author,
+                content,
+                placeName,
+                LocalDateTime.now().minusHours(1),
+                300
+        );
+        if (post.isOpen()) {
+            post.match();
+        }
+
+        Match match = getOrCreateSeedMatch(post, applicant, 300);
+
+        MeetVerification verification = meetVerificationRepository.findByMatchId(match.getId())
+                .orElseGet(() -> {
+                    MeetVerification created = MeetVerification.createPending(match.getId());
+                    markNoShowStatus(created, noShowStatus);
+                    return meetVerificationRepository.save(created);
+                });
+
+        if (disputeSeedStatus == null) {
+            saveDisputeScenarioChatMessages(post, author, applicant, "DSP-01 제출 전 상태입니다.");
+            return;
+        }
+
+        if (!disputeRepository.existsByMatchIdAndSubmitterId(match.getId(), applicant.getId())) {
+            if (verification.getStatus() != VerificationStatus.DISPUTE) {
+                verification.markDispute();
+            }
+            if (match.getStatus().name().equals("MATCHED")) {
+                match.dispute();
+            }
+
+            Dispute dispute = disputeRepository.save(
+                    Dispute.builder()
+                            .matchId(match.getId())
+                            .submitterId(applicant.getId())
+                            .disputeType(DisputeType.GPS_ERROR)
+                            .reason("%s - GPS 인증 오류로 노쇼 예정 상태가 되어 이의제기합니다.".formatted(content))
+                            .evidenceUrl("https://example.com/dsp-seed-evidence.png")
+                            .parentDisputeId(null)
+                            .build()
+            );
+
+            if (disputeSeedStatus == DisputeSeedStatus.HOLD) {
+                dispute.startReview(1L);
+                dispute.hold(1L, "DSP-03 재제출 테스트용 HOLD seed입니다. 같은 유형으로 재제출하세요.");
+            }
+        }
+
+        saveDisputeScenarioChatMessages(post, author, applicant, content);
+    }
+
+    private void markNoShowStatus(MeetVerification verification, VerificationStatus noShowStatus) {
+        if (noShowStatus == VerificationStatus.HOST_NO_SHOW) {
+            verification.markAuthorNoShow();
+        } else if (noShowStatus == VerificationStatus.GUEST_NO_SHOW) {
+            verification.markApplicantNoShow();
+        } else if (noShowStatus == VerificationStatus.BOTH_NO_SHOW) {
+            verification.markBothNoShow();
+        }
+    }
+
+    private void saveDisputeScenarioChatMessages(Post post, User author, User applicant, String label) {
+        ChatRoom chatRoom = chatRoomRepository.findByPostId(post.getId())
+                .orElseGet(() -> chatRoomRepository.save(
+                        ChatRoom.builder()
+                                .postId(post.getId())
+                                .roomType(ChatRoomType.ONE_TO_ONE)
+                                .build()
+                ));
+
+        saveChatMemberIfMissing(chatRoom.getId(), author.getId(), ChatMemberRole.HOST);
+        saveChatMemberIfMissing(chatRoom.getId(), applicant.getId(), ChatMemberRole.GUEST);
+        saveChatMessageIfMissing(chatRoom.getId(), author.getId(), "%s / 등록자: 약속 장소에서 기다리고 있었습니다.".formatted(label));
+        saveChatMessageIfMissing(chatRoom.getId(), applicant.getId(), "%s / 신청자: GPS 인증이 정상 처리되지 않았습니다.".formatted(label));
+    }
+
+    private enum DisputeSeedStatus {
+        SUBMITTED,
+        HOLD
     }
 
     private void seedAdminAiReviewData(User author, User applicant, User reportTargetUser) {
