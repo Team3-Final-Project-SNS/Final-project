@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { AlertCircle, Loader2, LogOut, User } from 'lucide-react';
+import { AlertCircle, Loader2, LogOut, Trash2, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { logout } from '@/api/authApi';
-import { getUserMe, GetUserResponse } from '@/api/userApi';
+import { getUserMe, GetUserResponse, withdrawUserMe } from '@/api/userApi';
 import { clearAccessToken } from '@/api/axiosInstance';
 import { setUserStatus, useAuthStatus } from '@/store/authStatusStore';
 
@@ -13,6 +13,10 @@ export default function MyInfoPage() {
   const [mannerTemperature, setMannerTemperature] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [withdrawPassword, setWithdrawPassword] = useState('');
+  const [withdrawError, setWithdrawError] = useState('');
+  const [withdrawing, setWithdrawing] = useState(false);
   const { isSuspended } = useAuthStatus();
   const handleSuspendedLinkClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
@@ -48,6 +52,47 @@ export default function MyInfoPage() {
     } finally {
       clearAccessToken();
       navigate('/');
+    }
+  };
+
+  const openWithdrawModal = () => {
+    setWithdrawPassword('');
+    setWithdrawError('');
+    setWithdrawOpen(true);
+  };
+
+  const closeWithdrawModal = () => {
+    if (withdrawing) return;
+    setWithdrawOpen(false);
+    setWithdrawPassword('');
+    setWithdrawError('');
+  };
+
+  const handleWithdraw = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!withdrawPassword.trim()) {
+      setWithdrawError('현재 비밀번호를 입력해주세요.');
+      return;
+    }
+
+    setWithdrawing(true);
+    setWithdrawError('');
+
+    try {
+      await withdrawUserMe({ password: withdrawPassword });
+      clearAccessToken();
+      toast.success('회원 탈퇴가 완료되었습니다.');
+      navigate('/');
+    } catch (err: any) {
+      const message = err.response?.data?.message || '회원 탈퇴에 실패했습니다.';
+      setWithdrawError(
+        err.response?.data?.code === 'USER_002'
+          ? '비밀번호가 일치하지 않습니다.'
+          : message
+      );
+    } finally {
+      setWithdrawing(false);
     }
   };
 
@@ -154,11 +199,78 @@ export default function MyInfoPage() {
                     내가 작성한 게시물 보기
                   </Link>
                 </div>
+
+                <div className="flex justify-end border-t border-[#eeeeee] px-5 py-4">
+                  <button
+                      type="button"
+                      onClick={openWithdrawModal}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#e0e0e0] bg-white px-4 text-sm font-semibold text-[#757575] transition-colors hover:border-[#c62828] hover:bg-[#ffebee] hover:text-[#c62828]"
+                  >
+                    <Trash2 size={15} />
+                    회원 탈퇴
+                  </button>
+                </div>
               </div>
             </div>
         ) : (
             <div className="rounded-2xl border border-[#e0e0e0] bg-white p-10 text-center text-[#9e9e9e]">
               표시할 내 정보가 없습니다.
+            </div>
+        )}
+
+        {withdrawOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+              <form
+                  onSubmit={handleWithdraw}
+                  className="w-full max-w-md rounded-2xl border border-[#eeeeee] bg-white p-6 shadow-xl"
+              >
+                <div className="mb-5">
+                  <h2 className="text-xl font-bold text-[#212121]">회원 탈퇴</h2>
+                  <p className="mt-2 text-sm leading-6 text-[#616161]">
+                    회원 탈퇴를 진행하려면 현재 비밀번호를 입력해주세요.
+                  </p>
+                </div>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm font-bold text-[#616161]">현재 비밀번호</span>
+                  <input
+                      type="password"
+                      value={withdrawPassword}
+                      onChange={(event) => {
+                        setWithdrawPassword(event.target.value);
+                        if (withdrawError) setWithdrawError('');
+                      }}
+                      className={`h-12 w-full rounded-lg border px-4 text-sm font-semibold outline-none transition-colors focus:border-[#d84315] ${
+                        withdrawError ? 'border-[#ef5350] bg-[#fffafa]' : 'border-[#e0e0e0] bg-white'
+                      }`}
+                      placeholder="현재 비밀번호"
+                      autoFocus
+                  />
+                </label>
+
+                {withdrawError && (
+                    <p className="mt-2 text-sm font-semibold text-[#c62828]">{withdrawError}</p>
+                )}
+
+                <div className="mt-6 flex justify-end gap-2">
+                  <button
+                      type="button"
+                      onClick={closeWithdrawModal}
+                      disabled={withdrawing}
+                      className="inline-flex h-11 items-center justify-center rounded-lg border border-[#e0e0e0] bg-white px-5 text-sm font-bold text-[#616161] transition-colors hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    취소
+                  </button>
+                  <button
+                      type="submit"
+                      disabled={withdrawing}
+                      className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#d84315] px-5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#bf360c] disabled:cursor-not-allowed disabled:bg-[#ffab91]"
+                  >
+                    {withdrawing ? <Loader2 className="animate-spin" size={17} /> : <Trash2 size={17} />}
+                    탈퇴하기
+                  </button>
+                </div>
+              </form>
             </div>
         )}
       </div>
