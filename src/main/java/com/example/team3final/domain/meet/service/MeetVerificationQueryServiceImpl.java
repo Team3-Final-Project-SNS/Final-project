@@ -7,14 +7,12 @@ import com.example.team3final.domain.match.service.MatchInternalService;
 import com.example.team3final.domain.meet.context.MeetVerificationContext;
 import com.example.team3final.domain.meet.dto.response.GetMeetExtensionResponseDto;
 import com.example.team3final.domain.meet.dto.response.MeetVerificationResponseDto;
-import com.example.team3final.domain.meet.dto.response.NoShowMatchResponseDto;
 import com.example.team3final.domain.meet.dto.response.QrResponseDto;
 import com.example.team3final.domain.meet.entity.MeetVerification;
 import com.example.team3final.domain.meet.enums.VerificationStatus;
 import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
 import com.example.team3final.domain.meet.service.support.MeetQrSupport;
 import com.example.team3final.domain.meet.service.support.MeetVerificationContextReader;
-import com.example.team3final.domain.meet.service.support.MeetVerificationPolicy;
 import com.example.team3final.domain.post.dto.response.PostInfoDto;
 import com.example.team3final.domain.post.service.PostInternalService;
 import com.example.team3final.domain.user.service.UserInternalService;
@@ -40,9 +38,10 @@ public class MeetVerificationQueryServiceImpl implements MeetVerificationQuerySe
     private final MeetVerificationContextReader contextReader;
     private final MeetQrSupport meetQrSupport;
 
-
+    // QR 토큰 조회
+    // 등록자가 QR 화면을 열면 호출됨 — 장소 인증 완료 후 QR 토큰을 발급하거나 기존 토큰을 반환
     @Override
-    @Transactional
+    @Transactional // QR 토큰 발급 시 DB 쓰기가 발생하므로 readOnly 제외
     public QrResponseDto getMeetQrByPost(Long userId, Long postId) {
 
         // Post 정보를 조회해서 요청자가 등록자인지 확인
@@ -61,14 +60,14 @@ public class MeetVerificationQueryServiceImpl implements MeetVerificationQuerySe
             throw new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED);
         }
 
-        // 같은 Post에 속한 MeetVerification을 벌크 조회
+        // 같은 Post에 속한 MeetVerification을 벌크 조회 (N+1 방지)
         List<MeetVerification> siblingMvList = meetVerificationRepository.findAllByMatchIdIn(siblingMatchIds);
 
         // 등록자와 신청자 양측 장소 인증이 끝난 MeetVerification이 하나라도 있는지 확인
         MeetVerification verified = siblingMvList.stream()
                 .filter(mv -> mv.getStatus() == VerificationStatus.VERIFIED)
                 .findFirst()
-                .orElseThrow( () -> new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED));
+                .orElseThrow(() -> new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED));
 
         // 같은 Post에 이미 발급된 공통 QR 토큰이 있는지 확인
         Optional<MeetVerification> tokenOwnerOpt = meetQrSupport.findPostQrTokenOwner(siblingMvList);
@@ -82,7 +81,7 @@ public class MeetVerificationQueryServiceImpl implements MeetVerificationQuerySe
             // 아직 QR 토큰이 없다면 VERIFIED 상태의 MeetVerification에 최초 발급
             meetQrSupport.issueQrTokenIfNeeded(verified, postId);
 
-            // issueQrTokenIfNeeded()가 verified에 QR 토큰을 발급했으므로,
+            // issueQrTokenIfNeeded()가 verified에 QR 토큰을 발급했으므로
             // 이 verified가 현재 Post의 QR token owner가 됨
             tokenOwner = verified;
         }
@@ -100,7 +99,8 @@ public class MeetVerificationQueryServiceImpl implements MeetVerificationQuerySe
         );
     }
 
-    // 인증 상태 조회
+    // 만남 인증 상태 조회
+    // 매칭 당사자가 현재 인증 진행 상황을 확인할 때 호출됨
     @Override
     public MeetVerificationResponseDto getMeetVerification(Long userId, Long matchId) {
 
@@ -108,7 +108,6 @@ public class MeetVerificationQueryServiceImpl implements MeetVerificationQuerySe
         MeetVerificationContext ctx = contextReader.loadMeetContext(matchId);
 
         MatchInfoDto matchInfo = ctx.matchInfo();
-
         PostInfoDto postInfo = ctx.postInfo();
 
         // 매칭 당사자 검증 (등록자인지 신청자인지)
@@ -120,10 +119,10 @@ public class MeetVerificationQueryServiceImpl implements MeetVerificationQuerySe
         // postId 기준으로 모든 형제 matchId 조회
         List<Long> siblingMatchIds = matchInternalService.getMatchIdsByPostId(matchInfo.postId());
 
-        // 형제 matchId → MeetVerification 목록 조회 (N+1 방지용 벌크 조회)
+        // 형제 matchId → MeetVerification 목록 벌크 조회 (N+1 방지)
         List<MeetVerification> siblingMvList = meetVerificationRepository.findAllByMatchIdIn(siblingMatchIds);
 
-        // 형제 matchId → MatchInfoDto 벌크 조회 (N+1 방지용 벌크 조회)
+        // 형제 matchId → MatchInfoDto 벌크 조회 (N+1 방지)
         Map<Long, MatchInfoDto> siblingMatchInfoMap = matchInternalService.getMatchInfos(siblingMatchIds);
 
         // 신청자 userId 목록 추출
@@ -134,14 +133,16 @@ public class MeetVerificationQueryServiceImpl implements MeetVerificationQuerySe
         // 신청자 닉네임 벌크 조회
         Map<Long, String> nicknameMap = userInternalService.getUserNicknameMap(applicantIds);
 
-        // matchId -> ParticipantInfo 맵 조립
+        // matchId → ParticipantInfo 맵 조립
         Map<Long, MeetVerificationResponseDto.ParticipantInfo> applicantInfoMap =
                 siblingMatchInfoMap.entrySet().stream()
-                        .collect(Collectors.toMap(Map.Entry::getKey,
+                        .collect(Collectors.toMap(
+                                Map.Entry::getKey,
                                 e -> new MeetVerificationResponseDto.ParticipantInfo(
                                         e.getValue().applicantId(),
                                         nicknameMap.getOrDefault(e.getValue().applicantId(), "알 수 없음")
-                                )));
+                                )
+                        ));
 
         return MeetVerificationResponseDto.of(
                 matchId,
@@ -152,7 +153,8 @@ public class MeetVerificationQueryServiceImpl implements MeetVerificationQuerySe
         );
     }
 
-    // 연장 상태 조회
+    // 만남 시간 연장 상태 조회
+    // 연장 요청 화면 진입 시 현재 연장 요청 상태와 요청자 정보를 반환
     @Override
     public GetMeetExtensionResponseDto getMeetExtension(Long userId, Long matchId) {
 
@@ -172,30 +174,5 @@ public class MeetVerificationQueryServiceImpl implements MeetVerificationQuerySe
         }
 
         return GetMeetExtensionResponseDto.of(meetVerification, requesterNickname, postInfoDto.meetAt(), userId);
-    }
-
-    // 사용자 노쇼 예정 매칭 목록 조회
-    // 내가 등록자 또는 신청자로 참여한 매칭 중 노쇼 예정 상태인 것만 반환
-    // 이의제기 화면 드롭다운에 표시할 매칭 목록 제공용
-    @Override
-    public List<NoShowMatchResponseDto> getNoShowMatchesForUser(Long userId) {
-
-        // 1. 내가 참여한 전체 매칭 ID 목록 조회 (matchService 통해 서비스투서비스)
-        List<Long> myMatchIds = matchInternalService.getAllMatchIdsByUserId(userId);
-
-        // 2. 매칭이 없으면 빈 리스트 반환
-        if (myMatchIds.isEmpty()) {
-            return List.of();
-        }
-
-        // 3. 내 매칭 중 노쇼 예정 상태인 MeetVerification만 조회
-        // NO_SHOW_STATUSES = HOST_NO_SHOW, GUEST_NO_SHOW, BOTH_NO_SHOW
-        List<MeetVerification> noShowMvList = meetVerificationRepository
-                .findAllByMatchIdInAndStatusIn(myMatchIds, MeetVerificationPolicy.NO_SHOW_STATUSES);
-
-        // 4. DTO 변환
-        return noShowMvList.stream()
-                .map(NoShowMatchResponseDto::from)
-                .toList();
     }
 }
