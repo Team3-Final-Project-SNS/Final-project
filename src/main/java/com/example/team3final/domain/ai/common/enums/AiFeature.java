@@ -15,7 +15,7 @@ public enum AiFeature {
 
     MATCHING("매칭 AI"),
     SUPPORT("고객센터 AI"),
-    REPORT("신고 분석 AI");
+    REPORT("관리자 AI");
 
 
     private final String description;
