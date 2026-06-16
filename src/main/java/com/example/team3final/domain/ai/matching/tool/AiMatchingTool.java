@@ -4,6 +4,7 @@ package com.example.team3final.domain.ai.matching.tool;
 import com.example.team3final.common.config.AiProperties;
 import com.example.team3final.domain.ai.matching.dto.PostVectorSearchResultDto;
 import com.example.team3final.domain.ai.matching.repository.PostVectorRepository;
+import com.example.team3final.domain.ai.matching.util.AiMatchingMenuEvidence;
 import com.example.team3final.domain.match.service.MatchInternalService;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.service.PostInternalService;
@@ -41,6 +42,8 @@ import java.util.regex.Pattern;
 public class AiMatchingTool {
 
     private static final int MAX_RECOMMENDATION_CANDIDATES = 3;
+    private static final int MAX_TOOL_CANDIDATES = 10;
+    private static final int SEMANTIC_VECTOR_TOP_K = 20;
     private static final int MAX_MEAL_PARTY_SIZE = 5;
 
     private final UserInternalService userInternalService;
@@ -85,25 +88,50 @@ public class AiMatchingTool {
                 userId,
                 universityId,
                 userPoint,
-                sameUniversityUserIds
+                sameUniversityUserIds,
+                searchCondition
         );
 
-        List<Post> filteredPosts = filterCandidatePosts(vectorCandidates, userId, searchCondition);
-        if (filteredPosts.isEmpty()) {
-            // 벡터 검색 후보가 최종 메뉴/시간 필터에서 모두 제외되면 MySQL 모집글 후보로 한 번 더 넓혀봅니다.
-            // pgvector는 의미 검색 보조 인덱스이므로, topK 안에 문자 조건과 정확히 맞는 게시글이 없을 수 있습니다.
+        List<Post> filteredPosts = filterCandidatePosts(vectorCandidates, userId, searchCondition, false, false);
+        if (filteredPosts.isEmpty() && searchCondition.requiresSemanticMenuMatch()) {
+            // 치킨, 짜장처럼 게시글 한마디에 직접 들어간 메뉴 조건은 pgvector 후보가 비어도
+            // MySQL 모집글 후보에서 텍스트 단서로 한 번 더 복구합니다.
+            // 벡터 인덱스 누락이나 임계값 튜닝 문제로 명확한 메뉴 글이 빠지는 것을 막기 위한 보완 경로입니다.
             filteredPosts = filterCandidatePosts(
                     postInternalService.findAiMatchingCandidatePosts(
                             sameUniversityUserIds,
                             searchCondition.sort()
                     ),
                     userId,
-                    searchCondition
+                    searchCondition,
+                    true,
+                    true
+            ).stream()
+                    .filter(searchCondition::matchesMenuEvidence)
+                    .toList();
+        }
+
+        if (filteredPosts.isEmpty() && !searchCondition.requiresSemanticVectorMatch()) {
+            // 메뉴/분위기 같은 의미 조건이 없는 요청은 pgvector가 비어도 기존 모집글 조회로 복구할 수 있습니다.
+            // 의미 조건이 있는 요청은 무관한 후보를 추천하지 않도록 벡터 결과가 없으면 비워둡니다.
+            filteredPosts = filterCandidatePosts(
+                    postInternalService.findAiMatchingCandidatePosts(
+                            sameUniversityUserIds,
+                            searchCondition.sort()
+                    ),
+                    userId,
+                    searchCondition,
+                    true,
+                    true
             );
         }
 
+        int candidateLimit = searchCondition.requiresSemanticVectorMatch()
+                ? MAX_TOOL_CANDIDATES
+                : MAX_RECOMMENDATION_CANDIDATES;
+
         return filteredPosts.stream()
-                .limit(MAX_RECOMMENDATION_CANDIDATES)
+                .limit(candidateLimit)
                 .map(post -> {
                     boolean alreadyApplied =
                             matchInternalService.hasAppliedToPost(post.getId(), userId);
@@ -139,14 +167,23 @@ public class AiMatchingTool {
                 .toList();
     }
 
-    private List<Post> filterCandidatePosts(List<Post> posts, Long userId, SearchCondition searchCondition) {
-        return posts.stream()
-                .filter(post -> !post.isAuthor(userId))
-                .filter(searchCondition::matchesMenu)
+    private List<Post> filterCandidatePosts(
+            List<Post> posts,
+            Long userId,
+            SearchCondition searchCondition,
+            boolean applyConditionSort,
+            boolean excludeAuthor
+    ) {
+        var stream = posts.stream()
+                .filter(post -> !excludeAuthor || !post.isAuthor(userId))
                 .filter(searchCondition::matchesTime)
-                .filter(searchCondition::matchesPartySize)
-                .sorted(searchCondition.comparator())
-                .toList();
+                .filter(searchCondition::matchesPartySize);
+
+        if (applyConditionSort) {
+            stream = stream.sorted(searchCondition.comparator());
+        }
+
+        return stream.toList();
     }
 
     private List<Post> findCandidatePostsByVector(
@@ -154,7 +191,8 @@ public class AiMatchingTool {
             Long userId,
             Long universityId,
             int userPoint,
-            List<Long> sameUniversityUserIds
+            List<Long> sameUniversityUserIds,
+            SearchCondition searchCondition
     ) {
         PostVectorRepository postVectorRepository = postVectorRepositoryProvider == null
                 ? null
@@ -164,16 +202,29 @@ public class AiMatchingTool {
         }
 
         try {
-            int topK = Math.max(aiProperties.getMatching().getRag().getTopK(), MAX_RECOMMENDATION_CANDIDATES);
-            double threshold = aiProperties.getMatching().getRag().getSimilarityThreshold();
-            List<Long> postIds = postVectorRepository.search(
+            int minimumTopK = searchCondition.requiresSemanticVectorMatch()
+                    ? SEMANTIC_VECTOR_TOP_K
+                    : MAX_RECOMMENDATION_CANDIDATES;
+            int topK = Math.max(aiProperties.getMatching().getRag().getTopK(), minimumTopK);
+            double threshold = resolveVectorSimilarityThreshold(searchCondition);
+            List<PostVectorSearchResultDto> searchResults = postVectorRepository.search(
                             condition,
                             universityId,
                             userId,
                             userPoint,
                             topK,
                             threshold
-                    )
+                    );
+            if (log.isInfoEnabled()) {
+                log.info("[AiMatchingTool] 벡터 후보 - condition: {}, threshold: {}, results: {}",
+                        condition,
+                        threshold,
+                        searchResults.stream()
+                                .map(result -> "%d(%.3f)".formatted(result.postId(), result.similarity()))
+                                .toList());
+            }
+
+            List<Long> postIds = searchResults
                     .stream()
                     .map(PostVectorSearchResultDto::postId)
                     .toList();
@@ -185,6 +236,21 @@ public class AiMatchingTool {
             log.warn("[AiMatchingTool] 게시글 벡터 검색 실패. MySQL 후보 조회로 대체합니다.", e);
             return List.of();
         }
+    }
+
+    private double resolveVectorSimilarityThreshold(SearchCondition searchCondition) {
+        double configuredThreshold = aiProperties.getMatching().getRag().getSimilarityThreshold();
+        if (searchCondition.requiresSemanticMenuMatch()) {
+            double menuThreshold = aiProperties.getMatching().getRag().getMenuSimilarityThreshold();
+            return Math.min(configuredThreshold, menuThreshold);
+        }
+
+        if (searchCondition.requiresSemanticAtmosphereMatch()) {
+            double atmosphereThreshold = aiProperties.getMatching().getRag().getAtmosphereSimilarityThreshold();
+            return Math.min(configuredThreshold, atmosphereThreshold);
+        }
+
+        return configuredThreshold;
     }
 
     /**
@@ -313,16 +379,17 @@ public class AiMatchingTool {
      *
      * 현재 처리하는 조건은 다음과 같습니다.
      * - 책임비 정렬 조건
-     * - 음식/메뉴 키워드 조건
      * - 날짜 및 시간대 조건
      *
-     * RAG 도입 전 단계에서는 Tool Calling에서 후보군 품질을 최대한 높이기 위해
-     * 자연어 조건을 서버 측 검색 조건으로 변환하는 역할을 담당합니다.
+     * 음식/메뉴/분위기처럼 의미 해석이 필요한 조건은 서버에서 키워드로 자르지 않고,
+     * pgvector 검색과 LLM 판단에 맡깁니다.
      */
     private record SearchCondition(
             Sort sort,
             Comparator<Post> comparator,
-            List<String> menuKeywords,
+            boolean semanticMenuMatch,
+            boolean semanticAtmosphereMatch,
+            List<String> menuEvidenceTokens,
             TimeRange timeRange,
             PartySizeCondition partySizeCondition
     ) {
@@ -331,11 +398,21 @@ public class AiMatchingTool {
             String normalized = normalize(condition);
             Sort sort = resolveSort(normalized);
             Comparator<Post> comparator = resolveComparator(normalized);
-            List<String> menuKeywords = resolveMenuKeywords(normalized);
+            boolean semanticMenuMatch = AiMatchingMenuEvidence.hasMenuIntent(condition);
+            boolean semanticAtmosphereMatch = hasAtmosphereCondition(normalized);
+            List<String> menuEvidenceTokens = AiMatchingMenuEvidence.extractTokens(condition);
             TimeRange timeRange = resolveTimeRange(normalized);
             PartySizeCondition partySizeCondition = resolvePartySizeCondition(normalized);
 
-            return new SearchCondition(sort, comparator, menuKeywords, timeRange, partySizeCondition);
+            return new SearchCondition(
+                    sort,
+                    comparator,
+                    semanticMenuMatch,
+                    semanticAtmosphereMatch,
+                    menuEvidenceTokens,
+                    timeRange,
+                    partySizeCondition
+            );
         }
 
         private record TimeRange(
@@ -349,16 +426,27 @@ public class AiMatchingTool {
             }
         }
 
-        // 메뉴/음식 키워드 조건과 게시글 내용이 맞는지 확인
-        private boolean matchesMenu(Post post) {
-            if (menuKeywords.isEmpty()) {
-                return true;
+        private boolean requiresSemanticMenuMatch() {
+            return semanticMenuMatch;
+        }
+
+        private boolean requiresSemanticVectorMatch() {
+            return semanticMenuMatch || semanticAtmosphereMatch;
+        }
+
+        private boolean requiresSemanticAtmosphereMatch() {
+            return semanticAtmosphereMatch;
+        }
+
+        private boolean matchesMenuEvidence(Post post) {
+            if (menuEvidenceTokens == null || menuEvidenceTokens.isEmpty()) {
+                return false;
             }
 
-
-            String searchableText = normalize(post.getPlaceName() + " " + post.getContent());
-
-            return menuKeywords.stream().anyMatch(searchableText::contains);
+            return AiMatchingMenuEvidence.hasEvidence(
+                    post.getPlaceName() + " " + post.getContent(),
+                    menuEvidenceTokens
+            );
         }
 
         // 시간대 조건과 게시글 약속 시간이 맞는지 확인
@@ -411,34 +499,26 @@ public class AiMatchingTool {
             return meetAtAsc;
         }
 
-
-        // 자연어 음식 표현을 게시글 검색 키워드로 변환
-        private static List<String> resolveMenuKeywords(String normalized) {
-            if (containsAny(normalized, "치킨", "닭")) {
-                return List.of("치킨", "닭");
-            }
-
-            if (containsAny(normalized, "국밥")) {
-                return List.of("국밥");
-            }
-
-            if (containsAny(normalized, "파스타", "양식")) {
-                return List.of("파스타", "양식", "샌드위치", "카페");
-            }
-
-            if (containsAny(normalized, "분식", "떡볶이", "김밥")) {
-                return List.of("분식", "떡볶이", "김밥");
-            }
-
-            if (containsAny(normalized, "샌드위치", "카페")) {
-                return List.of("샌드위치", "카페");
-            }
-
-            if (containsAny(normalized, "튀김")) {
-                return List.of("튀김", "치킨", "돈까스", "분식", "떡볶이");
-            }
-
-            return List.of();
+        // 조용함, 활발함, 수다, 편한 분위기처럼 DB 컬럼으로 직접 필터링하기 어려운 조건은
+        // 게시글 한마디(content) 의미 검색에 의존하므로 별도 벡터 임계값을 사용합니다.
+        private static boolean hasAtmosphereCondition(String normalized) {
+            return containsAny(
+                    normalized,
+                    "조용",
+                    "차분",
+                    "활발",
+                    "재밌",
+                    "재미",
+                    "수다",
+                    "대화",
+                    "편하",
+                    "가볍",
+                    "친근",
+                    "친목",
+                    "어색하지",
+                    "말많",
+                    "말많은"
+            );
         }
 
         // 자연어 날짜/시간 표현을 시간 범위로 변환
@@ -699,6 +779,7 @@ public class AiMatchingTool {
 
             return text.replace(" ", "").toLowerCase();
         }
+
     }
 
 

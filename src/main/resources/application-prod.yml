@@ -38,3 +38,15 @@ cors:
 
 websocket:
   allowed-origins: ${CORS_ALLOWED_ORIGINS_PROD}
+
+app:
+  ai:
+    rag-store:
+      url: ${AI_RAG_POSTGRES_URL_PROD}
+      post-table-name: ${AI_MATCHING_POST_VECTOR_TABLE}
+
+    matching:
+      rag:
+        similarity-threshold: ${AI_MATCHING_RAG_SIMILARITY_THRESHOLD}
+        menu-similarity-threshold: ${AI_MATCHING_RAG_MENU_SIMILARITY_THRESHOLD}
+        atmosphere-similarity-threshold: ${AI_MATCHING_RAG_ATMOSPHERE_SIMILARITY_THRESHOLD}

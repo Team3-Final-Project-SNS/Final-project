@@ -70,17 +70,4 @@ public class AiMatchingController {
      * @return AI 추천 답변, 추천 후보 게시글 목록, fallback 사용 여부
      */
 
-//    // SSE 전환 전 JSON 응답용 엔드포인트입니다.
-//    // @PostMapping("/chat")
-//    public ResponseEntity<ApiResponseDto<AiMatchingChatResponseDto>> createAiMatchingChat(
-//            Authentication authentication,
-//            @Valid @RequestBody AiMatchingChatRequestDto request
-//    ) {
-//        String email = authentication.getName();
-//
-//        AiMatchingChatResponseDto response = aiMatchingService.createAiMatchingChat(email, request);
-//
-//        return ResponseEntity.ok(ApiResponseDto.success(response));
-//    }
-
 }

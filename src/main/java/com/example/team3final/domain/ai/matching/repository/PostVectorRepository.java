@@ -21,6 +21,9 @@ import java.util.List;
  *
  * 현재 title은 게시글 placeName, description은 게시글 content(한마디)를 의미합니다. 학교/상태/시간/책임비 같은
  * 정확 조건은 메타데이터 컬럼으로 먼저 거르고, MySQL에서 다시 최종 검증합니다.
+ *
+ *
+ * 직접 구현한 JDBC 기반 저장소이다. 따라서 class임.
  */
 @Slf4j
 @Repository
@@ -52,14 +55,23 @@ public class PostVectorRepository {
             return;
         }
 
-        // embedding에는 장소명, 게시글 한마디, 시간대 표현만 넣어 사용자의 자연어 조건과 의미적으로 맞춥니다.
+        // embedding에는 장소명, 게시글 한마디, 메뉴/분위기 단서, 시간대 표현을 넣어 사용자의 자연어 조건과 의미적으로 맞춥니다.
         // 학교/상태/시간/책임비/정원처럼 정확해야 하는 값은 벡터가 아니라 아래 메타데이터 컬럼으로 필터링합니다.
         String normalizedDescription = event.description() == null ? "" : event.description();
+        String sourceText = "%s %s".formatted(event.title(), normalizedDescription).trim();
         String embeddingText = """
-                제목: %s
-                설명: %s
+                장소명: %s
+                게시글 한마디: %s
+                음식/메뉴 단서: %s
+                분위기 단서: %s
                 시간대: %s
-                """.formatted(event.title(), normalizedDescription, describeMealTime(event.meetAt()));
+                """.formatted(
+                event.title(),
+                normalizedDescription,
+                sourceText,
+                normalizedDescription,
+                describeMealTime(event.meetAt())
+        );
         String vector = toVectorLiteral(embeddingModel.embed(embeddingText));
 
         jdbcTemplate.update("""
@@ -129,7 +141,7 @@ public class PostVectorRepository {
                           AND author_id <> ?
                           AND author_deposit <= ?
                           AND current_applicants < max_applicants
-                          AND 1 - (embedding <=> ?::vector) >= ?
+                          AND (? <= 0 OR 1 - (embedding <=> ?::vector) >= ?)
                         ORDER BY embedding <=> ?::vector
                         LIMIT ?
                         """.formatted(qualifiedTableName),
@@ -143,6 +155,7 @@ public class PostVectorRepository {
                 universityId,
                 requesterId,
                 maxAuthorDeposit,
+                similarityThreshold,
                 vector,
                 similarityThreshold,
                 vector,

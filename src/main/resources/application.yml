@@ -133,6 +133,8 @@ app:
       rag:
         top-k: ${AI_MATCHING_RAG_TOP_K}
         similarity-threshold: ${AI_MATCHING_RAG_SIMILARITY_THRESHOLD}
+        menu-similarity-threshold: ${AI_MATCHING_RAG_MENU_SIMILARITY_THRESHOLD}
+        atmosphere-similarity-threshold: ${AI_MATCHING_RAG_ATMOSPHERE_SIMILARITY_THRESHOLD}
 
     support:
       model: ${AI_SUPPORT_MODEL}
