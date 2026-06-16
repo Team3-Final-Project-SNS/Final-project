@@ -173,6 +173,7 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
 
         // 신청자 검증과 postId 확인을 위해 MatchInfo를 조회
         MatchInfoDto matchInfo = matchInternalService.getMatchInfo(matchId);
+        PostInfoDto postInfo = contextReader.loadMeetContext(matchId).postInfo();
 
         // QR 스캔은 해당 Match의 신청자만 수행할 수 있음
         if (!matchInfo.isApplicant(userId)) {
@@ -225,6 +226,9 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
             // 모든 신청자의 인증이 끝난 뒤 채팅방 비활성화를 예약
             chatInternalService.scheduleChatRoomDeactivation(matchInfo.postId());
         }
+
+        notificationPublisher.sendMeetCompleted(userId, matchId);
+        notificationPublisher.sendMeetCompleted(postInfo.authorId(), matchId);
 
         // QR 스캔 완료 응답을 반환
         return QrScanResponseDto.of(

@@ -275,6 +275,13 @@ public class MeetReminderScheduler {
         for (String matchIdStr : matchIds) {
             Long matchId = Long.parseLong(matchIdStr);
             MatchInfoDto matchInfo = matchInternalService.getMatchInfo(matchId);
+
+            if (matchInfo.status() != MatchStatus.MATCHED) {
+                log.info("[MeetReminderScheduler] {} GUEST 알림 스킵 - 비활성 매칭 matchId: {}, status: {}",
+                        label, matchId, matchInfo.status());
+                continue;
+            }
+
             Post post = postInternalService.getPostById(matchInfo.postId());
             LocalDateTime effectiveMeetAt = meetVerificationRepository.findEffectiveExtendedMeetAtByMatchId(matchId)
                     .orElse(post.getMeetAt());
