@@ -39,6 +39,7 @@ type ParsedRecommendation = {
 export default function MatchingAiChatPage() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const conversationIdRef = useRef<string | null>(null);
+  const messageListRef = useRef<HTMLDivElement | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: Date.now(),
@@ -50,6 +51,18 @@ export default function MatchingAiChatPage() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const messageList = messageListRef.current;
+    if (!messageList) {
+      return;
+    }
+
+    messageList.scrollTo({
+      top: messageList.scrollHeight,
+      behavior: 'smooth',
+    });
+  }, [messages]);
 
   useEffect(() => {
     return () => {
@@ -223,7 +236,7 @@ export default function MatchingAiChatPage() {
               </div>
             )}
 
-            <div className="h-[520px] overflow-y-auto pr-1">
+            <div ref={messageListRef} className="h-[520px] overflow-y-auto pr-1">
               <div className="space-y-4">
                 {messages.map((message) => (
                   <ChatBubble key={message.id} message={message} />

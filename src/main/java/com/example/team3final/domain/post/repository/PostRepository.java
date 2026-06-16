@@ -49,9 +49,9 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
     Optional<Post> findByIdWithLock(@Param("postId") Long postId);
 
     // soft delete된 게시글 포함 단건 조회 -> 삭제 사유 조회 전용
-    @Query("""
-            SELECT p FROM Post p WHERE p.id = :postId
-            """)
+    @Query(value = """
+            SELECT * FROM posts WHERE post_id = :postId
+            """, nativeQuery = true)
     Optional<Post> findByIdIncludingDeleted(@Param("postId") Long postId);
 
     Page<Post> findByAuthorIdInAndStatus(

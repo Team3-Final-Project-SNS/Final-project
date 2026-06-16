@@ -9,6 +9,10 @@ export const getNotificationContextLabel = (notification: NotificationResponse) 
     return `매칭 #${notification.relatedId}`;
   }
 
+  if (notification.domain === 'POST') {
+    return `게시글 #${notification.relatedId}`;
+  }
+
   return `${notification.domain.toLowerCase()}Id ${notification.relatedId}`;
 };
 

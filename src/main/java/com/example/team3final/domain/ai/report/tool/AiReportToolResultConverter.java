@@ -39,9 +39,13 @@ public class AiReportToolResultConverter implements ToolCallResultConverter {
             for (Object item : list) {
                 if (item instanceof AiReportHighRiskUserToolResult user) {
                     sb.append(formatHighRiskUser(user)).append("\n");
+                } else if (item instanceof AiReportSearchToolResult report) {
+                    sb.append(formatReportSearchResult(report)).append("\n");
+                } else if (item instanceof AiDisputeSearchToolResult dispute) {
+                    sb.append(formatDisputeSearchResult(dispute)).append("\n");
                 }
             }
-            return sb.isEmpty() ? "고위험 후보 유저가 없습니다." : sb.toString();
+            return sb.isEmpty() ? "조회 결과가 없습니다." : sb.toString();
         }
 
         return "조회 결과가 없습니다.";
@@ -58,6 +62,8 @@ public class AiReportToolResultConverter implements ToolCallResultConverter {
                 이의제기: 전체 %d건, 검토 대기 %d건, 제출 %d건, 검토 중 %d건, 보류 %d건, 수용 %d건, 부분 수용 %d건, 기각 %d건
                 유저: 전체 %d명, 활성 %d명, 정지 %d명, 탈퇴 %d명
                 결제: 전체 %d건, 결제 대기 %d건, 결제 완료 %d건, 취소 %d건, 실패 %d건, 완료 결제 금액 합계 %d원
+                오늘 결제: 완료 금액 %d원, 완료 %d건, 대기 %d건, 취소 %d건, 실패 %d건
+                오늘 결제 관리자 확인 필요 여부: %s
                 """,
                 dashboard.totalPendingWorkCount(),
                 dashboard.totalPostCount(),
@@ -88,7 +94,15 @@ public class AiReportToolResultConverter implements ToolCallResultConverter {
                 dashboard.paidPaymentCount(),
                 dashboard.cancelledPaymentCount(),
                 dashboard.failedPaymentCount(),
-                dashboard.paidPaymentAmount()
+                dashboard.paidPaymentAmount(),
+                dashboard.todayPaidPaymentAmount(),
+                dashboard.todayPaidPaymentCount(),
+                dashboard.todayReadyPaymentCount(),
+                dashboard.todayCancelledPaymentCount(),
+                dashboard.todayFailedPaymentCount(),
+                dashboard.todayCancelledPaymentCount() > 0 || dashboard.todayFailedPaymentCount() > 0
+                        ? "필요 - 오늘 결제 취소 또는 실패 건이 있습니다."
+                        : "불필요 - 오늘 결제 취소와 실패 건이 없습니다."
         );
     }
 
@@ -176,6 +190,59 @@ public class AiReportToolResultConverter implements ToolCallResultConverter {
                 context.targetUserTotalReportCount(),
                 context.targetUserPendingReportCount(),
                 context.targetUserAcceptedReportCount()
+        );
+    }
+
+    private String formatReportSearchResult(AiReportSearchToolResult report) {
+        return String.format(
+                """
+                신고 검색 결과
+                신고 ID: %d
+                신고 사유: %s
+                신고 상태: %s
+                신고 상세: %s
+                신고자: %s(%d)
+                대상 게시글 ID: %d
+                피신고 유저: %s(%s)
+                게시글 장소: %s
+                게시글 시간: %s
+                게시글 내용: %s
+                """,
+                report.reportId(),
+                report.reportReason(),
+                report.reportStatus(),
+                blankToDefault(report.reportDetail()),
+                blankToDefault(report.reporterNickname()),
+                report.reporterId(),
+                report.targetPostId(),
+                blankToDefault(report.targetUserNickname()),
+                report.targetUserId() == null ? "알 수 없음" : report.targetUserId(),
+                blankToDefault(report.targetPlaceName()),
+                blankToDefault(report.targetMeetAt()),
+                blankToDefault(report.targetPostContent())
+        );
+    }
+
+    private String formatDisputeSearchResult(AiDisputeSearchToolResult dispute) {
+        return String.format(
+                """
+                이의제기 검색 결과
+                이의제기 ID: %d
+                매칭 ID: %d
+                제출자: %s(%d)
+                이의제기 유형: %s
+                이의제기 상태: %s
+                제출 사유: %s
+                제출 시각: %s
+                """,
+                dispute.disputeId(),
+                dispute.matchId(),
+                blankToDefault(dispute.submitterNickname()),
+                dispute.submitterId(),
+                dispute.disputeType(),
+                dispute.status(),
+                blankToDefault(dispute.reason()),
+                dispute.submittedAt()
         );
     }
 

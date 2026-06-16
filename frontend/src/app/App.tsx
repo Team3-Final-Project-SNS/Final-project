@@ -12,6 +12,11 @@ export default function App() {
 
   useEffect(() => {
     const restoreLogin = async () => {
+      if (window.location.pathname.startsWith('/admin')) {
+        setAuthChecked(true);
+        return;
+      }
+
       try {
         const res = await refresh();
         setAccessToken(res.data.data.accessToken);

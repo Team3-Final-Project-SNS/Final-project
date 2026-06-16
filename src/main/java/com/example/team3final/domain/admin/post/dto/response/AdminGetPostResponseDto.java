@@ -5,27 +5,31 @@ import com.example.team3final.domain.post.enums.PostStatus;
 
 import java.time.LocalDateTime;
 
-public record AdminGetPostResponseDto (
+public record AdminGetPostResponseDto(
 
-        Long postId,            // 게시글 ID
-        PostStatus status,      // 게시글 상태
-        int authorDeposit,      // 책임비 포인트
-        String content,         // 한마디 (없으면 null)
-        String placeName,       // 만남 장소명
-        LocalDateTime meetAt,   // 만남 희망 시간
-        String authorNickname,  // 작성자 닉네임
-        LocalDateTime createdAt // 작성일
+        Long postId,
+        PostStatus status,
+        int authorDeposit,
+        String content,
+        String placeName,
+        LocalDateTime meetAt,
+        String authorNickname,
+        LocalDateTime createdAt,
+        boolean deleted,
+        LocalDateTime deletedAt
 ) {
     public static AdminGetPostResponseDto of(Post post, String authorNickname) {
         return new AdminGetPostResponseDto(
                 post.getId(),
                 post.getStatus(),
                 post.getAuthorDeposit(),
-                post.getContent(),      // 한마디 — null 가능
+                post.getContent(),
                 post.getPlaceName(),
                 post.getMeetAt(),
                 authorNickname,
-                post.getCreatedAt()
+                post.getCreatedAt(),
+                post.isDeleted(),
+                post.getDeletedAt()
         );
     }
 }

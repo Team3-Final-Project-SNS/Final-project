@@ -11,6 +11,8 @@ export interface AdminPostItem {
   authorDeposit: number;
   status: PostStatus;
   createdAt: string;
+  deleted: boolean;
+  deletedAt: string | null;
 }
 
 export interface AdminPostDetail {
@@ -22,6 +24,8 @@ export interface AdminPostDetail {
   meetAt: string;
   authorNickname: string;
   createdAt: string;
+  deleted: boolean;
+  deletedAt: string | null;
 }
 
 export interface AdminDeletePostResponse {
@@ -42,6 +46,7 @@ export const getAdminPosts = (
   universityId?: number,
   authorNickname?: string,
   status?: PostStatus,
+  deleted?: boolean,
   keyword?: string,
   page: number = 0,
   size: number = 20,
@@ -51,6 +56,7 @@ export const getAdminPosts = (
       universityId,
       authorNickname,
       status,
+      deleted,
       keyword,
       page,
       size,

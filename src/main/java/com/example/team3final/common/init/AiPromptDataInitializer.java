@@ -68,6 +68,15 @@ public class AiPromptDataInitializer implements ApplicationRunner {
         );
 
         saveIfMissing(
+                AiPromptType.SUPPORT_CHAT,
+                AiFeature.SUPPORT,
+                "v3",
+                "support-chat-v3.st",
+                true,
+                "한끼팟 고객센터 AI SSE 가독성 및 띄어쓰기 강화 프롬프트"
+        );
+
+        saveIfMissing(
                 AiPromptType.REPORT_SUMMARY,
                 AiFeature.REPORT,
                 "v1",
@@ -83,6 +92,15 @@ public class AiPromptDataInitializer implements ApplicationRunner {
                 "report-summary-v2.st",
                 true,
                 "관리자 AI 출처 표기 및 업무별 답변 구조 강화 프롬프트"
+        );
+
+        saveIfMissing(
+                AiPromptType.REPORT_SUMMARY,
+                AiFeature.REPORT,
+                "v3",
+                "report-summary-v3.st",
+                true,
+                "관리자 AI SSE 가독성 및 띄어쓰기 강화 프롬프트"
         );
     }
 
