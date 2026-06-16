@@ -425,8 +425,8 @@ function RecommendationIntro({
               <div className="mt-2 rounded-xl bg-white/75 px-3 py-2">
                 <p className="text-xs font-extrabold text-[#6d5a50]">추천 이유</p>
                 <ul className="mt-1 space-y-1 text-xs leading-5 text-[#6d5a50]">
-                  {reasons.map((reason) => (
-                      <li key={reason} className="flex gap-1.5">
+                  {reasons.map((reason, index) => (
+                      <li key={`${reason}-${index}`} className="flex gap-1.5">
                         <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-[#d84315]" />
                         <span>{reason}</span>
                       </li>
