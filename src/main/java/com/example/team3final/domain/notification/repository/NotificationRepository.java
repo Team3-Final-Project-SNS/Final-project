@@ -46,9 +46,17 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
             @Param("receiverId") Long receiverId,
             @Param("now") LocalDateTime now);
 
-    // 10일 경과 알림 삭제 (스케줄러용)
-    @Modifying
-    @Query("DELETE FROM Notification n WHERE n IN (SELECT n2 FROM Notification n2 WHERE n2.createdAt < :cutoff ORDER BY n2.createdAt ASC LIMIT :limit)")
+    // 오래된 알림 삭제 (스케줄러용)
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(
+            value = """
+                    DELETE FROM notifications
+                    WHERE created_at < :cutoff
+                    ORDER BY created_at ASC
+                    LIMIT :limit
+                    """,
+            nativeQuery = true
+    )
     int deleteByCreatedAtBeforeLimit(@Param("cutoff") LocalDateTime cutoff, @Param("limit") int limit);
 
 }
