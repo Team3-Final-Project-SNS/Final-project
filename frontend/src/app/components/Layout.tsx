@@ -291,8 +291,8 @@ export default function Layout() {
                 결제
               </Link>
               <Link
-                  to="/me/inquiries"
-                  className={`text-sm ${isActive('/me/inquiries') ? 'text-[#d84315] font-semibold' : 'text-[#424242]'}`}
+                  to="/me/support"
+                  className={`text-sm ${isActive('/me/support') || isActive('/me/inquiries') ? 'text-[#d84315] font-semibold' : 'text-[#424242]'}`}
               >
                 고객센터
               </Link>
@@ -422,7 +422,7 @@ export default function Layout() {
                 <span>계정이 정지된 상태입니다. 문의하기를 통해 이의를 제기할 수 있습니다.</span>
                 <button
                     type="button"
-                    onClick={() => navigate('/me/inquiries')}
+                    onClick={() => navigate('/me/support/inquiries')}
                     className="inline-flex shrink-0 items-center justify-center rounded-md bg-[#d84315] px-3 py-2 text-xs font-bold text-white hover:bg-[#bf360c]"
                 >
                   문의하기

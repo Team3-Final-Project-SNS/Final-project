@@ -32,7 +32,7 @@ export default function HomePage() {
   const { isSuspended } = useAuthStatus();
   const suspendedToastMessage = '정지된 계정입니다. 문의하기로 이의를 제기해 주세요.';
 
-  const isSuspendedLinkDisabled = (path: string) => isSuspended && path !== '/me' && !path.startsWith('/me/inquiries');
+  const isSuspendedLinkDisabled = (path: string) => isSuspended && path !== '/me' && !path.startsWith('/me/support') && !path.startsWith('/me/inquiries');
   const handleSuspendedMenuClick = (event?: React.MouseEvent<HTMLAnchorElement>) => {
     event?.preventDefault();
     toast.warning(suspendedToastMessage);
@@ -248,7 +248,7 @@ export default function HomePage() {
                     <Link to="/posts" onClick={isSuspendedLinkDisabled('/posts') ? handleSuspendedMenuClick : undefined} aria-disabled={isSuspendedLinkDisabled('/posts')} className={`text-sm text-[#424242] hover:text-[#d84315] ${isSuspendedLinkDisabled('/posts') ? 'cursor-not-allowed opacity-45' : ''}`}>게시글</Link>
                     <Link to="/matches" onClick={isSuspendedLinkDisabled('/matches') ? handleSuspendedMenuClick : undefined} aria-disabled={isSuspendedLinkDisabled('/matches')} className={`text-sm text-[#424242] hover:text-[#d84315] ${isSuspendedLinkDisabled('/matches') ? 'cursor-not-allowed opacity-45' : ''}`}>매칭</Link>
                     <Link to="/payments" onClick={isSuspendedLinkDisabled('/payments') ? handleSuspendedMenuClick : undefined} aria-disabled={isSuspendedLinkDisabled('/payments')} className={`text-sm text-[#424242] hover:text-[#d84315] ${isSuspendedLinkDisabled('/payments') ? 'cursor-not-allowed opacity-45' : ''}`}>결제</Link>
-                    <Link to="/me/inquiries" className="text-sm text-[#424242] hover:text-[#d84315]">고객센터</Link>
+                    <Link to="/me/support" className="text-sm text-[#424242] hover:text-[#d84315]">고객센터</Link>
                     <Link to="/ai/matching" onClick={isSuspendedLinkDisabled('/ai/matching') ? handleSuspendedMenuClick : undefined} aria-disabled={isSuspendedLinkDisabled('/ai/matching')} className={`flex items-center gap-1 text-sm text-[#424242] hover:text-[#d84315] ${isSuspendedLinkDisabled('/ai/matching') ? 'cursor-not-allowed opacity-45' : ''}`}>
                       <Sparkles size={15} />
                       AI 추천

@@ -112,6 +112,22 @@ export const router = createBrowserRouter([
           { path: "points", Component: PointTransactionsPage },
           { path: "matches", Component: MyMatchResultsPage },
           { path: "inquiries", Component: InquiryCenterPage },
+          { path: "support", Component: InquiryCenterPage },
+          { path: "support/inquiries", Component: InquiryCenterPage },
+          { path: "support/disputes/no-show", Component: InquiryCenterPage },
+          {
+            path: "support/faq",
+            element: (
+              <TermsMarkdownPage
+                title="자주 묻는 질문"
+                content={faqContent}
+                eyebrow="FAQ"
+                backTo="/me/support"
+                backLabel="고객센터"
+                variant="support"
+              />
+            ),
+          },
           { path: "reports", Component: ReportCenterPage },
         ],
       },
@@ -126,7 +142,7 @@ export const router = createBrowserRouter([
                 title="자주 묻는 질문"
                 content={faqContent}
                 eyebrow="FAQ"
-                backTo="/me/inquiries"
+                backTo="/me/support"
                 backLabel="고객센터"
                 variant="support"
               />

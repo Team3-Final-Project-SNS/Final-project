@@ -13,6 +13,7 @@ import {
   Users,
 } from 'lucide-react';
 import { getMatchDetail, GetMatchResponse, MatchStatus } from '../../api/matchApi';
+import { getMeetVerification, MeetVerificationResponse } from '../../api/meetApi';
 import { getUserMe } from '../../api/userApi';
 
 const statusPresentation: Record<MatchStatus, {
@@ -69,10 +70,37 @@ const formatDateTime = (value: string | null) => {
   });
 };
 
+const pendingNoShowLabel = (status?: string) => {
+  switch (status) {
+    case 'HOST_NO_SHOW':
+      return '등록자 노쇼 예정';
+    case 'GUEST_NO_SHOW':
+      return '신청자 노쇼 예정';
+    case 'BOTH_NO_SHOW':
+      return '양측 노쇼 예정';
+    default:
+      return '노쇼 예정';
+  }
+};
+
+const pendingNoShowDescription = (status?: string) => {
+  switch (status) {
+    case 'HOST_NO_SHOW':
+      return '게시글 등록자가 노쇼 예정 상태입니다.';
+    case 'GUEST_NO_SHOW':
+      return '매칭 신청자가 노쇼 예정 상태입니다.';
+    case 'BOTH_NO_SHOW':
+      return '등록자와 신청자 모두 노쇼 예정 상태입니다.';
+    default:
+      return '노쇼 예정 상태입니다.';
+  }
+};
+
 export default function MatchDetailPage() {
   const { id } = useParams();
   const matchId = Number(id);
   const [match, setMatch] = useState<GetMatchResponse | null>(null);
+  const [verification, setVerification] = useState<MeetVerificationResponse | null>(null);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -89,12 +117,14 @@ export default function MatchDetailPage() {
       setError('');
 
       try {
-        const [matchRes, userRes] = await Promise.all([
+        const [matchRes, userRes, verificationResult] = await Promise.all([
           getMatchDetail(matchId),
           getUserMe(),
+          getMeetVerification(matchId).catch(() => null),
         ]);
         setMatch(matchRes.data.data);
         setCurrentUserId(userRes.data.data.userId);
+        setVerification(verificationResult?.data.data ?? null);
       } catch (err: any) {
         setError(err.response?.data?.message || '매칭 상세 정보를 불러오지 못했습니다.');
       } finally {
@@ -125,14 +155,29 @@ export default function MatchDetailPage() {
     );
   }
 
-  const status = statusPresentation[match.status];
   const isAuthor = currentUserId === match.authorId;
   const myDeposit = isAuthor ? match.authorDeposit : match.applicantDeposit;
   const postAuthor = {
     nickname: match.authorNickname,
     mannerTemperature: match.authorMannerTemperature,
   };
+  const noShowVerificationStatuses = ['HOST_NO_SHOW', 'GUEST_NO_SHOW', 'BOTH_NO_SHOW'];
+  const isNoShowPending = verification
+      ? noShowVerificationStatuses.includes(verification.verificationStatus)
+      : false;
+  const canDisputeNoShow = isNoShowPending && (
+      verification?.verificationStatus === 'BOTH_NO_SHOW' ||
+      (verification?.verificationStatus === 'HOST_NO_SHOW' && isAuthor) ||
+      (verification?.verificationStatus === 'GUEST_NO_SHOW' && !isAuthor)
+  );
   const isNoShow = ['AUTHOR_NO_SHOW', 'APPLICANT_NO_SHOW', 'BOTH_NO_SHOW'].includes(match.status);
+  const status = isNoShowPending
+      ? {
+        label: pendingNoShowLabel(verification?.verificationStatus),
+        description: pendingNoShowDescription(verification?.verificationStatus),
+        className: 'bg-[#ffebee] text-[#c62828]',
+      }
+      : statusPresentation[match.status];
 
   return (
       <div className="mx-auto max-w-3xl">
@@ -157,7 +202,7 @@ export default function MatchDetailPage() {
             </div>
 
             <div className={`rounded-xl px-4 py-3 text-sm ${
-                isNoShow ? 'bg-[#fff5f5] text-[#b71c1c]' : 'bg-[#fafafa] text-[#616161]'
+                isNoShow || isNoShowPending ? 'bg-[#fff5f5] text-[#b71c1c]' : 'bg-[#fafafa] text-[#616161]'
             }`}>
               {status.description}
             </div>
@@ -208,7 +253,7 @@ export default function MatchDetailPage() {
                 </Link>
             )}
 
-            {match.status === 'MATCHED' && (
+            {match.status === 'MATCHED' && !isNoShowPending && (
                 <Link
                     to={`/matches/${match.matchId}/place-verification`}
                     className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#d84315] px-4 py-3 text-sm font-semibold text-white hover:bg-[#bf360c]"
@@ -218,12 +263,12 @@ export default function MatchDetailPage() {
                 </Link>
             )}
 
-            {(isNoShow || match.status === 'DISPUTED') && (
+            {(canDisputeNoShow || isNoShow || match.status === 'DISPUTED') && (
                 <Link
-                    to={`/me/inquiries?view=noShow&matchId=${match.matchId}`}
+                    to={`/me/support/disputes/no-show?matchId=${match.matchId}`}
                     className="inline-flex flex-1 items-center justify-center rounded-lg bg-[#d84315] px-4 py-3 text-sm font-semibold text-white hover:bg-[#bf360c]"
                 >
-                  {isNoShow ? '노쇼 이의제기' : '이의제기 확인'}
+                  {canDisputeNoShow || isNoShow ? '노쇼 이의제기' : '이의제기 확인'}
                 </Link>
             )}
           </div>

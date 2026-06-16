@@ -45,15 +45,16 @@ export const getNotificationTargetPath = (notification: NotificationResponse) =>
       case 'REVIEW_DEADLINE_REMINDER':
         return `/matches?filter=COMPLETED&reviewMatchId=${relatedId}`;
       case 'NO_SHOW_WARNING':
+      case 'OPPONENT_NO_SHOW_WARNING':
       case 'NO_SHOW_CONFIRMED':
-        return `/me/inquiries?view=noShow&matchId=${relatedId}`;
+        return `/matches/${relatedId}`;
       case 'PAYMENT_SUCCESS':
       case 'PAYMENT_FAILED':
       case 'PAYMENT_CANCEL_SUCCESS':
       case 'PAYMENT_CANCEL_FAILED':
         return `/payments?paymentId=${relatedId}`;
       case 'INQUIRY_ANSWERED':
-        return `/me/inquiries?inquiryId=${relatedId}`;
+        return `/me/support/inquiries?inquiryId=${relatedId}`;
       case 'REPORT_REWARD':
       case 'REPORT_REJECTED':
         return `/me/reports?reportId=${relatedId}`;
@@ -75,7 +76,7 @@ export const getNotificationTargetPath = (notification: NotificationResponse) =>
     case 'DISPUTE':
       return '/me/matches';
     case 'INQUIRY':
-      return '/me/inquiries';
+      return '/me/support/inquiries';
     case 'ACCOUNT':
     case 'SYSTEM':
     default:
