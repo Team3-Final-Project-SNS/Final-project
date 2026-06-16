@@ -996,9 +996,24 @@ public class AiMatchingServiceImpl implements AiMatchingService {
             String conversationContext,
             AiMatchingLlmResult result
     ) {
+        // 메뉴 토큰 우선순위:
+        // 1. 현재 사용자 원문에 직접 들어 있는 명시 메뉴
+        // 2. 현재 사용자 원문에서 추출 가능한 일반 토큰
+        // 3. Rewrite Query Transformer 결과
+        // 4. 이전 대화 맥락
+        //
+        // 이 순서를 지키면 "치킨"을 물어본 뒤 "덮밥"만 입력한 경우에도
+        // 이전 치킨 조건이 새 추천에 섞이지 않고 현재 덮밥 조건이 우선됩니다.
         List<String> explicitUserMenuTokens = extractExplicitMenuEvidenceTokens(userMessage);
         if (!explicitUserMenuTokens.isEmpty()) {
             return explicitUserMenuTokens;
+        }
+
+        // Rewrite Query Transformer는 멀티턴 맥락을 반영하므로 이전 메뉴 조건이 섞일 수 있습니다.
+        // 현재 사용자가 "덮밥"처럼 새 메뉴를 짧게 입력한 경우에는 재작성 문장보다 원문 토큰을 우선합니다.
+        List<String> currentUserTokens = extractMenuEvidenceTokens(userMessage);
+        if (!currentUserTokens.isEmpty()) {
+            return currentUserTokens;
         }
 
         List<String> explicitRewrittenMenuTokens = extractExplicitMenuEvidenceTokens(rewrittenUserMessage);
@@ -1096,7 +1111,12 @@ public class AiMatchingServiceImpl implements AiMatchingService {
             String rewrittenUserMessage,
             List<String> menuEvidenceTokens
     ) {
-        String normalized = normalizeForAiMatching(userMessage + " " + rewrittenUserMessage);
+        // 추천 이유는 현재 사용자가 방금 말한 조건을 기준으로 작성합니다.
+        // Rewrite 결과에는 이전 멀티턴 조건이 섞일 수 있으므로, 여기까지 그대로 쓰면
+        // "튀김" 요청에 예전 "조용한" 조건이 이유로 노출되는 문제가 생길 수 있습니다.
+        // 검색 후보를 넓히는 데는 rewrittenUserMessage가 유용하지만,
+        // 사용자에게 보이는 reason에는 현재 요청에 없는 과거 조건을 섞지 않습니다.
+        String normalized = normalizeForAiMatching(userMessage);
 
         if (isLowDepositRequest(normalized)) {
             return "책임비가 낮은 순으로 확인한 추천 후보입니다.";
@@ -1193,16 +1213,17 @@ public class AiMatchingServiceImpl implements AiMatchingService {
         }
 
         String normalized = normalizeForAiMatching(userMessage + " " + rewrittenUserMessage);
+        String normalizedCurrentRequest = normalizeForAiMatching(userMessage);
         boolean exactMenuMatch = menuEvidenceTokens != null
                 && !menuEvidenceTokens.isEmpty()
                 && candidates.stream().allMatch(candidate -> hasMenuEvidence(candidate, menuEvidenceTokens));
 
         StringBuilder answer = new StringBuilder();
-        if (isLowDepositRequest(normalized)) {
+        if (isLowDepositRequest(normalizedCurrentRequest)) {
             answer.append("책임비가 낮은 순으로 모집글 ")
                     .append(candidates.size())
                     .append("개를 추천드립니다.\n\n");
-        } else if (isHighDepositRequest(normalized)) {
+        } else if (isHighDepositRequest(normalizedCurrentRequest)) {
             answer.append("책임비가 높은 순으로 모집글 ")
                     .append(candidates.size())
                     .append("개를 추천드립니다.\n\n");
@@ -1233,9 +1254,9 @@ public class AiMatchingServiceImpl implements AiMatchingService {
                     .append(candidate.deposit())
                     .append("P / 이유: ");
 
-            if (isLowDepositRequest(normalized)) {
+            if (isLowDepositRequest(normalizedCurrentRequest)) {
                 answer.append("요청하신 책임비 낮은 조건을 반영해 낮은 책임비 순으로 정렬한 후보입니다.\n");
-            } else if (isHighDepositRequest(normalized)) {
+            } else if (isHighDepositRequest(normalizedCurrentRequest)) {
                 answer.append("요청하신 책임비 높은 조건을 반영해 높은 책임비 순으로 정렬한 후보입니다.\n");
             } else if (exactMenuMatch) {
                 answer.append("요청하신 음식 조건과 게시글 내용이 직접 관련되어 있습니다.\n");

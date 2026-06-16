@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { AlertCircle, ArrowRight, Bot, CalendarClock, CheckCircle2, Coins, Loader2, Send, Sparkles, XCircle } from 'lucide-react';
-import { clearMatchingConversation, RecommendedPost, streamMatchingChat } from '@/api/aiApi';
+import { clearMatchingConversationOnExit, RecommendedPost, streamMatchingChat } from '@/api/aiApi';
 
 const EXAMPLE_QUESTIONS = [
   '책임비 낮은 식사팟 추천해줘',
@@ -69,9 +69,7 @@ export default function MatchingAiChatPage() {
       const activeConversationId = conversationIdRef.current;
 
       if (activeConversationId) {
-        void clearMatchingConversation(activeConversationId).catch(() => {
-          // 화면 이탈 중 정리 실패는 다음 세션 생성 자체를 막지 않습니다.
-        });
+        clearMatchingConversationOnExit(activeConversationId);
       }
     };
   }, []);
