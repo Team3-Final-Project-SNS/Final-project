@@ -47,6 +47,7 @@ public enum ErrorCode {
     POST_NOT_MATCHED(HttpStatus.UNPROCESSABLE_ENTITY, "POST_008", "매칭된 게시글만 완료 처리할 수 있습니다."),
     POST_INVALID_DEPOSIT_UNIT(HttpStatus.BAD_REQUEST, "POST_009", "책임비는 100P 단위로만 설정할 수 있습니다."),
     POST_NOT_DELETED(HttpStatus.UNPROCESSABLE_ENTITY, "POST_010", "삭제된 게시글이 아닙니다."),
+    POST_CONDITION_LOCKED(HttpStatus.UNPROCESSABLE_ENTITY, "POST_011", "신청자가 있는 게시글은 시간, 장소, 책임비를 변경할 수 없습니다."),
 
     // Match
     MATCH_NOT_FOUND(HttpStatus.NOT_FOUND, "MATCH_001", "존재하지 않는 매칭입니다."),

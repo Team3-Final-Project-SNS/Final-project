@@ -16,6 +16,7 @@ public interface UserPointService {
 
     // 신청자 책임비 최종 정산 — Match 단위로 한 번만 허용
     void refundApplicantDeposit(Long userId, int amount, Long matchId);
+    void redepositApplicantDeposit(Long userId, int amount, Long matchId);
     void partialRefundApplicantDeposit(Long userId, int amount, Long matchId);
     void penaltyApplicantDeposit(Long userId, int amount, Long matchId);
 

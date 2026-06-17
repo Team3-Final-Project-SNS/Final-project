@@ -1,5 +1,8 @@
 package com.example.team3final.domain.post.service;
 
+import com.example.team3final.domain.match.entity.Match;
+import com.example.team3final.domain.match.enums.MatchStatus;
+import com.example.team3final.domain.match.repository.MatchRepository;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
@@ -28,6 +31,7 @@ public class PostModerationServiceImpl implements PostModerationService {
     private final NotificationPublisher notificationPublisher;
     private final UserInternalService userInternalService;
     private final ApplicationEventPublisher applicationEventPublisher;
+    private final MatchRepository matchRepository;
 
     // 게시글 강제 삭제 사유를 받아서 포인트 반환
     @Override
@@ -36,6 +40,7 @@ public class PostModerationServiceImpl implements PostModerationService {
         // 작성자에게 예치 포인트 전액 환불
         int refundedPoint = post.getAuthorDeposit();
         userPointService.refundAuthorDeposit(post.getAuthorId(), refundedPoint, post.getId());
+        refundActiveApplicants(post);
 
         // 소프트 삭제 + 사유 영속화
         // post.delete(reason) 가 deleteReason 세팅 후 deletedAt=now() 세팅
@@ -49,6 +54,7 @@ public class PostModerationServiceImpl implements PostModerationService {
                 post.getAuthorId(), // userId (Long)
                 post.getId()        // postId (Long) -> 이 부분이 누락되었었습니다!
         );
+        notifyApplicantsPostDeleted(post);
 
         return refundedPoint;
     }
@@ -64,6 +70,7 @@ public class PostModerationServiceImpl implements PostModerationService {
         // 삭제 때 작성자에게 환불했으므로, 복구 시 다시 차감
         // 잔액 부족 시 user.deduct() 내부에서 예외 발생
         userPointService.redepositAuthorDeposit(post.getAuthorId(), redepositPoint, post.getId());
+        redepositActiveApplicants(post);
 
         // 게시글 복구
         post.restore();
@@ -75,8 +82,45 @@ public class PostModerationServiceImpl implements PostModerationService {
                 post.getAuthorId(), // userId (Long)
                 post.getId()        // postId (Long) -> 엔티티 식별자 메서드명에 맞게 입력 (ex: post.getPostId())
         );
+        notifyApplicantsPostRestored(post);
 
         return redepositPoint;
+    }
+
+    private List<Match> getActiveApplicantMatches(Post post) {
+        return matchRepository.findAllByPostIdAndStatusOrderByIdAsc(post.getId(), MatchStatus.MATCHED);
+    }
+
+    private void refundActiveApplicants(Post post) {
+        for (Match match : getActiveApplicantMatches(post)) {
+            userPointService.refundApplicantDeposit(
+                    match.getApplicantId(),
+                    match.getApplicantDeposit(),
+                    match.getId()
+            );
+        }
+    }
+
+    private void redepositActiveApplicants(Post post) {
+        for (Match match : getActiveApplicantMatches(post)) {
+            userPointService.redepositApplicantDeposit(
+                    match.getApplicantId(),
+                    match.getApplicantDeposit(),
+                    match.getId()
+            );
+        }
+    }
+
+    private void notifyApplicantsPostDeleted(Post post) {
+        for (Match match : getActiveApplicantMatches(post)) {
+            notificationPublisher.sendPostDeleted(match.getApplicantId(), post.getId());
+        }
+    }
+
+    private void notifyApplicantsPostRestored(Post post) {
+        for (Match match : getActiveApplicantMatches(post)) {
+            notificationPublisher.sendPostRestored(match.getApplicantId(), post.getId());
+        }
     }
 
     // 관리자 게시글 목록 조회, 전체 대학 조회와 특정 대학 필터 분기 처리
