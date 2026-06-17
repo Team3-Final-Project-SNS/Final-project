@@ -95,5 +95,12 @@ public class AiProperties {
         private boolean initializeSchema;
         private String distanceType;
         private String indexType;
+        // RAG 전용 PostgreSQL은 메인 MySQL과 별도 커넥션 풀로 관리합니다.
+        // 운영 환경에서 pgvector 색인/검색 부하에 맞춰 풀 크기와 타임아웃을 조정하기 위한 설정입니다.
+        private int maximumPoolSize = 5;
+        private int minimumIdle = 1;
+        private long connectionTimeoutMs = 30000;
+        private long idleTimeoutMs = 30000;
+        private long maxLifetimeMs = 1800000;
     }
 }
