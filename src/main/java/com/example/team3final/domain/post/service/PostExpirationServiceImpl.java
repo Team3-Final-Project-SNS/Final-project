@@ -20,6 +20,7 @@ public class PostExpirationServiceImpl implements PostExpirationService {
     private final NotificationPublisher notificationPublisher;
     private final UserPointService userPointService;
     private final ApplicationEventPublisher applicationEventPublisher;
+    private final RedisPostService redisPostService;
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -36,6 +37,7 @@ public class PostExpirationServiceImpl implements PostExpirationService {
         if (post.getCurrentApplicants() >= 2) {
             // 작성자 외 신청자가 한 명이라도 있으면 정원 미달이어도 정책상 모임이 성립한다.
             post.match();
+            redisPostService.evictPostLists();
             return;
         }
 
@@ -52,5 +54,6 @@ public class PostExpirationServiceImpl implements PostExpirationService {
 
         // 만료 상태와 환불이 실제 커밋된 경우에만 사용자 알림을 발행한다.
         notificationPublisher.sendPostExpired(post.getAuthorId(), post.getId());
+        redisPostService.evictPostLists();
     }
 }

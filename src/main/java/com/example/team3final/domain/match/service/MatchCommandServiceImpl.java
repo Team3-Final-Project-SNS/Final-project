@@ -16,6 +16,7 @@ import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.event.PostVectorDeleteEvent;
 import com.example.team3final.domain.post.event.PostVectorUpsertEvent;
 import com.example.team3final.domain.post.service.PostInternalService;
+import com.example.team3final.domain.post.service.RedisPostService;
 import com.example.team3final.domain.review.util.ReviewRedisZSetKeys;
 import com.example.team3final.domain.user.service.UserInternalService;
 import com.example.team3final.domain.user.service.UserPointService;
@@ -44,6 +45,7 @@ public class MatchCommandServiceImpl implements MatchCommandService {
     private final UserInternalService userInternalService;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final StringRedisTemplate redisTemplate;
+    private final RedisPostService redisPostService;
 
     @Override
     @Transactional(readOnly = true)
@@ -218,6 +220,8 @@ public class MatchCommandServiceImpl implements MatchCommandService {
             redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_IMMINENT_HOST, cancelPostIdStr);
             redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_OVERDUE_HOST, cancelPostIdStr);
         }
+
+        redisPostService.evictPostLists();
 
         return CancelMatchResponseDto.of(
                 match.getId(),

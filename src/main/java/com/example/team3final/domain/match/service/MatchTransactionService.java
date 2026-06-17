@@ -25,6 +25,7 @@ import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.event.PostVectorDeleteEvent;
 import com.example.team3final.domain.post.service.PostInternalService;
+import com.example.team3final.domain.post.service.RedisPostService;
 import com.example.team3final.domain.report.service.ReportInternalService;
 import com.example.team3final.domain.review.service.ReviewAvoidanceService;
 import com.example.team3final.domain.user.service.UserInternalService;
@@ -52,6 +53,7 @@ public class MatchTransactionService {
     private final ReportInternalService reportInternalService;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final StringRedisTemplate redisTemplate;
+    private final RedisPostService redisPostService;
 
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -140,6 +142,8 @@ public class MatchTransactionService {
         }
 
         // 8. 응답 DTO에 필요한 닉네임 조회
+        redisPostService.evictPostLists();
+
         String authorNickname = userInternalService.getUserInfo(post.getAuthorId()).nickname();
         String applicantNickname = userInternalService.getUserInfo(applicantId).nickname();
 

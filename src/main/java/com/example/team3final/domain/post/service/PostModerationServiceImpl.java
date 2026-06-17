@@ -34,6 +34,7 @@ public class PostModerationServiceImpl implements PostModerationService {
     private final ApplicationEventPublisher applicationEventPublisher;
     private final MatchRepository matchRepository;
     private final ChatInternalService chatInternalService;
+    private final RedisPostService redisPostService;
 
     // 게시글 강제 삭제 사유를 받아서 포인트 반환
     @Override
@@ -50,6 +51,7 @@ public class PostModerationServiceImpl implements PostModerationService {
         post.deleteAndReason(reason);
 
         publishPostVectorDeleteEvent(post.getId());
+        redisPostService.evictPostLists();
 
         // 41. 게시글 삭제 알림 - 게시글 작성자에게
         notificationPublisher.sendPostDeleted(
@@ -74,6 +76,7 @@ public class PostModerationServiceImpl implements PostModerationService {
         post.restore();
 
         publishPostVectorUpsertEvent(post);
+        redisPostService.evictPostLists();
 
         // 42. 게시글 복구 알림 - 게시글 작성자에게
         notificationPublisher.sendPostRestored(
