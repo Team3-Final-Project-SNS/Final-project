@@ -177,7 +177,7 @@ public class PostCommandServiceImpl implements PostCommandService {
         int refundedPoint = post.getAuthorDeposit();
 
         // 5. 포인트 전액 환불
-        userPointService.refundAuthorDeposit(userId, refundedPoint, postId);
+        userPointService.refundAuthorDeposit(userId, refundedPoint, postId, "게시글 삭제 환불");
 
         cancelActiveApplicantMatches(post);
 
@@ -208,7 +208,8 @@ public class PostCommandServiceImpl implements PostCommandService {
             userPointService.refundApplicantDeposit(
                     match.getApplicantId(),
                     match.getApplicantDeposit(),
-                    match.getId()
+                    match.getId(),
+                    "게시글 삭제 환불"
             );
             match.cancel();
             post.decreaseCurrentApplicants();

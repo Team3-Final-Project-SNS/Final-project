@@ -63,11 +63,12 @@ public class MatchLifecycleServiceImpl implements MatchLifecycleService {
         publishPostVectorDeleteEvent(post.getId());
 
         // 양측 전액 환불 (둘 다 현장에 있었으므로 귀책 없음 → 패널티 없음)
-        userPointService.refundAuthorDeposit(post.getAuthorId(), post.getAuthorDeposit(), post.getId());
+        userPointService.refundAuthorDeposit(post.getAuthorId(), post.getAuthorDeposit(), post.getId(), "매칭 취소 환불");
         userPointService.refundApplicantDeposit(
                 match.getApplicantId(),
                 match.getApplicantDeposit(),
-                matchId
+                matchId,
+                "매칭 취소 환불"
         );
 
         // 위치 데이터 삭제 (개인정보 최소 수집 원칙)
@@ -105,7 +106,8 @@ public class MatchLifecycleServiceImpl implements MatchLifecycleService {
         userPointService.refundApplicantDeposit(
                 match.getApplicantId(),
                 match.getApplicantDeposit(),
-                match.getId()
+                match.getId(),
+                "만남 완료 환불"
         );
 
         // 정상 만남 완료 후 후기 작성 마감 알림 예약
@@ -166,7 +168,8 @@ public class MatchLifecycleServiceImpl implements MatchLifecycleService {
             userPointService.refundAuthorDeposit(
                     post.getAuthorId(),
                     post.getAuthorDeposit(),
-                    post.getId()
+                    post.getId(),
+                    "만남 완료 환불"
             );
         }
 

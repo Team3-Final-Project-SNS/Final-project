@@ -48,7 +48,8 @@ public class PostExpirationServiceImpl implements PostExpirationService {
             userPointService.refundAuthorDeposit(
                     post.getAuthorId(),
                     post.getAuthorDeposit(),
-                    post.getId()
+                    post.getId(),
+                    "게시글 만료로 인한 환불"
             );
         }
 
