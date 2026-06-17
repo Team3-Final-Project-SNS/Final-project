@@ -1,3 +1,4 @@
+import React from "react";
 import { createBrowserRouter } from "react-router";
 import Layout from "./components/Layout";
 import HomePage from "./pages/HomePage";
@@ -10,7 +11,6 @@ import AdminDisputesPage from "./pages/AdminDisputesPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import AdminPostsPage from "./pages/AdminPostsPage";
 import AdminPaymentsPage from "./pages/AdminPaymentsPage";
-import AdminComingSoonPage from "./pages/AdminComingSoonPage";
 import AdminFaqPage from "./pages/AdminFaqPage";
 import AdminLayout from "./components/AdminLayout";
 import SignupPage from "./pages/SignupPage";
