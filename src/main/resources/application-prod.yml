@@ -4,9 +4,9 @@ spring:
 
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://${MYSQL_HOST_PROD}:${MYSQL_PORT_PROD}/${MYSQL_DATABASE_PROD}?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8&serverTimezone=Asia/Seoul
-    username: ${MYSQL_USER_PROD}
-    password: ${MYSQL_PASSWORD_PROD}
+    url: ${DB_URL_PROD}
+    username: ${DB_USERNAME_PROD}
+    password: ${DB_PASSWORD_PROD}
 
   jpa:
     database-platform: org.hibernate.dialect.MySQL8Dialect
