@@ -236,7 +236,7 @@ export default function SignupPage() {
                     disabled={loading}
                     className="whitespace-nowrap rounded-xl bg-[#d84315] px-6 py-3 font-bold text-white shadow-md transition-all hover:bg-[#bf360c] disabled:bg-[#e0e0e0]"
                   >
-                    {loading ? '요청 중...' : otpSent ? '인증번호 재요청' : '인증번호 요청'}
+                    {loading ? '요청 중...' : otpSent ? '인증번호 재발송' : '인증번호 발송'}
                   </button>
                 </div>
               </div>

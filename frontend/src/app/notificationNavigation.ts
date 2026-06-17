@@ -5,6 +5,8 @@ export const getNotificationContextLabel = (notification: NotificationResponse) 
 
   if (notification.domain === 'CHAT') return null;
 
+  if (notification.type === 'NO_SHOW_WARNING') return null;
+
   if (notification.domain === 'MATCH' || notification.domain === 'MEET') {
     return `매칭 #${notification.relatedId}`;
   }
@@ -79,6 +81,6 @@ export const getNotificationTargetPath = (notification: NotificationResponse) =>
     case 'ACCOUNT':
     case 'SYSTEM':
     default:
-      return '/me';
+      return null;
   }
 };

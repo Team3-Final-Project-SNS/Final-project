@@ -105,6 +105,13 @@ public class ChatInternalServiceImpl implements ChatInternalService {
         );
     }
 
+    @Override
+    @Transactional
+    public void reactivateChatRoom(Long postId) {
+        // 관리자 복구 시 기존 채팅방 접근 재개
+        chatRoomRepository.findByPostId(postId).ifPresent(ChatRoom::reactivate);
+    }
+
     // 채팅방 2시간 후 비활성화 예약 - 만남 인증 완료 시 내부 호출
     @Override
     @Transactional
@@ -177,6 +184,7 @@ public class ChatInternalServiceImpl implements ChatInternalService {
                         userInfoDtoMap.containsKey(m.getSenderId())
                                 ? userInfoDtoMap.get(m.getSenderId()).nickname() : null,
                         m.getContent(),
+                        isSystemMessage(m),
                         m.isRead(),
                         m.getCreatedAt()
                 ))
@@ -225,8 +233,14 @@ public class ChatInternalServiceImpl implements ChatInternalService {
         ChatRoom chatRoom = chatRoomRepository.findByPostId(postId)
                 .orElseThrow(() -> new ChatException(ErrorCode.CHAT_ROOM_NOT_FOUND));
 
-        // 이미 멤버면 중복 추가 방지 (멱등성 보장)
+        // 이미 멤버면 재신청/복구 흐름에서 다시 참여 가능하도록 ACTIVE로 되돌린다.
         if (chatMemberRepository.existsByChatRoomIdAndUserId(chatRoom.getId(), applicantId)) {
+            chatMemberRepository.updateStatusAndLeftAt(
+                    chatRoom.getId(),
+                    applicantId,
+                    ChatMemberStatus.ACTIVE,
+                    null
+            );
             return;
         }
 
@@ -282,5 +296,11 @@ public class ChatInternalServiceImpl implements ChatInternalService {
                 ChatMemberStatus.NO_SHOW,
                 LocalDateTime.now()
         );
+    }
+
+    private boolean isSystemMessage(ChatMessage message) {
+        // 퇴장 안내는 일반 채팅 말풍선과 분리
+        String content = message.getContent();
+        return content != null && content.endsWith("님이 퇴장했습니다.");
     }
 }

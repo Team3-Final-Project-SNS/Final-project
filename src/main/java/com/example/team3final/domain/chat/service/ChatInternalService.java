@@ -16,6 +16,8 @@ public interface ChatInternalService {
     // 채팅방 즉시 비활성화 - 취소/노쇼 시
     void deactivateChatRoom(Long postId);
 
+    void reactivateChatRoom(Long postId);
+
     // 채팅방 2시간 후 비활성화 예약 - 만남 인증 완료 시
     void scheduleChatRoomDeactivation(Long postId);
 

@@ -17,6 +17,7 @@ export interface ChatMessageResponse {
     senderId: number;
     senderNickname: string;
     content: string;
+    systemMessage: boolean;
     isRead: boolean;
     createdAt: string;
 }

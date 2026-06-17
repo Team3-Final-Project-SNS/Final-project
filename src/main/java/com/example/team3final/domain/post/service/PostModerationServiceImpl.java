@@ -42,7 +42,7 @@ public class PostModerationServiceImpl implements PostModerationService {
 
         // 작성자에게 예치 포인트 전액 환불
         int refundedPoint = post.getAuthorDeposit();
-        userPointService.refundAuthorDeposit(post.getAuthorId(), refundedPoint, post.getId());
+        userPointService.refundAuthorDeposit(post.getAuthorId(), refundedPoint, post.getId(), "게시글 삭제 환불");
         cancelAndRefundActiveApplicants(post);
 
         // 소프트 삭제 + 사유 영속화
@@ -74,6 +74,8 @@ public class PostModerationServiceImpl implements PostModerationService {
         userPointService.redepositAuthorDeposit(post.getAuthorId(), redepositPoint, post.getId());
         // 게시글 복구
         post.restore();
+        // 복구된 게시글의 기존 채팅방 접근 재개
+        chatInternalService.reactivateChatRoom(post.getId());
 
         publishPostVectorUpsertEvent(post);
         redisPostService.evictPostLists();
@@ -99,7 +101,8 @@ public class PostModerationServiceImpl implements PostModerationService {
             userPointService.refundApplicantDeposit(
                     match.getApplicantId(),
                     match.getApplicantDeposit(),
-                    match.getId()
+                    match.getId(),
+                    "게시글 삭제 환불"
             );
             match.cancel();
             post.decreaseCurrentApplicants();

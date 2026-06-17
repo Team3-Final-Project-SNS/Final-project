@@ -16,12 +16,16 @@ public interface UserPointService {
 
     // 신청자 책임비 최종 정산 — Match 단위로 한 번만 허용
     void refundApplicantDeposit(Long userId, int amount, Long matchId);
+    // 환불 사유가 필요한 거래 내역용 오버로드
+    void refundApplicantDeposit(Long userId, int amount, Long matchId, String description);
     void redepositApplicantDeposit(Long userId, int amount, Long matchId);
     void partialRefundApplicantDeposit(Long userId, int amount, Long matchId);
     void penaltyApplicantDeposit(Long userId, int amount, Long matchId);
 
     // 등록자 책임비 최종 정산 — Post 단위로 한 번만 허용
     void refundAuthorDeposit(Long userId, int amount, Long postId);
+    // 환불 사유가 필요한 거래 내역용 오버로드
+    void refundAuthorDeposit(Long userId, int amount, Long postId, String description);
     void redepositAuthorDeposit(Long userId, int amount, Long postId);
     void partialRefundAuthorDeposit(Long userId, int amount, Long postId);
     void penaltyAuthorDeposit(Long userId, int amount, Long postId);

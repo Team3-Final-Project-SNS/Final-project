@@ -116,8 +116,14 @@ public class UserPointServiceImpl implements UserPointService{
 
     @Override
     public void refundApplicantDeposit(Long userId, int amount, Long matchId) {
+        refundApplicantDeposit(userId, amount, matchId, null);
+    }
+
+    @Override
+    public void refundApplicantDeposit(Long userId, int amount, Long matchId, String description) {
+        // 거래 내역에 환불 사유 표시
         settleDeposit(userId, amount, matchId, PointReferenceType.MATCH,
-                PointSettlementReason.APPLICANT_DEPOSIT, PointTransactionType.REFUND);
+                PointSettlementReason.APPLICANT_DEPOSIT, PointTransactionType.REFUND, description);
     }
 
     @Override
@@ -140,8 +146,14 @@ public class UserPointServiceImpl implements UserPointService{
 
     @Override
     public void refundAuthorDeposit(Long userId, int amount, Long postId) {
+        refundAuthorDeposit(userId, amount, postId, null);
+    }
+
+    @Override
+    public void refundAuthorDeposit(Long userId, int amount, Long postId, String description) {
+        // 거래 내역에 환불 사유 표시
         settleDeposit(userId, amount, postId, PointReferenceType.POST,
-                PointSettlementReason.AUTHOR_DEPOSIT, PointTransactionType.REFUND);
+                PointSettlementReason.AUTHOR_DEPOSIT, PointTransactionType.REFUND, description);
     }
 
     @Override
@@ -261,7 +273,7 @@ public class UserPointServiceImpl implements UserPointService{
     private void saveTransaction(Long userId, Long matchId, int amount,
                                  PointTransactionType type, int balanceAfter,
                                  PointSource pointSource) {
-        saveTransaction(userId, matchId, null, null, null, amount, type, balanceAfter, pointSource);
+        saveTransaction(userId, matchId, null, null, null, amount, type, balanceAfter, pointSource, null);
     }
 
     private void saveTransaction(
@@ -275,6 +287,22 @@ public class UserPointServiceImpl implements UserPointService{
             int balanceAfter,
             PointSource pointSource
     ) {
+        saveTransaction(userId, matchId, referenceType, referenceId, settlementReason,
+                amount, type, balanceAfter, pointSource, null);
+    }
+
+    private void saveTransaction(
+            Long userId,
+            Long matchId,
+            PointReferenceType referenceType,
+            Long referenceId,
+            PointSettlementReason settlementReason,
+            int amount,
+            PointTransactionType type,
+            int balanceAfter,
+            PointSource pointSource,
+            String description
+    ) {
         pointTransactionRepository.save(
                 PointTransaction.builder()
                         .userId(userId)
@@ -286,6 +314,7 @@ public class UserPointServiceImpl implements UserPointService{
                         .transactionType(type)
                         .balanceAfter(balanceAfter)
                         .pointSource(pointSource)
+                        .description(description)
                         .build()
         );
     }
@@ -297,6 +326,18 @@ public class UserPointServiceImpl implements UserPointService{
             PointReferenceType referenceType,
             PointSettlementReason settlementReason,
             PointTransactionType transactionType
+    ) {
+        settleDeposit(userId, depositAmount, referenceId, referenceType, settlementReason, transactionType, null);
+    }
+
+    private void settleDeposit(
+            Long userId,
+            int depositAmount,
+            Long referenceId,
+            PointReferenceType referenceType,
+            PointSettlementReason settlementReason,
+            PointTransactionType transactionType,
+            String description
     ) {
         // 같은 사용자의 동시 정산이 잔액을 덮어쓰지 않도록 사용자 행을 먼저 잠근다.
         User user = getUserOrThrowWithLock(userId);
@@ -334,7 +375,8 @@ public class UserPointServiceImpl implements UserPointService{
                 transactionAmount,
                 transactionType,
                 user.getTotalPoint(),
-                PointSource.FREE
+                PointSource.FREE,
+                description
         );
     }
 

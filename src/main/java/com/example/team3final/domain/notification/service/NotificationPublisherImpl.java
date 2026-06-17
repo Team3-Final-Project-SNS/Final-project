@@ -244,6 +244,16 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.MEET, matchId);
     }
 
+    @Override
+    public void sendMeetCompleted(Long userId, Long matchId, String partnerNickname) {
+        // QR 완료 알림에 상대 닉네임 포함
+        String nickname = partnerNickname == null || partnerNickname.isBlank() ? "상대방" : partnerNickname;
+        publish(userId, NotificationType.MEET_COMPLETED,
+                nickname + "님과의 만남이 완료되었습니다.",
+                nickname + "님과의 만남이 완료되었습니다. 후기를 작성해 주세요.",
+                RelatedDomain.MEET, matchId);
+    }
+
     // 10. 후기 작성 마지막 날 알림 - 미작성 신청자에게
     @Override
     public void sendReviewDeadlineReminder(Long userId, Long matchId) {
@@ -308,8 +318,9 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     // 16. 노쇼 예정 알림 - 노쇼 예정 유저에게
     @Override
     public void sendNoShowWarning(Long userId, Long matchId) {
+        // 알림 제목에서 매칭 번호 제거
         publish(userId, NotificationType.NO_SHOW_WARNING,
-                "매칭 #" + matchId + "노쇼 예정 상태입니다.",
+                "노쇼 예정 상태입니다.",
                 "노쇼 예정 상태입니다. 24시간 내 이의제기가 없을 경우 예치 포인트가 차감됩니다.",
                 RelatedDomain.MEET, matchId);
     }

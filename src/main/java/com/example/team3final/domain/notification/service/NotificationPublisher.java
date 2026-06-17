@@ -51,6 +51,8 @@ public interface NotificationPublisher {
     // ── 만남 완료 / 후기 ──────────────────────────────────────────────────
     // 9. 만남 완료 / 후기 작성 유도 알림 - 신청자에게
     void sendMeetCompleted(Long userId, Long matchId);
+    // 상대 닉네임을 포함한 만남 완료 알림
+    void sendMeetCompleted(Long userId, Long matchId, String partnerNickname);
 
     // 10. 후기 작성 마지막 날 알림 - 미작성 신청자에게
     void sendReviewDeadlineReminder(Long userId, Long matchId);

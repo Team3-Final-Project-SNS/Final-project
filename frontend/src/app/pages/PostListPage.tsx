@@ -25,6 +25,15 @@ const statusLabels: Record<PostStatus, string> = {
   DELETED: '삭제됨',
 };
 
+const statusClasses: Record<PostStatus, string> = {
+  OPEN: 'bg-[#e8f5e9] text-[#2e7d32]',
+  MATCHED: 'bg-[#fff3e0] text-[#ef6c00]',
+  COMPLETED: 'bg-[#e3f2fd] text-[#1565c0]',
+  CANCELLED: 'bg-[#ffebee] text-[#c62828]',
+  EXPIRED: 'bg-[#ede7f6] text-[#5e35b1]',
+  DELETED: 'bg-[#f5f5f5] text-[#757575]',
+};
+
 export default function PostListPage() {
   // [추가] 401 발생 시 메인화면("/")으로 이동시키기 위한 navigate
   const navigate = useNavigate();
@@ -184,7 +193,7 @@ export default function PostListPage() {
                     <div className="flex items-center justify-between gap-5">
                       <div className="min-w-0 flex-1">
                         <div className="mb-2 flex items-center gap-2">
-                    <span className="rounded bg-[#e8f5e9] px-2.5 py-1 text-xs font-semibold text-[#2e7d32]">
+                    <span className={`rounded px-2.5 py-1 text-xs font-semibold ${statusClasses[post.status] || 'bg-[#f5f5f5] text-[#757575]'}`}>
                       {statusLabels[post.status] || post.status}
                     </span>
                           <span className="text-xs text-[#9e9e9e]">{getTimeAgo(post.createdAt || post.createAt)}</span>
