@@ -9,7 +9,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # 이전 빌드 잔여물(src, build) 정리
       # compileJava 캐시 충돌 방지를 위해 파일 복사 전에 실행
