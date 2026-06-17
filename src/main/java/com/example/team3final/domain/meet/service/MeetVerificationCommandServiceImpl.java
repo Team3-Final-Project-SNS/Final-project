@@ -226,8 +226,10 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
             chatInternalService.scheduleChatRoomDeactivation(matchInfo.postId());
         }
 
-        notificationPublisher.sendMeetCompleted(userId, matchId);
-        notificationPublisher.sendMeetCompleted(postInfo.authorId(), matchId);
+        String applicantNickname = userInternalService.getUserInfo(userId).nickname();
+        String authorNickname = userInternalService.getUserInfo(postInfo.authorId()).nickname();
+        notificationPublisher.sendMeetCompleted(userId, matchId, authorNickname);
+        notificationPublisher.sendMeetCompleted(postInfo.authorId(), matchId, applicantNickname);
 
         // QR 스캔 완료 응답을 반환
         return QrScanResponseDto.of(
@@ -540,8 +542,8 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
     ) {
         String verifierNickname = userInternalService.getUserInfo(verifierId).nickname();
 
-        // 같은 Post의 모든 Match ID 조회
-        List<Long> activeMatchIds = matchInternalService.getMatchIdsByPostId(postId);
+        // 같은 Post의 활성 Match ID만 조회
+        List<Long> activeMatchIds = matchInternalService.getActiveMatchIdsByPostId(postId);
 
         if (activeMatchIds.isEmpty()) {
             return;

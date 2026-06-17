@@ -65,12 +65,16 @@ public class DisputeCommandServiceImpl implements DisputeCommandService {
 
         // 4. 만남 인증 정보 조회
         MeetVerificationResponseDto meet = meetVerificationQueryService.getMeetVerification(userId, matchId);
+        MeetVerification meetVerification = meetVerificationInternalService.getByMatchId(matchId);
 
         // 5. 현재 인증 상태 확인
         VerificationStatus status = meet.verificationStatus();
+        // 양측 노쇼에서 먼저 접수된 이의제기 이후 두 번째 제출 허용
         boolean isNoShow = status == VerificationStatus.HOST_NO_SHOW
                 || status == VerificationStatus.GUEST_NO_SHOW
-                || status == VerificationStatus.BOTH_NO_SHOW;
+                || status == VerificationStatus.BOTH_NO_SHOW
+                || (status == VerificationStatus.DISPUTE
+                && meetVerification.getDisputedFromStatus() == VerificationStatus.BOTH_NO_SHOW);
 
         // 6. 중복 제출 검증
         if (disputeRepository.existsByMatchIdAndSubmitterId(matchId, userId)) {
@@ -102,8 +106,10 @@ public class DisputeCommandServiceImpl implements DisputeCommandService {
         Dispute saved = disputeRepository.save(dispute);
 
         // 이의제기 접수 시 노쇼 예정 상태를 보존하고 관리자 검토 상태로 전환
-        MeetVerification meetVerification = meetVerificationInternalService.getByMatchId(matchId);
-        meetVerification.markDispute();
+        if (status != VerificationStatus.DISPUTE) {
+            // 첫 접수 때만 원래 노쇼 상태 백업
+            meetVerification.markDispute();
+        }
         matchNoShowService.markDisputed(matchId);
 
         // 이의제기 접수 알림 - 활성 관리자 모두에게

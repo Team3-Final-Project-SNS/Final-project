@@ -52,8 +52,8 @@ public class MeetVerificationQueryServiceImpl implements MeetVerificationQuerySe
             throw new MeetException(ErrorCode.QR_NOT_AUTHOR);
         }
 
-        // 같은 Post에 속한 모든 Match ID를 조회
-        List<Long> siblingMatchIds = matchInternalService.getMatchIdsByPostId(postId);
+        // 같은 Post에 속한 활성 Match ID만 조회
+        List<Long> siblingMatchIds = matchInternalService.getActiveMatchIdsByPostId(postId);
 
         // 매칭이 하나도 없다면 아직 QR을 발급할 수 없는 상태
         if (siblingMatchIds.isEmpty()) {
@@ -116,8 +116,8 @@ public class MeetVerificationQueryServiceImpl implements MeetVerificationQuerySe
         // 등록자 닉네임 조회
         String authorNickname = userInternalService.getUserInfo(postInfo.authorId()).nickname();
 
-        // postId 기준으로 모든 형제 matchId 조회
-        List<Long> siblingMatchIds = matchInternalService.getMatchIdsByPostId(matchInfo.postId());
+        // postId 기준 현재 활성 형제 matchId만 조회
+        List<Long> siblingMatchIds = matchInternalService.getActiveMatchIdsByPostId(matchInfo.postId());
 
         // 형제 matchId → MeetVerification 목록 벌크 조회 (N+1 방지)
         List<MeetVerification> siblingMvList = meetVerificationRepository.findAllByMatchIdIn(siblingMatchIds);
