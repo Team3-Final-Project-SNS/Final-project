@@ -86,6 +86,12 @@ public class AdminUserServiceImpl implements AdminUserService {
         // 정지된 유저 엔티티 조회 → 팩토리 메서드로 응답 생성
         User user = userInternalService.findUserById(userId);
 
+        notificationPublisher.sendAccountSuspended(
+                userId,
+                "계정이 정지되었습니다.",
+                "계정이 정지되었습니다. 사유: " + requestDto.getReason()
+        );
+
         return AdminSuspendUserResponseDto.of(user, requestDto.getReason());
     }
 
@@ -119,7 +125,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         user.reinstate();
 
         // 36. 계정 정지 해제 알림 - 해당 사용자에게
-        notificationPublisher.sendAccountUnsuspended(userId);
+        notificationPublisher.sendAccountUnsuspended(userId, requestDto.getReason());
 
         return AdminReinstateUserResponseDto.of(user, requestDto.getReason());
     }
