@@ -198,6 +198,15 @@ public class ChatInternalServiceImpl implements ChatInternalService {
                 ChatMemberStatus.LEFT,
                 LocalDateTime.now()
         );
+
+        String nickname = userInternalService.getUserInfo(userId).nickname();
+        chatMessageRepository.save(
+                ChatMessage.builder()
+                        .chatRoomId(chatRoom.getId())
+                        .senderId(userId)
+                        .content(nickname + "님이 퇴장했습니다.")
+                        .build()
+        );
     }
 
     // 채팅방 존재 여부 확인 - 첫 신청 여부 판단용

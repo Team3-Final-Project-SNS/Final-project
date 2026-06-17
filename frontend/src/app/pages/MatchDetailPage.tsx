@@ -187,7 +187,7 @@ export default function MatchDetailPage() {
             className="mb-5 inline-flex items-center gap-1 text-sm font-semibold text-[#616161] hover:text-[#d84315]"
         >
           <ArrowLeft size={17} />
-          내 매칭
+          내 매칭 목록
         </Link>
 
         <section className="overflow-hidden rounded-2xl border border-[#e0e0e0] bg-white shadow-sm">
@@ -236,10 +236,11 @@ export default function MatchDetailPage() {
           </div>
 
           <div className="flex flex-wrap gap-2 border-t border-[#eeeeee] px-5 py-5 sm:px-7">
-            <Link
-                to={`/posts/${match.postId}`}
-                className="inline-flex flex-1 items-center justify-center rounded-lg border border-[#e0e0e0] px-4 py-3 text-sm font-semibold text-[#616161] hover:border-[#d84315] hover:text-[#d84315]"
-            >
+          <Link
+              to={`/posts/${match.postId}`}
+              state={{ fromMatchDetail: true, matchId: match.matchId }}
+              className="inline-flex flex-1 items-center justify-center rounded-lg border border-[#e0e0e0] px-4 py-3 text-sm font-semibold text-[#616161] hover:border-[#d84315] hover:text-[#d84315]"
+          >
               게시글 보기
             </Link>
 

@@ -10,6 +10,12 @@ const POST_STATUSES_FOR_MY_POSTS: PostStatus[] = ['OPEN', 'MATCHED', 'COMPLETED'
 
 type SortOption = '책임비 높은 순' | '만남시간 빠른 순' | '최신순';
 
+const sortParams = {
+  '책임비 높은 순': 'DEPOSIT_DESC',
+  '만남시간 빠른 순': 'MEET_AT_ASC',
+  '최신순': 'LATEST',
+} as const;
+
 const statusLabels: Record<PostStatus, string> = {
   OPEN: '모집중',
   MATCHED: '매칭됨',
@@ -36,7 +42,7 @@ export default function PostListPage() {
 
   useEffect(() => {
     setPage(0);
-  }, [myPostsOnly]);
+  }, [myPostsOnly, sortBy]);
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -54,7 +60,7 @@ export default function PostListPage() {
 
         if (myPostsOnly) {
           const [statusResponses, activeMatchRes] = await Promise.all([
-            Promise.all(POST_STATUSES_FOR_MY_POSTS.map((postStatus) => getPosts(postStatus, 0, 50))),
+            Promise.all(POST_STATUSES_FOR_MY_POSTS.map((postStatus) => getPosts(postStatus, 0, 50, sortParams[sortBy]))),
             activeMatchPromise,
           ]);
           const mergedPosts = statusResponses
@@ -67,7 +73,7 @@ export default function PostListPage() {
           setTotalPages(1);
         } else {
           const [res, activeMatchRes] = await Promise.all([
-            getPosts('OPEN', page, 20),
+            getPosts('OPEN', page, 20, sortParams[sortBy]),
             activeMatchPromise,
           ]);
           setActiveMatchedPostIds(new Set(activeMatchRes.data.data.content.map((match) => match.postId)));
@@ -95,7 +101,7 @@ export default function PostListPage() {
       }
     };
     fetchPosts();
-  }, [page, myPostsOnly, currentUserId]);
+  }, [page, myPostsOnly, currentUserId, sortBy]);
 
   const scopedPosts = posts.filter((post) => {
     if (myPostsOnly) return true;

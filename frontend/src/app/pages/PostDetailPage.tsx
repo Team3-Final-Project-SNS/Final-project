@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router';
+import { useParams, useNavigate, Link, useLocation } from 'react-router';
 import { ArrowLeft, MapPin, Clock, User, Users, AlertCircle, Loader2, Flag } from 'lucide-react';
 import { getDeletedPostReason, getPost, GetPostResponse } from '../../api/postApi';
 import axiosInstance from '../../api/axiosInstance'; // 임시로 matchApi 대신 사용 (아직 안만듦)
@@ -8,6 +8,7 @@ import { createReport, ReportReason } from '../../api/reportApi';
 export default function PostDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [post, setPost] = useState<GetPostResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -110,15 +111,24 @@ export default function PostDetailPage() {
   );
 
   const afterPoints = userPoints - post.authorDeposit;
+  const fromMatchDetail = Boolean(location.state?.fromMatchDetail && location.state?.matchId);
+  const backLabel = fromMatchDetail ? '내 매칭' : '목록으로';
+  const handleBack = () => {
+    if (fromMatchDetail) {
+      navigate(`/matches/${location.state.matchId}`);
+      return;
+    }
+    navigate('/posts');
+  };
 
   return (
       <div className="max-w-2xl mx-auto">
         <button
-            onClick={() => navigate(-1)}
+            onClick={handleBack}
             className="flex items-center gap-2 text-[#616161] hover:text-[#d84315] mb-6"
         >
           <ArrowLeft size={20} />
-          목록으로
+          {backLabel}
         </button>
 
         {error && (

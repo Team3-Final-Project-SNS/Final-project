@@ -330,6 +330,7 @@ export default function ChatPage() {
       participant.userId === currentUserId && participant.role === 'APPLICANT'
     )) || currentUserId === matchInfo.applicantId
   );
+  const isAuthor = currentUserId !== null && matchInfo !== null && currentUserId === matchInfo.authorId;
 
   if (loading) {
     return (
@@ -382,6 +383,7 @@ export default function ChatPage() {
       {extensionInfo && extensionInfo.extensionStatus !== 'NONE' && matchInfo?.status === 'MATCHED' && (
         <ExtensionBanner
           extensionInfo={extensionInfo}
+          isAuthor={isAuthor}
           loading={extensionActionLoading}
           onAccept={handleAcceptExtension}
           onReject={handleRejectExtension}
@@ -450,15 +452,17 @@ export default function ChatPage() {
   );
 }
 
-function ExtensionBanner({ extensionInfo, loading, onAccept, onReject }: { extensionInfo: MeetExtensionResponse; loading: boolean; onAccept: () => void; onReject: () => void }) {
+function ExtensionBanner({ extensionInfo, isAuthor, loading, onAccept, onReject }: { extensionInfo: MeetExtensionResponse; isAuthor: boolean; loading: boolean; onAccept: () => void; onReject: () => void }) {
   if (extensionInfo.extensionStatus === 'REQUESTED' && !extensionInfo.isMyRequest) {
     return (
       <div className="flex items-center justify-between gap-3 border-x border-b border-[#ff9800] bg-[#fff3e0] px-4 py-3">
         <div className="flex items-center gap-2 text-sm text-[#e65100]"><Clock size={16} /><span><strong>{extensionInfo.requesterNickname}</strong>님이 만남 시간 10분 연장을 요청했습니다.</span></div>
-        <div className="flex gap-2">
-          <button onClick={onAccept} disabled={loading} className="rounded-lg bg-[#4caf50] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">수락</button>
-          <button onClick={onReject} disabled={loading} className="rounded-lg border border-[#ef5350] bg-white px-3 py-1.5 text-xs font-semibold text-[#ef5350] disabled:opacity-50">거절</button>
-        </div>
+        {isAuthor && (
+          <div className="flex gap-2">
+            <button onClick={onAccept} disabled={loading} className="rounded-lg bg-[#4caf50] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">수락</button>
+            <button onClick={onReject} disabled={loading} className="rounded-lg border border-[#ef5350] bg-white px-3 py-1.5 text-xs font-semibold text-[#ef5350] disabled:opacity-50">거절</button>
+          </div>
+        )}
       </div>
     );
   }

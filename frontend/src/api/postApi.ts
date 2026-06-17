@@ -105,14 +105,21 @@ export interface DeletePostResponse {
     refundedPoint: number;
 }
 
+export type PostSort = "DEPOSIT_DESC" | "MEET_AT_ASC" | "LATEST";
+
 // 寃뚯떆湲 ?묒꽦
 export const createPost = (data: CreatePostRequest) =>
     axiosInstance.post<ApiResponse<CreatePostResponse>>("/api/v1/posts", data);
 
 // 寃뚯떆湲 紐⑸줉 議고쉶
-export const getPosts = (status: PostStatus = "OPEN", page: number = 0, size: number = 20) =>
+export const getPosts = (
+    status: PostStatus = "OPEN",
+    page: number = 0,
+    size: number = 20,
+    sort: PostSort = "DEPOSIT_DESC",
+) =>
     axiosInstance.get<ApiResponse<PageResponse<PostItemResponse>>>(`/api/v1/posts`, {
-        params: { status, page, size }
+        params: { status, page, size, sort }
     });
 
 // 寃뚯떆湲 ?곸꽭 議고쉶
