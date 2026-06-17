@@ -76,6 +76,8 @@ public class MatchCommandServiceImpl implements MatchCommandService {
 
         // 취소자가 신청자(GUEST)인지 등록자(HOST)인지 판별
         boolean cancelerIsApplicant = match.isApplicant(userId);
+        // 1:1은 한 명 취소만으로 만남 성립 불가
+        boolean isOneToOneMatch = post.getMaxApplicants() <= 2;
 
         // 응답 DTO 표시용 계산 (실제 포인트 처리 아님)
         // 취소자 예치금의 50%는 환급, 나머지 50%는 몰수
@@ -100,6 +102,16 @@ public class MatchCommandServiceImpl implements MatchCommandService {
                     matchId
             );
 
+            if (isOneToOneMatch) {
+                // 1:1 신청자 취소 시 등록자 예치금 전액 환불
+                userPointService.refundAuthorDeposit(
+                        post.getAuthorId(),
+                        post.getAuthorDeposit(),
+                        post.getId(),
+                        "매칭 취소 환불"
+                );
+            }
+
             // 2. 매칭 상태 CANCELLED로 변경 + 참여 인원 감소
             match.cancel();
             post.decreaseCurrentApplicants();
@@ -108,9 +120,14 @@ public class MatchCommandServiceImpl implements MatchCommandService {
             //    HOST와 다른 GUEST의 위치 데이터는 모임이 유지되므로 건드리지 않음
             userLocationCleanupService.deleteLocationsByMatchId(matchId);
 
-            // 4. 게시글 MATCHED -> OPEN 복구
-            //    정원이 미충족 상태로 돌아갔으므로 재신청 가능하도록 복구
-            if (post.isMatched()) {
+            if (isOneToOneMatch) {
+                // 1:1 취소는 모집 재개가 아닌 매칭 종료
+                post.cancel();
+                publishPostVectorDeleteEvent(post.getId());
+                chatInternalService.deactivateChatRoom(match.getPostId());
+            } else if (post.isMatched()) {
+                // 4. 게시글 MATCHED -> OPEN 복구
+                //    정원이 미충족 상태로 돌아갔으므로 재신청 가능하도록 복구
                 post.reopen();
 
                 // 정원 취소로 다시 모집 가능해진 글은 AI 추천 후보에도 다시 반영합니다.
@@ -119,11 +136,15 @@ public class MatchCommandServiceImpl implements MatchCommandService {
 
             // 5. 채팅방에서 해당 GUEST만 퇴장
             //    HOST + 나머지 GUEST는 채팅 계속 이용 가능
-            chatInternalService.removeChatMember(match.getPostId(), userId);
+            if (!isOneToOneMatch) {
+                chatInternalService.removeChatMember(match.getPostId(), userId);
+            }
 
             // 6. HOST에게 "GUEST가 퇴장했습니다" 알림
             Long chatRoomId = chatInternalService.getChatRoomIdByPostId(match.getPostId());
-            notificationPublisher.sendChatMemberLeft(post.getAuthorId(), chatRoomId);
+            if (!isOneToOneMatch) {
+                notificationPublisher.sendChatMemberLeft(post.getAuthorId(), chatRoomId);
+            }
 
             // 7. HOST에게 "GUEST가 매칭을 취소했습니다" 알림
             notificationPublisher.sendGuestCancelled(post.getAuthorId(), matchId);
@@ -139,7 +160,7 @@ public class MatchCommandServiceImpl implements MatchCommandService {
             // 9. HOST ZSet: 활성 신청자가 0명인 경우에만 제거
             //    match.cancel() 이후 카운트이므로 0이면 진짜 마지막 GUEST였던 것
             long activeMatchCount = matchRepository.countByPostIdAndStatus(match.getPostId(), MatchStatus.MATCHED);
-            if (activeMatchCount <= 0) {
+            if (activeMatchCount <= 0 || isOneToOneMatch) {
                 String cancelPostIdStr = String.valueOf(match.getPostId());
                 redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_30_HOST, cancelPostIdStr);
                 redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_15_HOST, cancelPostIdStr);

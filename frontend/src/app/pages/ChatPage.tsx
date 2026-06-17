@@ -397,6 +397,14 @@ export default function ChatPage() {
             const previous = messages[index - 1];
             const showDate = !previous || formatMessageDate(previous.createdAt) !== formatMessageDate(msg.createdAt);
             const isMine = msg.senderId === currentUserId;
+            if (msg.systemMessage) {
+              return (
+                <div key={msg.messageId}>
+                  {showDate && <div className="my-5 text-center text-xs font-semibold text-[#9e9e9e]">{formatMessageDate(msg.createdAt)}</div>}
+                  <div className="my-4 text-center text-xs font-semibold text-[#9e9e9e]">{msg.content}</div>
+                </div>
+              );
+            }
             return (
               <div key={msg.messageId}>
                 {showDate && <div className="my-5 text-center text-xs font-semibold text-[#9e9e9e]">{formatMessageDate(msg.createdAt)}</div>}

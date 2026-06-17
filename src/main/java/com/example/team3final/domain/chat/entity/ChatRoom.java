@@ -70,6 +70,12 @@ public class ChatRoom extends BaseTimeEntity {
         this.deactivatedAt = LocalDateTime.now();
     }
 
+    public void reactivate() {
+        // 관리자 복구 시 비활성화 상태 해제
+        this.status = ChatRoomStatus.ACTIVE;
+        this.deactivatedAt = null;
+    }
+
     // 만남 인증 완료 시 호출 - 2시간 후 READ_ONLY 전환 예약
     // ACTIVE 유지, deactivatedAt만 세팅
     // deactivatedAt = 스케줄러가 READ_ONLY로 전환할 시각

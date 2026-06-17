@@ -109,6 +109,7 @@ public class ChatQueryServiceImpl implements ChatQueryService {
                                 ? userInfoMap.get(m.getSenderId()).nickname()
                                 : null,
                         m.getContent(),
+                        isSystemMessage(m),
                         m.isRead(),
                         m.getCreatedAt()
                 ))
@@ -155,5 +156,11 @@ public class ChatQueryServiceImpl implements ChatQueryService {
                                 : null
                 ))
                 .toList();
+    }
+
+    private boolean isSystemMessage(ChatMessage message) {
+        // 퇴장 안내는 일반 채팅 말풍선과 분리
+        String content = message.getContent();
+        return content != null && content.endsWith("님이 퇴장했습니다.");
     }
 }

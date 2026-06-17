@@ -136,6 +136,7 @@ public class ChatMessageHandler {
                 senderId,
                 userCommandService.getUser(senderId).nickname(),
                 chatMessage.getContent(),
+                false,
                 chatMessage.isRead(),
                 chatMessage.getCreatedAt()
         );
