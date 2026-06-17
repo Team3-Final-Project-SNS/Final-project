@@ -20,8 +20,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -139,15 +137,9 @@ public class MeetVerificationNoShowSettlementServiceImpl
 
             VerificationStatus status = verification.getStatus();
             if (!verification.isNoShowConfirmedSent()) {
-                if (status == VerificationStatus.HOST_NO_SHOW) {
-                    notificationTargets.add(
-                            new NoShowConfirmedNotificationTarget(postInfo.authorId(), matchId)
-                    );
-                } else if (status == VerificationStatus.GUEST_NO_SHOW) {
-                    notificationTargets.add(
-                            new NoShowConfirmedNotificationTarget(matchInfo.applicantId(), matchId)
-                    );
-                } else if (status == VerificationStatus.BOTH_NO_SHOW) {
+                if (status == VerificationStatus.HOST_NO_SHOW
+                        || status == VerificationStatus.GUEST_NO_SHOW
+                        || status == VerificationStatus.BOTH_NO_SHOW) {
                     notificationTargets.add(
                             new NoShowConfirmedNotificationTarget(postInfo.authorId(), matchId)
                     );
@@ -160,14 +152,8 @@ public class MeetVerificationNoShowSettlementServiceImpl
             verification.confirmNoShow();
         }
 
-        // Kafka 알림은 DB 상태와 포인트 정산이 실제 커밋된 뒤에만 발행한다.
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                notificationTargets.forEach(target ->
-                        notificationPublisher.sendNoShowConfirmed(target.userId(), target.matchId())
-                );
-            }
-        });
+        notificationTargets.stream()
+                .distinct()
+                .forEach(target -> notificationPublisher.sendNoShowConfirmed(target.userId(), target.matchId()));
     }
 }

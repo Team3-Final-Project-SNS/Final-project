@@ -119,6 +119,9 @@ export interface CreateDisputeResponse {
 export const createDispute = (matchId: number, request: CreateDisputeRequest) =>
     axiosInstance.post<ApiResponse<CreateDisputeResponse>>(`/api/v1/matches/${matchId}/disputes`, request);
 
+export const reCreateDispute = (matchId: number, request: CreateDisputeRequest) =>
+    axiosInstance.post<ApiResponse<CreateDisputeResponse>>(`/api/v1/matches/${matchId}/disputes/resubmit`, request);
+
 export type DisputeStatus = "SUBMITTED" | "UNDER_REVIEW" | "ACCEPTED" | "PARTIALLY_ACCEPTED" | "REJECTED" | "HOLD";
 
 export interface DisputeResponse {
