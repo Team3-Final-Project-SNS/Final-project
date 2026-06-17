@@ -19,6 +19,7 @@ import {
   DisputeType,
   getMyDispute,
   getMyDisputes,
+  reCreateDispute,
 } from '../../api/matchApi';
 import AdminFloatingChatbot from '../components/AdminFloatingChatbot';
 
@@ -82,6 +83,8 @@ export default function InquiryCenterPage() {
   const requestedNoShowMatchId = searchParams.get('matchId');
   const requestedNoShowMatchIdNumber = Number(requestedNoShowMatchId);
   const hasRequestedNoShowMatchId = Number.isInteger(requestedNoShowMatchIdNumber) && requestedNoShowMatchIdNumber > 0;
+  const requestedDisputeId = Number(searchParams.get('disputeId'));
+  const hasRequestedDisputeId = Number.isInteger(requestedDisputeId) && requestedDisputeId > 0;
   const requestedInquiryId = searchParams.get('inquiryId');
   const routeView = location.pathname.endsWith('/disputes/no-show') || searchParams.get('view') === 'noShow'
       ? 'noShow'
@@ -108,6 +111,10 @@ export default function InquiryCenterPage() {
   const [disputeType, setDisputeType] = useState<DisputeType>('GPS_ERROR');
   const [disputeReason, setDisputeReason] = useState('');
   const isNoShowView = view === 'noShow';
+  const activeDisputeMatchId = hasRequestedNoShowMatchId
+    ? requestedNoShowMatchIdNumber
+    : selectedDispute?.matchId;
+  const hasActiveDisputeMatchId = Boolean(activeDisputeMatchId);
   const { isSuspended } = useAuthStatus();
   const visibleInquiryTypes = isSuspended
     ? inquiryTypes.filter((item) => item.value === 'ACCOUNT')
@@ -158,6 +165,15 @@ export default function InquiryCenterPage() {
       setDisputeItems(disputes);
       setTotalPages(1);
       setPage(0);
+
+      if (hasRequestedDisputeId) {
+        const requestedDispute = disputes.find((item) => item.disputeId === requestedDisputeId);
+        if (requestedDispute) {
+          const detailRes = await getMyDispute(requestedDispute.matchId);
+          setSelectedDispute(detailRes.data.data);
+          setDisputeType(detailRes.data.data.disputeType);
+        }
+      }
     } catch (err) {
       console.error('Failed to load disputes', err);
       setError('노쇼 이의제기 접수 내역을 불러오지 못했습니다.');
@@ -278,7 +294,12 @@ export default function InquiryCenterPage() {
 
   const handleNoShowDisputeSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!hasRequestedNoShowMatchId) {
+    const targetMatchId = hasRequestedNoShowMatchId
+      ? requestedNoShowMatchIdNumber
+      : selectedDispute?.matchId;
+    const isResubmit = selectedDispute?.status === 'HOLD' && Boolean(targetMatchId);
+
+    if (!targetMatchId) {
       setError('matchId가 없어 노쇼 이의제기를 접수할 수 없습니다.');
       return;
     }
@@ -291,7 +312,8 @@ export default function InquiryCenterPage() {
     setError('');
     setSuccess('');
     try {
-      const response = await createDispute(requestedNoShowMatchIdNumber, {
+      const submit = isResubmit ? reCreateDispute : createDispute;
+      const response = await submit(targetMatchId, {
         disputeType,
         reason: disputeReason.trim(),
       });
@@ -309,7 +331,7 @@ export default function InquiryCenterPage() {
         processedAt: null,
         holdDeadlineAt: null,
       });
-      setSuccess('노쇼 이의제기가 접수되었습니다.');
+      setSuccess(isResubmit ? '이의제기가 재접수되었습니다.' : '노쇼 이의제기가 접수되었습니다.');
     } catch (err: any) {
       setError(err.response?.data?.message || '노쇼 이의제기 접수에 실패했습니다.');
     } finally {
@@ -424,11 +446,11 @@ export default function InquiryCenterPage() {
                 <div>
                   <label className="mb-1 block text-xs font-bold text-[#757575]">이의제기 매칭</label>
                   <div className={`rounded-lg border px-3 py-3 text-sm font-semibold ${
-                    hasRequestedNoShowMatchId
+                    hasActiveDisputeMatchId
                       ? 'border-[#e0e0e0] bg-[#fafafa] text-[#424242]'
                       : 'border-dashed border-[#ef9a9a] bg-[#ffebee] text-[#c62828]'
                   }`}>
-                    {hasRequestedNoShowMatchId ? `연결된 매칭 #${requestedNoShowMatchId}` : '연결된 매칭 정보가 없습니다.'}
+                    {hasActiveDisputeMatchId ? `연결된 매칭 #${activeDisputeMatchId}` : '연결된 매칭 정보가 없습니다.'}
                   </div>
                 </div>
                 <div>
@@ -458,7 +480,7 @@ export default function InquiryCenterPage() {
                 </div>
                 <button
                   type="submit"
-                  disabled={submitting || !hasRequestedNoShowMatchId || !disputeReason.trim()}
+                  disabled={submitting || !hasActiveDisputeMatchId || !disputeReason.trim()}
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#d84315] px-4 py-3 text-sm font-bold text-white shadow-md transition-colors hover:bg-[#bf360c] disabled:opacity-60"
                 >
                   {submitting ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}

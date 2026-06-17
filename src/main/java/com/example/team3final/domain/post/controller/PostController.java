@@ -168,16 +168,22 @@ public class PostController {
             @AuthenticationPrincipal UserDetailsImpl userDetails,
             @RequestParam(defaultValue = "OPEN")PostStatus status, // defaultValue = "OPEN" → 쿼리스트링 누락 시 OPEN 사용 (명세서 기본값)
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size  // size=20 — 누락 시 20, 최대 50
+            @RequestParam(defaultValue = "20") int size,  // size=20 — 누락 시 20, 최대 50
+            @RequestParam(defaultValue = "DEPOSIT_DESC") String sort
     ) {
         Long userId = userDetails.getUserId();
 
         int safeSize = Math.min(size, 50);
+        Sort postSort = switch (sort) {
+            case "LATEST" -> Sort.by("createdAt").descending();
+            case "MEET_AT_ASC" -> Sort.by("meetAt").ascending();
+            default -> Sort.by("authorDeposit").descending();
+        };
 
         Pageable pageable = PageRequest.of(
                 page,
                 safeSize,
-                Sort.by("authorDeposit").descending()
+                postSort
         );
 
         return ResponseEntity.ok(

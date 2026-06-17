@@ -105,25 +105,32 @@ export interface DeletePostResponse {
     refundedPoint: number;
 }
 
-// 寃뚯떆湲 ?묒꽦
+export type PostSort = "DEPOSIT_DESC" | "MEET_AT_ASC" | "LATEST";
+
+// 게시글 작성
 export const createPost = (data: CreatePostRequest) =>
     axiosInstance.post<ApiResponse<CreatePostResponse>>("/api/v1/posts", data);
 
-// 寃뚯떆湲 紐⑸줉 議고쉶
-export const getPosts = (status: PostStatus = "OPEN", page: number = 0, size: number = 20) =>
+// 게시글 목록 조회
+export const getPosts = (
+    status: PostStatus = "OPEN",
+    page: number = 0,
+    size: number = 20,
+    sort: PostSort = "DEPOSIT_DESC",
+) =>
     axiosInstance.get<ApiResponse<PageResponse<PostItemResponse>>>(`/api/v1/posts`, {
-        params: { status, page, size }
+        params: { status, page, size, sort }
     });
 
-// 寃뚯떆湲 ?곸꽭 議고쉶
+// 게시글 상세 조회
 export const getPost = (postId: number) =>
     axiosInstance.get<ApiResponse<GetPostResponse>>(`/api/v1/posts/${postId}`);
 
-// 寃뚯떆湲 ?섏젙
+// 게시글 수정
 export const updatePost = (postId: number, data: UpdatePostRequest) =>
     axiosInstance.patch<ApiResponse<UpdatePostResponse>>(`/api/v1/posts/${postId}`, data);
 
-// 寃뚯떆湲 ??젣
+// 게시글 삭제
 export const deletePost = (postId: number) =>
     axiosInstance.delete<ApiResponse<DeletePostResponse>>(`/api/v1/posts/${postId}`);
 

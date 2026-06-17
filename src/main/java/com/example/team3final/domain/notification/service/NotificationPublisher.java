@@ -66,7 +66,7 @@ public interface NotificationPublisher {
     void sendChatReceived(Long userId, Long chatRoomId);
 
     // 14. 장소 인증 완료 알림 - 1:1: 상대방에게 / 그룹: 모임 참여자 전원에게
-    void sendPlaceVerified(Long userId, Long matchId);
+    void sendPlaceVerified(Long userId, Long matchId, String verifierNickname);
 
     // 15. 그룹 채팅방 신청자 퇴장 알림 - 등록자에게만
     void sendChatMemberLeft(Long userId, Long chatRoomId);
@@ -146,7 +146,7 @@ public interface NotificationPublisher {
     void sendAccountSuspended(Long userId, String title, String content);
 
     // 37. 계정 정지 해제 알림 - 해당 사용자에게
-    void sendAccountUnsuspended(Long userId);
+    void sendAccountUnsuspended(Long userId, String reason);
 
     // ── 게시글 / 신고로 인한 경고 ────────────────────────────────────────
     // 38. 게시글 신고 경고 1회 알림 - 게시글 작성자에게
@@ -160,4 +160,7 @@ public interface NotificationPublisher {
 
     // 41. 게시글 복구 알림 - 게시글 작성자에게
     void sendPostRestored(Long userId, Long postId);
+    void sendApplicantPostDeleted(Long userId, Long postId);
+
+    void sendApplicantPostRestored(Long userId, Long postId);
 }

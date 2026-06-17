@@ -51,7 +51,7 @@ export default function ReportCenterPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await getMyReports(page, 10);
+      const res = await getMyReports(page, requestedReportId > 0 ? 50 : 10);
       setReports(res.data.data.content);
       setTotalPages(res.data.data.totalPages || 1);
     } catch (err) {

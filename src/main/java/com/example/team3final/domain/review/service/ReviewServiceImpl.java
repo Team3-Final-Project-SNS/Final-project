@@ -187,8 +187,9 @@ public class ReviewServiceImpl implements ReviewService {
         // → 이중 계산 없이 정확한 결과 보장
         userMannerService.updateMannerTemperatureWithLock(authorId, temperatureDelta);
 
-        // 매너 온도 변경 알림
-        notificationPublisher.sendMannerTemperatureChanged(authorId);
+        if (!goodTags.isEmpty() && temperatureDelta.signum() > 0) {
+            notificationPublisher.sendMannerTemperatureChanged(authorId);
+        }
 
         UserInfoDto targetInfo = userInternalService.getUserInfo(authorId);
 

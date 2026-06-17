@@ -2,6 +2,11 @@ package com.example.team3final.domain.post.service;
 
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.PostException;
+import com.example.team3final.domain.chat.service.ChatInternalService;
+import com.example.team3final.domain.match.entity.Match;
+import com.example.team3final.domain.match.enums.MatchStatus;
+import com.example.team3final.domain.match.repository.MatchRepository;
+import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.dto.request.CreatePostRequestDto;
 import com.example.team3final.domain.post.dto.request.UpdatePostRequestDto;
 import com.example.team3final.domain.post.dto.response.CreatePostResponseDto;
@@ -19,6 +24,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.time.LocalDateTime;
 
 // Post 도메인의 생성/수정/삭제 등 사용자 요청 기반 변경 작업을 담당하는 서비스
@@ -33,6 +39,9 @@ public class PostCommandServiceImpl implements PostCommandService {
     private final UserPointService userPointService;
     private final UserInternalService userInternalService;
     private final ApplicationEventPublisher applicationEventPublisher;
+    private final MatchRepository matchRepository;
+    private final ChatInternalService chatInternalService;
+    private final NotificationPublisher notificationPublisher;
 
     @Override
     public CreatePostResponseDto createPost(Long authorId, CreatePostRequestDto request) {
@@ -114,6 +123,10 @@ public class PostCommandServiceImpl implements PostCommandService {
             int oldDeposit = post.getAuthorDeposit();
             int diff = newDeposit - oldDeposit;
 
+            if (hasActiveApplicants(post.getId()) && diff != 0) {
+                throw new PostException(ErrorCode.POST_CONDITION_LOCKED);
+            }
+
             if (diff > 0) {
                 // 증액: diff만큼 추가 차감
                 userPointService.deductEditDeposit(userId, diff);
@@ -163,6 +176,8 @@ public class PostCommandServiceImpl implements PostCommandService {
         // 5. 포인트 전액 환불
         userPointService.refundAuthorDeposit(userId, refundedPoint, postId);
 
+        cancelActiveApplicantMatches(post);
+
         // 6. 게시글 소프트 삭제
         post.delete();
 
@@ -173,6 +188,32 @@ public class PostCommandServiceImpl implements PostCommandService {
                 postId, userId, refundedPoint);
 
         return DeletePostResponseDto.of(postId, refundedPoint);
+    }
+
+    private boolean hasActiveApplicants(Long postId) {
+        return matchRepository.countByPostIdAndStatus(postId, MatchStatus.MATCHED) > 0;
+    }
+
+    private void cancelActiveApplicantMatches(Post post) {
+        List<Match> activeMatches = matchRepository.findAllByPostIdAndStatusOrderByIdAsc(
+                post.getId(),
+                MatchStatus.MATCHED
+        );
+
+        for (Match match : activeMatches) {
+            userPointService.refundApplicantDeposit(
+                    match.getApplicantId(),
+                    match.getApplicantDeposit(),
+                    match.getId()
+            );
+            match.cancel();
+            post.decreaseCurrentApplicants();
+            notificationPublisher.sendHostCancelled(match.getApplicantId(), match.getId());
+        }
+
+        if (!activeMatches.isEmpty()) {
+            chatInternalService.deactivateChatRoom(post.getId());
+        }
     }
 
     private void publishPostVectorUpsertEvent(Post post) {

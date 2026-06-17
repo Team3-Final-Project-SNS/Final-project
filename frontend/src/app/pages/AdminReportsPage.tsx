@@ -56,7 +56,11 @@ export default function AdminReportsPage() {
   }, [requestedReportId]);
 
   const handleProcess = async (reportId: number, status: 'ACCEPTED' | 'REJECTED') => {
-    const comment = prompt(status === 'ACCEPTED' ? '채택 사유를 입력하세요.' : '기각 사유를 입력하세요.') || '';
+    const comment = prompt(status === 'ACCEPTED' ? '채택 사유를 입력하세요.' : '기각 사유를 입력하세요.');
+    if (comment === null) {
+      return;
+    }
+
     setProcessingId(reportId);
     setMessage('');
     try {

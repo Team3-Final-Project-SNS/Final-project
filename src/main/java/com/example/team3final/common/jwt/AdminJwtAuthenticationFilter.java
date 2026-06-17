@@ -74,6 +74,14 @@ public class AdminJwtAuthenticationFilter extends OncePerRequestFilter {
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7);
         }
+
+        if ("/api/v1/admin/notifications/subscribe".equals(request.getRequestURI())) {
+            String queryToken = request.getParameter("token");
+            if (StringUtils.hasText(queryToken)) {
+                return queryToken.startsWith("Bearer ") ? queryToken.substring(7) : queryToken;
+            }
+        }
+
         return null;
     }
 }

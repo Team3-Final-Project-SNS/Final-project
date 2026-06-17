@@ -121,6 +121,12 @@ public class UserPointServiceImpl implements UserPointService{
     }
 
     @Override
+    public void redepositApplicantDeposit(Long userId, int amount, Long matchId) {
+        settleDeposit(userId, amount, matchId, PointReferenceType.MATCH,
+                PointSettlementReason.APPLICANT_DEPOSIT, PointTransactionType.DEPOSIT);
+    }
+
+    @Override
     public void partialRefundApplicantDeposit(Long userId, int amount, Long matchId) {
         settleDeposit(userId, amount, matchId, PointReferenceType.MATCH,
                 PointSettlementReason.APPLICANT_DEPOSIT, PointTransactionType.PARTIAL_REFUND);

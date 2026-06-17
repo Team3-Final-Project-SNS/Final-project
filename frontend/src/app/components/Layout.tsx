@@ -12,6 +12,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
   NotificationResponse,
+  subscribeNotifications,
 } from '@/api/notificationApi';
 import MobileLoggedInNavigation from './MobileLoggedInNavigation';
 import { getNotificationContextLabel, getNotificationTargetPath } from '../notificationNavigation';
@@ -87,6 +88,42 @@ export default function Layout() {
     toast.warning(suspendedToastMessage);
     navigate('/me', { replace: true });
   }, [isSuspended, location.pathname, navigate]);
+
+  useEffect(() => {
+    if (!getAccessToken() || isSuspended) {
+      return;
+    }
+
+    const eventSource = subscribeNotifications();
+    if (!eventSource) {
+      return;
+    }
+
+    const handleNotification = (event: MessageEvent) => {
+      try {
+        const notification = JSON.parse(event.data) as NotificationResponse;
+        setUnreadCount((current) => current + (notification.isRead ? 0 : 1));
+        setNotifications((current) => {
+          if (current.some((item) => item.notificationId === notification.notificationId)) {
+            return current;
+          }
+          return [notification, ...current].slice(0, 10);
+        });
+      } catch (err) {
+        console.error('Failed to parse SSE notification', err);
+      }
+    };
+
+    eventSource.addEventListener('notification', handleNotification);
+    eventSource.onerror = (event) => {
+      console.error('Notification SSE connection failed', event);
+    };
+
+    return () => {
+      eventSource.removeEventListener('notification', handleNotification);
+      eventSource.close();
+    };
+  }, [isSuspended]);
 
   useEffect(() => {
     setNotificationOpen(false);

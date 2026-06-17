@@ -18,6 +18,7 @@ import com.example.team3final.common.exception.MatchException;
 import com.example.team3final.domain.chat.service.ChatInternalService;
 import com.example.team3final.domain.match.dto.response.CreateMatchResponseDto;
 import com.example.team3final.domain.match.entity.Match;
+import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.repository.MatchRepository;
 import com.example.team3final.domain.meet.util.MeetRedisZSetKeys;
 import com.example.team3final.domain.post.entity.Post;
@@ -88,7 +89,7 @@ public class MatchTransactionService {
         }
 
         // 2-1. 중복 신청 차단 (MATCHED 상태만 중복으로 판단, CANCELLED는 재신청 허용)
-        if (matchRepository.existsByPostIdAndApplicantId(postId, applicantId)) {
+        if (matchRepository.existsByPostIdAndApplicantIdAndStatus(postId, applicantId, MatchStatus.MATCHED)) {
             throw new MatchException(ErrorCode.MATCH_DUPLICATE_APPLY);
         }
 

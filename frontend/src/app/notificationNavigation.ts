@@ -13,34 +13,36 @@ export const getNotificationContextLabel = (notification: NotificationResponse) 
     return `게시글 #${notification.relatedId}`;
   }
 
+  if (notification.domain === 'DISPUTE') {
+    return `이의제기 #${notification.relatedId}`;
+  }
+
   return `${notification.domain.toLowerCase()}Id ${notification.relatedId}`;
 };
 
 export const getNotificationTargetPath = (notification: NotificationResponse) => {
   const { type, domain, relatedId } = notification;
-  const title = notification.title || '';
-  const content = notification.content || '';
-  const isPostDeleteNotification =
-    type === 'POST_DELETED' ||
-    (type === 'SYSTEM' &&
-      Boolean(relatedId) &&
-      (title.includes('삭제') || content.includes('삭제')) &&
-      (content.includes('게시글') || content.includes('게시물') || content.includes('게시')));
+
+  if (domain === 'REPORT' || type === 'REPORT_SUBMITTED' || type === 'REPORT_REWARD' || type === 'REPORT_REJECTED') {
+    return null;
+  }
 
   if (type === 'CHAT_MEMBER_LEFT') {
     return null;
   }
 
-  if (relatedId) {
-    if (isPostDeleteNotification) {
-      return `/posts/${relatedId}/delete-reason`;
-    }
+  if (type === 'POST_DELETED') {
+    return notification.content.includes('환불') ? null : relatedId ? `/posts/${relatedId}/delete-reason` : null;
+  }
 
+  if (domain === 'DISPUTE' || type === 'DISPUTE_PENDING' || type === 'DISPUTE_RESULT' || type === 'DISPUTE_DEADLINE_REMINDER') {
+    return relatedId ? `/me/support/disputes/no-show?disputeId=${relatedId}` : '/me/support/disputes/no-show';
+  }
+
+  if (relatedId) {
     switch (type) {
       case 'DISPUTE_SUBMITTED':
         return `/admin/disputes?disputeId=${relatedId}`;
-      case 'REPORT_SUBMITTED':
-        return `/admin/reports?reportId=${relatedId}`;
       case 'INQUIRY_SUBMITTED':
         return `/admin/inquiries?inquiryId=${relatedId}`;
       case 'PLACE_VERIFIED':
@@ -59,9 +61,6 @@ export const getNotificationTargetPath = (notification: NotificationResponse) =>
         return `/payments?paymentId=${relatedId}`;
       case 'INQUIRY_ANSWERED':
         return `/me/support/inquiries?inquiryId=${relatedId}`;
-      case 'REPORT_REWARD':
-      case 'REPORT_REJECTED':
-        return `/me/reports?reportId=${relatedId}`;
     }
   }
 
@@ -75,10 +74,6 @@ export const getNotificationTargetPath = (notification: NotificationResponse) =>
       return relatedId ? `/chat/${relatedId}` : '/matches';
     case 'POINT':
       return '/me/points';
-    case 'REPORT':
-      return '/me/reports';
-    case 'DISPUTE':
-      return '/me/matches';
     case 'INQUIRY':
       return '/me/support/inquiries';
     case 'ACCOUNT':

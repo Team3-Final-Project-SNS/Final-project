@@ -69,7 +69,9 @@ export default function DeletedPostReasonPage() {
               <div className="rounded-xl border border-[#ffccbc] bg-[#fff8f5] p-5">
                 <p className="mb-2 text-sm font-bold text-[#bf360c]">삭제 사유</p>
                 <p className="whitespace-pre-wrap text-sm leading-6 text-[#5d4037]">
-                  {`해당 게시글은 ${post?.deleteReason || '관리자 정책'} 로 인해 삭제되었습니다.`}
+                  {post?.deleteReason
+                    ? `해당 게시글은 ${post.deleteReason} 로 인해 삭제되었습니다.`
+                    : '해당 게시글은 작성자에 의해 삭제되었습니다.'}
                 </p>
               </div>
 
