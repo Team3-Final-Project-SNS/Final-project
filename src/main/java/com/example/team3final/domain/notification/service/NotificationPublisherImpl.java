@@ -286,10 +286,11 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     // 14. 장소 인증 완료 알림
     // 1:1: 상대방에게 / 그룹: 모임 참여자 전원에게 (호출하는 쪽에서 수신자 분기 처리)
     @Override
-    public void sendPlaceVerified(Long userId, Long matchId) {
+    public void sendPlaceVerified(Long userId, Long matchId, String verifierNickname) {
+        String nickname = verifierNickname == null || verifierNickname.isBlank() ? "상대방" : verifierNickname;
         publish(userId, NotificationType.PLACE_VERIFIED,
-                "장소 인증이 완료되었습니다.",
-                "상대방이 장소 인증을 완료했습니다.",
+                nickname + "님의 장소 인증이 완료되었습니다.",
+                nickname + "님의 장소 인증이 완료되었습니다.",
                 RelatedDomain.MEET, matchId);
     }
 
@@ -522,10 +523,13 @@ public class NotificationPublisherImpl implements NotificationPublisher {
 
     // 37. 계정 정지 해제 알림 - 해당 사용자에게
     @Override
-    public void sendAccountUnsuspended(Long userId) {
+    public void sendAccountUnsuspended(Long userId, String reason) {
+        String content = reason == null || reason.isBlank()
+                ? "계정 정지가 해제되었습니다. 다시 서비스를 이용하실 수 있습니다."
+                : "계정 정지가 해제되었습니다. 사유: " + reason;
         publish(userId, NotificationType.ACCOUNT_UNSUSPENDED,
                 "계정 정지가 해제되었습니다.",
-                "계정 정지가 해제되었습니다. 다시 서비스를 이용하실 수 있습니다.",
+                content,
                 RelatedDomain.ACCOUNT, null);
     }
 

@@ -6,6 +6,7 @@ import {
   getAdminUnreadNotificationCount,
   markAdminNotificationRead,
   markAllAdminNotificationsRead,
+  subscribeAdminNotifications,
 } from '../../api/adminNotificationApi';
 import { NotificationResponse } from '../../api/notificationApi';
 import { getNotificationTargetPath } from '../notificationNavigation';
@@ -32,6 +33,36 @@ export default function AdminNotificationBell() {
     const intervalId = window.setInterval(refreshUnreadCount, 30_000);
 
     return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    const eventSource = subscribeAdminNotifications();
+    if (!eventSource) return;
+
+    const handleNotification = (event: MessageEvent) => {
+      try {
+        const notification = JSON.parse(event.data) as NotificationResponse;
+        setUnreadCount((current) => current + (notification.isRead ? 0 : 1));
+        setItems((current) => {
+          if (current.some((item) => item.notificationId === notification.notificationId)) {
+            return current;
+          }
+          return [notification, ...current].slice(0, 10);
+        });
+      } catch (err) {
+        console.error('Failed to parse admin SSE notification', err);
+      }
+    };
+
+    eventSource.addEventListener('notification', handleNotification);
+    eventSource.onerror = (event) => {
+      console.error('Admin notification SSE connection failed', event);
+    };
+
+    return () => {
+      eventSource.removeEventListener('notification', handleNotification);
+      eventSource.close();
+    };
   }, []);
 
   useEffect(() => {

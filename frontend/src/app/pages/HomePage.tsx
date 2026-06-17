@@ -12,6 +12,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
   NotificationResponse,
+  subscribeNotifications,
 } from '@/api/notificationApi';
 import MobileLoggedInNavigation from '../components/MobileLoggedInNavigation';
 import { getNotificationTargetPath } from '../notificationNavigation';
@@ -101,6 +102,42 @@ export default function HomePage() {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [notificationOpen]);
+
+  useEffect(() => {
+    if (!isLoggedIn || isSuspended) {
+      return;
+    }
+
+    const eventSource = subscribeNotifications();
+    if (!eventSource) {
+      return;
+    }
+
+    const handleNotification = (event: MessageEvent) => {
+      try {
+        const notification = JSON.parse(event.data) as NotificationResponse;
+        setUnreadCount((current) => current + (notification.isRead ? 0 : 1));
+        setNotifications((current) => {
+          if (current.some((item) => item.notificationId === notification.notificationId)) {
+            return current;
+          }
+          return [notification, ...current].slice(0, 10);
+        });
+      } catch (err) {
+        console.error('Failed to parse SSE notification', err);
+      }
+    };
+
+    eventSource.addEventListener('notification', handleNotification);
+    eventSource.onerror = (event) => {
+      console.error('Notification SSE connection failed', event);
+    };
+
+    return () => {
+      eventSource.removeEventListener('notification', handleNotification);
+      eventSource.close();
+    };
+  }, [isLoggedIn, isSuspended]);
 
   const handleLogout = async () => {
     try {

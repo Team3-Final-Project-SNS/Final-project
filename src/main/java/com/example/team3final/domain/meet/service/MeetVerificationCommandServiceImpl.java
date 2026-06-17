@@ -538,6 +538,8 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
             Long verifiedMatchId,
             Long authorId
     ) {
+        String verifierNickname = userInternalService.getUserInfo(verifierId).nickname();
+
         // 같은 Post의 모든 Match ID 조회
         List<Long> activeMatchIds = matchInternalService.getMatchIdsByPostId(postId);
 
@@ -551,7 +553,7 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
         // 인증자가 등록자가 아니라면 등록자에게 알림을 보냄
         // 등록자는 HOST이므로 실제 인증이 일어난 matchId를 relatedId로 사용
         if (!verifierId.equals(authorId)) {
-            notificationPublisher.sendPlaceVerified(authorId, verifiedMatchId);
+            notificationPublisher.sendPlaceVerified(authorId, verifiedMatchId, verifierNickname);
         }
 
         // 모든 신청자에게 알림을 보냄
@@ -560,7 +562,7 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
             Long applicantId = info.applicantId();
 
             if (!applicantId.equals(verifierId)) {
-                notificationPublisher.sendPlaceVerified(applicantId, siblingMatchId);
+                notificationPublisher.sendPlaceVerified(applicantId, siblingMatchId, verifierNickname);
             }
         });
     }

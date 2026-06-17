@@ -1,5 +1,6 @@
 import axiosInstance from "./axiosInstance";
 import { ApiResponse } from "./authApi";
+import { getAccessToken } from "./axiosInstance";
 
 export type NotificationType =
     | "MATCH_APPLIED"
@@ -99,3 +100,13 @@ export const markNotificationRead = (notificationId: number) =>
     axiosInstance.patch<ApiResponse<UpdateNotificationReadResponse>>(
         `/api/v1/notifications/${notificationId}/read`,
     );
+
+export const subscribeNotifications = () => {
+    const token = getAccessToken();
+    if (!token) return null;
+
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+    const url = new URL("/api/v1/notifications/subscribe", baseUrl);
+    url.searchParams.set("token", `Bearer ${token}`);
+    return new EventSource(url.toString(), { withCredentials: true });
+};
