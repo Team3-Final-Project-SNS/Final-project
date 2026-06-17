@@ -5,6 +5,19 @@ import { PageResponse } from "./postApi";
 export type MatchStatus = "MATCHED" | "COMPLETED" | "CANCELLED" | "HOST_NO_SHOW" | "GUEST_NO_SHOW" | "BOTH_NO_SHOW" | "DISPUTED";
 export type DisputeType = "FUNERAL_CEREMONY" | "MEDICAL_EMERGENCY" | "PHONE_MALFUNCTION" | "GPS_ERROR" | "QR_ERROR" | "ADMIN_OVERRIDE";
 
+// 그룹 매칭 응답용 참여자 단위 정보
+export interface MatchParticipant {
+    userId: number;
+    matchId: number | null;
+    nickname: string;
+    major: string;
+    studentNumber: string;
+    role: "AUTHOR" | "APPLICANT";
+    status: MatchStatus | null;
+    matchedAt: string | null;
+    completedAt: string | null;
+}
+
 export interface GetMatchesItemResponse {
     matchId: number;
     postId: number;
@@ -18,6 +31,7 @@ export interface GetMatchesItemResponse {
     maxApplicants: number;
     myDeposit: number;
     isAuthor: boolean;
+    participants: MatchParticipant[];
     status: MatchStatus;
     chatRoomId: number | null;
     matchedAt: string;
@@ -44,6 +58,7 @@ export interface GetMatchResponse {
     currentApplicants: number;
     maxApplicants: number;
     authorMannerTemperature: number | null;
+    participants: MatchParticipant[];
     status: MatchStatus;
     chatRoomId: number | null;
     matchedAt: string;

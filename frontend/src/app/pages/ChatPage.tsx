@@ -324,7 +324,12 @@ export default function ChatPage() {
   };
 
   const canRequestExtension = !extensionInfo || extensionInfo.extensionStatus === 'NONE' || extensionInfo.extensionStatus === 'EXPIRED';
-  const isApplicant = currentUserId !== null && matchInfo !== null && currentUserId === matchInfo.applicantId;
+  // 그룹 매칭에서는 participants의 APPLICANT 역할 기준으로 신청자 권한 판단
+  const isApplicant = currentUserId !== null && matchInfo !== null && (
+    (matchInfo.participants || []).some((participant) => (
+      participant.userId === currentUserId && participant.role === 'APPLICANT'
+    )) || currentUserId === matchInfo.applicantId
+  );
 
   if (loading) {
     return (

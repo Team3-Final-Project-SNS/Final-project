@@ -115,7 +115,13 @@ public class MatchTransactionService {
         Long chatRoomId;
         if (!chatInternalService.existsChatRoomByPostId(postId)) {
             // 첫 번째 신청자 → HOST + GUEST 채팅방 신규 생성
-            chatRoomId = chatInternalService.createChatRoom(postId, post.getAuthorId(), applicantId);
+            // 첫 신청자는 게시글 정원에 맞는 타입의 채팅방 생성
+            chatRoomId = chatInternalService.createChatRoom(
+                    postId,
+                    post.getAuthorId(),
+                    applicantId,
+                    post.getMaxApplicants()
+            );
         } else {
             // 두 번째 이후 → 기존 채팅방에 GUEST만 추가
             chatInternalService.addChatMember(postId, applicantId);

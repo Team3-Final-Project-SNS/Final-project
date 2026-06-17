@@ -21,7 +21,7 @@ public class Match extends BaseTimeEntity {
     @Column(name = "match_id", unique = true, updatable = false)
     private Long id;
 
-    // 매칭된 게시글 (1:1)
+    // 매칭된 게시글
     @Column(name = "post_id",nullable = false)
     private Long postId;
 

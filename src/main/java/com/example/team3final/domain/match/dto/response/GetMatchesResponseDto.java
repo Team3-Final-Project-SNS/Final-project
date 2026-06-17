@@ -4,29 +4,28 @@ import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.enums.MatchStatus;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record GetMatchesResponseDto(
 
-        Long matchId,               // 매칭 ID
-        Long postId,                // 게시글 ID
-        Long opponentId,                // 상대방 userId
-        String opponentNickname,        // 상대방 닉네임
-        String opponentMajor,           // 상대방 학과
-        String opponentStudentNumber,   // 상대방 학번
-        LocalDateTime meetAt,   // postMatchInfo.meetAt()
-        String placeName,       // postMatchInfo.placeName()
-        int currentApplicants,  // 현재 참여 인원 (등록자 포함)
-        int maxApplicants,      // 최대 참여 인원 (등록자 포함)
-        // ===== 내 예치 포인트 =====
-        // 내가 등록자면 postMatchInfo.authorDeposit()
-        // 내가 신청자면 match.getApplicantDeposit()
-        // → 서비스에서 판단 후 결정해서 넘김
+        Long matchId,
+        Long postId,
+        Long opponentId,
+        String opponentNickname,
+        String opponentMajor,
+        String opponentStudentNumber,
+        LocalDateTime meetAt,
+        String placeName,
+        int currentApplicants,
+        int maxApplicants,
         int myDeposit,
-        boolean isAuthor,          // 현재 로그인 사용자가 게시글 등록자인지 여부
-        MatchStatus status,         // 매칭 상태
-        Long chatRoomId,            // 채팅방 ID (Chat 도메인, 미구현 시 null)
-        LocalDateTime matchedAt,    // 매칭 확정 시각
-        LocalDateTime completedAt   // 만남 완료 시각 (완료 전 null)
+        boolean isAuthor,
+        // 그룹 매칭 목록 화면용 전체 참여자 목록
+        List<MatchParticipantDto> participants,
+        MatchStatus status,
+        Long chatRoomId,
+        LocalDateTime matchedAt,
+        LocalDateTime completedAt
 ) {
     public static GetMatchesResponseDto of(
             Match match,
@@ -40,6 +39,7 @@ public record GetMatchesResponseDto(
             int maxApplicants,
             int myDeposit,
             boolean isAuthor,
+            List<MatchParticipantDto> participants,
             Long chatRoomId
     ) {
         return new GetMatchesResponseDto(
@@ -55,11 +55,11 @@ public record GetMatchesResponseDto(
                 maxApplicants,
                 myDeposit,
                 isAuthor,
+                participants,
                 match.getStatus(),
                 chatRoomId,
                 match.getCreatedAt(),
                 match.getCompletedAt()
         );
     }
-
 }

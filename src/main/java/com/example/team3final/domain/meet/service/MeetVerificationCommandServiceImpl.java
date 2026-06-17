@@ -150,8 +150,7 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
         // 14. 장소 인증 완료 알림
         // 장소 인증 완료 알림.
         // 정책:
-        // - 1:1: 인증한 사람을 제외한 상대방에게 발송
-        // - 그룹: 인증한 사람을 제외한 모임 참여자 전원에게 발송
+        // - 모든 매칭: 인증한 사람을 제외한 모임 참여자에게 발송
         notifyPlaceVerifiedToParticipants(
                 userId,
                 matchInfo.postId(),
@@ -532,8 +531,7 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
     }
 
     // 장소 인증 완료 알림을 정책에 맞게 발송
-    // 1:1 매칭 -> 인증한 사람을 제외한 상대방에게만 발송
-    // 그룹 매칭 -> 인증한 사람을 제외한 모임 참여자 전원에게 발송
+    // 인증한 사람을 제외한 모임 참여자에게 장소 인증 완료 알림 발송
     private void notifyPlaceVerifiedToParticipants(
             Long verifierId,
             Long postId,

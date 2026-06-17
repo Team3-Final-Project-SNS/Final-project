@@ -8,6 +8,7 @@ import com.example.team3final.domain.chat.entity.ChatMessage;
 import com.example.team3final.domain.chat.entity.ChatRoom;
 import com.example.team3final.domain.chat.enums.ChatMemberRole;
 import com.example.team3final.domain.chat.enums.ChatMemberStatus;
+import com.example.team3final.domain.chat.enums.ChatRoomType;
 import com.example.team3final.domain.chat.repository.ChatMemberRepository;
 import com.example.team3final.domain.chat.repository.ChatMessageRepository;
 import com.example.team3final.domain.chat.repository.ChatRoomRepository;
@@ -47,7 +48,7 @@ public class ChatInternalServiceImpl implements ChatInternalService {
     // 채팅방 생성 - 매칭 확정 시 내부 호출
     @Override
     @Transactional
-    public Long createChatRoom(Long postId, Long authorId, Long applicantId) {
+    public Long createChatRoom(Long postId, Long authorId, Long applicantId, int maxApplicants) {
 
         Optional<ChatRoom> existing = chatRoomRepository.findByPostId(postId);
         if (existing.isPresent()) {
@@ -56,7 +57,12 @@ public class ChatInternalServiceImpl implements ChatInternalService {
 
         // 채팅방 생성
         try {
-            ChatRoom chatRoom = ChatRoom.builder().postId(postId).build();
+            // 게시글 정원 기준 2인은 1:1, 3인 이상은 그룹 채팅방 생성
+            ChatRoomType roomType = maxApplicants > 2 ? ChatRoomType.GROUP : ChatRoomType.ONE_TO_ONE;
+            ChatRoom chatRoom = ChatRoom.builder()
+                    .postId(postId)
+                    .roomType(roomType)
+                    .build();
             ChatRoom savedChatRoom = chatRoomRepository.save(chatRoom);
 
             // 참여자 등록 (HOST: 등록자, GUEST: 신청자)

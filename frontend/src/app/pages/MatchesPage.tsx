@@ -485,7 +485,7 @@ function groupMatchesByPost(matches: GetMatchesItemResponse[]): DisplayMatch[] {
     if (!match.isAuthor) {
       grouped.set(match.matchId, {
         ...match,
-        opponentNicknames: [match.opponentNickname],
+        opponentNicknames: getDisplayParticipantNames(match),
       });
       return;
     }
@@ -494,7 +494,7 @@ function groupMatchesByPost(matches: GetMatchesItemResponse[]): DisplayMatch[] {
     if (!existing) {
       grouped.set(match.postId, {
         ...match,
-        opponentNicknames: [match.opponentNickname],
+        opponentNicknames: getDisplayParticipantNames(match),
       });
       return;
     }
@@ -504,7 +504,10 @@ function groupMatchesByPost(matches: GetMatchesItemResponse[]): DisplayMatch[] {
 
     grouped.set(match.postId, {
       ...(shouldUseCurrentAsRepresentative ? match : existing),
-      opponentNicknames: [...existing.opponentNicknames, match.opponentNickname],
+      opponentNicknames: uniqueNames([
+        ...existing.opponentNicknames,
+        ...getDisplayParticipantNames(match),
+      ]),
     });
   });
 
@@ -515,6 +518,26 @@ function formatOpponentNames(match: DisplayMatch) {
   return match.opponentNicknames.length > 0
       ? match.opponentNicknames.join(', ')
       : match.opponentNickname;
+}
+
+function getDisplayParticipantNames(match: GetMatchesItemResponse) {
+  // 그룹 매칭은 participants 우선, 구형 응답은 opponentNickname fallback
+  const participants = match.participants || [];
+  const names = participants
+      .filter((participant) => match.isAuthor ? participant.role === 'APPLICANT' : true)
+      .map((participant) => participant.nickname)
+      .filter(Boolean);
+
+  if (names.length > 0) {
+    return uniqueNames(names);
+  }
+
+  return match.opponentNickname ? [match.opponentNickname] : [];
+}
+
+function uniqueNames(names: string[]) {
+  // 같은 게시글의 여러 match row에서 중복 닉네임 제거
+  return [...new Set(names.filter(Boolean))];
 }
 
 function ReviewWriteModal({
@@ -540,7 +563,7 @@ function ReviewWriteModal({
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
         <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
           <h2 className="text-xl font-bold text-[#212121]">리뷰 작성하기</h2>
-          <p className="mt-1 text-sm text-[#757575]">{match.opponentNickname}님과의 만남 후기를 남겨주세요.</p>
+          <p className="mt-1 text-sm text-[#757575]">{getDisplayParticipantNames(match).join(', ') || match.opponentNickname}님과의 만남 후기를 남겨주세요.</p>
 
           <div className="mt-5">
             <p className="mb-2 text-sm font-bold text-[#212121]">좋았던 점</p>
