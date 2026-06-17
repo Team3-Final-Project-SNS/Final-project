@@ -52,7 +52,7 @@ public class PostQueryServiceImpl implements PostQueryService {
 
         // Redis 캐시에서 게시글 목록 조회 응답을 먼저 확인
         Optional<PageResponseDto<GetPostsItemResponseDto>> cachedPostList = redisPostService.getPostList(
-                currentUserId, status, pageable.getPageNumber(), pageable.getPageSize()
+                currentUserId, status, pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort().toString()
         );
 
         // 캐시된 응답이 있으면 DB 조회 없이 바로 반환
@@ -133,6 +133,7 @@ public class PostQueryServiceImpl implements PostQueryService {
                 status,
                 pageable.getPageNumber(),
                 pageable.getPageSize(),
+                pageable.getSort().toString(),
                 responseDto
         );
 

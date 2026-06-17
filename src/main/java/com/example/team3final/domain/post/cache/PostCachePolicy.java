@@ -22,7 +22,7 @@ public class PostCachePolicy {
     public static final Duration POST_LIST_TTL = Duration.ofSeconds(30);
 
     // 게시글 목록 조회 결과를 구분하기 위한 Redis key를 생성
-    public static String postListKey(Long userId, PostStatus status, int page, int size) {
+    public static String postListKey(Long userId, PostStatus status, int page, int size, String sortKey) {
         return POST_LIST_PREFIX
                 // 사용자별 캐시를 구분
                 + ":user:" + userId
@@ -31,7 +31,15 @@ public class PostCachePolicy {
                 // 페이지 번호별 조회 결과가 다르므로 page를 key에 포함
                 + ":page:" + page
                 // 페이지 크기별 조회 결과가 다르므로 size를 key에 포함
-                + ":size:" + size;
+                + ":size:" + size
+                + ":sort:" + normalizeSortKey(sortKey);
+    }
+
+    private static String normalizeSortKey(String sortKey) {
+        if (sortKey == null || sortKey.isBlank()) {
+            return "UNSORTED";
+        }
+        return sortKey.replace(" ", "");
     }
 
 }

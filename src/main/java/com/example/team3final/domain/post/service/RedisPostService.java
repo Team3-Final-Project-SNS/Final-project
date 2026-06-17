@@ -13,6 +13,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -29,10 +30,11 @@ public class RedisPostService {
             Long userId,
             PostStatus status,
             int page,
-            int size
+            int size,
+            String sortKey
     ) {
         // 사용자, 상태, 페이지, 크기를 기준으로 Redis key를 생성
-        String cacheKey = PostCachePolicy.postListKey(userId, status, page, size);
+        String cacheKey = PostCachePolicy.postListKey(userId, status, page, size, sortKey);
 
         try {
             // Redis에서 캐시된 JSON 문자열을 조회
@@ -71,10 +73,11 @@ public class RedisPostService {
             PostStatus status,
             int page,
             int size,
+            String sortKey,
             PageResponseDto<GetPostsItemResponseDto> responseDto
     ) {
         // 사용자, 상태, 페이지, 크기를 기준으로 Redis Key를 생성
-        String cacheKey = PostCachePolicy.postListKey(userId, status, page, size);
+        String cacheKey = PostCachePolicy.postListKey(userId, status, page, size, sortKey);
 
         try {
 
@@ -95,6 +98,19 @@ public class RedisPostService {
             // Redis 장애가 게시글 목록 조회 API 장애로 번지지 않도록 예외는 전파 X
             // 운영/테스트 중 확인할 수 있도록 warn 로그 기록
             log.warn("게시글 목록 캐시 저장 실패 - Redis 처리 실패 | key={}", cacheKey, e);
+        }
+    }
+
+    public void evictPostLists() {
+        try {
+            // 게시글 생성/변경 직후 목록이 오래된 Redis 응답을 보지 않도록 전체 목록 캐시를 비웁니다.
+            Set<String> keys = stringRedisTemplate.keys(PostCachePolicy.POST_LIST_PREFIX + "*");
+            if (keys == null || keys.isEmpty()) {
+                return;
+            }
+            stringRedisTemplate.delete(keys);
+        } catch (RuntimeException e) {
+            log.warn("게시글 목록 캐시 삭제 실패", e);
         }
     }
 }
