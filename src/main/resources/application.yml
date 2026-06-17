@@ -123,6 +123,11 @@ app:
       initialize-schema: ${AI_RAG_VECTOR_INITIALIZE_SCHEMA}
       distance-type: ${AI_RAG_VECTOR_DISTANCE_TYPE}
       index-type: ${AI_RAG_VECTOR_INDEX_TYPE}
+      maximum-pool-size: ${AI_RAG_POSTGRES_MAXIMUM_POOL_SIZE}
+      minimum-idle: ${AI_RAG_POSTGRES_MINIMUM_IDLE}
+      connection-timeout-ms: ${AI_RAG_POSTGRES_CONNECTION_TIMEOUT_MS}
+      idle-timeout-ms: ${AI_RAG_POSTGRES_IDLE_TIMEOUT_MS}
+      max-lifetime-ms: ${AI_RAG_POSTGRES_MAX_LIFETIME_MS}
 
     matching:
       model: ${AI_MATCHING_MODEL}
