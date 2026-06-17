@@ -160,4 +160,7 @@ public interface NotificationPublisher {
 
     // 41. 게시글 복구 알림 - 게시글 작성자에게
     void sendPostRestored(Long userId, Long postId);
+    void sendApplicantPostDeleted(Long userId, Long postId);
+
+    void sendApplicantPostRestored(Long userId, Long postId);
 }

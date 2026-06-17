@@ -572,4 +572,19 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 "삭제되었던 게시물이 복구됨으로 예치 포인트가 차감되었습니다.",
                 RelatedDomain.POST, postId);
     }
+    @Override
+    public void sendApplicantPostDeleted(Long userId, Long postId) {
+        publish(userId, NotificationType.POST_DELETED,
+                "게시글이 삭제되어 환불되었습니다.",
+                "신청한 게시글이 삭제되어 예치 포인트가 환불되었습니다.",
+                RelatedDomain.POST, postId);
+    }
+
+    @Override
+    public void sendApplicantPostRestored(Long userId, Long postId) {
+        publish(userId, NotificationType.POST_RESTORED,
+                "게시글이 복구되었습니다. 다시 신청해주세요.",
+                "신청했던 게시글이 복구되었습니다. 참여를 원하시면 게시글 상세에서 다시 신청해주세요.",
+                RelatedDomain.POST, postId);
+    }
 }
