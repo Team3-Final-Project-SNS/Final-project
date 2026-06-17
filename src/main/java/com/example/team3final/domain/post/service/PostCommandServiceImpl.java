@@ -42,6 +42,7 @@ public class PostCommandServiceImpl implements PostCommandService {
     private final MatchRepository matchRepository;
     private final ChatInternalService chatInternalService;
     private final NotificationPublisher notificationPublisher;
+    private final RedisPostService redisPostService;
 
     @Override
     public CreatePostResponseDto createPost(Long authorId, CreatePostRequestDto request) {
@@ -83,6 +84,7 @@ public class PostCommandServiceImpl implements PostCommandService {
 
         // OPEN 게시글은 매칭 AI 추천 후보가 될 수 있으므로 커밋 이후 벡터 인덱스에 반영합니다.
         publishPostVectorUpsertEvent(savedPost);
+        redisPostService.evictPostLists();
 
         log.info("[Post] 게시글 생성 완료 - postId: {}, authorId: {}, status: {}, meetAt: {}",
                 savedPost.getId(), authorId, savedPost.getStatus(), savedPost.getMeetAt());
@@ -149,6 +151,7 @@ public class PostCommandServiceImpl implements PostCommandService {
 
         // 장소/한마디/시간/책임비가 바뀌면 의미 검색 결과와 필터 조건도 달라지므로 인덱스를 갱신합니다.
         publishPostVectorUpsertEvent(post);
+        redisPostService.evictPostLists();
 
         // 6. 응답 DTO 변환
         return UpdatePostResponseDto.from(post);
@@ -183,6 +186,7 @@ public class PostCommandServiceImpl implements PostCommandService {
 
         // 소프트 삭제도 사용자에게 추천되면 안 되므로 벡터 인덱스에서는 물리 삭제합니다.
         publishPostVectorDeleteEvent(postId);
+        redisPostService.evictPostLists();
 
         log.info("[Post] 게시글 삭제 처리 - postId: {}, authorId: {}, refundedPoint: {}",
                 postId, userId, refundedPoint);
