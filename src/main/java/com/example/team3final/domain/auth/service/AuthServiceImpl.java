@@ -323,7 +323,7 @@ public class AuthServiceImpl implements AuthService{
             );
         } catch (DisabledException e) {
             // DisabledException = 탈퇴 계정 시도
-            throw new AuthException(ErrorCode.USER_WITHDRAWN);
+            throw new AuthException(ErrorCode.AUTH_LOGIN_FAIL);
         } catch (BadCredentialsException e) {
             // 이메일 또는 비밀번호가 틀린 경우
             throw new AuthException(ErrorCode.AUTH_LOGIN_FAIL);
