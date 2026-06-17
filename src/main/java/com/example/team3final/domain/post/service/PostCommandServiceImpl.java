@@ -25,7 +25,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Objects;
 import java.time.LocalDateTime;
 
 // Post 도메인의 생성/수정/삭제 등 사용자 요청 기반 변경 작업을 담당하는 서비스
@@ -120,13 +119,13 @@ public class PostCommandServiceImpl implements PostCommandService {
                 throw new PostException(ErrorCode.POST_INVALID_DEPOSIT_UNIT);
             }
 
-            if (hasActiveApplicants(post.getId()) && isMeetingConditionChanged(post, request)) {
-                throw new PostException(ErrorCode.POST_CONDITION_LOCKED);
-            }
-
             // 차액 계산 — 양수면 추가 차감, 음수면 환불
             int oldDeposit = post.getAuthorDeposit();
             int diff = newDeposit - oldDeposit;
+
+            if (hasActiveApplicants(post.getId()) && diff != 0) {
+                throw new PostException(ErrorCode.POST_CONDITION_LOCKED);
+            }
 
             if (diff > 0) {
                 // 증액: diff만큼 추가 차감
@@ -136,10 +135,6 @@ public class PostCommandServiceImpl implements PostCommandService {
                 userPointService.refundEditDeposit(userId, Math.abs(diff));
             }
             // diff == 0이면 아무것도 안 함
-        }
-
-        if (newDeposit == null && hasActiveApplicants(post.getId()) && isMeetingConditionChanged(post, request)) {
-            throw new PostException(ErrorCode.POST_CONDITION_LOCKED);
         }
 
         // 5. 엔티티 update() 호출 — 상태/필드 변경은 도메인 메서드가 책임
@@ -197,14 +192,6 @@ public class PostCommandServiceImpl implements PostCommandService {
 
     private boolean hasActiveApplicants(Long postId) {
         return matchRepository.countByPostIdAndStatus(postId, MatchStatus.MATCHED) > 0;
-    }
-
-    private boolean isMeetingConditionChanged(Post post, UpdatePostRequestDto request) {
-        return (request.getMeetAt() != null && !Objects.equals(request.getMeetAt(), post.getMeetAt()))
-                || (request.getPlaceName() != null && !Objects.equals(request.getPlaceName(), post.getPlaceName()))
-                || (request.getPlaceLat() != null && !Objects.equals(request.getPlaceLat(), post.getPlaceLat()))
-                || (request.getPlaceLng() != null && !Objects.equals(request.getPlaceLng(), post.getPlaceLng()))
-                || (request.getAuthorDeposit() != null && request.getAuthorDeposit() != post.getAuthorDeposit());
     }
 
     private void cancelActiveApplicantMatches(Post post) {

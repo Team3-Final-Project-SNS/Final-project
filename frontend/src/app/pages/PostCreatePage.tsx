@@ -64,6 +64,7 @@ export default function PostCreatePage() {
     const [time, setTime] = useState('12:30');
     const [content, setContent] = useState('');
     const [points, setPoints] = useState(1000);
+    const [currentApplicants, setCurrentApplicants] = useState(0);
     const [userPoints, setUserPoints] = useState(0);
     const [loading, setLoading] = useState(false);
     const [initialLoading, setInitialLoading] = useState(isEditMode);
@@ -115,6 +116,7 @@ export default function PostCreatePage() {
                 setContent(post.content || '');
                 setPoints(post.authorDeposit);
                 setMaxApplicants(post.maxApplicants);
+                setCurrentApplicants(post.currentApplicants);
             } catch (err: any) {
                 setError(err.response?.data?.message || '게시글 정보를 불러오지 못했습니다.');
             } finally {
@@ -232,6 +234,7 @@ export default function PostCreatePage() {
     };
 
     const pointOptions = [1000, 2000, 3000, 5000];
+    const isDepositLocked = isEditMode && currentApplicants > 0;
     const isPlaceSelected = placeLat !== null && placeLng !== null;
     const [selectedHour, selectedMinute] = time.split(':');
     const normalizedMinute = minuteOptions.includes(selectedMinute) ? selectedMinute : '00';
@@ -248,6 +251,8 @@ export default function PostCreatePage() {
     };
 
     const handlePointInputChange = (value: string) => {
+        if (isDepositLocked) return;
+
         const nextPoint = Number(value);
         if (Number.isNaN(nextPoint)) return;
 
@@ -260,6 +265,8 @@ export default function PostCreatePage() {
     };
 
     const adjustPoints = (delta: number) => {
+        if (isDepositLocked) return;
+
         setPoints((current) => Math.max(MIN_DEPOSIT, current + delta));
         if (error === '최소 책임비는 200포인트 입니다.') {
             setError('');
@@ -510,11 +517,17 @@ export default function PostCreatePage() {
                 <div className="mb-6">
                     <h2 className="text-lg font-semibold text-[#212121] mb-2">책임비 설정</h2>
                     <p className="text-sm text-[#616161] mb-4">약속 이행의 증거</p>
+                    {isDepositLocked && (
+                        <p className="mb-4 rounded-lg bg-[#fff8e1] px-4 py-3 text-sm font-semibold text-[#8d6e63]">
+                            신청자가 있는 게시글은 책임비를 변경할 수 없습니다. 시간과 장소는 수정할 수 있습니다.
+                        </p>
+                    )}
                     <div className="flex gap-2 flex-wrap mb-4">
                         {pointOptions.map((option) => (
                             <button
                                 key={option}
                                 type="button"
+                                disabled={isDepositLocked}
                                 onClick={() => setPoints(option)}
                                 className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
                                     points === option
@@ -530,6 +543,7 @@ export default function PostCreatePage() {
                             step={DEPOSIT_STEP}
                             placeholder="직접입력"
                             value={points}
+                            disabled={isDepositLocked}
                             onChange={(e) => handlePointInputChange(e.target.value)}
                             className="px-4 py-3 border border-[#e0e0e0] rounded-lg w-32 focus:outline-none focus:ring-2 focus:ring-[#d84315]"
                         />
@@ -538,7 +552,7 @@ export default function PostCreatePage() {
                                 type="button"
                                 onClick={() => adjustPoints(-DEPOSIT_STEP)}
                                 className="px-4 py-3 font-bold text-[#616161] hover:bg-[#fff3e0] disabled:text-[#bdbdbd]"
-                                disabled={points <= MIN_DEPOSIT}
+                                disabled={isDepositLocked || points <= MIN_DEPOSIT}
                             >
                                 -
                             </button>
@@ -546,6 +560,7 @@ export default function PostCreatePage() {
                                 type="button"
                                 onClick={() => adjustPoints(DEPOSIT_STEP)}
                                 className="border-l border-[#e0e0e0] px-4 py-3 font-bold text-[#616161] hover:bg-[#fff3e0]"
+                                disabled={isDepositLocked}
                             >
                                 +
                             </button>

@@ -10,9 +10,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.time.LocalDateTime;
 
 @Service
@@ -54,11 +51,6 @@ public class PostExpirationServiceImpl implements PostExpirationService {
         }
 
         // 만료 상태와 환불이 실제 커밋된 경우에만 사용자 알림을 발행한다.
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                notificationPublisher.sendPostExpired(post.getAuthorId(), post.getId());
-            }
-        });
+        notificationPublisher.sendPostExpired(post.getAuthorId(), post.getId());
     }
 }

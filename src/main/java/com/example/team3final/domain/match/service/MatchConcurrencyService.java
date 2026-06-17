@@ -31,6 +31,7 @@ import com.example.team3final.common.exception.OptimisticLockConflictException;
 import com.example.team3final.domain.chat.service.ChatInternalService;
 import com.example.team3final.domain.match.dto.response.CreateMatchResponseDto;
 import com.example.team3final.domain.match.entity.Match;
+import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.repository.MatchRepository;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
@@ -371,7 +372,7 @@ public class MatchConcurrencyService {
             throw new MatchException(ErrorCode.MATCH_SELF_APPLY);
         }
 
-        if (matchRepository.existsByPostIdAndApplicantId(post.getId(), applicantId)) {
+        if (matchRepository.existsByPostIdAndApplicantIdAndStatus(post.getId(), applicantId, MatchStatus.MATCHED)) {
             throw new MatchException(ErrorCode.MATCH_DUPLICATE_APPLY);
         }
 
