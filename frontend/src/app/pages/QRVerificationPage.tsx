@@ -50,7 +50,7 @@ export default function QRVerificationPage() {
   const [role, setRole] = useState<QrRole | null>(null);
   const [postId, setPostId] = useState<number | null>(postIdFromUrl ? Number(postIdFromUrl) : null);
   const [resolvedMatchId, setResolvedMatchId] = useState(routeMatchId);
-  const [step, setStep] = useState<'display' | 'scan' | 'success'>('display');
+  const [step, setStep] = useState<'display' | 'scan' | 'waiting' | 'success'>('display');
   const [qrToken, setQrToken] = useState('');
   const [qrImageUrl, setQrImageUrl] = useState('');
   const [qrInput, setQrInput] = useState(tokenFromUrl || '');
@@ -234,7 +234,11 @@ export default function QRVerificationPage() {
   }, [timeRemaining]);
 
   useEffect(() => {
-    if (role !== 'author' || !qrToken || !resolvedMatchId) return;
+    const shouldPollStatus =
+      !!resolvedMatchId &&
+      ((role === 'author' && !!qrToken) || (role === 'applicant' && step === 'waiting'));
+
+    if (!shouldPollStatus) return;
 
     const intervalId = window.setInterval(async () => {
       try {
@@ -255,7 +259,7 @@ export default function QRVerificationPage() {
     }, 1000);
 
     return () => window.clearInterval(intervalId);
-  }, [navigate, qrToken, resolvedMatchId, role]);
+  }, [navigate, qrToken, resolvedMatchId, role, step]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -284,8 +288,7 @@ export default function QRVerificationPage() {
       setLoading(true);
       setScanError('');
       await createQrScan(resolvedMatchId, tokenToScan);
-      setStep('success');
-      window.setTimeout(() => navigate('/matches'), 2000);
+      setStep('waiting');
     } catch (err: any) {
       setScanError(err.response?.data?.message || 'QR 인증에 실패했습니다.');
       scannedTokenRef.current = '';
@@ -476,13 +479,51 @@ export default function QRVerificationPage() {
             </>
           )}
 
+          {step === 'waiting' && (
+            <div className="py-8">
+              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#fff3e0]">
+                <Loader2 size={42} className="animate-spin text-[#ef6c00]" />
+              </div>
+              <h2 className="mb-3 text-center text-2xl font-bold text-[#212121]">QR 인증 완료</h2>
+              <p className="mb-6 text-center text-[#616161]">
+                모든 신청자의 QR 인증이 끝나면 만남 완료로 처리됩니다.
+              </p>
+
+              <div className="rounded-xl border border-[#e0e0e0] bg-[#fafafa] p-4">
+                <h3 className="mb-3 text-sm font-bold text-[#212121]">만남 인증 현황</h3>
+                <div className="space-y-2">
+                  {verificationParticipants.length > 0 ? (
+                    verificationParticipants.map((participant) => {
+                      const badge = getParticipantBadge(participant);
+                      return (
+                        <div key={participant.matchId} className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+                          <div>
+                            <p className="text-sm font-semibold text-[#212121]">{participant.nickname || '알 수 없음'}</p>
+                            <p className="text-xs text-[#9e9e9e]">신청자 · matchId {participant.matchId}</p>
+                          </div>
+                          <span className={`rounded-full px-3 py-1 text-xs font-bold ${badge.className}`}>
+                            {badge.label}
+                          </span>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-[#e0e0e0] bg-white p-3 text-center text-sm text-[#9e9e9e]">
+                      인증 현황을 불러오는 중입니다.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {step === 'success' && (
             <div className="py-12 text-center">
               <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#4caf50]">
                 <Check size={48} className="text-white" />
               </div>
               <h2 className="mb-3 text-2xl font-bold text-[#212121]">만남 인증 완료</h2>
-              <p className="mb-4 text-[#616161]">QR 인증이 완료되었습니다.</p>
+              <p className="mb-4 text-[#616161]">모든 신청자의 QR 인증이 완료되었습니다.</p>
               <div className="inline-block rounded-lg border border-[#4caf50] bg-[#e8f5e9] px-4 py-3">
                 <span className="text-sm font-semibold text-[#2e7d32]">책임비 반환 처리 완료</span>
               </div>

@@ -3,6 +3,7 @@ package com.example.team3final.domain.meet.service;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.MeetException;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
+import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.service.MatchInternalService;
 import com.example.team3final.domain.meet.context.MeetVerificationContext;
 import com.example.team3final.domain.meet.dto.response.GetMeetExtensionResponseDto;
@@ -136,14 +137,18 @@ public class MeetVerificationQueryServiceImpl implements MeetVerificationQuerySe
         // 등록자 닉네임 조회
         String authorNickname = userInternalService.getUserInfo(postInfo.authorId()).nickname();
 
-        // postId 기준 현재 활성 형제 matchId만 조회
-        List<Long> siblingMatchIds = matchInternalService.getActiveMatchIdsByPostId(matchInfo.postId());
+        // QR 인증 현황은 진행 중이거나 방금 완료된 Match까지 포함해서 조회
+        Map<Long, MatchInfoDto> siblingMatchInfoMap = matchInternalService.getMatchInfos(
+                matchInternalService.getMatchIdsByPostId(matchInfo.postId())
+        ).entrySet().stream()
+                .filter(entry -> entry.getValue().status() == MatchStatus.MATCHED
+                        || entry.getValue().status() == MatchStatus.COMPLETED)
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        List<Long> siblingMatchIds = siblingMatchInfoMap.keySet().stream().toList();
 
         // 형제 matchId → MeetVerification 목록 벌크 조회 (N+1 방지)
         List<MeetVerification> siblingMvList = meetVerificationRepository.findAllByMatchIdIn(siblingMatchIds);
-
-        // 형제 matchId → MatchInfoDto 벌크 조회 (N+1 방지)
-        Map<Long, MatchInfoDto> siblingMatchInfoMap = matchInternalService.getMatchInfos(siblingMatchIds);
 
         // 신청자 userId 목록 추출
         List<Long> applicantIds = siblingMatchInfoMap.values().stream()

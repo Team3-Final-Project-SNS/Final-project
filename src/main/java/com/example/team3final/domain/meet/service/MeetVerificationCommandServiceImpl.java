@@ -229,37 +229,56 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
         // 응답에 환급 포인트를 포함해야 하므로 Match 완료 처리 전에 신청자 예치금을 조회
         Match match = matchInternalService.getMatchById(matchId);
 
-        // 신청자에게 환급될 포인트 금액을 응답용으로 보관
-        int refundedPoint = match.getApplicantDeposit();
-
         // 신청자 본인의 MeetVerification만 DONE 상태로 전환
         meetVerification.meetVerifiedDone();
 
-        // 만남 인증이 끝난 Match의 위치 데이터는 개인정보 최소 수집 원칙에 따라 삭제
+        // QR 인증이 끝난 신청자의 위치 데이터는 개인정보 최소 수집 원칙에 따라 삭제
         userLocationCleanupService.deleteLocationsByMatchId(matchId);
 
-        // Match 단건 완료와 신청자 예치금 환급은 Match 도메인에 위임
-        boolean isLastScan = matchLifecycleService.completeSingleMatch(matchId);
+        List<Long> activeMatchIds = contextReader.getActiveMatchIdsByPostId(matchInfo.postId());
+        List<MeetVerification> siblingMvList = meetVerificationRepository.findAllByMatchIdIn(activeMatchIds);
+        List<MeetVerification> qrTargetMvList = siblingMvList.stream()
+                .filter(MeetVerification::isApplicantPlaceVerified)
+                .toList();
+        boolean allQrCompleted = !qrTargetMvList.isEmpty() && qrTargetMvList.stream()
+                .allMatch(mv -> mv.getStatus() == VerificationStatus.DONE);
 
-        // 마지막 신청자의 스캔이라면 Post 완료와 등록자 책임비 환급을 Match 도메인에 위임
-        if (isLastScan) {
+        int refundedPoint = 0;
+        MatchStatus responseMatchStatus = match.getStatus();
+
+        // 모든 GPS 인증 신청자의 QR 인증이 끝난 시점에만 전체 Match를 완료 처리
+        if (allQrCompleted) {
+            String authorNickname = userInternalService.getUserInfo(postInfo.authorId()).nickname();
+
+            for (MeetVerification qrTargetMv : qrTargetMvList) {
+                Long activeMatchId = qrTargetMv.getMatchId();
+                MatchInfoDto activeMatchInfo = matchInternalService.getMatchInfo(activeMatchId);
+                Match activeMatch = matchInternalService.getMatchById(activeMatchId);
+
+                matchLifecycleService.completeSingleMatch(activeMatchId);
+
+                if (activeMatchId.equals(matchId)) {
+                    refundedPoint = activeMatch.getApplicantDeposit();
+                    responseMatchStatus = MatchStatus.COMPLETED;
+                }
+
+                String activeApplicantNickname = userInternalService.getUserInfo(activeMatchInfo.applicantId()).nickname();
+                notificationPublisher.sendMeetCompleted(activeMatchInfo.applicantId(), activeMatchId, authorNickname);
+                // 등록자는 후기 대상이 아니므로 매칭 상세 이동 알림 발송
+                notificationPublisher.sendMeetCompletedForAuthor(postInfo.authorId(), activeMatchId, activeApplicantNickname);
+            }
+
             matchLifecycleService.completePostIfAllMatchesCompleted(matchInfo.postId());
 
             // 모든 신청자의 인증이 끝난 뒤 채팅방 비활성화를 예약
             chatInternalService.scheduleChatRoomDeactivation(matchInfo.postId());
         }
 
-        String applicantNickname = userInternalService.getUserInfo(userId).nickname();
-        String authorNickname = userInternalService.getUserInfo(postInfo.authorId()).nickname();
-        notificationPublisher.sendMeetCompleted(userId, matchId, authorNickname);
-        // 등록자는 후기 대상이 아니므로 매칭 상세 이동 알림 발송
-        notificationPublisher.sendMeetCompletedForAuthor(postInfo.authorId(), matchId, applicantNickname);
-
         // QR 스캔 완료 응답을 반환
         return QrScanResponseDto.of(
                 matchId,
                 meetVerification,
-                MatchStatus.COMPLETED,
+                responseMatchStatus,
                 refundedPoint
         );
     }
