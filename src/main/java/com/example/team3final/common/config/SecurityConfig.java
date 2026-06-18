@@ -57,7 +57,8 @@ public class SecurityConfig {
                                 "/api/v1/auth/login",              // 로그인
                                 "/api/v1/auth/refresh",            // 토큰 재발급
                                 "/api/v1/universities",            // 대학 목록 (회원가입 페이지에서 사용)
-                                "/ws/**",                          // 웹소켓 경로
+                                "/ws/chat",                          // 웹소켓 경로
+                                "/ws/chat/**",                          // 웹소켓 경로
                                 "/h2-console/**",
                                 "/api/v1/admin/auth/login",        // Admin 로그인 열어두기
                                 "/swagger-ui/**",                  // Swagger UI 정적 리소스 (HTML, CSS, JS)
