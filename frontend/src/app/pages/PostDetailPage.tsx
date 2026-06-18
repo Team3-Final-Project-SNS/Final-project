@@ -1,14 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router';
 import { ArrowLeft, MapPin, Clock, User, Users, AlertCircle, Loader2, Flag } from 'lucide-react';
 import { getDeletedPostReason, getPost, GetPostResponse } from '../../api/postApi';
 import axiosInstance from '../../api/axiosInstance'; // 임시로 matchApi 대신 사용 (아직 안만듦)
 import { createReport, ReportReason } from '../../api/reportApi';
+import { clearMatchingConversationOnExit } from '../../api/aiApi';
+
+const MATCHING_AI_STATE_KEY = 'hankkipot:matching-ai-state';
+
+type PostDetailRouteState = {
+  fromMatchDetail?: boolean;
+  matchId?: number | string;
+  fromMatchingAi?: boolean;
+};
+
+type StoredMatchingAiState = {
+  conversationId?: string | null;
+};
 
 export default function PostDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const routeState = location.state as PostDetailRouteState | null;
+  const returningToMatchingAiRef = useRef(false);
   const [post, setPost] = useState<GetPostResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -19,6 +34,7 @@ export default function PostDetailPage() {
   const [reportReason, setReportReason] = useState<ReportReason>('OTHER');
   const [reportDetail, setReportDetail] = useState('');
   const [reportLoading, setReportLoading] = useState(false);
+  const fromMatchingAi = Boolean(routeState?.fromMatchingAi);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -50,6 +66,35 @@ export default function PostDetailPage() {
     };
     fetchData();
   }, [id]);
+
+  useEffect(() => {
+    if (!fromMatchingAi) {
+      return;
+    }
+
+    return () => {
+      if (returningToMatchingAiRef.current) {
+        return;
+      }
+
+      const savedState = sessionStorage.getItem(MATCHING_AI_STATE_KEY);
+      sessionStorage.removeItem(MATCHING_AI_STATE_KEY);
+
+      if (!savedState) {
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(savedState) as StoredMatchingAiState;
+
+        if (parsed.conversationId) {
+          clearMatchingConversationOnExit(parsed.conversationId);
+        }
+      } catch {
+        // 저장된 복구 상태가 깨져 있어도 상세 페이지 이동은 막지 않습니다.
+      }
+    };
+  }, [fromMatchingAi]);
 
   const handleMatch = () => {
     if (userPoints < (post?.authorDeposit || 0)) {
@@ -111,11 +156,17 @@ export default function PostDetailPage() {
   );
 
   const afterPoints = userPoints - post.authorDeposit;
-  const fromMatchDetail = Boolean(location.state?.fromMatchDetail && location.state?.matchId);
+  const fromMatchDetail = Boolean(routeState?.fromMatchDetail && routeState?.matchId);
   const backLabel = fromMatchDetail ? '내 매칭' : '목록으로';
   const handleBack = () => {
+    if (fromMatchingAi) {
+      returningToMatchingAiRef.current = true;
+      navigate('/ai/matching');
+      return;
+    }
+
     if (fromMatchDetail) {
-      navigate(`/matches/${location.state.matchId}`);
+      navigate(`/matches/${routeState?.matchId}`);
       return;
     }
     navigate('/posts');

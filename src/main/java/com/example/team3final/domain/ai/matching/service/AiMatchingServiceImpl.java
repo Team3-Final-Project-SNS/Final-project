@@ -406,7 +406,7 @@ public class AiMatchingServiceImpl implements AiMatchingService {
         chunks.add(SSE_RECOMMENDATION_MARKER + serializeRecommendedPosts(response.recommendedPosts()));
 
         return Flux.fromIterable(chunks)
-                .delayElements(Duration.ofMillis(80));
+                .delayElements(Duration.ofMillis(100));
     }
 
     /**
@@ -1317,7 +1317,7 @@ public class AiMatchingServiceImpl implements AiMatchingService {
             return List.of("");
         }
 
-        int chunkSize = 12;
+        int chunkSize = 8;
         List<String> chunks = new ArrayList<>();
         for (int start = 0; start < answer.length(); start += chunkSize) {
             int end = Math.min(answer.length(), start + chunkSize);
