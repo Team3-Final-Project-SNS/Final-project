@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { RouterProvider } from 'react-router';
 import { refresh } from '@/api/authApi';
-import { clearAccessToken, setAccessToken } from '@/api/axiosInstance';
+import { clearAccessToken, hasLoginRestoreHint, setAccessToken } from '@/api/axiosInstance';
 import { getUserMe } from '@/api/userApi';
 import { setUserStatus } from '@/store/authStatusStore';
 import { Toaster } from './components/ui/sonner';
@@ -13,6 +13,12 @@ export default function App() {
   useEffect(() => {
     const restoreLogin = async () => {
       if (window.location.pathname.startsWith('/admin')) {
+        setAuthChecked(true);
+        return;
+      }
+
+      if (!hasLoginRestoreHint()) {
+        clearAccessToken();
         setAuthChecked(true);
         return;
       }

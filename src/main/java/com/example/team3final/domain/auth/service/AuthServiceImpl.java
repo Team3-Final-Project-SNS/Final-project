@@ -25,6 +25,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -41,6 +42,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @Transactional
 public class AuthServiceImpl implements AuthService{
@@ -363,21 +365,25 @@ public class AuthServiceImpl implements AuthService{
 
         // refreshToken null 체크
         if (refreshToken == null) {
+            log.warn("[Auth Refresh] refresh_token 쿠키 없음");
             throw new AuthException(ErrorCode.AUTH_INVALID_TOKEN);
         }
 
         // deviceId null 체크 (device_id 쿠키 없이 재발급 시도 차단)
         if (deviceId == null) {
+            log.warn("[Auth Refresh] device_id 쿠키 없음");
             throw new AuthException(ErrorCode.AUTH_INVALID_TOKEN);
         }
 
         // 1. 토큰 형식 및 서명 검증
         if (!jwtProvider.validateToken(refreshToken)) {
+            log.warn("[Auth Refresh] refresh_token JWT 검증 실패");
             throw new AuthException(ErrorCode.AUTH_INVALID_TOKEN);
         }
 
         // 2. 토큰 타입이 REFRESH인지 확인
         if (!"REFRESH".equals(jwtProvider.getTokenType(refreshToken))) {
+            log.warn("[Auth Refresh] 토큰 타입 불일치");
             throw new AuthException(ErrorCode.AUTH_INVALID_TOKEN);
         }
 
@@ -386,9 +392,12 @@ public class AuthServiceImpl implements AuthService{
 
         // 4. Redis에서 해당 디바이스의 토큰 조회
         // key: "refresh:{email}:{deviceId}" → 이 디바이스의 세션만 검증
-        String storedToken = redisTemplate.opsForValue().get(buildRefreshKey(email, deviceId));
+        String redisKey = buildRefreshKey(email, deviceId);
+        String storedToken = redisTemplate.opsForValue().get(redisKey);
         if (!refreshToken.equals(storedToken)) {
             // 이미 사용된 토큰이거나 다른 디바이스의 토큰인 경우
+            log.warn("[Auth Refresh] Redis 토큰 없음 또는 불일치 | email={}, deviceId={}, key={}",
+                    email, deviceId, redisKey);
             throw new AuthException(ErrorCode.AUTH_INVALID_TOKEN);
         }
 

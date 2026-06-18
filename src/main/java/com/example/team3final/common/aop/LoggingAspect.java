@@ -1,5 +1,6 @@
 package com.example.team3final.common.aop;
 
+import com.example.team3final.common.exception.ServiceException;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -37,12 +38,26 @@ public class LoggingAspect {
             );
             return result;
         } catch (Exception e) {
-            log.error("[{}] {}.{}() 예외 | message: {}",
-                    className.contains("Controller") ? "CTRL" : "SVC",
-                    className,
-                    methodName,
-                    e.getMessage()
-            );
+            String layer = className.contains("Controller") ? "CTRL" : "SVC";
+
+            if (e instanceof ServiceException serviceException
+                    && serviceException.getErrorCode().getHttpStatus().is4xxClientError()) {
+                log.warn("[{}] {}.{}() 클라이언트 예외 | code: {}, message: {}",
+                        layer,
+                        className,
+                        methodName,
+                        serviceException.getErrorCode().getCode(),
+                        serviceException.getErrorCode().getMessage()
+                );
+            } else {
+                log.error("[{}] {}.{}() 서버 예외 | message: {}",
+                        layer,
+                        className,
+                        methodName,
+                        e.getMessage(),
+                        e
+                );
+            }
             throw e;
         }
     }

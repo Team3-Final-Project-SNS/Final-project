@@ -1,6 +1,8 @@
 package com.example.team3final.domain.payment.entity;
 
 import com.example.team3final.common.entity.BaseTimeEntity;
+import com.example.team3final.common.exception.ErrorCode;
+import com.example.team3final.common.exception.PaymentException;
 import com.example.team3final.domain.payment.enums.ChargePackage;
 import com.example.team3final.domain.payment.enums.PaymentStatus;
 import jakarta.persistence.*;
@@ -99,7 +101,8 @@ public class Payment extends BaseTimeEntity {
      */
     public void markPaid() {
         if (this.status != PaymentStatus.READY) {
-            throw new IllegalStateException("READY 상태에서만 결제 완료 처리할 수 있습니다. 현재: " + this.status);
+            // 현재 결제 상태에서는 요청한 상태 전이 불가
+            throw new PaymentException(ErrorCode.PAY_INVALID_STATUS);
         }
         this.status = PaymentStatus.PAID;
         this.completedAt = LocalDateTime.now();
@@ -110,7 +113,8 @@ public class Payment extends BaseTimeEntity {
      */
     public void markCancelled(String cancelReason) {
         if (this.status != PaymentStatus.PAID) {
-            throw new IllegalStateException("PAID 상태에서만 취소할 수 있습니다. 현재: " + this.status);
+            // 현재 결제 상태에서는 요청한 상태 전이 불가
+            throw new PaymentException(ErrorCode.PAY_INVALID_STATUS);
         }
         this.status = PaymentStatus.CANCELLED;
         this.cancelledAt = LocalDateTime.now();
@@ -122,7 +126,8 @@ public class Payment extends BaseTimeEntity {
      */
     public void markFailed(String failReason) {
         if (this.status != PaymentStatus.READY) {
-            throw new IllegalStateException("READY 상태에서만 실패 처리할 수 있습니다. 현재: " + this.status);
+            // 현재 결제 상태에서는 요청한 상태 전이 불가
+            throw new PaymentException(ErrorCode.PAY_INVALID_STATUS);
         }
         this.status = PaymentStatus.FAILED;
         this.failReason = failReason; // 실패 사유 기록

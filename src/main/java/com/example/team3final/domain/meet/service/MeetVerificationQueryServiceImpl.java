@@ -3,6 +3,7 @@ package com.example.team3final.domain.meet.service;
 import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.common.exception.MeetException;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
+import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.service.MatchInternalService;
 import com.example.team3final.domain.meet.context.MeetVerificationContext;
 import com.example.team3final.domain.meet.dto.response.GetMeetExtensionResponseDto;
@@ -70,22 +71,24 @@ public class MeetVerificationQueryServiceImpl implements MeetVerificationQuerySe
         LocalDateTime effectiveMeetAt = meetVerificationRepository.findEffectiveExtendedMeetAtByPostId(postId)
                 .orElse(postInfoDto.meetAt());
 
-        // 등록자 GPS 인증이 끝나지 않았더라도 만남 시각 10분이 지나면 QR 단계로 진입할 수 있음
-        // 노쇼 사용자가 장소 인증을 하지 않아도 남은 참여자들이 QR 인증을 마칠 수 있게 하기 위한 fallback 조건
+        // QR은 전체 GPS 완료 또는 기준 시각 10분 경과 시 열림
+        boolean allPlaceVerified = siblingMvList.stream()
+                .allMatch(mv -> mv.isAuthorPlaceVerified() && mv.isApplicantPlaceVerified());
         boolean isQrFallbackTime = !now.isBefore(
                 effectiveMeetAt.plusMinutes(MeetVerificationPolicy.NO_SHOW_JUDGE_MINUTES)
         );
 
-        // 등록자가 GPS 인증을 완료했거나, 만남 시간 10분 경과 시 QR 단계 진입 가능
-        // 등록자 GPS 인증 완료 케이스가 우선이고, 시간 경과 케이스는 공통 QR을 걸어둘 대표 row만 선택
+        // QR 화면은 등록자도 GPS 인증을 먼저 완료한 경우에만 진입 가능
+        boolean authorVerified = siblingMvList.stream().anyMatch(MeetVerification::isAuthorPlaceVerified);
+        if (!authorVerified || (!allPlaceVerified && !isQrFallbackTime)) {
+            throw new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED);
+        }
+
+        // Post 공통 QR을 걸어둘 대표 row는 등록자 GPS 인증이 반영된 MeetVerification으로 선택
         MeetVerification issueTarget = siblingMvList.stream()
                 .filter(MeetVerification::isAuthorPlaceVerified)
                 .findFirst()
-                .orElseGet(() -> isQrFallbackTime ? siblingMvList.get(0) : null);
-
-        if (issueTarget == null) {
-            throw new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED);
-        }
+                .orElseThrow(() -> new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED));
 
         // 같은 Post에 이미 발급된 공통 QR 토큰이 있는지 확인
         Optional<MeetVerification> tokenOwnerOpt = meetQrSupport.findPostQrTokenOwner(siblingMvList);
@@ -134,14 +137,18 @@ public class MeetVerificationQueryServiceImpl implements MeetVerificationQuerySe
         // 등록자 닉네임 조회
         String authorNickname = userInternalService.getUserInfo(postInfo.authorId()).nickname();
 
-        // postId 기준 현재 활성 형제 matchId만 조회
-        List<Long> siblingMatchIds = matchInternalService.getActiveMatchIdsByPostId(matchInfo.postId());
+        // QR 인증 현황은 진행 중이거나 방금 완료된 Match까지 포함해서 조회
+        Map<Long, MatchInfoDto> siblingMatchInfoMap = matchInternalService.getMatchInfos(
+                matchInternalService.getMatchIdsByPostId(matchInfo.postId())
+        ).entrySet().stream()
+                .filter(entry -> entry.getValue().status() == MatchStatus.MATCHED
+                        || entry.getValue().status() == MatchStatus.COMPLETED)
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        List<Long> siblingMatchIds = siblingMatchInfoMap.keySet().stream().toList();
 
         // 형제 matchId → MeetVerification 목록 벌크 조회 (N+1 방지)
         List<MeetVerification> siblingMvList = meetVerificationRepository.findAllByMatchIdIn(siblingMatchIds);
-
-        // 형제 matchId → MatchInfoDto 벌크 조회 (N+1 방지)
-        Map<Long, MatchInfoDto> siblingMatchInfoMap = matchInternalService.getMatchInfos(siblingMatchIds);
 
         // 신청자 userId 목록 추출
         List<Long> applicantIds = siblingMatchInfoMap.values().stream()

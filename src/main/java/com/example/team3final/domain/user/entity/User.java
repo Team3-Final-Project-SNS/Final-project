@@ -141,7 +141,8 @@ public class User extends SoftDeleteEntity {
     // 무료 포인트 적립 — 가입 보너스, 신고/후기 포상, 환불 시 free 환원 등
     public void addFreePoint(int amount) {
         if (amount < 0) {
-            throw new IllegalArgumentException("적립 금액은 음수일 수 없습니다: " + amount);
+            // 포인트 증감 금액은 음수 불가
+            throw new UserException(ErrorCode.USER_INVALID_POINT_AMOUNT);
         }
         this.freePoint += amount;
     }
@@ -149,7 +150,8 @@ public class User extends SoftDeleteEntity {
     // 유료 포인트 적립 — 현금 결제로 충전된 경우에만 호출
     public void addPaidPoint(int amount) {
         if (amount < 0) {
-            throw new IllegalArgumentException("적립 금액은 음수일 수 없습니다: " + amount);
+            // 포인트 증감 금액은 음수 불가
+            throw new UserException(ErrorCode.USER_INVALID_POINT_AMOUNT);
         }
         this.paidPoint += amount;
     }
@@ -157,7 +159,8 @@ public class User extends SoftDeleteEntity {
     // 포인트 차감 (무료먼저, 부족분 유료에서 -> 구분하여 거래내역에 저장)
     public DeductResult deduct(int amount) {
         if (amount < 0) {
-            throw new IllegalArgumentException("차감 금액은 음수일 수 없습니다: " + amount);
+            // 포인트 증감 금액은 음수 불가
+            throw new UserException(ErrorCode.USER_INVALID_POINT_AMOUNT);
         }
         int total = this.freePoint + this.paidPoint;
         if (total < amount) {
@@ -180,7 +183,8 @@ public class User extends SoftDeleteEntity {
     // 유료 포인트 환불
     public int withdrawPaid(int requestedAmount) {
         if (requestedAmount < 1000) {
-            throw new IllegalArgumentException("환불 포인트는 1000P 미만일 수 없습니다: " + requestedAmount);
+            // 유료 포인트 환불은 최소 1,000P 이상
+            throw new UserException(ErrorCode.USER_REFUND_MIN_AMOUNT);
         }
         // 현재 paidPoint가 회수 요청보다 적으면, 가능한 만큼만 회수
         // (이미 책임비로 사용된 paid는 회수 불가 — 사용자 차익 방지)

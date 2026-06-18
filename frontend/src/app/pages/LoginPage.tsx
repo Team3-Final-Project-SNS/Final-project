@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router';
 import { ArrowLeft, School, HandHeart, Lock } from 'lucide-react';
 import { login } from '@/api/authApi';
 import { getUserMe } from '@/api/userApi';
-import { setAccessToken, clearAccessToken } from '@/api/axiosInstance';
+import { clearAccessToken, markLoginRestoreHint, setAccessToken } from '@/api/axiosInstance';
 import { setUserStatus } from '@/store/authStatusStore';
 import { toast } from 'sonner';
 
@@ -31,6 +31,7 @@ export default function LoginPage() {
       // setAccessToken: axiosInstance 모듈 변수에 저장 → 탭이 살아있는 동안 유지
       clearAccessToken();
       setAccessToken(accessToken);
+      markLoginRestoreHint();
 
       const meRes = await getUserMe();
       const { status } = meRes.data.data;

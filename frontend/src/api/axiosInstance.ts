@@ -28,6 +28,18 @@ const PUBLIC_ENDPOINTS = [
 //   - 새로고침 시 초기화되지만 → HttpOnly 쿠키의 리프레시 토큰으로 자동 재발급됨
 // ─────────────────────────────────────────────
 let accessTokenMemory: string | null = null;
+const LOGIN_RESTORE_HINT_KEY = "hankkipot_login_session";
+
+export const markLoginRestoreHint = () => {
+    localStorage.setItem(LOGIN_RESTORE_HINT_KEY, "true");
+};
+
+export const clearLoginRestoreHint = () => {
+    localStorage.removeItem(LOGIN_RESTORE_HINT_KEY);
+};
+
+export const hasLoginRestoreHint = () =>
+    localStorage.getItem(LOGIN_RESTORE_HINT_KEY) === "true";
 
 export const setAccessToken = (token: string) => {
     accessTokenMemory = token;
@@ -35,6 +47,7 @@ export const setAccessToken = (token: string) => {
 export const getAccessToken = () => accessTokenMemory;
 export const clearAccessToken = () => {
     accessTokenMemory = null;
+    clearLoginRestoreHint();
     clearAuthStatus();
 };
 

@@ -1,6 +1,8 @@
 package com.example.team3final.domain.match.entity;
 
 import com.example.team3final.common.entity.BaseTimeEntity;
+import com.example.team3final.common.exception.ErrorCode;
+import com.example.team3final.common.exception.MatchException;
 import com.example.team3final.domain.match.enums.MatchStatus;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -54,9 +56,8 @@ public class Match extends BaseTimeEntity {
     // 만남 정상 완료 (QR 인증까지 완료)
     public void complete() {
         if (this.status != MatchStatus.MATCHED) {
-            throw new IllegalStateException(
-                    "매칭 완료는 MATCHED 상태에서만 가능합니다. 현재 상태: " + this.status
-            );
+            // MATCHED 상태의 매칭만 완료 처리 대상
+            throw new MatchException(ErrorCode.MATCH_INVALID_STATUS);
         }
         this.status = MatchStatus.COMPLETED;
         this.completedAt = LocalDateTime.now();
@@ -72,7 +73,8 @@ public class Match extends BaseTimeEntity {
         if (noShowStatus != MatchStatus.HOST_NO_SHOW
         && noShowStatus != MatchStatus.GUEST_NO_SHOW
         && noShowStatus != MatchStatus.BOTH_NO_SHOW) {
-            throw new IllegalArgumentException("노쇼 상태가 아닙니다:" + noShowStatus);
+            // 노쇼 처리는 HOST/GUEST/BOTH 노쇼 상태값만 허용
+            throw new MatchException(ErrorCode.MATCH_NO_SHOW_INVALID_STATUS);
         }
         this.status = noShowStatus;
     }
