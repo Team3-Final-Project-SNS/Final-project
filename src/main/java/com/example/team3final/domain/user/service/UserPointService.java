@@ -27,6 +27,7 @@ public interface UserPointService {
     // 환불 사유가 필요한 거래 내역용 오버로드
     void refundAuthorDeposit(Long userId, int amount, Long postId, String description);
     void redepositAuthorDeposit(Long userId, int amount, Long postId);
+    void redepositAuthorDeposit(Long userId, int amount, Long postId, String description);
     void partialRefundAuthorDeposit(Long userId, int amount, Long postId);
     void penaltyAuthorDeposit(Long userId, int amount, Long postId);
 

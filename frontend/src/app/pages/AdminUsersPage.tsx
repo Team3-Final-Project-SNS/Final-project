@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Search, ShieldOff, ShieldCheck, Users } from 'lucide-react';
 import { AdminUserItem, AdminUserStatus, getAdminUsers, reinstateAdminUser, suspendAdminUser } from '../../api/adminUserApi';
 import { getUniversities, UniversityResponse } from '../../api/univApi';
+import { getAdminReasonValidationMessage } from '../utils/adminReasonValidation';
 
 const statusLabels: Record<AdminUserStatus, string> = {
   ACTIVE: '활성',
@@ -74,7 +75,13 @@ export default function AdminUsersPage() {
 
   const handleSuspendUser = async (user: AdminUserItem) => {
     const reason = window.prompt(`${user.nickname} 계정을 정지하는 사유를 입력해주세요.`);
-    if (!reason?.trim()) return;
+    if (reason === null) return;
+
+    const validationMessage = getAdminReasonValidationMessage(reason, '정지 사유는 필수입니다.');
+    if (validationMessage) {
+      setMessage(validationMessage);
+      return;
+    }
 
     setProcessingUserId(user.userId);
     setMessage('');
@@ -91,7 +98,13 @@ export default function AdminUsersPage() {
 
   const handleReinstateUser = async (user: AdminUserItem) => {
     const reason = window.prompt(`${user.nickname} 계정 정지를 해제하는 사유를 입력해주세요.`);
-    if (!reason?.trim()) return;
+    if (reason === null) return;
+
+    const validationMessage = getAdminReasonValidationMessage(reason, '정지 해제 사유는 필수입니다.');
+    if (validationMessage) {
+      setMessage(validationMessage);
+      return;
+    }
 
     setProcessingUserId(user.userId);
     setMessage('');

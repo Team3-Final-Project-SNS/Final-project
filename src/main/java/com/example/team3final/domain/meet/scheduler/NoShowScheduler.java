@@ -13,16 +13,17 @@ public class NoShowScheduler {
 
     private final MeetVerificationNoShowService meetVerificationNoShowService;
 
-    // GPS 단계 노쇼 판정: 10분마다 실행
-    // fixedDelay: 이전 실행이 끝난 후 1분 뒤에 다시 실행 (겹침 방지)
-    @Scheduled(cron = "0 0/10 * * * *")
+    // GPS 단계 노쇼 판정: 1분마다 실행
+    // 실제 노쇼 예정 기준은 meetAt + 10분이고, 배치는 1분 단위로 훑어 지연을 최소화한다.
+    @Scheduled(cron = "0 * * * * *")
     public void judgeGpsNoShow() {
         log.info("[NoShowScheduler] GPS 노쇼 판정 실행");
         meetVerificationNoShowService.judgeGpsNoShow();
     }
 
-    // QR 단계 노쇼 판정: 10분마다 실행
-    @Scheduled(cron = "0 0/10 * * * *")
+    // QR 단계 노쇼 판정: 1분마다 실행
+    // QR 유효시간이 10분이므로 만료 이후 최대한 빠르게 노쇼/취소 판정을 수행한다.
+    @Scheduled(cron = "0 * * * * *")
     public void judgeQrNoShow() {
         log.info("[NoShowScheduler] QR 노쇼 판정 실행");
         meetVerificationNoShowService.judgeQrNoShow();

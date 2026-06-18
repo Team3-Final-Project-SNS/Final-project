@@ -34,7 +34,7 @@ export const getNotificationTargetPath = (notification: NotificationResponse) =>
   }
 
   if (type === 'POST_DELETED') {
-    return notification.content.includes('환불') ? null : relatedId ? `/posts/${relatedId}/delete-reason` : null;
+    return notification.content.includes('환불') ? '/me/points' : relatedId ? `/posts/${relatedId}/delete-reason` : null;
   }
 
   if (domain === 'DISPUTE' || type === 'DISPUTE_PENDING' || type === 'DISPUTE_RESULT' || type === 'DISPUTE_DEADLINE_REMINDER') {
@@ -52,6 +52,9 @@ export const getNotificationTargetPath = (notification: NotificationResponse) =>
       case 'MEET_COMPLETED':
       case 'REVIEW_DEADLINE_REMINDER':
         return `/matches?filter=COMPLETED&reviewMatchId=${relatedId}`;
+      case 'MEET_COMPLETED_AUTHOR':
+        // 등록자는 후기 작성 대상이 아니므로 매칭 상세로 이동
+        return `/matches/${relatedId}`;
       case 'NO_SHOW_WARNING':
       case 'OPPONENT_NO_SHOW_WARNING':
       case 'NO_SHOW_CONFIRMED':

@@ -20,6 +20,7 @@ import com.example.team3final.domain.match.dto.response.CreateMatchResponseDto;
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.repository.MatchRepository;
+import com.example.team3final.domain.meet.service.support.MeetVerificationPolicy;
 import com.example.team3final.domain.meet.util.MeetRedisZSetKeys;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
@@ -147,7 +148,8 @@ public class MatchTransactionService {
         String authorNickname = userInternalService.getUserInfo(post.getAuthorId()).nickname();
         String applicantNickname = userInternalService.getUserInfo(applicantId).nickname();
 
-        // 9. 만남 알림 ZSet 예약 (30분/15분/5분 전, 10분 경과)
+        // 9. 만남 알림 ZSet 예약 (30분/15분/5분 전, 기존 10분 경과 drain 대상)
+        // 10분 경과 알림은 더 이상 발송하지 않지만, 기존 스케줄러가 예약 항목을 제거하도록 같은 기준으로 넣어둔다.
         LocalDateTime meetAt = post.getMeetAt();
         LocalDateTime now = LocalDateTime.now();
         ZoneOffset KST = ZoneOffset.ofHours(9);
@@ -169,8 +171,9 @@ public class MatchTransactionService {
             redisTemplate.opsForZSet().add(MeetRedisZSetKeys.REMINDER_IMMINENT_HOST, postIdStr, score);
             redisTemplate.opsForZSet().add(MeetRedisZSetKeys.REMINDER_IMMINENT_GUEST, matchIdStr, score);
         }
-        if (now.isBefore(meetAt.plusMinutes(10))) {
-            double score = meetAt.plusMinutes(10).toEpochSecond(KST);
+        LocalDateTime overdueAt = meetAt.plusMinutes(MeetVerificationPolicy.NO_SHOW_JUDGE_MINUTES);
+        if (now.isBefore(overdueAt)) {
+            double score = overdueAt.toEpochSecond(KST);
             redisTemplate.opsForZSet().add(MeetRedisZSetKeys.REMINDER_OVERDUE_HOST, postIdStr, score);
             redisTemplate.opsForZSet().add(MeetRedisZSetKeys.REMINDER_OVERDUE_GUEST, matchIdStr, score);
         }

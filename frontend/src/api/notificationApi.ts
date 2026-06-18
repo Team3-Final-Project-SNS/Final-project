@@ -13,6 +13,7 @@ export type NotificationType =
     | "MEET_IMMINENT"
     | "MEET_OVERDUE"
     | "MEET_COMPLETED"
+    | "MEET_COMPLETED_AUTHOR"
     | "NO_SHOW_CONFIRMED"
     | "NO_SHOW_WARNING"
     | "OPPONENT_NO_SHOW_WARNING"

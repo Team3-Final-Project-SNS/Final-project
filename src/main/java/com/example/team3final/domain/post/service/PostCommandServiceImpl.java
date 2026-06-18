@@ -173,13 +173,25 @@ public class PostCommandServiceImpl implements PostCommandService {
             throw new PostException(ErrorCode.POST_NOT_OPEN);
         }
 
-        // 4. 환불 금액 추출
-        int refundedPoint = post.getAuthorDeposit();
+        // 4. 삭제 시점에 활성 신청자가 있는지 먼저 확인
+        // 활성 신청자가 없으면 단순 모집글 삭제이므로 등록자 책임비 전액 환불
+        // 활성 신청자가 1명 이상 있으면 등록자가 모임을 파토낸 케이스이므로 등록자 책임비 50%만 환불
+        List<Match> activeMatches = getActiveApplicantMatches(post);
+        boolean hasMatchedApplicant = !activeMatches.isEmpty();
+        int refundedPoint = hasMatchedApplicant
+                ? post.getAuthorDeposit() / 2
+                : post.getAuthorDeposit();
 
-        // 5. 포인트 전액 환불
-        userPointService.refundAuthorDeposit(userId, refundedPoint, postId, "게시글 삭제 환불");
+        // 5. 등록자 책임비 환불
+        // 매칭된 신청자가 있으면 PARTIAL_REFUND로 50% 환불 이력을 남김
+        if (hasMatchedApplicant) {
+            userPointService.partialRefundAuthorDeposit(userId, post.getAuthorDeposit(), postId);
+        } else {
+            userPointService.refundAuthorDeposit(userId, post.getAuthorDeposit(), postId, "게시글 삭제 환불");
+        }
+        notificationPublisher.sendAuthorCancelledPost(userId, postId, hasMatchedApplicant);
 
-        cancelActiveApplicantMatches(post);
+        cancelActiveApplicantMatches(post, activeMatches);
 
         // 6. 게시글 소프트 삭제
         post.delete();
@@ -198,12 +210,14 @@ public class PostCommandServiceImpl implements PostCommandService {
         return matchRepository.countByPostIdAndStatus(postId, MatchStatus.MATCHED) > 0;
     }
 
-    private void cancelActiveApplicantMatches(Post post) {
-        List<Match> activeMatches = matchRepository.findAllByPostIdAndStatusOrderByIdAsc(
+    private List<Match> getActiveApplicantMatches(Post post) {
+        return matchRepository.findAllByPostIdAndStatusOrderByIdAsc(
                 post.getId(),
                 MatchStatus.MATCHED
         );
+    }
 
+    private void cancelActiveApplicantMatches(Post post, List<Match> activeMatches) {
         for (Match match : activeMatches) {
             userPointService.refundApplicantDeposit(
                     match.getApplicantId(),

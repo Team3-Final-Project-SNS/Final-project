@@ -6,7 +6,6 @@ import com.example.team3final.domain.location.service.UserLocationService;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.service.MatchInternalService;
-import com.example.team3final.domain.match.service.MatchLifecycleService;
 import com.example.team3final.domain.meet.context.MeetVerificationBulkContext;
 import com.example.team3final.domain.meet.entity.MeetVerification;
 import com.example.team3final.domain.meet.enums.VerificationStatus;
@@ -41,7 +40,6 @@ public class MeetVerificationNoShowServiceImpl implements MeetVerificationNoShow
     private final ChatInternalService chatInternalService;
     private final PostInternalService postInternalService;
     private final MatchInternalService matchInternalService;
-    private final MatchLifecycleService matchLifecycleService;
     private final UserLocationService userLocationService;
     private final NotificationPublisher notificationPublisher;
     private final MeetVerificationContextReader contextReader;
@@ -50,7 +48,7 @@ public class MeetVerificationNoShowServiceImpl implements MeetVerificationNoShow
 
     // GPS 노쇼 배치 판정 — 스케줄러가 주기적으로 호출
     // 판정 대상: PENDING 상태 (양측 GPS 인증이 모두 완료되지 않은 매칭)
-    // 판정 시점: meetAt + 20분이 지난 건 (장소 인증 가능 시간이 완전히 지난 후)
+    // 판정 시점: meetAt + 10분이 지난 건 (장소 인증 가능 시간이 끝난 후)
     @Override
     @Transactional
     public void judgeGpsNoShow() {
@@ -109,7 +107,7 @@ public class MeetVerificationNoShowServiceImpl implements MeetVerificationNoShow
                     ? meetVerification.getExtendedMeetAt()
                     : postInfoDto.meetAt();
 
-            // 판정 기준 시각(meetAt + 20분, 장소 인증 종료 시각)이 아직 안 지났으면 이번 배치에서 스킵
+            // 판정 기준 시각(meetAt + 10분, 장소 인증 종료 시각)이 아직 안 지났으면 이번 배치에서 스킵
             // 다음 스케줄러 실행 때 다시 평가됨
             LocalDateTime deadline = effectiveMeetAt.plusMinutes(
                     MeetVerificationPolicy.NO_SHOW_JUDGE_MINUTES);
@@ -161,7 +159,7 @@ public class MeetVerificationNoShowServiceImpl implements MeetVerificationNoShow
 
     // QR 노쇼 배치 판정 — 스케줄러가 주기적으로 호출
     // 판정 대상: VERIFIED 상태 + QR 만료 시간이 지난 매칭
-    //           (장소는 도착했는데 30분 안에 QR 인증을 못 한 케이스)
+    //           (장소는 도착했는데 QR 발급 후 10분 안에 QR 인증을 못 한 케이스)
     @Override
     @Transactional
     public void judgeQrNoShow() {
@@ -251,12 +249,16 @@ public class MeetVerificationNoShowServiceImpl implements MeetVerificationNoShow
 
                 if (applicantInRange) {
 
-                    // 등록자와 신청자가 둘 다 반경 안에 있음
-                    // 정책
-                    // QR 만료 시각까지 둘 다 자리에 있었는데 QR 인증이 이루어지지 않음
-                    // → 어느 한쪽 노쇼로 보기 어려움
-                    // → 귀책 없음으로 해당 Match 취소 처리
-                    matchLifecycleService.cancelMatchBySystem(matchId);
+                    // 양측이 장소 인증만 하고 QR 인증을 하지 않은 경우 BOTH_NO_SHOW 처리
+                    meetVerification.markBothNoShow();
+                    chatInternalService.makeReadOnlyChatRoom(matchInfoDto.postId());
+
+                    // 노쇼 예정 알림 중복 발송 방지
+                    if (!meetVerification.isNoShowWarningSent()) {
+                        notificationPublisher.sendNoShowWarning(postInfoDto.authorId(), matchId);
+                        notificationPublisher.sendNoShowWarning(matchInfoDto.applicantId(), matchId);
+                        meetVerification.markNoShowWarningSent();
+                    }
 
                 } else {
 

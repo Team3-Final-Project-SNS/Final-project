@@ -7,6 +7,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum NotificationType {
 
+    // DB에는 enum 이름이 문자열로 저장되므로, 저장된 알림 type은 enum 상수와 반드시 일치해야 한다.
+    // 목록 조회 시 Notification 엔티티를 읽는 순간 enum 변환이 수행되므로 누락된 type이 있으면 500이 발생한다.
+
     // ── 매칭 ──────────────────────────────────────────────────────────────
     MATCH_APPLIED("게시글 신청"),                          // 1
     MATCH_CONFIRMED("매칭 확정"),                          // 2
@@ -19,14 +22,15 @@ public enum NotificationType {
 
     // ── 만남 완료 / 후기 ──────────────────────────────────────────────────
     MEET_COMPLETED("만남 완료"),                           // 9
+    MEET_COMPLETED_AUTHOR("등록자 만남 완료"),              // 등록자 상세 이동용
     REVIEW_DEADLINE_REMINDER("후기 작성 마감 임박"),       // 10
-    REVIEW_REWARD("후기 작성"),                            // 11
+    REVIEW_REWARD("후기 작성 보상"),                       // 11
     MANNER_TEMPERATURE_CHANGED("매너 온도 변경"),          // 12
 
     // ── 채팅 / 장소 인증 ──────────────────────────────────────────────────
     CHAT_RECEIVED("채팅 메시지 수신"),                     // 13
     PLACE_VERIFIED("장소 인증 완료"),                      // 14
-    CHAT_MEMBER_LEFT("채팅방 퇴장"),                       // 15
+    CHAT_MEMBER_LEFT("채팅방 이탈"),                       // 15
 
     // ── 노쇼 ──────────────────────────────────────────────────────────────
     NO_SHOW_WARNING("노쇼 예정"),                          // 16
@@ -47,14 +51,18 @@ public enum NotificationType {
 
     // ── 신고 ──────────────────────────────────────────────────────────────
     REPORT_SUBMITTED("신고 접수"),                         // 26
-    REPORT_REWARD("신고 채택"),                            // 27
+    REPORT_REWARD("신고 보상"),                            // 27
     REPORT_REJECTED("신고 기각"),                          // 28
+    // 기존 알림 데이터에 신고 처리 결과 type이 남아 있어도 목록 조회가 실패하지 않도록 유지
+    REPORT_RESULT("신고 처리 결과"),
 
     // ── 결제 ──────────────────────────────────────────────────────────────
     PAYMENT_SUCCESS("결제 성공"),                          // 29
     PAYMENT_FAILED("결제 실패"),                           // 30
     PAYMENT_CANCEL_SUCCESS("결제 취소 및 환불 완료"),      // 31
     PAYMENT_CANCEL_FAILED("결제 취소 및 환불 실패"),       // 32
+    // 포인트 변경성 알림을 조회할 때 enum 변환 실패가 나지 않도록 유지
+    POINT_CHANGED("포인트 변경"),
 
     // ── 문의 ──────────────────────────────────────────────────────────────
     INQUIRY_SUBMITTED("문의 접수"),                        // 33
@@ -65,12 +73,15 @@ public enum NotificationType {
     ACCOUNT_UNSUSPENDED("계정 정지 해제"),                 // 36
 
     // ── 게시글 / 신고로 인한 경고 ────────────────────────────────────────
-    POST_WARNED_1("게시글 신고 경고 1회"),                 // 37
-    POST_WARNED_2("게시글 신고 경고 2회"),                 // 38
+    POST_WARNED_1("게시글 신고 경고 1차"),                 // 37
+    POST_WARNED_2("게시글 신고 경고 2차"),                 // 38
     POST_EXPIRING_SOON("게시글 만료 임박"),                // 39
     POST_EXPIRED("게시글 만료"),                           // 40
     POST_DELETED("게시글 삭제"),                           // 41
-    POST_RESTORED("게시글 복구");                          // 42
+    POST_RESTORED("게시글 복구"),                          // 42
+
+    // 시스템성 알림을 조회할 때 enum 변환 실패가 나지 않도록 유지
+    SYSTEM("시스템");
 
     private final String description;
 }

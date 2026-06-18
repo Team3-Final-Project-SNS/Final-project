@@ -158,8 +158,13 @@ public class UserPointServiceImpl implements UserPointService{
 
     @Override
     public void redepositAuthorDeposit(Long userId, int amount, Long postId) {
+        redepositAuthorDeposit(userId, amount, postId, null);
+    }
+
+    @Override
+    public void redepositAuthorDeposit(Long userId, int amount, Long postId, String description) {
         settleDeposit(userId, amount, postId, PointReferenceType.POST,
-                PointSettlementReason.AUTHOR_DEPOSIT, PointTransactionType.DEPOSIT);
+                PointSettlementReason.AUTHOR_DEPOSIT, PointTransactionType.DEPOSIT, description);
     }
 
     @Override
@@ -348,7 +353,7 @@ public class UserPointServiceImpl implements UserPointService{
         }
 
         if (transactionType == PointTransactionType.DEPOSIT) {
-            saveDepositSettlement(user, userId, depositAmount, referenceId, referenceType, settlementReason);
+            saveDepositSettlement(user, userId, depositAmount, referenceId, referenceType, settlementReason, description);
             return;
         }
 
@@ -387,7 +392,8 @@ public class UserPointServiceImpl implements UserPointService{
             int depositAmount,
             Long referenceId,
             PointReferenceType referenceType,
-            PointSettlementReason settlementReason
+            PointSettlementReason settlementReason,
+            String description
     ) {
         User.DeductResult result = user.deduct(depositAmount);
 
@@ -401,7 +407,8 @@ public class UserPointServiceImpl implements UserPointService{
                     -result.fromFree(),
                     PointTransactionType.DEPOSIT,
                     user.getTotalPoint(),
-                    PointSource.FREE
+                    PointSource.FREE,
+                    description
             );
         }
 
@@ -415,7 +422,8 @@ public class UserPointServiceImpl implements UserPointService{
                     -result.fromPaid(),
                     PointTransactionType.DEPOSIT,
                     user.getTotalPoint(),
-                    PointSource.PAID
+                    PointSource.PAID,
+                    description
             );
         }
     }

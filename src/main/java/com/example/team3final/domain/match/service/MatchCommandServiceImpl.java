@@ -189,6 +189,7 @@ public class MatchCommandServiceImpl implements MatchCommandService {
                     post.getAuthorDeposit(),
                     post.getId()
             );
+            notificationPublisher.sendAuthorCancelledPost(userId, post.getId(), true);
 
             // 2. 모든 GUEST 처리 -> 전액 환급 + 위치 삭제 + Redis 정리 + 알림 + 상태 취소
             for (Match guestMatch : allGuestMatches) {

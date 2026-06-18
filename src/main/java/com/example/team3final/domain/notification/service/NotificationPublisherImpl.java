@@ -254,6 +254,16 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 RelatedDomain.MEET, matchId);
     }
 
+    @Override
+    public void sendMeetCompletedForAuthor(Long userId, Long matchId, String partnerNickname) {
+        // 등록자 만남 완료 알림은 리뷰 작성이 아닌 매칭 상세 확인용
+        String nickname = partnerNickname == null || partnerNickname.isBlank() ? "신청자" : partnerNickname;
+        publish(userId, NotificationType.MEET_COMPLETED_AUTHOR,
+                nickname + "님과의 만남이 완료되었습니다.",
+                nickname + "님과의 만남이 완료되었습니다. 매칭 상세를 확인해 주세요.",
+                RelatedDomain.MEET, matchId);
+    }
+
     // 10. 후기 작성 마지막 날 알림 - 미작성 신청자에게
     @Override
     public void sendReviewDeadlineReminder(Long userId, Long matchId) {
@@ -320,8 +330,8 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     public void sendNoShowWarning(Long userId, Long matchId) {
         // 알림 제목에서 매칭 번호 제거
         publish(userId, NotificationType.NO_SHOW_WARNING,
-                "노쇼 예정 상태입니다.",
-                "노쇼 예정 상태입니다. 24시간 내 이의제기가 없을 경우 예치 포인트가 차감됩니다.",
+                "만남 시간이 10분 지났습니다. 노쇼 예정 상태입니다.",
+                "만남 시간이 10분 지났습니다. 노쇼 예정 상태입니다. 24시간 내 이의제기가 없을 경우 예치 포인트가 차감됩니다.",
                 RelatedDomain.MEET, matchId);
     }
 
@@ -537,7 +547,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     public void sendAccountUnsuspended(Long userId, String reason) {
         String content = reason == null || reason.isBlank()
                 ? "계정 정지가 해제되었습니다. 다시 서비스를 이용하실 수 있습니다."
-                : "계정 정지가 해제되었습니다. 사유: " + reason;
+                : "사유 : " + reason;
         publish(userId, NotificationType.ACCOUNT_UNSUSPENDED,
                 "계정 정지가 해제되었습니다.",
                 content,
@@ -596,6 +606,17 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         publish(userId, NotificationType.POST_RESTORED,
                 "게시글이 복구되었습니다. 다시 신청해주세요.",
                 "신청했던 게시글이 복구되었습니다. 참여를 원하시면 게시글 상세에서 다시 신청해주세요.",
+                RelatedDomain.POST, postId);
+    }
+
+    @Override
+    public void sendAuthorCancelledPost(Long userId, Long postId, boolean partialRefund) {
+        String content = partialRefund
+                ? "게시글 삭제 또는 매칭 취소로 책임비가 50% 부분 환불되었습니다."
+                : "게시글 삭제로 책임비가 전액 환불되었습니다.";
+        publish(userId, NotificationType.POST_DELETED,
+                "게시글이 삭제되었습니다.",
+                content,
                 RelatedDomain.POST, postId);
     }
 }

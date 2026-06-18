@@ -13,14 +13,14 @@ public class MeetVerificationPolicy {
 
     // 한국 시간대 오프셋 — Unix Timestamp 변환 시 KST(UTC+9) 기준 적용
     public static final ZoneOffset KST = ZoneOffset.ofHours(9);
-    // QR 토큰 TTL - 상호 장소 인증 완료 시점 + 30분
-    public static final long QR_TOKEN_VALIDITY_MINUTES = 30;
-    // 장소 인증 가능 시간 : 만남 시간 10분 전 ~ 30분간
+    // QR 토큰 TTL - 발급 시점 + 10분
+    public static final long QR_TOKEN_VALIDITY_MINUTES = 10;
+    // 장소 인증 가능 시간 : 만남 시간 10분 전 ~ 만남 시간 10분 후
     public static final long VERIFICATION_BEFORE_MINUTES = 10;
-    // 장소 인증 활성 시간 (만남 약속 시각 기준 20분)
-    public static final long VERIFICATION_AFTER_MINUTES = 20;
-    // 노쇼 판정 기준 : 장소 인증 종료 시각 기준 (meetAt - 10분 시작 + 30분 = meetAt + 20분)
-    public static final long NO_SHOW_JUDGE_MINUTES = 20;
+    // 장소 인증 활성 시간 (만남 약속 시각 기준 10분)
+    public static final long VERIFICATION_AFTER_MINUTES = 10;
+    // 노쇼 판정 기준 : 만남 시각 + 10분
+    public static final long NO_SHOW_JUDGE_MINUTES = 10;
     // 연장 요청 타임아웃 : 요청 시각 + 5분
     public static final long EXTENSION_TIMEOUT_MINUTES = 5;
     // 연장 시간 : 1회 10분

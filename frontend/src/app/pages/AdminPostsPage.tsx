@@ -3,6 +3,7 @@ import { AlertCircle, Eye, FileText, Loader2, RotateCcw, Search, Trash2, X } fro
 import { AdminPostDetail, AdminPostItem, deleteAdminPost, getAdminPost, getAdminPosts, restoreAdminPost } from '../../api/adminPostApi';
 import { PostStatus } from '../../api/postApi';
 import { getUniversities, UniversityResponse } from '../../api/univApi';
+import { getAdminReasonValidationMessage } from '../utils/adminReasonValidation';
 
 const statusLabels: Record<PostStatus, string> = {
   OPEN: '모집중',
@@ -18,7 +19,7 @@ const statusClasses: Record<PostStatus, string> = {
   MATCHED: 'bg-[#fff3e0] text-[#ef6c00]',
   COMPLETED: 'bg-[#e3f2fd] text-[#1565c0]',
   CANCELLED: 'bg-[#ffebee] text-[#c62828]',
-  EXPIRED: 'bg-[#f5f5f5] text-[#757575]',
+  EXPIRED: 'bg-[#ede7f6] text-[#5e35b1]',
   DELETED: 'bg-[#ffebee] text-[#c62828]',
 };
 
@@ -97,8 +98,9 @@ export default function AdminPostsPage() {
     if (!deleteTarget) return;
 
     const trimmedReason = deleteReason.trim();
-    if (!trimmedReason) {
-      setDeleteError('삭제 사유는 필수입니다.');
+    const validationMessage = getAdminReasonValidationMessage(deleteReason, '삭제 사유는 필수입니다.');
+    if (validationMessage) {
+      setDeleteError(validationMessage);
       return;
     }
 

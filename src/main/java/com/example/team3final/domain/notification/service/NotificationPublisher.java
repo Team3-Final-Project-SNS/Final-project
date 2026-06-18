@@ -53,6 +53,8 @@ public interface NotificationPublisher {
     void sendMeetCompleted(Long userId, Long matchId);
     // 상대 닉네임을 포함한 만남 완료 알림
     void sendMeetCompleted(Long userId, Long matchId, String partnerNickname);
+    // 등록자 만남 완료 알림 - 리뷰가 아닌 매칭 상세 이동용
+    void sendMeetCompletedForAuthor(Long userId, Long matchId, String partnerNickname);
 
     // 10. 후기 작성 마지막 날 알림 - 미작성 신청자에게
     void sendReviewDeadlineReminder(Long userId, Long matchId);
@@ -165,4 +167,7 @@ public interface NotificationPublisher {
     void sendApplicantPostDeleted(Long userId, Long postId);
 
     void sendApplicantPostRestored(Long userId, Long postId);
+
+    // 등록자 직접 취소/삭제 알림 - 등록자에게
+    void sendAuthorCancelledPost(Long userId, Long postId, boolean partialRefund);
 }

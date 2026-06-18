@@ -12,6 +12,7 @@ import {
   judgeAdminDispute,
   overrideAdminDisputeStatus,
 } from '../../api/adminDisputeApi';
+import { getAdminReasonValidationMessage } from '../utils/adminReasonValidation';
 
 const filters: ('ALL' | DisputeStatus)[] = [
   'ALL',
@@ -108,11 +109,17 @@ export default function AdminDisputesPage() {
     }
   }, [requestedDisputeId]);
 
-  const canJudge = selected ? !['ACCEPTED', 'PARTIALLY_ACCEPTED', 'REJECTED'].includes(selected.status) : false;
+  const canJudge = selected ? ['SUBMITTED', 'UNDER_REVIEW', 'HOLD'].includes(selected.status) : false;
+  const isHoldRevision = selected?.status === 'HOLD';
 
   const handleJudgeOrOverride = async () => {
-    if (!selected || !comment.trim()) {
-      setMessage('처리 내용을 입력해주세요.');
+    if (!selected) {
+      return;
+    }
+
+    const validationMessage = getAdminReasonValidationMessage(comment, '판정 내용은 필수입니다.', '잘못된 입력입니다.');
+    if (validationMessage) {
+      setMessage(validationMessage);
       return;
     }
 
@@ -128,7 +135,7 @@ export default function AdminDisputesPage() {
       } else {
         await overrideAdminDisputeStatus(selected.disputeId, judgment, comment.trim());
       }
-      setMessage(canJudge ? '이의제기 판정이 완료되었습니다.' : '이의제기 처리 상태를 수정했습니다.');
+      setMessage(canJudge && !isHoldRevision ? '이의제기 판정이 완료되었습니다.' : '이의제기 처리 상태를 수정했습니다.');
       await openDetail(selected.disputeId);
       await loadItems();
     } catch (err: any) {
@@ -276,7 +283,7 @@ export default function AdminDisputesPage() {
                 </div>
 
                 <div className="mt-6 border-t border-[#eeeeee] pt-5">
-                  <h3 className="mb-3 text-sm font-bold text-[#616161]">{canJudge ? '판정 처리' : '처리 수정'}</h3>
+                  <h3 className="mb-3 text-sm font-bold text-[#616161]">{canJudge && !isHoldRevision ? '판정 처리' : '처리 수정'}</h3>
                   <select
                     value={judgment}
                     onChange={(event) => setJudgment(event.target.value as DisputeStatus)}
@@ -303,7 +310,7 @@ export default function AdminDisputesPage() {
                       className="inline-flex items-center gap-2 rounded-lg bg-[#d84315] px-5 py-3 text-sm font-bold text-white disabled:opacity-60"
                     >
                       {submitting ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
-                      {canJudge ? '판정 등록' : '처리 수정'}
+                      {canJudge && !isHoldRevision ? '판정 등록' : '처리 수정'}
                     </button>
                   </div>
                 </div>

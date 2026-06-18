@@ -31,6 +31,11 @@ public class SuspendedAccountFilter extends OncePerRequestFilter {
     // → 새 API가 추가돼도 명시적으로 여기에 넣지 않으면 정지 계정은 접근 불가 (안전한 기본값)
     private static final List<String> ALLOWED_PATHS = List.of(
             "/api/v1/users/me",              // 내 정보 조회
+            "/api/v1/notifications",         // 알림 목록 조회
+            "/api/v1/notifications/unread-count", // 미확인 알림 카운트 조회
+            "/api/v1/notifications/read-all", // 전체 알림 읽음 처리
+            "/api/v1/notifications/{notificationId}/read", // 단건 알림 읽음 처리
+            "/api/v1/notifications/subscribe", // 실시간 알림 구독
             "/api/v1/inquiries",             // 문의 접수 (POST — 카테고리 제한은 서비스에서)
             "/api/v1/inquiries/me",          // 내 문의 목록 조회
             "/api/v1/inquiries/{inquiryId}"  // 내 문의 상세 조회

@@ -51,7 +51,7 @@ public class MeetVerification {
     @Column(name = "disputed_from_status", length = 20)
     private VerificationStatus disputedFromStatus;
 
-    // QR 토큰 만료 시각: 장소 인증 완료 시점 + 30분
+    // QR 토큰 만료 시각: QR 발급 시점 + 10분
     @Column(name = "qr_expires_at")
     private LocalDateTime qrExpiresAt;
 
@@ -307,9 +307,12 @@ public class MeetVerification {
      * - "만남은 있었지만 시스템 문제로 인증이 안된" 케이스
      */
     public void completeByDispute() {
-        // DISPUTE 상태에서만 호출 가능
-        if (this.status != VerificationStatus.DISPUTE) {
-            throw new IllegalStateException("이의제기 검토 중 상태에서만 수용 처리할 수 있습니다.");
+        // DISPUTE 상태가 정상 경로지만, 기존/테스트 데이터가 노쇼 예정 상태에 남아 있어도 수용 판정은 만남 완료로 복구한다.
+        if (this.status != VerificationStatus.DISPUTE
+                && this.status != VerificationStatus.HOST_NO_SHOW
+                && this.status != VerificationStatus.GUEST_NO_SHOW
+                && this.status != VerificationStatus.BOTH_NO_SHOW) {
+            throw new IllegalStateException("이의제기 검토 중이거나 노쇼 예정 상태에서만 수용 처리할 수 있습니다.");
         }
 
         // 정상 만남 완료 상태로 전환

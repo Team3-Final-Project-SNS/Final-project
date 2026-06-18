@@ -7,6 +7,7 @@ import com.example.team3final.domain.meet.entity.MeetVerification;
 import com.example.team3final.domain.meet.enums.VerificationStatus;
 import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
 import com.example.team3final.domain.meet.service.MeetOverdueReservationService;
+import com.example.team3final.domain.meet.service.support.MeetVerificationPolicy;
 import com.example.team3final.domain.meet.util.MeetRedisZSetKeys;
 import com.example.team3final.domain.notification.service.NotificationPublisher;
 import com.example.team3final.domain.post.entity.Post;
@@ -105,6 +106,13 @@ public class MeetReminderScheduler {
 
     @Scheduled(fixedDelay = 60000)
     public void sendOverdue() {
+        // 기존 10분 경과 알림은 더 이상 사용자에게 발송하지 않는다.
+        // 만남 시간 10분 후에는 노쇼 예정 알림이 같은 역할을 함께 담당한다.
+        // 이미 Redis에 예약되어 있던 기존 10분 경과 알림은 pop만 해서 제거하고 발송하지 않음.
+        popReadyItems(MeetRedisZSetKeys.REMINDER_OVERDUE_HOST);
+        popReadyItems(MeetRedisZSetKeys.REMINDER_OVERDUE_GUEST);
+        return;
+/*
         // HOST: postId 기준으로 등록자에게 1번만 발송
         List<String> postIds = popReadyItems(MeetRedisZSetKeys.REMINDER_OVERDUE_HOST);
         if (!postIds.isEmpty()) {
@@ -224,6 +232,7 @@ public class MeetReminderScheduler {
                 notificationPublisher.sendMeetOverdue(matchInfo.applicantId(), matchId);
             }
         }
+*/
     }
 
     // ── 공통 헬퍼 ────────────────────────────────────────────────────────
@@ -337,7 +346,8 @@ public class MeetReminderScheduler {
             LocalDateTime effectiveMeetAt,
             LocalDateTime now
     ) {
-        LocalDateTime actualOverdueAt = effectiveMeetAt.plusMinutes(10);
+        LocalDateTime actualOverdueAt =
+                effectiveMeetAt.plusMinutes(MeetVerificationPolicy.NO_SHOW_JUDGE_MINUTES);
 
         // 실제 발송 시각과 같거나 이후면 정상 발송한다.
         if (!now.isBefore(actualOverdueAt)) {

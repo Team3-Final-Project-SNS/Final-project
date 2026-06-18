@@ -17,6 +17,10 @@ const getQrBaseUrl = () => {
 const isMeetVerified = (participant: ParticipantVerification) =>
   participant.meetVerified || participant.verificationStatus === 'DONE';
 
+// QR 만남 인증 현황에는 GPS 장소 인증을 완료한 신청자만 포함한다.
+// 장소 미인증자는 노쇼 가능성이 있으므로 QR 완료 대기 대상에서 제외한다.
+const isQrParticipant = (participant: ParticipantVerification) => participant.verified;
+
 async function findMyMatchIdByPostId(postId: number) {
   let page = 0;
   const size = 100;
@@ -80,6 +84,34 @@ export default function QRVerificationPage() {
     navigate('/matches', { replace: true });
   };
 
+  const ensureApplicantPlaceVerified = async (targetMatchId: number) => {
+    const verificationRes = await getMeetVerification(targetMatchId);
+    const participants = verificationRes.data.data.participants || [];
+    const myParticipant = participants.find((participant) => participant.matchId === targetMatchId);
+
+    // 신청자는 GPS 장소 인증을 먼저 완료해야 QR 스캔 화면으로 진입할 수 있다.
+    if (!myParticipant?.verified) {
+      alert('GPS 장소 인증을 먼저 완료해야 QR 인증을 진행할 수 있습니다.');
+      navigate(`/matches/${targetMatchId}/place-verification`, { replace: true });
+      return false;
+    }
+
+    return true;
+  };
+
+  const ensureAuthorPlaceVerified = async (targetMatchId: number) => {
+    const verificationRes = await getMeetVerification(targetMatchId);
+
+    // 등록자도 GPS 장소 인증을 먼저 완료해야 QR 표시 화면으로 진입할 수 있다.
+    if (!verificationRes.data.data.authorPlaceVerifiedAt) {
+      alert('GPS 장소 인증을 먼저 완료해야 QR 인증을 진행할 수 있습니다.');
+      navigate(`/matches/${targetMatchId}/place-verification`, { replace: true });
+      return false;
+    }
+
+    return true;
+  };
+
   useEffect(() => {
     const resolveRole = async () => {
       if (!routeMatchId) return;
@@ -91,6 +123,9 @@ export default function QRVerificationPage() {
           const ownMatchId = await findMyMatchIdByPostId(Number(postIdFromUrl));
           if (ownMatchId) {
             const matchRes = await getMatchDetail(ownMatchId);
+            const canScanQr = await ensureApplicantPlaceVerified(ownMatchId);
+            if (!canScanQr) return;
+
             setResolvedMatchId(ownMatchId);
             setPostId(Number(postIdFromUrl));
             setChatRoomId(matchRes.data.data.chatRoomId);
@@ -109,10 +144,26 @@ export default function QRVerificationPage() {
         setChatRoomId(match.chatRoomId);
 
         if (roleParam === 'author' || roleParam === 'applicant') {
+          if (roleParam === 'applicant') {
+            const canScanQr = await ensureApplicantPlaceVerified(routeMatchId);
+            if (!canScanQr) return;
+          } else {
+            const canShowQr = await ensureAuthorPlaceVerified(routeMatchId);
+            if (!canShowQr) return;
+          }
+
           setRole(roleParam);
           setStep(roleParam === 'applicant' ? 'scan' : 'display');
         } else {
           const nextRole = currentUserId === match.authorId ? 'author' : 'applicant';
+          if (nextRole === 'applicant') {
+            const canScanQr = await ensureApplicantPlaceVerified(routeMatchId);
+            if (!canScanQr) return;
+          } else {
+            const canShowQr = await ensureAuthorPlaceVerified(routeMatchId);
+            if (!canShowQr) return;
+          }
+
           setRole(nextRole);
           setStep(nextRole === 'applicant' ? 'scan' : 'display');
         }
@@ -189,7 +240,7 @@ export default function QRVerificationPage() {
       try {
         const res = await getMeetVerification(resolvedMatchId);
         const data = res.data.data;
-        const participants = data.participants || [];
+        const participants = (data.participants || []).filter(isQrParticipant);
         setAuthorNickname(data.authorNickname || '등록자');
         setVerificationParticipants(participants);
 
@@ -482,7 +533,7 @@ export default function QRVerificationPage() {
 
               <div className="space-y-2">
                 {verificationParticipants.length > 0 ? (
-                  verificationParticipants.map((participant) => {
+                  verificationParticipants.filter(isQrParticipant).map((participant) => {
                     const badge = getParticipantBadge(participant);
                     return (
                       <div key={participant.matchId} className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
