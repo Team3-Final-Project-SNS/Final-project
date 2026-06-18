@@ -37,6 +37,7 @@ export default function PlaceVerificationPage() {
   const [meetingPlace, setMeetingPlace] = useState<{
     name: string;
     time: string;
+    meetAt: string;
     latitude: number;
     longitude: number;
   } | null>(null);
@@ -97,6 +98,7 @@ export default function PlaceVerificationPage() {
         setMeetingPlace({
           name: match.placeName,
           time: new Date(match.meetAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+          meetAt: match.meetAt,
           latitude: match.placeLat,
           longitude: match.placeLng,
         });
@@ -270,7 +272,16 @@ export default function PlaceVerificationPage() {
     );
   }
 
-  const allVerified = authorVerified && verificationParticipants.length > 0 && verificationParticipants.every((item) => item.verified);
+  const isMeetAfterQrFallbackTime = meetingPlace
+    ? Date.now() >= new Date(meetingPlace.meetAt).getTime() + 10 * 60 * 1000
+    : false;
+
+  // QR 단계 진입 조건
+  // 등록자: 등록자 GPS 인증을 먼저 완료해야 QR 표시 화면으로 이동 가능
+  // 신청자: 본인 GPS 인증을 먼저 완료해야 QR 스캔 화면으로 이동 가능
+  // QR 단계 자체는 등록자 GPS 인증 완료 또는 만남 시간 10분 경과 시 열리지만, 진입자는 본인 GPS 인증이 선행되어야 한다.
+  const isQrStepOpen = authorVerified || isMeetAfterQrFallbackTime;
+  const canEnterQrStep = isVerified && isQrStepOpen;
 
   return (
     <div className="mx-auto max-w-2xl p-4">
@@ -357,7 +368,7 @@ export default function PlaceVerificationPage() {
           </div>
         </div>
 
-        {allVerified ? (
+        {canEnterQrStep ? (
           <button
             onClick={() => navigate(`/matches/${matchId}/qr`)}
             className="w-full rounded-xl bg-[#4caf50] py-4 text-lg font-bold text-white shadow-md transition-all hover:bg-[#43a047]"

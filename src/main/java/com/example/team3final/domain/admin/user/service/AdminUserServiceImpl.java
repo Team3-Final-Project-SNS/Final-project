@@ -89,7 +89,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         notificationPublisher.sendAccountSuspended(
                 userId,
                 "계정이 정지되었습니다.",
-                "계정이 정지되었습니다. 사유: " + requestDto.getReason()
+                "사유 : " + requestDto.getReason()
         );
 
         return AdminSuspendUserResponseDto.of(user, requestDto.getReason());

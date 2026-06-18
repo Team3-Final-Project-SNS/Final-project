@@ -23,7 +23,6 @@ import MatchDetailPage from "./pages/MatchDetailPage";
 import ChatPage from "./pages/ChatPage";
 import MyInfoPage from "./pages/MyInfoPage";
 import MyInfoEditPage from "./pages/MyInfoEditPage";
-import MyMatchResultsPage from "./pages/MyMatchResultsPage";
 import PointTransactionsPage from "./pages/PointTransactionsPage";
 import QRVerificationPage from "./pages/QRVerificationPage";
 import PlaceVerificationPage from "./pages/PlaceVerificationPage";
@@ -110,7 +109,7 @@ export const router = createBrowserRouter([
           { index: true, Component: MyInfoPage },
           { path: "edit", Component: MyInfoEditPage },
           { path: "points", Component: PointTransactionsPage },
-          { path: "matches", Component: MyMatchResultsPage },
+          { path: "matches", Component: MatchesPage },
           { path: "inquiries", Component: InquiryCenterPage },
           { path: "support", Component: InquiryCenterPage },
           { path: "support/inquiries", Component: InquiryCenterPage },

@@ -71,7 +71,12 @@ public class PostModerationServiceImpl implements PostModerationService {
 
         // 삭제 때 작성자에게 환불했으므로, 복구 시 다시 차감
         // 잔액 부족 시 user.deduct() 내부에서 예외 발생
-        userPointService.redepositAuthorDeposit(post.getAuthorId(), redepositPoint, post.getId());
+        userPointService.redepositAuthorDeposit(
+                post.getAuthorId(),
+                redepositPoint,
+                post.getId(),
+                "게시글 복구로 인한 책임비 예치"
+        );
         // 게시글 복구
         post.restore();
         // 복구된 게시글의 기존 채팅방 접근 재개

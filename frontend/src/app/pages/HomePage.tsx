@@ -55,11 +55,6 @@ export default function HomePage() {
         setPoint(userRes.data.data.point);
         setUserStatus(userRes.data.data.status);
 
-        if (userRes.data.data.status === 'SUSPENDED') {
-          setUnreadCount(0);
-          return;
-        }
-
         const unreadRes = await getUnreadNotificationCount();
         setUnreadCount(unreadRes.data.data.unreadCount);
       } catch (err) {
@@ -104,7 +99,7 @@ export default function HomePage() {
   }, [notificationOpen]);
 
   useEffect(() => {
-    if (!isLoggedIn || isSuspended) {
+    if (!isLoggedIn) {
       return;
     }
 
@@ -137,7 +132,7 @@ export default function HomePage() {
       eventSource.removeEventListener('notification', handleNotification);
       eventSource.close();
     };
-  }, [isLoggedIn, isSuspended]);
+  }, [isLoggedIn]);
 
   const handleLogout = async () => {
     try {
@@ -153,11 +148,6 @@ export default function HomePage() {
   };
 
   const handleNotificationToggle = async () => {
-    if (isSuspended) {
-      toast.warning(suspendedToastMessage);
-      return;
-    }
-
     const nextOpen = !notificationOpen;
     setNotificationOpen(nextOpen);
 
@@ -242,6 +232,10 @@ export default function HomePage() {
     }
 
     setNotificationOpen(false);
+    if (isSuspended) {
+      return;
+    }
+
     const targetPath = getNotificationTargetPath(notification);
     if (targetPath) {
       navigate(targetPath);

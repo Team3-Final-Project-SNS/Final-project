@@ -84,8 +84,8 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
         LocalDateTime verificationStartTime = postInfo.meetAt().minusMinutes(MeetVerificationPolicy.VERIFICATION_BEFORE_MINUTES);
 
         // 연장 수락 시 실제 약속시간이 바뀌므로 종료 시각도 그에 맞게 조정
-        // 연장 미사용 → 원래 meetAt + 20분
-        // 연장 수락 → extendedMeetAt(meetAt + 10분) + 20분
+        // 연장 미사용 → 원래 meetAt + 10분
+        // 연장 수락 → extendedMeetAt(meetAt + 10분) + 10분
         // extendedMeetAt은 acceptExtension() 시점에 채워지므로 null이면 미사용을 의미
         LocalDateTime effectiveMeetAt = meetVerification.getExtendedMeetAt() != null
                 ? meetVerification.getExtendedMeetAt()
@@ -142,8 +142,10 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
         // 전파 후 이 MeetVerification의 상태가 바뀌었을 수 있으므로 엔티티에서 다시 읽음
         boolean bothVerified = meetVerification.getStatus() == VerificationStatus.VERIFIED;
 
-        // 양측 장소 인증 완료 시 Post 기준 공통 QR 토큰을 발급하거나 기존 토큰을 재사용한다.
-        if (bothVerified) {
+        // 등록자 장소 인증 완료 시점에 Post 기준 공통 QR 토큰을 발급하거나 기존 토큰을 재사용한다.
+        // 신청자가 먼저 장소 인증한 경우에는 양측 장소 인증 완료 시점에 QR 발급 조건을 만족한다.
+        // 이유: 등록자 GPS 인증 완료 또는 만남 시간 10분 경과 중 하나만 만족해도 QR 단계 진입이 가능해야 함
+        if (isAuthor || bothVerified) {
             meetQrSupport.issueQrTokenIfNeeded(meetVerification, matchInfo.postId());
         }
 
@@ -184,8 +186,9 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
             throw new MeetException(ErrorCode.GPS_ALREADY_VERIFIED);
         }
 
-        // 신청자 본인의 Match에서 양측 장소 인증이 완료되어야 QR 스캔이 가능
-        if (meetVerification.getStatus() != VerificationStatus.VERIFIED) {
+        // 신청자 본인의 GPS 장소 인증이 완료되어야 QR 스캔이 가능
+        // QR 단계는 시간 경과로 열릴 수 있지만, 장소 미인증자는 QR 만남 인증 현황과 완료 대상에서 제외
+        if (!meetVerification.isApplicantPlaceVerified()) {
             throw new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED);
         }
 
@@ -229,7 +232,8 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
         String applicantNickname = userInternalService.getUserInfo(userId).nickname();
         String authorNickname = userInternalService.getUserInfo(postInfo.authorId()).nickname();
         notificationPublisher.sendMeetCompleted(userId, matchId, authorNickname);
-        notificationPublisher.sendMeetCompleted(postInfo.authorId(), matchId, applicantNickname);
+        // 등록자는 후기 대상이 아니므로 매칭 상세 이동 알림 발송
+        notificationPublisher.sendMeetCompletedForAuthor(postInfo.authorId(), matchId, applicantNickname);
 
         // QR 스캔 완료 응답을 반환
         return QrScanResponseDto.of(
@@ -385,7 +389,7 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
 
             // 그룹 연장은 같은 Post의 모든 활성 Match에 동일하게 적용, 따라서 REQUESTED 상태인 MV만이 아니라,
             // 현재 활성 MV 전체에 extendedMeetAt을 동일하게 세팅
-            // 이렇게 해야 노쇼 판정 기준이 모두 원래 meetAt + 20분이 아니라, extendedMeetAt + 20분으로 통일됨
+            // 이렇게 해야 노쇼 판정 기준이 모두 원래 meetAt + 10분이 아니라, extendedMeetAt + 10분으로 통일됨
             mv.acceptExtension(postInfoDto.meetAt(), MeetVerificationPolicy.EXTENSION_MINUTES);
 
             // QR이 이미 발급된 경우 QR 만료 시각도 함께 연장

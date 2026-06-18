@@ -58,14 +58,21 @@ public record MeetVerificationResponseDto (
                 })
                 .toList();
 
+        // QR은 Post 기준 공통 토큰이므로 현재 match row가 아니라 형제 row 중 token owner를 기준으로 응답
+        // 등록자 화면에서 이미 QR이 발급된 상태를 안정적으로 판단하기 위함
+        MeetVerification qrOwner = siblingMvList.stream()
+                .filter(mv -> mv.getQrToken() != null)
+                .findFirst()
+                .orElse(meetVerification);
+
         return new MeetVerificationResponseDto (
                 matchId,
                 meetVerification.getStatus(),
                 authorNickname,
                 meetVerification.getAuthorPlaceVerifiedAt(),
                 participants,
-                meetVerification.getQrToken() != null, // QR토큰이 null이 아니면 발급
-                meetVerification.getQrExpiresAt(),
+                qrOwner.getQrToken() != null, // Post 공통 QR 토큰이 있으면 발급
+                qrOwner.getQrExpiresAt(),
                 meetVerification.getCompletedAt(),
                 meetVerification.getNoShowDecidedAt()
         );

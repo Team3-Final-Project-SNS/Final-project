@@ -19,16 +19,19 @@ const mergeMessages = (currentMessages: ChatMessageResponse[], latestMessages: C
   return [...messageMap.values()].sort((a, b) => a.messageId - b.messageId);
 };
 
-const resolveMatchIdByChatRoomId = async (chatRoomId: number) => {
+const resolveMatchIdByChatRoomId = async (chatRoomId: number, excludedMatchId?: number) => {
   let page = 0;
   const size = 100;
 
   while (page < 5) {
     const response = await getMyMatches(undefined, page, size);
     const data = response.data.data;
-    const matchedRoom = data.content
+    const roomMatches = data.content
       .filter((item) => item.chatRoomId === chatRoomId)
-      .sort((a, b) => new Date(b.matchedAt).getTime() - new Date(a.matchedAt).getTime())[0];
+      .filter((item) => item.matchId !== excludedMatchId)
+      .sort((a, b) => new Date(b.matchedAt).getTime() - new Date(a.matchedAt).getTime());
+    // 취소 알림에서 온 등록자는 남아 있는 활성 매칭 기준으로 채팅 진입
+    const matchedRoom = roomMatches.find((item) => item.status !== 'CANCELLED') ?? roomMatches[0];
 
     if (matchedRoom) return matchedRoom.matchId;
     if (!data.hasNext) return null;
@@ -82,6 +85,8 @@ export default function ChatPage() {
         let currentMatchId: number | null = location.state?.matchId ?? routeMatchId;
         let currentChatRoomId: number | null = routeChatRoomId;
         let nextMatchInfo: GetMatchResponse | null = null;
+        const userRes = await getUserMe();
+        const userId = userRes.data.data.userId;
 
         if (!currentMatchId && currentChatRoomId) {
           currentMatchId = await resolveMatchIdByChatRoomId(currentChatRoomId);
@@ -91,25 +96,36 @@ export default function ChatPage() {
           const matchRes = await getMatchDetail(currentMatchId);
           nextMatchInfo = matchRes.data.data;
           if (nextMatchInfo.status === 'CANCELLED') {
-            blockCancelledChatAccess();
-            return;
+            currentChatRoomId = currentChatRoomId ?? nextMatchInfo.chatRoomId;
+
+            // 취소한 신청자는 차단하고, 등록자는 남은 그룹 채팅방으로 이동
+            if (userId !== nextMatchInfo.authorId || !currentChatRoomId) {
+              blockCancelledChatAccess();
+              return;
+            }
+
+            const activeMatchId = await resolveMatchIdByChatRoomId(currentChatRoomId, nextMatchInfo.matchId);
+            if (!activeMatchId) {
+              blockCancelledChatAccess();
+              return;
+            }
+
+            const activeMatchRes = await getMatchDetail(activeMatchId);
+            nextMatchInfo = activeMatchRes.data.data;
           }
           currentChatRoomId = currentChatRoomId ?? nextMatchInfo.chatRoomId;
         }
 
         if (!currentChatRoomId) throw new Error('CHAT_ROOM_NOT_FOUND');
 
-        const [historyRes, userRes] = await Promise.all([
-          getChatMessages(currentChatRoomId),
-          getUserMe(),
-        ]);
+        const historyRes = await getChatMessages(currentChatRoomId);
 
         setMessages(toChronologicalMessages(historyRes.data.data.content));
         setCursor(historyRes.data.data.nextCursor);
         setHasNext(historyRes.data.data.hasNext);
         setMatchInfo(nextMatchInfo);
         setChatRoomId(currentChatRoomId);
-        setCurrentUserId(userRes.data.data.userId);
+        setCurrentUserId(userId);
         setIsReadOnlyChat(false);
       } catch (err: any) {
         console.error(err);

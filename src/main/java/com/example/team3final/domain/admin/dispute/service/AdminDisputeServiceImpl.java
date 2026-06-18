@@ -161,8 +161,10 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
             throw new AdminException(ErrorCode.ADMIN_DISPUTE_ALREADY_PROCESSED);
         }
 
-        // UNDER_REVIEW 상태가 맞는지 확인
-        if (dispute.getStatus() != DisputeStatus.UNDER_REVIEW) {
+        // UNDER_REVIEW 또는 HOLD 상태가 맞는지 확인
+        // HOLD는 오판정 정정으로 다시 최종 판정을 내려야 하므로 같은 판정 로직을 재사용한다.
+        if (dispute.getStatus() != DisputeStatus.UNDER_REVIEW
+                && dispute.getStatus() != DisputeStatus.HOLD) {
             throw new AdminException(ErrorCode.ADMIN_DISPUTE_NOT_UNDER_REVIEW);
         }
 
@@ -196,7 +198,7 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
                 MeetVerification meetVerification =
                         meetVerificationInternalService.getByMatchId(dispute.getMatchId());
 
-                VerificationStatus restoredStatus = meetVerification.getDisputedFromStatus();
+                VerificationStatus restoredStatus = resolveDisputedNoShowStatus(meetVerification);
 
                 NoShowDisputeSettlementResult settlementResult =
                         matchNoShowService.markNoShowByDispute(
@@ -222,7 +224,11 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
                 // - 최종 판단 보류
                 // - 포인트 정산 없음
                 // - Match / MeetVerification 상태 전이 없음
-                dispute.hold(adminId, requestDto.getComment());
+                if (dispute.getStatus() == DisputeStatus.HOLD) {
+                    dispute.forceChangeStatus(DisputeStatus.HOLD, adminId, requestDto.getComment());
+                } else {
+                    dispute.hold(adminId, requestDto.getComment());
+                }
                 yield 0;
             }
 
@@ -283,7 +289,7 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
 
         if (judgment == DisputeStatus.PARTIALLY_ACCEPTED) {
 
-            VerificationStatus restoredStatus = meetVerification.getDisputedFromStatus();
+            VerificationStatus restoredStatus = resolveDisputedNoShowStatus(meetVerification);
 
             // Match 서비스가 실제 종결한 형제 Match만 확정한다.
             // 별도 관리자 판정을 기다리는 다른 DISPUTED Match는 그대로 유지한다.
@@ -306,7 +312,8 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
             // - 이의제기 기각
             // - 기존 노쇼 상태 그대로 확정
             // - 일반 노쇼 확정이므로 Match 도메인의 기존 메서드가 포인트 정산까지 처리
-            VerificationStatus restoredStatus = meetVerification.rejectDispute();
+            VerificationStatus restoredStatus = resolveDisputedNoShowStatus(meetVerification);
+            meetVerification.rejectDispute();
 
             if (restoredStatus == VerificationStatus.HOST_NO_SHOW) {
 
@@ -332,6 +339,20 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
 
                 chatInternalService.makeReadOnlyChatRoom(postId);
             }
+        }
+    }
+
+    private VerificationStatus resolveDisputedNoShowStatus(MeetVerification meetVerification) {
+        try {
+            return meetVerification.getDisputedFromStatus();
+        } catch (IllegalStateException e) {
+            VerificationStatus status = meetVerification.getStatus();
+            if (status == VerificationStatus.HOST_NO_SHOW
+                    || status == VerificationStatus.GUEST_NO_SHOW
+                    || status == VerificationStatus.BOTH_NO_SHOW) {
+                return status;
+            }
+            throw new AdminException(ErrorCode.ADMIN_DISPUTE_INVALID_STATUS);
         }
     }
 

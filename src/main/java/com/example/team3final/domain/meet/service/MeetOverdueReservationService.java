@@ -1,6 +1,7 @@
 package com.example.team3final.domain.meet.service;
 
 import com.example.team3final.domain.meet.util.MeetRedisZSetKeys;
+import com.example.team3final.domain.meet.service.support.MeetVerificationPolicy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -20,7 +21,8 @@ public class MeetOverdueReservationService {
     private final StringRedisTemplate redisTemplate;
 
     // 연장된 만남 시각을 기준으로 HOST와 모든 활성 GUEST의
-    // 10분 경과 알림 예약 시간을 갱신한다.
+    // 기존 10분 경과 알림 예약 시간을 갱신한다.
+    // 현재 10분 경과 알림은 발송하지 않고 drain하지만, 기존 Redis 예약 정합성을 위해 같은 기준값을 유지한다.
     public void rescheduleAfterExtension(
             Long postId,
             List<Long> activeMatchIds,
@@ -32,14 +34,24 @@ public class MeetOverdueReservationService {
         updateOrRemoveReservation(MeetRedisZSetKeys.REMINDER_30_HOST, postMember, extendedMeetAt.minusMinutes(30), now);
         updateOrRemoveReservation(MeetRedisZSetKeys.REMINDER_15_HOST, postMember, extendedMeetAt.minusMinutes(15), now);
         updateOrRemoveReservation(MeetRedisZSetKeys.REMINDER_IMMINENT_HOST, postMember, extendedMeetAt.minusMinutes(5), now);
-        updateOrRemoveReservation(MeetRedisZSetKeys.REMINDER_OVERDUE_HOST, postMember, extendedMeetAt.plusMinutes(10), now);
+        updateOrRemoveReservation(
+                MeetRedisZSetKeys.REMINDER_OVERDUE_HOST,
+                postMember,
+                extendedMeetAt.plusMinutes(MeetVerificationPolicy.NO_SHOW_JUDGE_MINUTES),
+                now
+        );
 
         for (Long matchId : activeMatchIds) {
             String matchMember = matchId.toString();
             updateOrRemoveReservation(MeetRedisZSetKeys.REMINDER_30_GUEST, matchMember, extendedMeetAt.minusMinutes(30), now);
             updateOrRemoveReservation(MeetRedisZSetKeys.REMINDER_15_GUEST, matchMember, extendedMeetAt.minusMinutes(15), now);
             updateOrRemoveReservation(MeetRedisZSetKeys.REMINDER_IMMINENT_GUEST, matchMember, extendedMeetAt.minusMinutes(5), now);
-            updateOrRemoveReservation(MeetRedisZSetKeys.REMINDER_OVERDUE_GUEST, matchMember, extendedMeetAt.plusMinutes(10), now);
+            updateOrRemoveReservation(
+                    MeetRedisZSetKeys.REMINDER_OVERDUE_GUEST,
+                    matchMember,
+                    extendedMeetAt.plusMinutes(MeetVerificationPolicy.NO_SHOW_JUDGE_MINUTES),
+                    now
+            );
         }
     }
 

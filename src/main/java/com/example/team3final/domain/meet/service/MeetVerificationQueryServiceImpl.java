@@ -9,10 +9,10 @@ import com.example.team3final.domain.meet.dto.response.GetMeetExtensionResponseD
 import com.example.team3final.domain.meet.dto.response.MeetVerificationResponseDto;
 import com.example.team3final.domain.meet.dto.response.QrResponseDto;
 import com.example.team3final.domain.meet.entity.MeetVerification;
-import com.example.team3final.domain.meet.enums.VerificationStatus;
 import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
 import com.example.team3final.domain.meet.service.support.MeetQrSupport;
 import com.example.team3final.domain.meet.service.support.MeetVerificationContextReader;
+import com.example.team3final.domain.meet.service.support.MeetVerificationPolicy;
 import com.example.team3final.domain.post.dto.response.PostInfoDto;
 import com.example.team3final.domain.post.service.PostInternalService;
 import com.example.team3final.domain.user.service.UserInternalService;
@@ -20,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -63,11 +64,28 @@ public class MeetVerificationQueryServiceImpl implements MeetVerificationQuerySe
         // 같은 Post에 속한 MeetVerification을 벌크 조회 (N+1 방지)
         List<MeetVerification> siblingMvList = meetVerificationRepository.findAllByMatchIdIn(siblingMatchIds);
 
-        // 등록자와 신청자 양측 장소 인증이 끝난 MeetVerification이 하나라도 있는지 확인
-        MeetVerification verified = siblingMvList.stream()
-                .filter(mv -> mv.getStatus() == VerificationStatus.VERIFIED)
+        // QR 발급 시간 판정은 연장 시간이 있으면 연장된 만남 시각을 기준으로 한다.
+        // 연장된 만남이 없다면 최초 게시글 만남 시각을 그대로 사용한다.
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime effectiveMeetAt = meetVerificationRepository.findEffectiveExtendedMeetAtByPostId(postId)
+                .orElse(postInfoDto.meetAt());
+
+        // 등록자 GPS 인증이 끝나지 않았더라도 만남 시각 10분이 지나면 QR 단계로 진입할 수 있음
+        // 노쇼 사용자가 장소 인증을 하지 않아도 남은 참여자들이 QR 인증을 마칠 수 있게 하기 위한 fallback 조건
+        boolean isQrFallbackTime = !now.isBefore(
+                effectiveMeetAt.plusMinutes(MeetVerificationPolicy.NO_SHOW_JUDGE_MINUTES)
+        );
+
+        // 등록자가 GPS 인증을 완료했거나, 만남 시간 10분 경과 시 QR 단계 진입 가능
+        // 등록자 GPS 인증 완료 케이스가 우선이고, 시간 경과 케이스는 공통 QR을 걸어둘 대표 row만 선택
+        MeetVerification issueTarget = siblingMvList.stream()
+                .filter(MeetVerification::isAuthorPlaceVerified)
                 .findFirst()
-                .orElseThrow(() -> new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED));
+                .orElseGet(() -> isQrFallbackTime ? siblingMvList.get(0) : null);
+
+        if (issueTarget == null) {
+            throw new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED);
+        }
 
         // 같은 Post에 이미 발급된 공통 QR 토큰이 있는지 확인
         Optional<MeetVerification> tokenOwnerOpt = meetQrSupport.findPostQrTokenOwner(siblingMvList);
@@ -78,12 +96,12 @@ public class MeetVerificationQueryServiceImpl implements MeetVerificationQuerySe
             // 이미 발급된 공통 QR 토큰이 있다면 그 토큰을 재사용
             tokenOwner = tokenOwnerOpt.get();
         } else {
-            // 아직 QR 토큰이 없다면 VERIFIED 상태의 MeetVerification에 최초 발급
-            meetQrSupport.issueQrTokenIfNeeded(verified, postId);
+            // 아직 QR 토큰이 없다면 현재 QR 진입 조건을 만족한 MeetVerification에 최초 발급
+            meetQrSupport.issueQrTokenIfNeeded(issueTarget, postId, now);
 
-            // issueQrTokenIfNeeded()가 verified에 QR 토큰을 발급했으므로
-            // 이 verified가 현재 Post의 QR token owner가 됨
-            tokenOwner = verified;
+            // issueQrTokenIfNeeded()가 issueTarget에 QR 토큰을 발급했으므로
+            // 이 issueTarget이 현재 Post의 QR token owner가 됨
+            tokenOwner = issueTarget;
         }
 
         // 공통 QR 토큰의 만료 여부를 확인

@@ -26,6 +26,8 @@ public final class NotificationPolicy {
 
         // 만남 완료와 후기
         userRequired(NotificationType.MEET_COMPLETED, RelatedDomain.MEET);
+        // 등록자 만남 완료 알림은 리뷰 화면이 아닌 매칭 상세 이동용
+        userRequired(NotificationType.MEET_COMPLETED_AUTHOR, RelatedDomain.MEET);
         userRequired(NotificationType.REVIEW_DEADLINE_REMINDER, RelatedDomain.MEET);
         userRequired(NotificationType.REVIEW_REWARD, RelatedDomain.POINT);
         userOptional(NotificationType.MANNER_TEMPERATURE_CHANGED, RelatedDomain.SYSTEM);
@@ -56,12 +58,16 @@ public final class NotificationPolicy {
         adminRequired(NotificationType.REPORT_SUBMITTED, RelatedDomain.REPORT);
         userRequired(NotificationType.REPORT_REWARD, RelatedDomain.REPORT);
         userRequired(NotificationType.REPORT_REJECTED, RelatedDomain.REPORT);
+        // 저장된 REPORT_RESULT 알림을 다시 발행하거나 검증할 때 정책 누락으로 실패하지 않도록 등록
+        userRequired(NotificationType.REPORT_RESULT, RelatedDomain.REPORT);
 
         // 결제
         userRequired(NotificationType.PAYMENT_SUCCESS, RelatedDomain.POINT);
         userRequired(NotificationType.PAYMENT_FAILED, RelatedDomain.POINT);
         userRequired(NotificationType.PAYMENT_CANCEL_SUCCESS, RelatedDomain.POINT);
         userRequired(NotificationType.PAYMENT_CANCEL_FAILED, RelatedDomain.POINT);
+        // 포인트 변경성 알림은 포인트 도메인 관련 ID를 기준으로 검증
+        userRequired(NotificationType.POINT_CHANGED, RelatedDomain.POINT);
 
         // 문의
         adminRequired(NotificationType.INQUIRY_SUBMITTED, RelatedDomain.INQUIRY);
@@ -78,6 +84,9 @@ public final class NotificationPolicy {
         userRequired(NotificationType.POST_EXPIRED, RelatedDomain.POST);
         userRequired(NotificationType.POST_DELETED, RelatedDomain.POST);
         userRequired(NotificationType.POST_RESTORED, RelatedDomain.POST);
+
+        // 공지성 시스템 알림은 화면 이동 대상이 없을 수 있으므로 relatedId를 선택값으로 둔다.
+        userOptional(NotificationType.SYSTEM, RelatedDomain.SYSTEM);
     }
 
     private NotificationPolicy() {

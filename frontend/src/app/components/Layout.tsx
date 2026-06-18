@@ -52,10 +52,6 @@ export default function Layout() {
         setPoint(user.point);
         setUserStatus(user.status);
 
-        if (user.status === 'SUSPENDED') {
-          setUnreadCount(0);
-          return;
-        }
       } catch (err) {
         console.error('Failed to load user header data', err);
         setPoint(null);
@@ -90,7 +86,7 @@ export default function Layout() {
   }, [isSuspended, location.pathname, navigate]);
 
   useEffect(() => {
-    if (!getAccessToken() || isSuspended) {
+    if (!getAccessToken()) {
       return;
     }
 
@@ -123,7 +119,7 @@ export default function Layout() {
       eventSource.removeEventListener('notification', handleNotification);
       eventSource.close();
     };
-  }, [isSuspended]);
+  }, []);
 
   useEffect(() => {
     setNotificationOpen(false);
@@ -158,11 +154,6 @@ export default function Layout() {
   }, [notificationOpen]);
 
   const handleNotificationToggle = async () => {
-    if (isSuspended) {
-      toast.warning(suspendedToastMessage);
-      return;
-    }
-
     const nextOpen = !notificationOpen;
     setNotificationOpen(nextOpen);
 
@@ -258,6 +249,10 @@ export default function Layout() {
     }
 
     setNotificationOpen(false);
+    if (isSuspended) {
+      return;
+    }
+
     const targetPath = getNotificationTargetPath(notification);
     if (targetPath) {
       navigate(targetPath);

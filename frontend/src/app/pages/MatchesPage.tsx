@@ -560,7 +560,7 @@ function ReviewWriteModal({
   onSubmit: () => void;
 }) {
   return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/35 p-4 backdrop-blur-sm">
         <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
           <h2 className="text-xl font-bold text-[#212121]">리뷰 작성하기</h2>
           <p className="mt-1 text-sm text-[#757575]">{getDisplayParticipantNames(match).join(', ') || match.opponentNickname}님과의 만남 후기를 남겨주세요.</p>
@@ -625,7 +625,7 @@ function ReviewViewModal({ review, onClose }: { review: WrittenReview; onClose: 
   ];
 
   return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/35 p-4 backdrop-blur-sm">
         <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
           <div className="mb-4 flex items-center gap-2">
             <Check className="text-[#2e7d32]" size={22} />
