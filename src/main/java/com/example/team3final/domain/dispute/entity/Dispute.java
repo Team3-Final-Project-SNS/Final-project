@@ -1,6 +1,8 @@
 package com.example.team3final.domain.dispute.entity;
 
 import com.example.team3final.common.entity.BaseTimeEntity;
+import com.example.team3final.common.exception.DisputeException;
+import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.domain.dispute.enums.DisputeStatus;
 import com.example.team3final.domain.dispute.enums.DisputeType;
 import jakarta.persistence.*;
@@ -101,7 +103,8 @@ public class Dispute extends BaseTimeEntity {
     public void startReview(Long adminId) {
         // SUBMITTED 상태에서만 검토 시작 가능
         if (this.status != DisputeStatus.SUBMITTED) {
-            throw new IllegalStateException("검토 시작은 SUBMITTED 상태에서만 가능합니다.");
+            // 현재 이의제기 상태에서는 검토 시작 불가
+            throw new DisputeException(ErrorCode.DISPUTE_INVALID_STATUS);
         }
         this.status = DisputeStatus.UNDER_REVIEW;
         this.adminId = adminId;
@@ -111,12 +114,14 @@ public class Dispute extends BaseTimeEntity {
 
         // 종결 상태(ACCEPTED/PARTIALLY_ACCEPTED/REJECTED)만 결과로 허용
         if (!result.isClosed()) {
-            throw new IllegalArgumentException("처리 결과는 종결 상태여야 합니다: " + result);
+            // 이의제기 처리 결과는 종결 상태만 허용
+            throw new DisputeException(ErrorCode.ADMIN_DISPUTE_INVALID_STATUS);
         }
 
         // 이미 종결된 건은 다시 처리 불가
         if (this.status.isClosed()) {
-            throw new IllegalStateException("이미 처리된 이의제기입니다.");
+            // 이미 종결된 이의제기는 재처리 불가
+            throw new DisputeException(ErrorCode.DISPUTE_ALREADY_PROCESSED);
         }
         this.status = result;
         this.adminId = adminId;
@@ -128,7 +133,8 @@ public class Dispute extends BaseTimeEntity {
     // 재의이제기 24시간 카운팅 시작
     public void hold(Long adminId, String adminComment) {
         if (this.status != DisputeStatus.UNDER_REVIEW) {
-            throw new IllegalStateException("보류는 UNDER_REVIEW 상태에서만 가능합니다.");
+            // 현재 이의제기 상태에서는 보류 처리 불가
+            throw new DisputeException(ErrorCode.DISPUTE_INVALID_STATUS);
         }
         this.status = DisputeStatus.HOLD;
         this.adminId = adminId;
@@ -139,7 +145,8 @@ public class Dispute extends BaseTimeEntity {
 
     public void resubmit(DisputeType disputeType, String reason, String evidenceUrl) {
         if (this.status != DisputeStatus.HOLD) {
-            throw new IllegalStateException("HOLD 상태에서만 재제출할 수 있습니다.");
+            // HOLD 상태의 이의제기만 재제출 대상
+            throw new DisputeException(ErrorCode.DISPUTE_NOT_RESUBMITTABLE);
         }
 
         this.disputeType = disputeType;

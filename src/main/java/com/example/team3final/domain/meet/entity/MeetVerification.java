@@ -1,5 +1,8 @@
 package com.example.team3final.domain.meet.entity;
 
+import com.example.team3final.common.exception.DisputeException;
+import com.example.team3final.common.exception.ErrorCode;
+import com.example.team3final.common.exception.MeetException;
 import com.example.team3final.domain.meet.enums.ExtensionStatus;
 import com.example.team3final.domain.meet.enums.VerificationStatus;
 import jakarta.persistence.*;
@@ -254,14 +257,16 @@ public class MeetVerification {
     public void markDispute() {
         // 1. 이미 이의제기가 제출된 상태인지 먼저 검사
         if (this.status == VerificationStatus.DISPUTE) {
-            throw new IllegalStateException("이미 이의제기가 제출된 매칭입니다.");
+            // 이미 이의제기 상태로 전환된 매칭
+            throw new DisputeException(ErrorCode.DISPUTE_ALREADY_SUBMITTED);
         }
 
         // 2. 노쇼 예정 상태(HOST/GUEST/BOTH_NO_SHOW)가 아니면 이의제기 불가
         if (this.status != VerificationStatus.HOST_NO_SHOW
                 && this.status != VerificationStatus.GUEST_NO_SHOW
                 && this.status != VerificationStatus.BOTH_NO_SHOW) {
-            throw new IllegalStateException("노쇼 예정 상태에서만 이의제기를 신청할 수 있습니다.");
+            // 노쇼 예정 상태만 이의제기 제출 대상
+            throw new DisputeException(ErrorCode.DISPUTE_NOT_NO_SHOW);
         }
 
         // 3. 원래 노쇼 상태를 백업 및 상태 전환
@@ -295,7 +300,8 @@ public class MeetVerification {
      */
     public VerificationStatus getDisputedFromStatus() {
         if (this.disputedFromStatus == null) {
-            throw new IllegalStateException("백업된 노쇼 상태가 없습니다.");
+            // 이의제기 판정 복원에 필요한 기존 노쇼 상태 없음
+            throw new MeetException(ErrorCode.MEET_DISPUTE_BACKUP_NOT_FOUND);
         }
         return this.disputedFromStatus;
     }
@@ -312,7 +318,8 @@ public class MeetVerification {
                 && this.status != VerificationStatus.HOST_NO_SHOW
                 && this.status != VerificationStatus.GUEST_NO_SHOW
                 && this.status != VerificationStatus.BOTH_NO_SHOW) {
-            throw new IllegalStateException("이의제기 검토 중이거나 노쇼 예정 상태에서만 수용 처리할 수 있습니다.");
+            // DISPUTE 또는 노쇼 예정 상태만 이의제기 수용 처리 대상
+            throw new MeetException(ErrorCode.MEET_DISPUTE_INVALID_STATUS);
         }
 
         // 정상 만남 완료 상태로 전환

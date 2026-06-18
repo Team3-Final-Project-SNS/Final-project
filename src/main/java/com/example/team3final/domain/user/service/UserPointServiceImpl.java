@@ -368,7 +368,8 @@ public class UserPointServiceImpl implements UserPointService{
             // 책임비는 예치 시 이미 잔액에서 빠졌으므로 패널티는 이력만 남긴다.
             transactionAmount = -depositAmount;
         } else {
-            throw new IllegalArgumentException("지원하지 않는 책임비 정산 타입입니다: " + transactionType);
+            // 책임비 정산은 환불, 부분 환불, 패널티 타입만 지원
+            throw new PointTransactionException(ErrorCode.POINT_INVALID_SETTLEMENT_TYPE);
         }
 
         saveTransaction(

@@ -32,6 +32,10 @@ public enum ErrorCode {
     USER_SUSPENDED(HttpStatus.FORBIDDEN, "USER_005", "정지된 계정입니다."),
     USER_NOT_SUSPENDED(HttpStatus.BAD_REQUEST, "USER_006", "정지 상태의 계정만 해제할 수 있습니다."),
     USER_NO_FIELD_TO_UPDATE(HttpStatus.BAD_REQUEST, "USER_007", "수정할 필드가 한 개 이상 필요합니다."),
+    // 유저 포인트 금액이 음수 등 잘못된 값인 경우
+    USER_INVALID_POINT_AMOUNT(HttpStatus.BAD_REQUEST, "USER_008", "포인트 금액이 올바르지 않습니다."),
+    // 유료 포인트 환불 최소 금액 미달
+    USER_REFUND_MIN_AMOUNT(HttpStatus.BAD_REQUEST, "USER_009", "환불 포인트는 1,000P 이상이어야 합니다."),
     // Suspended
     SUSPENDED_ACCESS_DENIED(HttpStatus.FORBIDDEN, "SUSPENDED_001", "정지된 계정은 해당 기능을 이용할 수 없습니다."),
     SUSPENDED_INQUIRY_TYPE_RESTRICTED(HttpStatus.FORBIDDEN, "SUSPENDED_002", "정지된 계정은 계정/인증 문의만 접수할 수 있습니다."),
@@ -60,6 +64,8 @@ public enum ErrorCode {
     MATCH_DUPLICATE_APPLY(HttpStatus.BAD_REQUEST, "MATCH_008", "재신청 할 수 없습니다."),
     MATCH_AVOIDED_USER(HttpStatus.FORBIDDEN, "MATCH_009", "다시 만나고 싶지 않아요 관계의 게시글에는 신청할 수 없습니다."),
     MATCH_POST_UNDER_REPORT(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_010", "신고 접수 중인 게시글에는 신청할 수 없습니다."),
+    // 노쇼 처리에 허용되지 않는 매칭 상태값
+    MATCH_NO_SHOW_INVALID_STATUS(HttpStatus.BAD_REQUEST, "MATCH_011", "노쇼 상태값이 올바르지 않습니다."),
 
     // Review
     REVIEW_NOT_COMPLETED_MATCH(HttpStatus.UNPROCESSABLE_ENTITY, "REVIEW_001", "만남 완료 상태의 매칭만 후기를 작성할 수 있습니다."),
@@ -92,6 +98,10 @@ public enum ErrorCode {
     MEET_EXTEND_ONLY_APPLICANT(HttpStatus.FORBIDDEN, "VERIFY_017", "연장 요청은 신청자만 가능합니다."),
     MEET_EXTEND_ONLY_AUTHOR(HttpStatus.FORBIDDEN, "VERIFY_018", "연장 수락/거절은 등록자만 가능합니다."),
     MEET_EXTEND_ALREADY_REJECTED(HttpStatus.CONFLICT, "VERIFY_019", "이미 거절된 연장 요청입니다."),
+    // 만남 인증 이의제기 상태 전이 불가
+    MEET_DISPUTE_INVALID_STATUS(HttpStatus.UNPROCESSABLE_ENTITY, "VERIFY_020", "현재 인증 상태에서는 이의제기를 처리할 수 없습니다."),
+    // 이의제기 복원에 필요한 기존 노쇼 상태가 없는 경우
+    MEET_DISPUTE_BACKUP_NOT_FOUND(HttpStatus.INTERNAL_SERVER_ERROR, "VERIFY_021", "백업된 노쇼 상태가 없습니다."),
 
     // Chat
     CHAT_ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "CHAT_001", "존재하지 않는 채팅방입니다."),
@@ -108,6 +118,8 @@ public enum ErrorCode {
     // PointTransaction
     POINT_TRANSACTION_INVALID_PAGE(HttpStatus.BAD_REQUEST, "POINT_001", "페이지 요청 값이 올바르지 않습니다."),
     POINT_NOT_ENOUGH(HttpStatus.UNPROCESSABLE_ENTITY, "POINT_002", "보유 포인트가 부족합니다."),
+    // 책임비 정산 타입이 서비스에서 지원하지 않는 값인 경우
+    POINT_INVALID_SETTLEMENT_TYPE(HttpStatus.INTERNAL_SERVER_ERROR, "POINT_003", "지원하지 않는 책임비 정산 타입입니다."),
 
     // Payment (결제 / 포인트 충전)
     PAY_MIN_CHARGE(HttpStatus.BAD_REQUEST, "PAY_001", "최소 충전 금액은 1,000P 입니다."),
@@ -116,6 +128,8 @@ public enum ErrorCode {
     PAY_ALREADY_PROCESSED(HttpStatus.CONFLICT, "PAY_004", "이미 처리된 결제 건입니다."),
     PAY_VERIFICATION_FAILED(HttpStatus.UNPROCESSABLE_ENTITY, "PAY_005", "PortOne 결제 검증에 실패했습니다."),
     PAY_NOT_OWNER(HttpStatus.FORBIDDEN, "PAY_006", "본인의 결제 건만 취소할 수 있습니다."),
+    // 결제 상태 전이 불가
+    PAY_INVALID_STATUS(HttpStatus.CONFLICT, "PAY_007", "현재 상태에서는 결제를 처리할 수 없습니다."),
 
     // Admin
     // 인증
@@ -161,6 +175,10 @@ public enum ErrorCode {
     DISPUTE_NOT_RESUBMITTABLE(HttpStatus.UNPROCESSABLE_ENTITY, "DISPUTE_006", "HOLD 상태의 이의제기만 재신청할 수 있습니다."),
     DISPUTE_TYPE_MISMATCH(HttpStatus.UNPROCESSABLE_ENTITY, "DISPUTE_007", "같은 유형의 이의제기만 재신청할 수 있습니다."),
     DISPUTE_HOLD_DEADLINE_EXCEEDED(HttpStatus.UNPROCESSABLE_ENTITY, "DISPUTE_008", "HOLD 판정 후 24시간이 초과되어 재신청이 불가합니다."),
+    // 이의제기 상태 전이 불가
+    DISPUTE_INVALID_STATUS(HttpStatus.UNPROCESSABLE_ENTITY, "DISPUTE_009", "현재 상태에서는 이의제기를 처리할 수 없습니다."),
+    // 이미 종결된 이의제기를 다시 처리하려는 경우
+    DISPUTE_ALREADY_PROCESSED(HttpStatus.CONFLICT, "DISPUTE_010", "이미 처리된 이의제기입니다."),
 
 
     // Notification
