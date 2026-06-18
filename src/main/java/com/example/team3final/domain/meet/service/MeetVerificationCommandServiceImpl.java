@@ -80,17 +80,13 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
 
         LocalDateTime now = LocalDateTime.now();
 
-        // 시작 시간은 원래 약속시간 기준 10분 전으로 고정
-        LocalDateTime verificationStartTime = postInfo.meetAt().minusMinutes(MeetVerificationPolicy.VERIFICATION_BEFORE_MINUTES);
-
-        // 연장 수락 시 실제 약속시간이 바뀌므로 종료 시각도 그에 맞게 조정
-        // 연장 미사용 → 원래 meetAt + 10분
-        // 연장 수락 → extendedMeetAt(meetAt + 10분) + 10분
-        // extendedMeetAt은 acceptExtension() 시점에 채워지므로 null이면 미사용을 의미
+        // 장소 인증 기준 시각은 연장 수락 시 연장된 만남 시각을 우선 사용
         LocalDateTime effectiveMeetAt = meetVerification.getExtendedMeetAt() != null
                 ? meetVerification.getExtendedMeetAt()
                 : postInfo.meetAt();
 
+        LocalDateTime verificationStartTime = effectiveMeetAt.minusMinutes(
+                MeetVerificationPolicy.VERIFICATION_BEFORE_MINUTES);
         LocalDateTime verificationEndTime = effectiveMeetAt.plusMinutes(
                 MeetVerificationPolicy.VERIFICATION_AFTER_MINUTES);
 
@@ -138,16 +134,12 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
             meetVerification.verifyApplicantPlace();
         }
 
+        // QR은 등록자 GPS 선행 후, 전체 GPS 완료 또는 기준 시각 10분 경과 시 발급
+        issueQrTokenIfEligible(matchInfo.postId(), effectiveMeetAt, now);
+
         // VERIFIED 여부 확인
         // 전파 후 이 MeetVerification의 상태가 바뀌었을 수 있으므로 엔티티에서 다시 읽음
         boolean bothVerified = meetVerification.getStatus() == VerificationStatus.VERIFIED;
-
-        // 등록자 장소 인증 완료 시점에 Post 기준 공통 QR 토큰을 발급하거나 기존 토큰을 재사용한다.
-        // 신청자가 먼저 장소 인증한 경우에는 양측 장소 인증 완료 시점에 QR 발급 조건을 만족한다.
-        // 이유: 등록자 GPS 인증 완료 또는 만남 시간 10분 경과 중 하나만 만족해도 QR 단계 진입이 가능해야 함
-        if (isAuthor || bothVerified) {
-            meetQrSupport.issueQrTokenIfNeeded(meetVerification, matchInfo.postId());
-        }
 
         // 14. 장소 인증 완료 알림
         // 장소 인증 완료 알림.
@@ -161,6 +153,34 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
         );
 
         return PlaceVerificationResponseDto.of(meetVerification, distanceMeters, bothVerified);
+    }
+
+    private void issueQrTokenIfEligible(Long postId, LocalDateTime effectiveMeetAt, LocalDateTime now) {
+        List<Long> activeMatchIds = contextReader.getActiveMatchIdsByPostId(postId);
+        if (activeMatchIds.isEmpty()) {
+            return;
+        }
+
+        List<MeetVerification> siblingMvList = meetVerificationRepository.findAllByMatchIdIn(activeMatchIds);
+        boolean authorVerified = siblingMvList.stream().anyMatch(MeetVerification::isAuthorPlaceVerified);
+        if (!authorVerified) {
+            return;
+        }
+
+        boolean allPlaceVerified = siblingMvList.stream()
+                .allMatch(mv -> mv.isAuthorPlaceVerified() && mv.isApplicantPlaceVerified());
+        boolean fallbackTimeReached = !now.isBefore(
+                effectiveMeetAt.plusMinutes(MeetVerificationPolicy.NO_SHOW_JUDGE_MINUTES)
+        );
+
+        if (!allPlaceVerified && !fallbackTimeReached) {
+            return;
+        }
+
+        siblingMvList.stream()
+                .filter(MeetVerification::isAuthorPlaceVerified)
+                .findFirst()
+                .ifPresent(mv -> meetQrSupport.issueQrTokenIfNeeded(mv, postId, now));
     }
 
     // QR 스캔 (신청자 전용)
