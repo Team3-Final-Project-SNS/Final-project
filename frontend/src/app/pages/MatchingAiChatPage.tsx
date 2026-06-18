@@ -36,21 +36,59 @@ type ParsedRecommendation = {
   reason?: string;
 };
 
+const MATCHING_AI_STATE_KEY = 'hankkipot:matching-ai-state';
+
+type StoredMatchingAiState = {
+  conversationId: string | null;
+  messages: ChatMessage[];
+  savedAt: number;
+};
+
+const createInitialAssistantMessage = (): ChatMessage => ({
+  id: Date.now(),
+  role: 'assistant',
+  content: '원하는 시간, 메뉴, 분위기, 책임비 조건을 말해주면 어울리는 식사팟을 찾아드릴게요.',
+  recommendedPosts: [],
+});
+
 export default function MatchingAiChatPage() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const conversationIdRef = useRef<string | null>(null);
   const messageListRef = useRef<HTMLDivElement | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: Date.now(),
-      role: 'assistant',
-      content: '원하는 시간, 메뉴, 분위기, 책임비 조건을 말해주면 어울리는 식사팟을 찾아드릴게요.',
-      recommendedPosts: [],
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([createInitialAssistantMessage()]);
+  const messagesRef = useRef<ChatMessage[]>(messages);
+  const preserveOnNextUnmountRef = useRef(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const savedState = sessionStorage.getItem(MATCHING_AI_STATE_KEY);
+
+    if (!savedState) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(savedState) as StoredMatchingAiState;
+
+      if (Array.isArray(parsed.messages) && parsed.messages.length > 0) {
+        setMessages(parsed.messages);
+        messagesRef.current = parsed.messages;
+      }
+
+      if (parsed.conversationId) {
+        setConversationId(parsed.conversationId);
+        conversationIdRef.current = parsed.conversationId;
+      }
+    } catch {
+      sessionStorage.removeItem(MATCHING_AI_STATE_KEY);
+    }
+  }, []);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   useEffect(() => {
     const messageList = messageListRef.current;
@@ -66,13 +104,30 @@ export default function MatchingAiChatPage() {
 
   useEffect(() => {
     return () => {
+      if (preserveOnNextUnmountRef.current) {
+        return;
+      }
+
       const activeConversationId = conversationIdRef.current;
+      sessionStorage.removeItem(MATCHING_AI_STATE_KEY);
 
       if (activeConversationId) {
         clearMatchingConversationOnExit(activeConversationId);
       }
     };
   }, []);
+
+  const preserveMatchingAiStateForPostDetail = () => {
+    preserveOnNextUnmountRef.current = true;
+    sessionStorage.setItem(
+      MATCHING_AI_STATE_KEY,
+      JSON.stringify({
+        conversationId: conversationIdRef.current,
+        messages: messagesRef.current,
+        savedAt: Date.now(),
+      } satisfies StoredMatchingAiState)
+    );
+  };
 
   const showThinkingForMoment = () => new Promise((resolve) => setTimeout(resolve, 800));
 
@@ -237,7 +292,11 @@ export default function MatchingAiChatPage() {
             <div ref={messageListRef} className="h-[520px] overflow-y-auto pr-1">
               <div className="space-y-4">
                 {messages.map((message) => (
-                  <ChatBubble key={message.id} message={message} />
+                  <ChatBubble
+                    key={message.id}
+                    message={message}
+                    onOpenRecommendedPost={preserveMatchingAiStateForPostDetail}
+                  />
                 ))}
               </div>
             </div>
@@ -267,7 +326,13 @@ export default function MatchingAiChatPage() {
   );
 }
 
-function ChatBubble({ message }: { message: ChatMessage }) {
+function ChatBubble({
+  message,
+  onOpenRecommendedPost,
+}: {
+  message: ChatMessage;
+  onOpenRecommendedPost: () => void;
+}) {
   const isUser = message.role === 'user';
   const displayRecommendedPosts = getDisplayRecommendedPosts(message);
   const parsedRecommendations = !isUser && displayRecommendedPosts.length === 0
@@ -320,7 +385,11 @@ function ChatBubble({ message }: { message: ChatMessage }) {
                   <p className="mb-2 text-xs font-bold text-[#616161]">추천 게시글</p>
                   <div className="grid gap-2">
                     {displayRecommendedPosts.map((post) => (
-                        <RecommendedPostMiniCard key={post.postId} post={post} />
+                        <RecommendedPostMiniCard
+                            key={post.postId}
+                            post={post}
+                            onOpenRecommendedPost={onOpenRecommendedPost}
+                        />
                     ))}
                   </div>
                 </div>
@@ -332,7 +401,11 @@ function ChatBubble({ message }: { message: ChatMessage }) {
                   <p className="mb-2 text-xs font-bold text-[#616161]">추천 게시글</p>
                   <div className="grid gap-2">
                     {parsedRecommendations.map((post) => (
-                        <ParsedRecommendationCard key={post.postId} post={post} />
+                        <ParsedRecommendationCard
+                            key={post.postId}
+                            post={post}
+                            onOpenRecommendedPost={onOpenRecommendedPost}
+                        />
                     ))}
                   </div>
                 </div>
@@ -347,6 +420,8 @@ function ChatBubble({ message }: { message: ChatMessage }) {
                         <Link
                             key={postId}
                             to={`/posts/${postId}`}
+                            state={{ fromMatchingAi: true }}
+                            onClick={onOpenRecommendedPost}
                             className="group inline-flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-[#e0e0e0] bg-white px-3 py-2 text-xs font-bold text-[#424242] transition-all hover:border-[#d84315] hover:bg-[#fff8f3] hover:text-[#d84315]"
                         >
                           <span>#{postId} 상세</span>
@@ -439,10 +514,18 @@ function RecommendationIntro({
   );
 }
 
-function RecommendedPostMiniCard({ post }: { post: RecommendedPost }) {
+function RecommendedPostMiniCard({
+  post,
+  onOpenRecommendedPost,
+}: {
+  post: RecommendedPost;
+  onOpenRecommendedPost: () => void;
+}) {
   return (
       <Link
           to={`/posts/${post.postId}`}
+          state={{ fromMatchingAi: true }}
+          onClick={onOpenRecommendedPost}
           className="group block rounded-xl border border-[#f0d8c8] bg-white px-4 py-3 text-[#3d2b22] transition-all hover:border-[#d84315] hover:bg-[#fff8f3] hover:shadow-sm"
       >
         <div className="flex items-start justify-between gap-3">
@@ -471,10 +554,18 @@ function RecommendedPostMiniCard({ post }: { post: RecommendedPost }) {
   );
 }
 
-function ParsedRecommendationCard({ post }: { post: ParsedRecommendation }) {
+function ParsedRecommendationCard({
+  post,
+  onOpenRecommendedPost,
+}: {
+  post: ParsedRecommendation;
+  onOpenRecommendedPost: () => void;
+}) {
   return (
       <Link
           to={`/posts/${post.postId}`}
+          state={{ fromMatchingAi: true }}
+          onClick={onOpenRecommendedPost}
           className="group block rounded-xl border border-[#f0d8c8] bg-white px-4 py-3 text-[#3d2b22] transition-all hover:border-[#d84315] hover:bg-[#fff8f3] hover:shadow-sm"
       >
         <div className="flex items-start justify-between gap-3">
