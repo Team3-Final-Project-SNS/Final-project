@@ -1,6 +1,8 @@
 package com.example.team3final.common.exception;
 
 import com.example.team3final.common.dto.response.ErrorResponseDto;
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -74,7 +77,15 @@ public class GlobalExceptionHandler {
 
     // 예상치 못한 서버 에러
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponseDto> handleException(Exception e) {
+    public ResponseEntity<ErrorResponseDto> handleException(Exception e, HttpServletRequest request) {
+        log.error(
+                "Unhandled exception. method={}, uri={}, query={}",
+                request.getMethod(),
+                request.getRequestURI(),
+                request.getQueryString(),
+                e
+        );
+
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ErrorResponseDto.of("COMMON_500", "서버 내부 오류가 발생했습니다."));
