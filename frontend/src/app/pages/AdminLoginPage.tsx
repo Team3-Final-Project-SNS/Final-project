@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { ArrowLeft, LockKeyhole, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, LockKeyhole, ShieldCheck, Sparkles, UsersRound } from 'lucide-react';
 import { adminLogin } from '../../api/adminAuthApi';
+import adminLoginBackground from '@/assets/images/admin-login-background.png';
 
 export default function AdminLoginPage() {
   const navigate = useNavigate();
@@ -34,25 +35,57 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fafafa] flex">
-      <div className="w-1/2 bg-[#1b1b1b] flex flex-col items-center justify-center p-12">
-        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#2e2e2e]">
-          <ShieldCheck className="text-[#ff7043]" size={42} />
+    <div className="relative flex min-h-[100dvh] overflow-hidden bg-white lg:bg-[#f8f4ee]">
+      <img
+        src={adminLoginBackground}
+        alt=""
+        aria-hidden="true"
+        className="absolute inset-0 hidden h-full w-full object-cover object-center lg:block"
+      />
+      <div className="absolute inset-0 hidden bg-[linear-gradient(90deg,rgba(255,255,255,0.02)_0%,rgba(255,255,255,0.08)_42%,rgba(255,255,255,0.36)_57%,rgba(255,255,255,0.78)_100%)] lg:block" />
+
+      <div className="pointer-events-none absolute inset-0 hidden lg:block" aria-hidden="true">
+        <div className="hankki-floating-badge left-[9%] top-[22%] delay-0">
+          <ShieldCheck size={22} />
         </div>
-        <h1 className="mb-4 text-5xl font-bold text-[#ff7043]">한끼팟 Admin</h1>
-        <p className="text-lg text-[#e0e0e0]">운영 관리 전용 로그인</p>
-        <p className="mt-3 max-w-sm text-center text-sm leading-6 text-[#9e9e9e]">
+        <div className="hankki-floating-badge left-[29%] top-[46%] delay-700">
+          <UsersRound size={22} />
+        </div>
+        <div className="hankki-floating-badge left-[50%] top-[30%] delay-300">
+          <Sparkles size={22} />
+        </div>
+      </div>
+
+      <div className="absolute right-[calc(40%+1.5rem)] top-[clamp(1.25rem,5.2vh,4.75rem)] z-10 hidden w-[min(24vw,360px)] flex-col items-end text-right lg:flex">
+        <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-white/80 text-[#b84319] shadow-[0_10px_32px_rgba(83,52,32,0.14)] backdrop-blur-md">
+          <ShieldCheck size={30} />
+        </div>
+        <h1 className="mb-2 text-[clamp(2rem,2.8vw,3.4rem)] font-[850] leading-none tracking-normal text-[#b84319] drop-shadow-[0_2px_14px_rgba(255,255,255,0.82)]">
+          한끼팟 Admin
+        </h1>
+        <p className="whitespace-nowrap text-[clamp(0.78rem,0.9vw,1rem)] font-bold leading-tight text-[#212121] drop-shadow-[0_2px_8px_rgba(255,255,255,0.94)]">
+          운영 관리 전용 로그인
+        </p>
+        <p className="mt-2 max-w-[320px] text-sm font-semibold leading-5 text-[#424242] drop-shadow-[0_2px_8px_rgba(255,255,255,0.94)]">
           신고, 문의, 사용자 관리 기능은 관리자 권한으로만 접근할 수 있습니다.
         </p>
       </div>
 
-      <div className="w-1/2 bg-white flex items-center justify-center p-12">
-        <div className="w-full max-w-md">
+      <div className="relative z-10 ml-auto flex w-full items-center justify-center bg-white px-5 py-8 sm:px-8 lg:min-h-[100dvh] lg:w-[40%] lg:border-l lg:border-white/70 lg:bg-white/92 lg:p-12 lg:shadow-[-24px_0_70px_rgba(74,49,30,0.13)] lg:backdrop-blur-md">
+        <div className="w-full max-w-[420px]">
+          <div className="mb-8 rounded-2xl bg-[#212121] px-5 py-6 text-center shadow-sm lg:hidden">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#2e2e2e]">
+              <ShieldCheck className="text-[#ff7043]" size={34} />
+            </div>
+            <h1 className="mb-2 text-3xl font-[850] tracking-normal text-[#b84319]">한끼팟 Admin</h1>
+            <p className="text-sm font-semibold text-[#eeeeee]">운영 관리 전용 로그인</p>
+          </div>
+
           <Link
             to="/login"
-            className="mb-8 inline-flex items-center gap-1 text-sm font-semibold text-[#616161] transition-colors hover:text-[#d84315]"
+            className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-[#616161] transition-colors hover:text-[#d84315] lg:mb-8"
           >
-            <ArrowLeft size={16} />
+            <ArrowLeft size={18} />
             일반 로그인으로 돌아가기
           </Link>
 
@@ -84,7 +117,7 @@ export default function AdminLoginPage() {
 
             {error && (
               <div className="rounded-lg border border-[#ef5350] bg-[#ffebee] px-4 py-3">
-                <span className="text-sm text-[#c62828]">⚠️ {error}</span>
+                <span className="text-sm text-[#c62828]">{error}</span>
               </div>
             )}
 
