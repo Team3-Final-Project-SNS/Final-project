@@ -305,9 +305,9 @@ export default function MatchesPage() {
                     return (
                         <div
                             key={match.matchId}
-                            className="bg-white border border-[#e0e0e0] rounded-xl p-6 hover:shadow-lg transition-all hover:border-[#d84315]"
+                            className="bg-white border border-[#e0e0e0] rounded-xl p-4 hover:shadow-lg transition-all hover:border-[#d84315] sm:p-6"
                         >
-                          <div className="flex items-start justify-between mb-4">
+                          <div className="flex flex-col gap-2 mb-4 sm:flex-row sm:items-start sm:justify-between">
                         <span className={`px-3 py-1 rounded text-xs font-semibold ${badge.color}`}>
                           {badge.text}
                         </span>
@@ -329,7 +329,7 @@ export default function MatchesPage() {
                             </div>
                           </div>
 
-                          <div className="flex gap-2">
+                          <div className="flex flex-col gap-2 sm:flex-row">
                             <Link
                                 to={`/matches/${match.matchId}`}
                                 className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white border border-[#e0e0e0] rounded-lg text-sm font-semibold text-[#616161] hover:border-[#d84315] hover:text-[#d84315] transition-colors"
@@ -595,7 +595,7 @@ function ReviewWriteModal({
 
           <p className="mt-4 text-xs text-[#9e9e9e]">좋았던 점과 아쉬웠던 점은 동시에 선택할 수 없습니다.</p>
 
-          <div className="mt-6 flex gap-3">
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <button
                 type="button"
                 onClick={onClose}

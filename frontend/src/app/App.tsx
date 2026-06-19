@@ -4,22 +4,37 @@ import { refresh } from '@/api/authApi';
 import { clearAccessToken, hasLoginRestoreHint, setAccessToken } from '@/api/axiosInstance';
 import { getUserMe } from '@/api/userApi';
 import { setUserStatus } from '@/store/authStatusStore';
+import HankkiLoadingScreen from './components/HankkiLoadingScreen';
 import { Toaster } from './components/ui/sonner';
 import { router } from './routes';
+
+const MIN_LOADING_MS = 650;
 
 export default function App() {
   const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
+    const startedAt = performance.now();
+    let isMounted = true;
+    let finishTimer: number | undefined;
+    const finishAuthCheck = () => {
+      const remaining = Math.max(0, MIN_LOADING_MS - (performance.now() - startedAt));
+      finishTimer = window.setTimeout(() => {
+        if (isMounted) {
+          setAuthChecked(true);
+        }
+      }, remaining);
+    };
+
     const restoreLogin = async () => {
       if (window.location.pathname.startsWith('/admin')) {
-        setAuthChecked(true);
+        finishAuthCheck();
         return;
       }
 
       if (!hasLoginRestoreHint()) {
         clearAccessToken();
-        setAuthChecked(true);
+        finishAuthCheck();
         return;
       }
 
@@ -31,15 +46,22 @@ export default function App() {
       } catch {
         clearAccessToken();
       } finally {
-        setAuthChecked(true);
+        finishAuthCheck();
       }
     };
 
     restoreLogin();
+
+    return () => {
+      isMounted = false;
+      if (finishTimer) {
+        window.clearTimeout(finishTimer);
+      }
+    };
   }, []);
 
   if (!authChecked) {
-    return null;
+    return <HankkiLoadingScreen label="한끼팟 준비 중" />;
   }
 
   return (

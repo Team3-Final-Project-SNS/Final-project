@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { ArrowLeft, School, HandHeart, Lock } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { login } from '@/api/authApi';
 import { getUserMe } from '@/api/userApi';
 import { clearAccessToken, markLoginRestoreHint, setAccessToken } from '@/api/axiosInstance';
 import { setUserStatus } from '@/store/authStatusStore';
 import { toast } from 'sonner';
+import loginBackground from '@/assets/images/login-background.png';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -50,35 +51,21 @@ export default function LoginPage() {
   };
 
   return (
-      <div className="flex min-h-[100dvh] bg-white lg:bg-[#fafafa]">
-        <div className="hidden w-1/2 flex-col items-center justify-center bg-[#212121] p-12 lg:flex">
-          <h1 className="text-5xl font-bold text-[#d84315] mb-4">한끼팟</h1>
-          <p className="text-[#e0e0e0] text-lg mb-12">학교 친구와 함께하는</p>
-          <p className="text-[#e0e0e0] text-lg">한 끼 식사 매칭 서비스</p>
+      <div className="relative flex min-h-[100dvh] overflow-hidden bg-white lg:bg-[#f8f4ee]">
+        <img
+            src={loginBackground}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 hidden h-full w-full object-cover object-center lg:block"
+        />
+        <div className="absolute inset-0 hidden bg-[linear-gradient(90deg,rgba(255,255,255,0.02)_0%,rgba(255,255,255,0.08)_44%,rgba(255,255,255,0.38)_58%,rgba(255,255,255,0.76)_100%)] lg:block" />
 
-          <div className="mt-16 flex gap-8">
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-12 h-12 bg-[#424242] rounded-full flex items-center justify-center">
-                <School className="text-white" size={24} />
-              </div>
-              <span className="text-[#bdbdbd] text-sm">학교 인증</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-12 h-12 bg-[#424242] rounded-full flex items-center justify-center">
-                <HandHeart className="text-white" size={24} />
-              </div>
-              <span className="text-[#bdbdbd] text-sm">1:1 매칭</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-12 h-12 bg-[#424242] rounded-full flex items-center justify-center">
-                <Lock className="text-white" size={24} />
-              </div>
-              <span className="text-[#bdbdbd] text-sm">책임비 시스템</span>
-            </div>
-          </div>
+        <div className="absolute right-[calc(40%+1.5rem)] top-[clamp(1.25rem,5.2vh,4.75rem)] z-10 hidden w-[min(24vw,330px)] flex-col items-end text-right lg:flex">
+          <h1 className="mb-2 text-[clamp(2.25rem,3.2vw,3.8rem)] font-bold leading-none text-[#d84315] drop-shadow-[0_2px_8px_rgba(255,255,255,0.9)]">한끼팟</h1>
+          <p className="whitespace-nowrap text-[clamp(0.78rem,0.9vw,1rem)] font-bold leading-tight text-[#212121] drop-shadow-[0_2px_8px_rgba(255,255,255,0.92)]">학교 친구와 함께하는 한 끼 식사 매칭 서비스</p>
         </div>
 
-        <div className="flex w-full items-center justify-center bg-white px-5 py-8 sm:px-8 lg:w-1/2 lg:p-12">
+        <div className="relative z-10 ml-auto flex w-full items-center justify-center bg-white px-5 py-8 sm:px-8 lg:min-h-[100dvh] lg:w-[40%] lg:border-l lg:border-white/70 lg:bg-white/92 lg:p-12 lg:shadow-[-24px_0_70px_rgba(74,49,30,0.13)] lg:backdrop-blur-md">
           <div className="w-full max-w-[420px]">
             <div className="mb-8 rounded-2xl bg-[#212121] px-5 py-6 text-center shadow-sm lg:hidden">
               <h1 className="mb-2 text-3xl font-bold text-[#d84315]">한끼팟</h1>

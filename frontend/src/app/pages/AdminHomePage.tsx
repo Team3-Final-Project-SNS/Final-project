@@ -174,7 +174,7 @@ export default function AdminHomePage() {
 
   return (
     <div className="mx-auto max-w-screen-xl">
-      <div className="mb-7 flex items-start justify-between gap-4">
+      <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#fff3e0]">
@@ -232,7 +232,7 @@ export default function AdminHomePage() {
       </section>
 
       <section className="mt-7 min-h-[430px] overflow-hidden rounded-2xl border border-[#e0e0e0] bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-[#eeeeee] px-6 py-5">
+        <div className="flex flex-col gap-3 border-b border-[#eeeeee] px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
             <h2 className="text-xl font-bold text-[#212121]">처리 대기 목록</h2>
             <p className="mt-1 text-sm text-[#757575]">

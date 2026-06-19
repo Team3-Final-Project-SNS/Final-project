@@ -226,17 +226,17 @@ export default function MatchingAiChatPage() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <section className="overflow-hidden rounded-[34px] border border-[#f0e1d2] bg-[#fffaf4] shadow-2xl">
-        <div className="flex flex-col gap-5 border-b border-[#f2e4d6] px-6 py-6 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
+    <div className="mx-auto w-full max-w-4xl">
+      <section className="overflow-hidden rounded-2xl border border-[#f0e1d2] bg-[#fffaf4] shadow-2xl sm:rounded-[34px]">
+        <div className="flex flex-col gap-5 border-b border-[#f2e4d6] px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-6">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <RiceMascot />
-            <div>
+            <div className="min-w-0">
               <div className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-[#fff3e0] px-3 py-1 text-xs font-bold text-[#ef6c00]">
                 <Sparkles size={14} />
                 AI 매칭 추천
               </div>
-              <h1 className="text-3xl font-extrabold text-[#2a211b]">한끼팟 매칭 AI</h1>
+              <h1 className="text-2xl font-extrabold text-[#2a211b] sm:text-3xl">한끼팟 매칭 AI</h1>
               <p className="mt-1 text-sm font-semibold text-[#9a7a62]">
                 원하는 시간, 메뉴, 분위기를 말하면 어울리는 식사팟을 찾아드릴게요.
               </p>
@@ -244,14 +244,14 @@ export default function MatchingAiChatPage() {
           </div>
           <Link
             to="/posts"
-            className="inline-flex h-11 items-center justify-center rounded-2xl border border-[#ead8c5] bg-white px-4 text-sm font-bold text-[#6d5a50] transition-colors hover:border-[#d84315] hover:text-[#d84315]"
+            className="inline-flex h-11 w-full items-center justify-center rounded-2xl border border-[#ead8c5] bg-white px-4 text-sm font-bold text-[#6d5a50] transition-colors hover:border-[#d84315] hover:text-[#d84315] sm:w-auto"
           >
             게시글 보기
           </Link>
         </div>
 
-        <div className="p-6">
-          <div className="rounded-[28px] bg-white p-6 shadow-sm">
+        <div className="p-3 sm:p-6">
+          <div className="rounded-2xl bg-white p-4 shadow-sm sm:rounded-[28px] sm:p-6">
             <div className="mb-5 flex items-start gap-4">
               <RiceMascot size="small" />
               <div>
@@ -289,7 +289,7 @@ export default function MatchingAiChatPage() {
               </div>
             )}
 
-            <div ref={messageListRef} className="h-[520px] overflow-y-auto pr-1">
+            <div ref={messageListRef} className="h-[min(52dvh,520px)] min-h-[340px] overflow-y-auto pr-1">
               <div className="space-y-4">
                 {messages.map((message) => (
                   <ChatBubble
@@ -301,7 +301,7 @@ export default function MatchingAiChatPage() {
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="mt-5 flex gap-3">
+            <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-3 sm:flex-row">
               <input
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
@@ -312,7 +312,7 @@ export default function MatchingAiChatPage() {
               <button
                 type="submit"
                 disabled={loading || input.trim().length === 0}
-                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#ff7043] text-white transition-colors hover:bg-[#d84315] disabled:bg-[#e0e0e0]"
+                className="flex h-14 w-full shrink-0 items-center justify-center rounded-2xl bg-[#ff7043] text-white transition-colors hover:bg-[#d84315] disabled:bg-[#e0e0e0] sm:w-14"
                 aria-label="메시지 전송"
                 title="메시지 전송"
               >

@@ -120,6 +120,27 @@
 }
 
 @layer base {
+  @keyframes hankki-loading-float {
+    0%,
+    100% {
+      transform: translateY(0) scale(1);
+    }
+
+    50% {
+      transform: translateY(-6px) scale(1.04);
+    }
+  }
+
+  @keyframes hankki-loading-shine {
+    0% {
+      transform: translateX(-100%);
+    }
+
+    100% {
+      transform: translateX(320%);
+    }
+  }
+
   * {
     @apply border-border outline-ring/50;
   }
@@ -127,6 +148,37 @@
   body {
     @apply bg-background text-foreground;
     font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+    overflow-x: hidden;
+  }
+
+  #root {
+    min-width: 0;
+  }
+
+  img,
+  video,
+  canvas,
+  svg {
+    max-width: 100%;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    min-width: 0;
+  }
+
+  p,
+  h1,
+  h2,
+  h3,
+  h4,
+  span,
+  a,
+  button,
+  label {
+    overflow-wrap: anywhere;
   }
 
   /**

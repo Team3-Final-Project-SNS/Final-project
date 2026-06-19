@@ -75,7 +75,7 @@ export default function TermsMarkdownPage({
 
           <section className="rounded-2xl border border-[#e0e0e0] bg-white p-5 shadow-sm">
             <h2 className="mb-5 text-lg font-bold text-[#212121]">{selectedFaqSection.title}</h2>
-            <div className="max-h-[520px] overflow-y-auto rounded-xl border border-dashed border-[#e0e0e0] px-5 py-4">
+            <div className="max-h-[520px] overflow-x-auto overflow-y-auto rounded-xl border border-dashed border-[#e0e0e0] px-5 py-4">
               <div className="space-y-4 text-[15px] leading-8 text-[#424242] [&_h3]:mb-2 [&_h3]:mt-6 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-[#212121] [&_li]:ml-5 [&_li]:list-disc [&_ol>li]:list-decimal [&_p]:my-3 [&_strong]:font-bold [&_strong]:text-[#212121] [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-[#eeeeee] [&_td]:px-3 [&_td]:py-2 [&_th]:border [&_th]:border-[#eeeeee] [&_th]:bg-[#fafafa] [&_th]:px-3 [&_th]:py-2 [&_ul]:space-y-2">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
@@ -112,7 +112,7 @@ export default function TermsMarkdownPage({
           )}
         </div>
 
-        <div className="space-y-4 text-[15px] leading-8 text-[#424242] [&_h1]:mb-6 [&_h1]:text-3xl [&_h1]:font-extrabold [&_h1]:text-[#212121] [&_h2]:mb-3 [&_h2]:mt-8 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-[#212121] [&_h3]:mb-2 [&_h3]:mt-6 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-[#212121] [&_li]:ml-5 [&_li]:list-disc [&_ol>li]:list-decimal [&_p]:my-3 [&_strong]:font-bold [&_strong]:text-[#212121] [&_ul]:space-y-2">
+        <div className="overflow-x-auto space-y-4 text-[15px] leading-8 text-[#424242] [&_h1]:mb-6 [&_h1]:text-3xl [&_h1]:font-extrabold [&_h1]:text-[#212121] [&_h2]:mb-3 [&_h2]:mt-8 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-[#212121] [&_h3]:mb-2 [&_h3]:mt-6 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-[#212121] [&_li]:ml-5 [&_li]:list-disc [&_ol>li]:list-decimal [&_p]:my-3 [&_strong]:font-bold [&_strong]:text-[#212121] [&_ul]:space-y-2">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{

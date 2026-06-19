@@ -201,7 +201,8 @@ export default function AdminPostsPage() {
             게시글 목록을 불러오는 중...
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-[#e0e0e0] bg-white shadow-sm">
+          <div className="overflow-x-auto rounded-2xl border border-[#e0e0e0] bg-white shadow-sm">
+            <div className="min-w-[980px]">
             <div className="grid grid-cols-[0.35fr_0.8fr_1fr_2.5fr_1fr_0.7fr_0.7fr_1fr] gap-4 border-b border-[#eeeeee] bg-[#fafafa] px-5 py-3 text-xs font-bold text-[#757575]">
               <span className="text-center">번호</span>
               <span>작성자</span>
@@ -247,6 +248,7 @@ export default function AdminPostsPage() {
             }) : (
               <div className="p-12 text-center text-sm font-semibold text-[#9e9e9e]">조건에 맞는 게시글이 없습니다.</div>
             )}
+            </div>
           </div>
         )}
 

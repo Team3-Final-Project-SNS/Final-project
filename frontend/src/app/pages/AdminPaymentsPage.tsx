@@ -228,12 +228,12 @@ export default function AdminPaymentsPage() {
               {periodType === 'CUSTOM' && (
                 <Popover>
                   <PopoverTrigger asChild>
-                    <button type="button" className="inline-flex h-11 min-w-[250px] items-center justify-center gap-2 rounded-lg border border-[#d84315] bg-white px-4 text-sm font-bold text-[#424242]">
+                    <button type="button" className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-[#d84315] bg-white px-4 text-sm font-bold text-[#424242] sm:min-w-[250px]">
                       <CalendarDays size={16} className="text-[#d84315]" />
                       {formatDateRange(dateRange)}
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent align="start" className="w-auto border-[#eeeeee] bg-white p-0">
+                  <PopoverContent align="start" className="max-w-[calc(100vw-2rem)] overflow-x-auto border-[#eeeeee] bg-white p-0">
                     <Calendar
                       mode="range"
                       selected={dateRange}
@@ -395,7 +395,7 @@ function PaymentDetailModal({ payment, onClose }: { payment: AdminPaymentItem; o
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[120px_1fr] gap-4 border-b border-[#eeeeee] py-3 text-sm last:border-b-0">
+    <div className="grid gap-1 border-b border-[#eeeeee] py-3 text-sm last:border-b-0 sm:grid-cols-[120px_1fr] sm:gap-4">
       <span className="font-bold text-[#757575]">{label}</span>
       <span className="font-bold text-[#212121]">{value}</span>
     </div>

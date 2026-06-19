@@ -188,9 +188,9 @@ export default function PostListPage() {
                   <Link
                       key={post.postId}
                       to={`/posts/${post.postId}`}
-                      className="block rounded-xl border border-[#e0e0e0] bg-white p-5 transition-all hover:border-[#d84315] hover:shadow-md"
+                      className="block rounded-xl border border-[#e0e0e0] bg-white p-4 transition-all hover:border-[#d84315] hover:shadow-md sm:p-5"
                   >
-                    <div className="flex items-center justify-between gap-5">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-5">
                       <div className="min-w-0 flex-1">
                         <div className="mb-2 flex items-center gap-2">
                     <span className={`rounded px-2.5 py-1 text-xs font-semibold ${statusClasses[post.status] || 'bg-[#f5f5f5] text-[#757575]'}`}>
@@ -227,7 +227,7 @@ export default function PostListPage() {
                         </div>
                       </div>
 
-                      <div className="flex w-32 shrink-0 flex-col items-end border-l border-[#f0f0f0] pl-5">
+                      <div className="flex shrink-0 flex-row items-center justify-between border-t border-[#f0f0f0] pt-4 sm:w-32 sm:flex-col sm:items-end sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
                         <span className="text-xs font-semibold text-[#9e9e9e]">책임비</span>
                         <span className="mt-1 text-2xl font-bold text-[#d84315]">
                     {post.authorDeposit.toLocaleString()}P

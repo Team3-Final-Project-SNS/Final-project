@@ -358,19 +358,19 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-12rem)] max-w-3xl flex-col">
-      <div className="flex items-center justify-between rounded-t-2xl border border-[#e0e0e0] bg-white p-5 shadow-sm">
-        <div className="flex items-center gap-3">
+    <div className="mx-auto flex h-[calc(100dvh-10rem)] min-h-[520px] w-full max-w-3xl flex-col sm:h-[calc(100vh-12rem)]">
+      <div className="flex flex-col gap-4 rounded-t-2xl border border-[#e0e0e0] bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <div className="flex min-w-0 items-center gap-3">
           <Link to="/matches" className="text-[#616161] hover:text-[#d84315]"><ArrowLeft size={20} /></Link>
-          <div>
-            <h2 className="font-semibold text-[#212121]">{matchInfo ? `${matchInfo.placeName} 만남` : '채팅'}</h2>
-            <p className="text-xs text-[#9e9e9e]">
+          <div className="min-w-0">
+            <h2 className="truncate font-semibold text-[#212121]">{matchInfo ? `${matchInfo.placeName} 만남` : '채팅'}</h2>
+            <p className="truncate text-xs text-[#9e9e9e]">
               {matchInfo?.placeName} · {matchInfo?.meetAt ? new Date(matchInfo.meetAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
           {chatRoomId && (
             <button type="button" onClick={handleOpenMembers} className="flex items-center gap-2 rounded-xl border border-[#e0e0e0] bg-white px-3 py-2.5 text-sm font-semibold text-[#616161] shadow-sm transition-all hover:border-[#d84315] hover:text-[#d84315]" title="참여자 목록" aria-label="참여자 목록">
               <Users size={16} />
@@ -379,11 +379,11 @@ export default function ChatPage() {
           {!connected && !isReadOnlyChat && <span className="flex items-center gap-1 text-xs text-red-500"><AlertCircle size={12} /> 연결 끊김</span>}
           {matchInfo ? (
             <>
-              <Link to={`/matches/${matchInfo.matchId}/place-verification`} className="flex items-center gap-2 rounded-xl bg-[#d84315] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#bf360c]">
+              <Link to={`/matches/${matchInfo.matchId}/place-verification`} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#d84315] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#bf360c] sm:flex-none sm:px-5">
                 <MapPin size={16} />장소 인증
               </Link>
               {isApplicant && (
-                <button type="button" onClick={handleExtendMeetTime} disabled={extensionLoading || !canRequestExtension} className="flex items-center gap-2 rounded-xl border border-[#d84315] bg-white px-5 py-2.5 text-sm font-semibold text-[#d84315] shadow-sm transition-all hover:bg-[#fff3e0] disabled:cursor-not-allowed disabled:opacity-50">
+                <button type="button" onClick={handleExtendMeetTime} disabled={extensionLoading || !canRequestExtension} className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-[#d84315] bg-white px-4 py-2.5 text-sm font-semibold text-[#d84315] shadow-sm transition-all hover:bg-[#fff3e0] disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none sm:px-5">
                   {extensionLoading ? <Loader2 size={16} className="animate-spin" /> : <Clock size={16} />}
                   시간 연장
                 </button>
@@ -440,9 +440,9 @@ export default function ChatPage() {
         </div>
       </div>
 
-      <form onSubmit={handleSend} className="flex items-center gap-3 rounded-b-2xl border border-[#e0e0e0] bg-white p-5 shadow-sm">
+      <form onSubmit={handleSend} className="flex flex-col gap-3 rounded-b-2xl border border-[#e0e0e0] bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:p-5">
         <input type="text" value={message} onChange={(event) => setMessage(event.target.value)} placeholder={isCancelledMatch || isReadOnlyChat ? '조회만 가능한 채팅방입니다.' : connected ? '메시지를 입력하세요...' : '연결 중입니다...'} disabled={!isChatWritable} className="flex-1 rounded-lg border border-[#e0e0e0] px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#d84315] disabled:bg-[#f5f5f5] disabled:text-[#9e9e9e]" />
-        <button type="submit" disabled={!isChatWritable || !message.trim()} className="flex items-center gap-2 rounded-xl bg-[#d84315] px-6 py-3 font-semibold text-white shadow-md transition-all hover:bg-[#bf360c] hover:shadow-lg disabled:bg-[#e0e0e0]"><Send size={18} />전송</button>
+        <button type="submit" disabled={!isChatWritable || !message.trim()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#d84315] px-6 py-3 font-semibold text-white shadow-md transition-all hover:bg-[#bf360c] hover:shadow-lg disabled:bg-[#e0e0e0] sm:w-auto"><Send size={18} />전송</button>
       </form>
 
       {membersOpen && (
@@ -479,10 +479,10 @@ export default function ChatPage() {
 function ExtensionBanner({ extensionInfo, isAuthor, loading, onAccept, onReject }: { extensionInfo: MeetExtensionResponse; isAuthor: boolean; loading: boolean; onAccept: () => void; onReject: () => void }) {
   if (extensionInfo.extensionStatus === 'REQUESTED' && !extensionInfo.isMyRequest) {
     return (
-      <div className="flex items-center justify-between gap-3 border-x border-b border-[#ff9800] bg-[#fff3e0] px-4 py-3">
+      <div className="flex flex-col gap-3 border-x border-b border-[#ff9800] bg-[#fff3e0] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2 text-sm text-[#e65100]"><Clock size={16} /><span><strong>{extensionInfo.requesterNickname}</strong>님이 만남 시간 10분 연장을 요청했습니다.</span></div>
         {isAuthor && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 sm:shrink-0">
             <button onClick={onAccept} disabled={loading} className="rounded-lg bg-[#4caf50] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">수락</button>
             <button onClick={onReject} disabled={loading} className="rounded-lg border border-[#ef5350] bg-white px-3 py-1.5 text-xs font-semibold text-[#ef5350] disabled:opacity-50">거절</button>
           </div>

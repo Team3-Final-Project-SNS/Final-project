@@ -96,7 +96,7 @@ export default function MyInfoEditPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="rounded-2xl border border-[#e0e0e0] bg-white p-6 shadow-sm">
+      <form onSubmit={handleSubmit} className="rounded-2xl border border-[#e0e0e0] bg-white p-4 shadow-sm sm:p-6">
         <div className="space-y-5">
           <FormField label="닉네임">
             <input

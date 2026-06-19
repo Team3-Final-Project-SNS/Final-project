@@ -5,3 +5,1337 @@
 html {
   scrollbar-gutter: stable;
 }
+
+.hankki-home {
+  color: #34241b;
+}
+
+.hankki-home h1,
+.hankki-home h2,
+.hankki-home h3 {
+  color: #2d211a;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+.hankki-home h1 {
+  font-weight: 850;
+  text-shadow: 0 2px 18px rgba(255, 255, 255, 0.62);
+}
+
+.hankki-home h2 {
+  font-weight: 820;
+  text-shadow: 0 2px 14px rgba(255, 255, 255, 0.54);
+}
+
+.hankki-home h3 {
+  font-weight: 780;
+}
+
+.hankki-home p {
+  color: #46382f;
+  font-size: 1.04rem;
+  font-weight: 560;
+}
+
+.hankki-home header a,
+.hankki-home header button {
+  color: #4b3a30;
+}
+
+.hankki-home header a:hover,
+.hankki-home header button:hover {
+  color: #cf4c1e;
+}
+
+.hankki-home .text-\[\#d84315\] {
+  color: #cf4c1e;
+}
+
+.hankki-home .text-\[\#616161\],
+.hankki-home .text-\[\#424242\] {
+  color: #4d4037;
+}
+
+.hankki-home .text-\[\#212121\] {
+  color: #2d211a;
+}
+
+.hankki-home .text-white {
+  color: #ffffff;
+}
+
+.hankki-home .text-white\/90 {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.hankki-home .hankki-preview-card .text-white,
+.hankki-home .hankki-preview-card .text-white p,
+.hankki-home .hankki-preview-card .text-white div {
+  color: #ffffff;
+}
+
+.hankki-home .hankki-action-button:first-child {
+  background: linear-gradient(135deg, #d9501f, #c24118);
+  box-shadow: 0 14px 32px rgba(194, 65, 24, 0.24);
+}
+
+.hankki-home .hankki-action-button:last-child {
+  border-color: rgba(207, 76, 30, 0.72);
+  color: #c24118;
+}
+
+.hankki-home [class*="backdrop-blur"] {
+  backdrop-filter: none !important;
+}
+
+.hankki-hero-copy,
+.hankki-preview-card,
+.hankki-meal-note {
+  background: rgba(255, 255, 255, 0.82) !important;
+  backdrop-filter: none !important;
+}
+
+.hankki-chat-note {
+  background: rgba(216, 67, 21, 0.76) !important;
+  backdrop-filter: none !important;
+}
+
+.hankki-hero-copy {
+  width: min(100%, 1120px);
+  min-height: 300px;
+  margin-inline: auto;
+}
+
+.hankki-hero-title {
+  white-space: nowrap;
+  font-size: clamp(2rem, 3.6vw, 3.2rem);
+}
+
+.hankki-hero-subcopy {
+  color: #2f251f !important;
+  font-size: clamp(1rem, 1.25vw, 1.25rem) !important;
+  font-weight: 720;
+}
+
+.hankki-preview-wrap {
+  width: 100%;
+}
+
+.hankki-preview-card {
+  width: min(100%, 1120px);
+  margin-inline: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.hankki-preview-card .hankki-meal-note,
+.hankki-preview-card .hankki-chat-note {
+  margin-bottom: 0;
+}
+
+.hankki-section-title {
+  position: relative;
+  left: auto;
+  width: 100%;
+  max-width: none;
+  margin-inline: auto;
+  padding: 1.4rem 2rem;
+  transform: none;
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 18px 48px rgba(56, 36, 22, 0.08);
+}
+
+.hankki-home .text-xs {
+  font-size: 0.82rem;
+  color: #5b4638;
+  font-weight: 650;
+}
+
+.hankki-home .text-sm {
+  font-size: 0.96rem;
+}
+
+.hankki-home .text-lg {
+  font-size: 1.2rem;
+}
+
+.hankki-feature-card p,
+.hankki-step-card p,
+.hankki-cta-section p,
+.hankki-footer,
+.hankki-footer a,
+.hankki-footer div {
+  color: #3f3027 !important;
+  font-weight: 620;
+}
+
+.hankki-feature-card h3,
+.hankki-step-card h3 {
+  color: #241a14 !important;
+  font-size: 1.34rem;
+}
+
+.hankki-header {
+  background: #ffffff;
+  border-color: rgba(229, 231, 235, 0.85);
+  backdrop-filter: none;
+}
+
+.hankki-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.62rem;
+  color: #b84319;
+  text-decoration: none;
+  text-shadow: 0 2px 16px rgba(255, 255, 255, 0.72);
+}
+
+.hankki-logo-mark {
+  position: relative;
+  display: inline-block;
+  width: 2.55rem;
+  height: 2.55rem;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.66);
+  border-radius: 999px;
+  background:
+      radial-gradient(circle at 34% 24%, rgba(255, 255, 255, 0.92) 0 18%, transparent 19%),
+      linear-gradient(145deg, rgba(255, 251, 242, 0.92), rgba(255, 226, 169, 0.58) 54%, rgba(225, 99, 44, 0.28));
+  box-shadow:
+      0 12px 26px rgba(194, 65, 24, 0.18),
+      inset 0 1px 8px rgba(255, 255, 255, 0.72);
+  animation: hankki-logo-float 4.8s ease-in-out infinite;
+}
+
+.hankki-logo-mark::after {
+  position: absolute;
+  right: 0.46rem;
+  bottom: 0.58rem;
+  width: 0.36rem;
+  height: 0.36rem;
+  border-radius: 999px;
+  background: #72bf62;
+  box-shadow: 0 0 0 0.16rem rgba(255, 255, 255, 0.78);
+  content: "";
+}
+
+.hankki-logo-bowl {
+  position: absolute;
+  left: 50%;
+  bottom: 0.62rem;
+  width: 1.45rem;
+  height: 0.8rem;
+  transform: translateX(-50%);
+  border-radius: 0.24rem 0.24rem 0.78rem 0.78rem;
+  background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 245, 231, 0.9) 46%, rgba(211, 86, 45, 0.88) 47%, rgba(185, 46, 82, 0.92));
+  box-shadow:
+      0 0.18rem 0.42rem rgba(111, 54, 31, 0.2),
+      inset 0 0.08rem 0.18rem rgba(255, 255, 255, 0.75);
+}
+
+.hankki-logo-bowl::before {
+  position: absolute;
+  left: 0.18rem;
+  top: -0.42rem;
+  width: 1.08rem;
+  height: 0.72rem;
+  border-radius: 999px 999px 0.5rem 0.5rem;
+  background:
+      radial-gradient(circle at 34% 28%, #ffffff 0 12%, transparent 13%),
+      radial-gradient(circle at 58% 18%, #fff7ea 0 16%, transparent 17%),
+      linear-gradient(180deg, #fffdf6, #f7ecdc);
+  content: "";
+}
+
+.hankki-logo-steam {
+  position: absolute;
+  top: 0.44rem;
+  width: 0.34rem;
+  height: 0.68rem;
+  border-top: 0.13rem solid rgba(202, 92, 45, 0.56);
+  border-radius: 999px;
+  opacity: 0.76;
+  animation: hankki-logo-steam 3.4s ease-in-out infinite;
+}
+
+.hankki-logo-steam-one {
+  left: 0.82rem;
+  transform: rotate(-16deg);
+}
+
+.hankki-logo-steam-two {
+  right: 0.82rem;
+  animation-delay: 0.7s;
+  transform: rotate(16deg);
+}
+
+.hankki-logo-text {
+  color: #b84319;
+  font-size: 1.55rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  line-height: 1;
+  text-shadow: 0 2px 14px rgba(255, 255, 255, 0.8);
+}
+
+.hankki-logo-footer .hankki-logo-text {
+  color: #b84319;
+  font-size: 1.2rem;
+  text-shadow: 0 2px 14px rgba(255, 255, 255, 0.8);
+}
+
+@keyframes hankki-logo-float {
+  0%, 100% {
+    transform: translateY(0) rotate(-1deg);
+  }
+  50% {
+    transform: translateY(-2px) rotate(1deg);
+  }
+}
+
+@keyframes hankki-logo-steam {
+  0%, 100% {
+    opacity: 0.54;
+    translate: 0 0;
+  }
+  50% {
+    opacity: 0.92;
+    translate: 0 -2px;
+  }
+}
+
+.hankki-nav-pill {
+  min-width: min(42vw, 620px);
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 0.5rem 1.15rem;
+  border: 1px solid rgba(255, 255, 255, 0.48);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow: 0 12px 32px rgba(56, 36, 22, 0.08);
+  backdrop-filter: none;
+}
+
+.hankki-nav-link {
+  padding: 0.62rem 1.45rem;
+  border-radius: 999px;
+  color: #4c3a2f;
+  font-size: 0.96rem;
+  font-weight: 780;
+  transition: color 160ms ease, background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.hankki-nav-link:hover {
+  color: #ba4318;
+  background: rgba(255, 247, 237, 0.62);
+  box-shadow: 0 8px 18px rgba(194, 65, 24, 0.12);
+  transform: translateY(-1px);
+}
+
+.hankki-login-link {
+  color: #4c3a2f;
+  border-radius: 999px;
+}
+
+.hankki-login-link:hover {
+  color: #ba4318;
+  background: rgba(255, 247, 237, 0.46);
+}
+
+.hankki-start-button {
+  background: linear-gradient(135deg, rgba(217, 80, 31, 0.9), rgba(194, 65, 24, 0.82));
+  box-shadow: 0 12px 28px rgba(194, 65, 24, 0.22);
+}
+
+.hankki-start-button:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, rgba(225, 94, 45, 0.94), rgba(185, 58, 18, 0.9));
+}
+
+.hankki-point-chip,
+.hankki-profile-button {
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  background: rgba(255, 247, 237, 0.72);
+  box-shadow: 0 8px 22px rgba(194, 65, 24, 0.12);
+  backdrop-filter: none;
+}
+
+.hankki-fixed-scene {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hankki-fixed-scene::before {
+  position: absolute;
+  inset: 0;
+  content: '';
+  background:
+    radial-gradient(circle at 28% 24%, rgba(255, 255, 255, 0.9) 0 0.18rem, transparent 0.24rem),
+    radial-gradient(circle at 54% 18%, rgba(255, 237, 213, 0.86) 0 0.16rem, transparent 0.24rem),
+    radial-gradient(circle at 74% 36%, rgba(255, 255, 255, 0.82) 0 0.14rem, transparent 0.22rem),
+    radial-gradient(circle at 62% 68%, rgba(255, 237, 213, 0.9) 0 0.18rem, transparent 0.26rem),
+    radial-gradient(circle at 36% 76%, rgba(255, 255, 255, 0.78) 0 0.13rem, transparent 0.22rem),
+    radial-gradient(circle at 87% 63%, rgba(255, 237, 213, 0.74) 0 0.16rem, transparent 0.25rem);
+  opacity: 0.55;
+  animation: hankki-sparkle-field 3.6s ease-in-out infinite;
+}
+
+.hankki-fixed-scene__image {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  filter: saturate(1.08) brightness(1.03);
+  transform: none;
+  animation: hankki-scene-drift 34s ease-in-out infinite alternate;
+}
+
+.hankki-fixed-scene__soften {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.08), transparent 32%),
+    radial-gradient(circle at 78% 12%, rgba(219, 234, 254, 0.08), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 248, 240, 0.04) 58%, rgba(255, 255, 255, 0.14));
+}
+
+.hankki-cloud {
+  display: none;
+}
+
+.hankki-cloud-slice {
+  display: none;
+}
+
+.hankki-sky-cloud {
+  display: none;
+  position: absolute;
+  width: clamp(180px, 18vw, 340px);
+  height: clamp(64px, 7vw, 124px);
+  border-radius: 999px;
+  background:
+    radial-gradient(ellipse at 18% 58%, rgba(255, 255, 255, 0.72) 0 18%, transparent 20%),
+    radial-gradient(ellipse at 38% 42%, rgba(255, 255, 255, 0.82) 0 26%, transparent 28%),
+    radial-gradient(ellipse at 62% 56%, rgba(255, 255, 255, 0.7) 0 22%, transparent 24%),
+    radial-gradient(ellipse at 82% 62%, rgba(255, 255, 255, 0.5) 0 15%, transparent 17%);
+  filter: blur(3px);
+  opacity: 0.42;
+  pointer-events: none;
+  animation: hankki-sky-cloud-cross 48s linear infinite;
+}
+
+.hankki-campus-pulse {
+  position: absolute;
+  width: 0.62rem;
+  height: 0.62rem;
+  border-radius: 999px;
+  background: rgba(249, 115, 22, 0.64);
+  box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.34), 0 0 18px rgba(255, 255, 255, 0.42);
+  animation: hankki-campus-pulse 3.8s ease-out infinite, hankki-campus-walk 12s ease-in-out infinite alternate;
+}
+
+.hankki-campus-pulse--one {
+  left: 47%;
+  top: 58%;
+}
+
+.hankki-campus-pulse--two {
+  left: 64%;
+  top: 45%;
+  animation-delay: 1.1s, -3s;
+}
+
+.hankki-campus-pulse--three {
+  left: 31%;
+  top: 67%;
+  animation-delay: 2s, -7s;
+}
+
+.hankki-cloud-slice--one {
+  display: none;
+}
+
+.hankki-cloud-slice--two {
+  display: none;
+}
+
+.hankki-cloud-slice--three {
+  display: none;
+}
+
+.hankki-sky-cloud--one {
+  top: 4%;
+  left: -22%;
+}
+
+.hankki-sky-cloud--two {
+  top: 0.8%;
+  left: -34%;
+  width: clamp(230px, 24vw, 460px);
+  opacity: 0.34;
+  animation-duration: 64s;
+  animation-delay: -18s;
+}
+
+.hankki-sky-cloud--three {
+  top: 9%;
+  left: -28%;
+  width: clamp(150px, 15vw, 280px);
+  opacity: 0.3;
+  animation-duration: 56s;
+  animation-delay: -34s;
+}
+
+.hankki-branch {
+  position: absolute;
+  top: -3%;
+  width: min(32vw, 430px);
+  height: min(18vw, 230px);
+  opacity: 0.58;
+  filter: blur(0.3px) saturate(1.12);
+  transform-origin: top center;
+  background:
+    radial-gradient(ellipse at 16% 18%, rgba(64, 122, 48, 0.46) 0 8%, transparent 9%),
+    radial-gradient(ellipse at 32% 32%, rgba(91, 148, 61, 0.42) 0 10%, transparent 11%),
+    radial-gradient(ellipse at 54% 20%, rgba(73, 131, 52, 0.4) 0 9%, transparent 10%),
+    radial-gradient(ellipse at 72% 42%, rgba(117, 164, 70, 0.36) 0 8%, transparent 9%);
+  pointer-events: none;
+  animation: hankki-branch-sway 4.8s ease-in-out infinite;
+}
+
+.hankki-branch--left {
+  left: -4%;
+  transform: rotate(-3deg);
+}
+
+.hankki-branch--right {
+  right: -5%;
+  transform: scaleX(-1) rotate(-4deg);
+  animation-delay: -2.6s;
+}
+
+.hankki-floating-badge {
+  position: absolute;
+  display: grid;
+  width: clamp(38px, 4vw, 54px);
+  height: clamp(38px, 4vw, 54px);
+  place-items: center;
+  pointer-events: auto;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  border-radius: 999px;
+  background: linear-gradient(145deg, rgba(255, 183, 77, 0.82), rgba(216, 67, 21, 0.72));
+  color: #ffffff;
+  box-shadow: 0 14px 36px rgba(216, 67, 21, 0.22), 0 0 0 8px rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(4px);
+  animation: hankki-badge-float 7s ease-in-out infinite, hankki-badge-sparkle 2.8s ease-in-out infinite;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.hankki-floating-badge:hover {
+  transform: translateY(-6px) scale(1.08);
+  box-shadow: 0 18px 42px rgba(216, 67, 21, 0.34), 0 0 0 10px rgba(255, 255, 255, 0.24);
+}
+
+.hankki-floating-badge.delay-300 {
+  animation-delay: 0.3s, 0.3s;
+}
+
+.hankki-floating-badge.delay-500 {
+  animation-delay: 0.5s, 0.5s;
+}
+
+.hankki-floating-badge.delay-700 {
+  animation-delay: 0.7s, 0.7s;
+}
+
+.hankki-floating-badge.delay-1000 {
+  animation-delay: 1s, 1s;
+}
+
+.hankki-match-line {
+  display: none;
+}
+
+.hankki-match-line--one {
+  top: 37%;
+  left: 20%;
+  width: min(36vw, 520px);
+  transform: rotate(12deg);
+}
+
+.hankki-match-line--two {
+  right: 10%;
+  bottom: 30%;
+  width: min(28vw, 420px);
+  transform: rotate(-16deg);
+  animation-delay: 1.4s;
+}
+
+.hankki-domino-trail {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: clamp(0.48rem, 1vw, 0.9rem);
+  pointer-events: none;
+  opacity: 0.88;
+  transform-origin: left center;
+}
+
+.hankki-domino-trail span {
+  width: clamp(0.28rem, 0.48vw, 0.52rem);
+  height: clamp(0.28rem, 0.48vw, 0.52rem);
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.34);
+  box-shadow: 0 0 0 rgba(255, 255, 255, 0);
+  animation: hankki-domino-dot 2.35s ease-in-out infinite;
+}
+
+.hankki-domino-trail span:nth-child(2) { animation-delay: 0.14s; }
+.hankki-domino-trail span:nth-child(3) { animation-delay: 0.28s; }
+.hankki-domino-trail span:nth-child(4) { animation-delay: 0.42s; }
+.hankki-domino-trail span:nth-child(5) { animation-delay: 0.56s; }
+.hankki-domino-trail span:nth-child(6) { animation-delay: 0.7s; }
+.hankki-domino-trail span:nth-child(7) { animation-delay: 0.84s; }
+.hankki-domino-trail span:nth-child(8) { animation-delay: 0.98s; }
+.hankki-domino-trail span:nth-child(9) { animation-delay: 1.12s; }
+
+.hankki-domino-trail--one {
+  left: 17.5%;
+  top: 66.2%;
+  transform: rotate(-25deg);
+}
+
+.hankki-domino-trail--two {
+  left: 45.8%;
+  top: 73.8%;
+  gap: clamp(0.54rem, 1.18vw, 1rem);
+  transform: rotate(-18deg);
+}
+
+.hankki-domino-trail--three {
+  left: 64.8%;
+  top: 47.8%;
+  transform: rotate(-8deg);
+}
+
+.hankki-icon-glow {
+  position: absolute;
+  width: clamp(1.1rem, 1.7vw, 1.8rem);
+  height: clamp(1.1rem, 1.7vw, 1.8rem);
+  border-radius: 999px;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.38);
+  box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.34), 0 0 16px rgba(255, 255, 255, 0.42);
+  animation: hankki-icon-glow 2.8s ease-in-out infinite;
+}
+
+.hankki-icon-glow--coffee {
+  left: 21.2%;
+  top: 25.2%;
+}
+
+.hankki-icon-glow--chat {
+  left: 13.1%;
+  top: 50.4%;
+  animation-delay: 0.42s;
+}
+
+.hankki-icon-glow--tray {
+  left: 21.3%;
+  top: 69.4%;
+  animation-delay: 0.84s;
+}
+
+.hankki-icon-glow--meal {
+  left: 48.6%;
+  top: 70.1%;
+  animation-delay: 1.26s;
+}
+
+.hankki-icon-glow--fork {
+  left: 93.3%;
+  top: 45.7%;
+  animation-delay: 1.68s;
+}
+
+.hankki-foliage-sway {
+  position: absolute;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 20% 70%, rgba(82, 140, 55, 0.24) 0 12%, transparent 13%),
+    radial-gradient(ellipse at 36% 42%, rgba(127, 171, 74, 0.2) 0 10%, transparent 11%),
+    radial-gradient(ellipse at 58% 58%, rgba(69, 122, 47, 0.2) 0 13%, transparent 14%),
+    radial-gradient(ellipse at 76% 30%, rgba(255, 255, 255, 0.18) 0 7%, transparent 8%);
+  filter: blur(2px);
+  opacity: 0.64;
+  transform-origin: bottom center;
+  animation: hankki-foliage-sway 5.8s ease-in-out infinite;
+}
+
+.hankki-edge-leaves {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0.5;
+  filter: saturate(1.12);
+  transform-origin: center;
+  background:
+    radial-gradient(ellipse at 18% 24%, rgba(73, 131, 52, 0.46) 0 9%, transparent 10%),
+    radial-gradient(ellipse at 34% 44%, rgba(127, 171, 74, 0.4) 0 10%, transparent 11%),
+    radial-gradient(ellipse at 58% 22%, rgba(87, 145, 58, 0.42) 0 8%, transparent 9%),
+    radial-gradient(ellipse at 76% 54%, rgba(255, 255, 255, 0.28) 0 6%, transparent 7%),
+    radial-gradient(ellipse at 46% 70%, rgba(247, 181, 83, 0.2) 0 7%, transparent 8%);
+  animation: hankki-edge-leaves-sway 4.2s ease-in-out infinite;
+}
+
+.hankki-edge-leaves--top-left {
+  top: -2%;
+  left: -3%;
+  width: min(26vw, 430px);
+  height: min(16vw, 260px);
+}
+
+.hankki-edge-leaves--top-right {
+  top: -3%;
+  right: -4%;
+  width: min(28vw, 460px);
+  height: min(17vw, 280px);
+  transform: scaleX(-1);
+  animation-name: hankki-edge-leaves-sway-right;
+}
+
+.hankki-edge-leaves--bottom-left {
+  bottom: -3%;
+  left: -4%;
+  width: min(30vw, 500px);
+  height: min(19vw, 310px);
+  opacity: 0.43;
+  animation-duration: 5.2s;
+}
+
+.hankki-edge-leaves--bottom-right {
+  right: -5%;
+  bottom: -2%;
+  width: min(31vw, 520px);
+  height: min(20vw, 330px);
+  opacity: 0.43;
+  transform: scaleX(-1);
+  animation-name: hankki-edge-leaves-sway-right;
+  animation-duration: 5.4s;
+  animation-delay: -1.8s;
+}
+
+.hankki-foliage-sway--left {
+  left: -4%;
+  bottom: -2%;
+  width: min(34vw, 540px);
+  height: min(22vw, 340px);
+}
+
+.hankki-foliage-sway--right {
+  right: -6%;
+  bottom: 4%;
+  width: min(36vw, 580px);
+  height: min(25vw, 390px);
+  animation-delay: -2.4s;
+}
+
+.hankki-people-motion {
+  position: absolute;
+  width: clamp(54px, 6vw, 96px);
+  height: clamp(28px, 3vw, 48px);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 24% 55%, rgba(255, 255, 255, 0.38) 0 8%, transparent 10%),
+    radial-gradient(circle at 54% 44%, rgba(255, 183, 77, 0.24) 0 10%, transparent 12%),
+    radial-gradient(circle at 76% 58%, rgba(255, 255, 255, 0.3) 0 7%, transparent 9%);
+  opacity: 0.58;
+  filter: blur(1.4px);
+  pointer-events: none;
+  animation: hankki-people-breathe 3.9s ease-in-out infinite;
+}
+
+.hankki-people-motion--cafe {
+  left: 7.6%;
+  top: 52.5%;
+}
+
+.hankki-people-motion--center {
+  left: 52.4%;
+  top: 52.2%;
+  animation-delay: -1.2s;
+}
+
+.hankki-people-motion--lawn {
+  left: 70.5%;
+  top: 55%;
+  animation-delay: -2.1s;
+}
+
+.hankki-people-motion--right {
+  left: 89%;
+  top: 52%;
+  animation-delay: -0.7s;
+}
+
+.hankki-action-button,
+.hankki-hero-copy,
+.hankki-feature-card,
+.hankki-preview-card {
+  will-change: transform;
+}
+
+.hankki-action-button:hover,
+.hankki-hero-copy:hover,
+.hankki-feature-card:hover,
+.hankki-preview-card:hover {
+  transform: translateY(-3px) scale(1.01);
+}
+
+.hankki-hero-copy,
+.hankki-preview-card {
+  animation: hankki-card-breathe 6s ease-in-out infinite;
+}
+
+.hankki-meal-note,
+.hankki-chat-note {
+  transition: transform 180ms ease, background 180ms ease, box-shadow 180ms ease;
+}
+
+.hankki-preview-card:hover .hankki-meal-note {
+  transform: translateY(-3px);
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.hankki-preview-card:hover .hankki-chat-note {
+  transform: translateY(2px);
+  background: rgba(216, 67, 21, 0.6);
+}
+
+.hankki-mini-avatar,
+.hankki-feature-icon,
+.hankki-step-number {
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  box-shadow: 0 14px 30px rgba(194, 65, 24, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+.hankki-mini-avatar {
+  background: linear-gradient(145deg, rgba(255, 247, 237, 0.88), rgba(255, 255, 255, 0.78));
+}
+
+.hankki-soft-orb {
+  background: rgba(249, 115, 22, 0.18);
+  filter: blur(22px);
+  animation: hankki-orb-glow 5.5s ease-in-out infinite;
+}
+
+.hankki-soft-orb--low {
+  background: rgba(34, 197, 94, 0.14);
+  animation-delay: -2s;
+}
+
+.hankki-feature-card {
+  background: rgba(255, 255, 255, 0.72) !important;
+  backdrop-filter: none !important;
+  animation: hankki-card-breathe 7s ease-in-out infinite;
+}
+
+.hankki-feature-card:nth-child(2) {
+  animation-delay: -1.5s;
+}
+
+.hankki-feature-card:nth-child(3) {
+  animation-delay: -3s;
+}
+
+.hankki-feature-icon {
+  background: linear-gradient(145deg, rgba(255, 183, 77, 0.76), rgba(216, 67, 21, 0.68));
+}
+
+.hankki-feature-icon--green {
+  background: linear-gradient(145deg, rgba(134, 239, 172, 0.74), rgba(76, 175, 80, 0.68));
+}
+
+.hankki-feature-icon--blue {
+  background: linear-gradient(145deg, rgba(147, 197, 253, 0.74), rgba(33, 150, 243, 0.66));
+}
+
+.hankki-step-card {
+  padding: 1.5rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.56);
+  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 18px 48px rgba(56, 36, 22, 0.08);
+  backdrop-filter: none;
+  animation: hankki-card-breathe 7.5s ease-in-out infinite;
+}
+
+.hankki-step-card:nth-child(2) {
+  animation-delay: -1.8s;
+}
+
+.hankki-step-card:nth-child(3) {
+  animation-delay: -3.4s;
+}
+
+.hankki-step-number--one {
+  background: linear-gradient(145deg, rgba(217, 80, 31, 0.88), rgba(194, 65, 24, 0.78));
+}
+
+.hankki-step-number--two {
+  background: linear-gradient(145deg, rgba(251, 146, 60, 0.9), rgba(245, 158, 11, 0.78));
+}
+
+.hankki-step-number--three {
+  background: linear-gradient(145deg, rgba(74, 222, 128, 0.86), rgba(76, 175, 80, 0.74));
+}
+
+.hankki-step-line {
+  background: linear-gradient(90deg, transparent, rgba(255, 183, 77, 0.62), transparent);
+}
+
+.hankki-cta-section {
+  background: linear-gradient(135deg, #d9501f, #a93616);
+  border-block: 1px solid rgba(154, 52, 18, 0.28);
+  box-shadow: 0 -18px 60px rgba(154, 52, 18, 0.08);
+  backdrop-filter: none;
+}
+
+.hankki-cta-section h2,
+.hankki-cta-section p {
+  color: #ffffff !important;
+  text-shadow: none;
+}
+
+.hankki-cta-button {
+  color: #d9501f !important;
+  background: #ffffff;
+  box-shadow: 0 18px 34px rgba(73, 31, 18, 0.2);
+}
+
+.hankki-footer {
+  color: #4c3a2f;
+  background: #ffffff;
+  border-top: 1px solid rgba(229, 231, 235, 0.85);
+  backdrop-filter: none;
+}
+
+.hankki-footer span,
+.hankki-footer a,
+.hankki-footer div {
+  color: #4c3a2f;
+}
+
+.hankki-footer a:hover {
+  color: #ba4318;
+}
+
+.hankki-home .hankki-cta-section .text-white,
+.hankki-home .hankki-cta-section .text-white\/90 {
+  color: #ffffff !important;
+}
+
+@keyframes hankki-scene-drift {
+  0% {
+    transform: translate3d(-0.18%, -0.12%, 0);
+  }
+
+  100% {
+    transform: translate3d(0.22%, 0.16%, 0);
+  }
+}
+
+@keyframes hankki-branch-sway {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-3deg);
+  }
+
+  45% {
+    transform: translate3d(10px, 4px, 0) rotate(2.2deg);
+  }
+
+  70% {
+    transform: translate3d(4px, -2px, 0) rotate(0.8deg);
+  }
+}
+
+.hankki-branch--right {
+  animation-name: hankki-branch-sway-right;
+}
+
+@keyframes hankki-branch-sway-right {
+  0%,
+  100% {
+    transform: scaleX(-1) translate3d(0, 0, 0) rotate(-4deg);
+  }
+
+  45% {
+    transform: scaleX(-1) translate3d(10px, 4px, 0) rotate(2.2deg);
+  }
+
+  70% {
+    transform: scaleX(-1) translate3d(4px, -2px, 0) rotate(0.8deg);
+  }
+}
+
+@keyframes hankki-cloud-float {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(148vw);
+  }
+}
+
+@keyframes hankki-cloud-slice-drift {
+  0% {
+    transform: translate3d(-10px, 0, 0) scale(0.99);
+  }
+
+  45% {
+    transform: translate3d(22px, 4px, 0) scale(1.015);
+  }
+
+  100% {
+    transform: translate3d(48px, -2px, 0) scale(1.01);
+  }
+}
+
+@keyframes hankki-sky-cloud-cross {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.98);
+  }
+
+  100% {
+    transform: translate3d(150vw, 8px, 0) scale(1.02);
+  }
+}
+
+@keyframes hankki-icon-glow {
+  0%,
+  100% {
+    opacity: 0.24;
+    transform: scale(0.8);
+    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0), 0 0 8px rgba(255, 255, 255, 0.16);
+  }
+
+  42% {
+    opacity: 0.96;
+    transform: scale(1.28);
+    box-shadow: 0 0 0 9px rgba(249, 115, 22, 0.12), 0 0 22px rgba(255, 255, 255, 0.86);
+  }
+
+  68% {
+    opacity: 0.36;
+    transform: scale(0.94);
+  }
+}
+
+@keyframes hankki-domino-dot {
+  0%,
+  100% {
+    background: rgba(245, 158, 11, 0.24);
+    box-shadow: 0 0 0 rgba(255, 255, 255, 0), 0 0 0 rgba(245, 158, 11, 0);
+    transform: scale(0.82);
+  }
+
+  36% {
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.92), 0 0 18px rgba(245, 158, 11, 0.78);
+    transform: scale(1.34);
+  }
+
+  62% {
+    background: rgba(251, 146, 60, 0.38);
+    box-shadow: 0 0 4px rgba(245, 158, 11, 0.18);
+    transform: scale(0.92);
+  }
+}
+
+@keyframes hankki-foliage-sway {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-1deg) scale(1);
+  }
+
+  48% {
+    transform: translate3d(14px, -5px, 0) rotate(2.2deg) scale(1.026);
+  }
+
+  72% {
+    transform: translate3d(5px, 2px, 0) rotate(0.8deg) scale(1.01);
+  }
+}
+
+@keyframes hankki-edge-leaves-sway {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-1.2deg) scale(1);
+  }
+
+  35% {
+    transform: translate3d(12px, 4px, 0) rotate(2.8deg) scale(1.025);
+  }
+
+  68% {
+    transform: translate3d(4px, -3px, 0) rotate(0.7deg) scale(1.01);
+  }
+}
+
+@keyframes hankki-edge-leaves-sway-right {
+  0%,
+  100% {
+    transform: scaleX(-1) translate3d(0, 0, 0) rotate(-1.2deg) scale(1);
+  }
+
+  35% {
+    transform: scaleX(-1) translate3d(12px, 4px, 0) rotate(2.8deg) scale(1.025);
+  }
+
+  68% {
+    transform: scaleX(-1) translate3d(4px, -3px, 0) rotate(0.7deg) scale(1.01);
+  }
+}
+
+@keyframes hankki-people-breathe {
+  0%,
+  100% {
+    opacity: 0.26;
+    transform: translate3d(0, 0, 0) scale(0.96);
+  }
+
+  45% {
+    opacity: 0.62;
+    transform: translate3d(3px, -5px, 0) scale(1.08);
+  }
+
+  70% {
+    opacity: 0.42;
+    transform: translate3d(-2px, -2px, 0) scale(1.02);
+  }
+}
+
+@keyframes hankki-campus-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.34), 0 0 18px rgba(255, 255, 255, 0.42);
+    opacity: 0.82;
+  }
+
+  72% {
+    box-shadow: 0 0 0 18px rgba(249, 115, 22, 0), 0 0 22px rgba(255, 255, 255, 0.48);
+    opacity: 0.42;
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0), 0 0 18px rgba(255, 255, 255, 0.36);
+    opacity: 0.76;
+  }
+}
+
+@keyframes hankki-campus-walk {
+  0% {
+    transform: translate3d(-4px, 2px, 0);
+  }
+
+  50% {
+    transform: translate3d(10px, -7px, 0);
+  }
+
+  100% {
+    transform: translate3d(18px, 4px, 0);
+  }
+}
+
+@keyframes hankki-badge-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-2deg);
+  }
+
+  50% {
+    transform: translate3d(8px, -14px, 0) rotate(5deg);
+  }
+}
+
+@keyframes hankki-badge-sparkle {
+  0%,
+  100% {
+    box-shadow: 0 14px 36px rgba(216, 67, 21, 0.24), 0 0 0 8px rgba(255, 255, 255, 0.16);
+  }
+
+  48% {
+    box-shadow: 0 16px 42px rgba(216, 67, 21, 0.35), 0 0 0 13px rgba(255, 237, 213, 0.28);
+  }
+}
+
+@keyframes hankki-line-pulse {
+  0%,
+  100% {
+    opacity: 0.22;
+    clip-path: inset(0 100% 0 0);
+  }
+
+  42% {
+    opacity: 0.76;
+    clip-path: inset(0 0 0 0);
+  }
+
+  70% {
+    opacity: 0.34;
+    clip-path: inset(0 0 0 100%);
+  }
+}
+
+@keyframes hankki-card-breathe {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes hankki-orb-glow {
+  0%,
+  100% {
+    opacity: 0.38;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.62;
+    transform: scale(1.12);
+  }
+}
+
+@keyframes hankki-sparkle-field {
+  0%,
+  100% {
+    opacity: 0.32;
+    transform: translate3d(0, 0, 0);
+  }
+
+  45% {
+    opacity: 0.76;
+    transform: translate3d(0, -3px, 0);
+  }
+
+  70% {
+    opacity: 0.42;
+  }
+}
+
+@media (max-width: 768px) {
+  .hankki-hero-title {
+    white-space: normal;
+    font-size: clamp(2rem, 9vw, 3rem);
+  }
+
+  .hankki-hero-copy {
+    min-height: auto;
+    width: 100%;
+  }
+
+  .hankki-preview-card {
+    width: 100%;
+    grid-template-columns: 1fr;
+  }
+
+  .hankki-section-title {
+    width: 100%;
+    padding: 1.1rem 1rem;
+  }
+
+  .hankki-fixed-scene__image {
+    inset: 0;
+    background-position: center top;
+    background-size: cover;
+    filter: saturate(1.04) brightness(1.04);
+    animation-duration: 38s;
+  }
+
+  .hankki-branch {
+    width: 52vw;
+    height: 26vw;
+    opacity: 0.3;
+  }
+
+  .hankki-fixed-scene__soften {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 248, 240, 0.08) 48%, rgba(255, 255, 255, 0.22)),
+      radial-gradient(circle at 50% 12%, rgba(255, 237, 213, 0.12), transparent 42%);
+  }
+
+  .hankki-floating-badge {
+    opacity: 0.74;
+  }
+
+  .hankki-cloud-slice,
+  .hankki-sky-cloud {
+    opacity: 0.5;
+  }
+
+  .hankki-domino-trail--one {
+    left: 7%;
+    top: 64%;
+  }
+
+  .hankki-domino-trail--two {
+    left: 38%;
+    top: 70%;
+  }
+
+  .hankki-domino-trail--three,
+  .hankki-people-motion--right {
+    display: none;
+  }
+
+  .hankki-edge-leaves {
+    opacity: 0.34;
+  }
+
+  .hankki-nav-pill {
+    display: none;
+  }
+
+  .hankki-step-card {
+    background: rgba(255, 255, 255, 0.76);
+  }
+
+  .hankki-match-line {
+    opacity: 0.38;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hankki-fixed-scene__image,
+  .hankki-fixed-scene::before,
+  .hankki-cloud,
+  .hankki-cloud-slice,
+  .hankki-sky-cloud,
+  .hankki-branch,
+  .hankki-campus-pulse,
+  .hankki-domino-trail span,
+  .hankki-foliage-sway,
+  .hankki-edge-leaves,
+  .hankki-people-motion,
+  .hankki-floating-badge,
+  .hankki-match-line,
+  .hankki-hero-copy,
+  .hankki-preview-card {
+    animation: none;
+  }
+}

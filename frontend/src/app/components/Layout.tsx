@@ -292,12 +292,12 @@ export default function Layout() {
         />
 
         <header className="sticky top-0 z-50 hidden border-b border-[#e0e0e0] bg-white md:block">
-          <div className="max-w-screen-xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="mx-auto flex h-16 max-w-screen-xl items-center justify-between gap-4 px-4 lg:px-6">
             <Link to="/" className="text-2xl font-bold text-[#d84315]">
               한끼팟
             </Link>
 
-            <nav className="flex items-center gap-8">
+            <nav className="flex min-w-0 items-center gap-4 lg:gap-8">
               <Link
                   to="/posts"
                   onClick={isSuspendedLinkDisabled('/posts') ? handleSuspendedMenuClick : undefined}
@@ -339,7 +339,7 @@ export default function Layout() {
               </Link>
             </nav>
 
-            <div className="flex items-center gap-4">
+            <div className="flex shrink-0 items-center gap-3 lg:gap-4">
               <div className="flex items-center gap-1 bg-[#fff3e0] px-3 py-1.5 rounded-full">
                 <span className="text-[#ef6c00] text-sm">💰</span>
                 <span className="text-[#ef6c00] text-sm font-semibold">
@@ -362,7 +362,7 @@ export default function Layout() {
                 </button>
 
                 {notificationOpen && (
-                    <div className="absolute right-0 top-9 z-50 w-80 overflow-hidden rounded-xl border border-[#e0e0e0] bg-white shadow-xl">
+                    <div className="absolute right-0 top-9 z-50 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[#e0e0e0] bg-white shadow-xl">
                       <div className="flex items-center justify-between border-b border-[#eeeeee] px-4 py-3">
                         <h3 className="text-sm font-bold text-[#212121]">알림</h3>
                         <button
@@ -448,7 +448,7 @@ export default function Layout() {
           </div>
         </header>
 
-        <main className="max-w-screen-lg mx-auto px-4 py-6">
+        <main className="mx-auto w-full max-w-screen-lg px-4 py-6">
           {isSuspended && (
               <div className="mb-5 flex flex-col gap-3 rounded-lg border border-[#ffcc80] bg-[#fff8e1] px-4 py-3 text-sm text-[#5d4037] sm:flex-row sm:items-center sm:justify-between">
                 <span>계정이 정지된 상태입니다. 문의하기를 통해 이의를 제기할 수 있습니다.</span>
