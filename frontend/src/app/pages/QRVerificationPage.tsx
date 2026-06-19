@@ -50,7 +50,7 @@ export default function QRVerificationPage() {
   const [role, setRole] = useState<QrRole | null>(null);
   const [postId, setPostId] = useState<number | null>(postIdFromUrl ? Number(postIdFromUrl) : null);
   const [resolvedMatchId, setResolvedMatchId] = useState(routeMatchId);
-  const [step, setStep] = useState<'display' | 'scan' | 'waiting' | 'success'>('display');
+  const [step, setStep] = useState<'display' | 'scan' | 'success'>('display');
   const [qrToken, setQrToken] = useState('');
   const [qrImageUrl, setQrImageUrl] = useState('');
   const [qrInput, setQrInput] = useState(tokenFromUrl || '');
@@ -234,9 +234,8 @@ export default function QRVerificationPage() {
   }, [timeRemaining]);
 
   useEffect(() => {
-    const shouldPollStatus =
-      !!resolvedMatchId &&
-      ((role === 'author' && !!qrToken) || (role === 'applicant' && step === 'waiting'));
+    // 등록자 화면만 현황을 폴링하고, 신청자는 QR 성공 즉시 내 매칭으로 이동
+    const shouldPollStatus = !!resolvedMatchId && role === 'author' && !!qrToken;
 
     if (!shouldPollStatus) return;
 
@@ -287,8 +286,9 @@ export default function QRVerificationPage() {
     try {
       setLoading(true);
       setScanError('');
+      // 신청자 QR 인증은 단건 완료 처리이므로 대기 화면 없이 내 매칭으로 이동
       await createQrScan(resolvedMatchId, tokenToScan);
-      setStep('waiting');
+      navigate('/matches');
     } catch (err: any) {
       setScanError(err.response?.data?.message || 'QR 인증에 실패했습니다.');
       scannedTokenRef.current = '';
@@ -479,7 +479,7 @@ export default function QRVerificationPage() {
             </>
           )}
 
-          {step === 'waiting' && (
+          {false && (
             <div className="py-8">
               <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#fff3e0]">
                 <Loader2 size={42} className="animate-spin text-[#ef6c00]" />

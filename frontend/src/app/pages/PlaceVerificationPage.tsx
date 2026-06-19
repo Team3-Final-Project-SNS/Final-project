@@ -276,11 +276,12 @@ export default function PlaceVerificationPage() {
     ? Date.now() >= new Date(meetingPlace.meetAt).getTime() + 10 * 60 * 1000
     : false;
 
-  // QR 단계 진입 조건
-  // 등록자: 등록자 GPS 인증을 먼저 완료해야 QR 표시 화면으로 이동 가능
-  // 신청자: 본인 GPS 인증을 먼저 완료해야 QR 스캔 화면으로 이동 가능
-  // QR 단계 자체는 등록자 GPS 인증 완료 또는 만남 시간 10분 경과 시 열리지만, 진입자는 본인 GPS 인증이 선행되어야 한다.
-  const isQrStepOpen = authorVerified || isMeetAfterQrFallbackTime;
+  const allPlaceVerified = authorVerified
+    && verificationParticipants.length > 0
+    && verificationParticipants.every((participant) => participant.verified);
+
+  // QR step opens only after author GPS and either all GPS completion or fallback time.
+  const isQrStepOpen = authorVerified && (allPlaceVerified || isMeetAfterQrFallbackTime);
   const canEnterQrStep = isVerified && isQrStepOpen;
 
   return (
