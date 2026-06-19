@@ -2,6 +2,8 @@ package com.example.team3final.domain.admin.notification.controller;
 
 import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.common.dto.response.CursorResponseDto;
+import com.example.team3final.common.exception.AuthException;
+import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.domain.admin.security.AdminDetailsImpl;
 import com.example.team3final.domain.notification.dto.response.GetNotificationsResponseDto;
 import com.example.team3final.domain.notification.dto.response.GetUnreadCountResponseDto;
@@ -79,6 +81,10 @@ public class AdminNotificationController {
 
     @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribe(@AuthenticationPrincipal AdminDetailsImpl adminDetails) {
+        if (adminDetails == null) {
+            throw new AuthException(ErrorCode.AUTH_INVALID_TOKEN);
+        }
+
         return notificationService.subscribe(
                 NotificationReceiverType.ADMIN,
                 adminDetails.getAdminId()
