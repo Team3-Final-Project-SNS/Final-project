@@ -188,102 +188,71 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
     @Transactional
     public QrScanResponseDto createQrScan(Long userId, Long matchId, QrScanRequestDto requestDto) {
 
-        // matchId로 신청자 본인의 MeetVerification을 조회
-        MeetVerification meetVerification = meetVerificationRepository.findByMatchId(matchId)
-                .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
-
-        // 신청자 검증과 postId 확인을 위해 MatchInfo를 조회
         MatchInfoDto matchInfo = matchInternalService.getMatchInfo(matchId);
         PostInfoDto postInfo = contextReader.loadMeetContext(matchId).postInfo();
 
-        // QR 스캔은 해당 Match의 신청자만 수행할 수 있음
         if (!matchInfo.isApplicant(userId)) {
             throw new MeetException(ErrorCode.SCAN_NOT_APPLICANT);
         }
 
-        // 이미 DONE 상태라면 중복 스캔이므로 차단
+        // 그룹 QR 완료 판정이 엇갈리지 않도록 같은 게시글의 활성 인증 row를 먼저 잠금
+        List<Long> activeMatchIds = contextReader.getActiveMatchIdsByPostId(matchInfo.postId());
+        List<MeetVerification> siblingMvList =
+                meetVerificationRepository.findAllByMatchIdInWithLock(activeMatchIds);
+        MeetVerification meetVerification = siblingMvList.stream()
+                .filter(mv -> mv.getMatchId().equals(matchId))
+                .findFirst()
+                .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
+
         if (meetVerification.getStatus() == VerificationStatus.DONE) {
             throw new MeetException(ErrorCode.GPS_ALREADY_VERIFIED);
         }
 
-        // 신청자 본인의 GPS 장소 인증이 완료되어야 QR 스캔이 가능
-        // QR 단계는 시간 경과로 열릴 수 있지만, 장소 미인증자는 QR 만남 인증 현황과 완료 대상에서 제외
         if (!meetVerification.isApplicantPlaceVerified()) {
             throw new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED);
         }
 
-        // 같은 Post에 발급된 공통 QR 토큰을 가진 MeetVerification을 조회
+        // 공통 QR 토큰 owner가 이미 완료된 match row일 수 있어 게시글 전체에서 토큰을 조회
         MeetVerification tokenOwner = meetQrSupport.getPostQrTokenOwner(matchInfo.postId())
                 .orElseThrow(() -> new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED));
 
-        // QR 만료 여부는 신청자 본인의 MV가 아니라 공통 토큰을 가진 MV 기준으로 판단
         if (tokenOwner.isQrExpired()) {
             throw new MeetException(ErrorCode.QR_EXPIRED);
         }
 
-        // 요청으로 들어온 QR 토큰이 Post 공통 QR 토큰과 일치하는지 검증
         if (!requestDto.getQrToken().equals(tokenOwner.getQrToken())) {
             throw new MeetException(ErrorCode.SCAN_INVALID_QR_TOKEN);
         }
 
-        // 응답에 환급 포인트를 포함해야 하므로 Match 완료 처리 전에 신청자 예치금을 조회
+        // 환급 포인트 응답을 위해 완료 전 신청자 예치금을 보관
         Match match = matchInternalService.getMatchById(matchId);
+        int refundedPoint = match.getApplicantDeposit();
 
-        // 신청자 본인의 MeetVerification만 DONE 상태로 전환
+        // QR 인증 1건은 해당 신청자의 MeetVerification과 Match만 즉시 완료
         meetVerification.meetVerifiedDone();
-
-        // QR 인증이 끝난 신청자의 위치 데이터는 개인정보 최소 수집 원칙에 따라 삭제
         userLocationCleanupService.deleteLocationsByMatchId(matchId);
 
-        List<Long> activeMatchIds = contextReader.getActiveMatchIdsByPostId(matchInfo.postId());
-        List<MeetVerification> siblingMvList = meetVerificationRepository.findAllByMatchIdIn(activeMatchIds);
-        List<MeetVerification> qrTargetMvList = siblingMvList.stream()
-                .filter(MeetVerification::isApplicantPlaceVerified)
-                .toList();
-        boolean allQrCompleted = !qrTargetMvList.isEmpty() && qrTargetMvList.stream()
-                .allMatch(mv -> mv.getStatus() == VerificationStatus.DONE);
+        boolean isLastCompletedMatch = matchLifecycleService.completeSingleMatch(matchId);
 
-        int refundedPoint = 0;
-        MatchStatus responseMatchStatus = match.getStatus();
+        String authorNickname = userInternalService.getUserInfo(postInfo.authorId()).nickname();
+        String applicantNickname = userInternalService.getUserInfo(matchInfo.applicantId()).nickname();
+        notificationPublisher.sendMeetCompleted(matchInfo.applicantId(), matchId, authorNickname);
+        notificationPublisher.sendMeetCompletedForAuthor(postInfo.authorId(), matchId, applicantNickname);
 
-        // 모든 GPS 인증 신청자의 QR 인증이 끝난 시점에만 전체 Match를 완료 처리
-        if (allQrCompleted) {
-            String authorNickname = userInternalService.getUserInfo(postInfo.authorId()).nickname();
-
-            for (MeetVerification qrTargetMv : qrTargetMvList) {
-                Long activeMatchId = qrTargetMv.getMatchId();
-                MatchInfoDto activeMatchInfo = matchInternalService.getMatchInfo(activeMatchId);
-                Match activeMatch = matchInternalService.getMatchById(activeMatchId);
-
-                matchLifecycleService.completeSingleMatch(activeMatchId);
-
-                if (activeMatchId.equals(matchId)) {
-                    refundedPoint = activeMatch.getApplicantDeposit();
-                    responseMatchStatus = MatchStatus.COMPLETED;
-                }
-
-                String activeApplicantNickname = userInternalService.getUserInfo(activeMatchInfo.applicantId()).nickname();
-                notificationPublisher.sendMeetCompleted(activeMatchInfo.applicantId(), activeMatchId, authorNickname);
-                // 등록자는 후기 대상이 아니므로 매칭 상세 이동 알림 발송
-                notificationPublisher.sendMeetCompletedForAuthor(postInfo.authorId(), activeMatchId, activeApplicantNickname);
-            }
-
+        // 모든 활성 match가 끝난 경우에만 게시글 완료와 채팅방 비활성화 예약
+        if (isLastCompletedMatch) {
             matchLifecycleService.completePostIfAllMatchesCompleted(matchInfo.postId());
-
-            // 모든 신청자의 인증이 끝난 뒤 채팅방 비활성화를 예약
             chatInternalService.scheduleChatRoomDeactivation(matchInfo.postId());
         }
 
-        // QR 스캔 완료 응답을 반환
         return QrScanResponseDto.of(
                 matchId,
                 meetVerification,
-                responseMatchStatus,
+                MatchStatus.COMPLETED,
                 refundedPoint
         );
     }
 
-    // 만남 시간 연장 요청
     @Override
     @Transactional
     public CreateMeetExtensionResponseDto createMeetExtension(Long userId, Long matchId) {
