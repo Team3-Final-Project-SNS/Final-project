@@ -82,12 +82,39 @@ public class GlobalExceptionHandler {
                 "Unhandled exception. method={}, uri={}, query={}",
                 request.getMethod(),
                 request.getRequestURI(),
-                request.getQueryString(),
+                maskSensitiveQuery(request.getQueryString()),
                 e
         );
 
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ErrorResponseDto.of("COMMON_500", "서버 내부 오류가 발생했습니다."));
+    }
+
+    private String maskSensitiveQuery(String queryString) {
+        if (queryString == null || queryString.isBlank()) {
+            return queryString;
+        }
+
+        String[] params = queryString.split("&");
+        for (int i = 0; i < params.length; i++) {
+            String param = params[i];
+            int equalsIndex = param.indexOf('=');
+            String key = equalsIndex >= 0 ? param.substring(0, equalsIndex) : param;
+
+            if (isSensitiveQueryKey(key)) {
+                params[i] = key + "=***";
+            }
+        }
+
+        return String.join("&", params);
+    }
+
+    private boolean isSensitiveQueryKey(String key) {
+        String normalizedKey = key.toLowerCase();
+        return normalizedKey.equals("token")
+                || normalizedKey.equals("access_token")
+                || normalizedKey.equals("refresh_token")
+                || normalizedKey.equals("authorization");
     }
 }

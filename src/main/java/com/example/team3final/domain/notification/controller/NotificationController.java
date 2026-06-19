@@ -2,6 +2,8 @@ package com.example.team3final.domain.notification.controller;
 
 import com.example.team3final.common.dto.response.ApiResponseDto;
 import com.example.team3final.common.dto.response.CursorResponseDto;
+import com.example.team3final.common.exception.AuthException;
+import com.example.team3final.common.exception.ErrorCode;
 import com.example.team3final.domain.notification.dto.response.GetNotificationsResponseDto;
 import com.example.team3final.domain.notification.dto.response.GetUnreadCountResponseDto;
 import com.example.team3final.domain.notification.dto.response.UpdateAllNotificationsReadResponseDto;
@@ -67,6 +69,10 @@ public class NotificationController {
     public SseEmitter subscribe(
             @AuthenticationPrincipal UserDetailsImpl userDetails // JWT 토큰에서 인증된 유저 정보
     ) {
+        if (userDetails == null) {
+            throw new AuthException(ErrorCode.AUTH_INVALID_TOKEN);
+        }
+
         Long userId = userDetails.getUserId();
         return notificationService.subscribe(NotificationReceiverType.USER, userId);
     }
