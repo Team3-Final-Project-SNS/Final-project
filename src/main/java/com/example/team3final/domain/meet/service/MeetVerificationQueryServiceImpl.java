@@ -84,19 +84,9 @@ public class MeetVerificationQueryServiceImpl implements MeetVerificationQuerySe
             throw new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED);
         }
 
-        // 같은 Post에 이미 발급된 공통 QR 토큰이 있는지 확인
-        Optional<MeetVerification> tokenOwnerOpt = meetQrSupport.findPostQrTokenOwner(siblingMvList);
-
-        MeetVerification tokenOwner;
-
-        if (tokenOwnerOpt.isPresent()) {
-            // 이미 발급된 공통 QR 토큰이 있다면 그 토큰을 재사용
-            tokenOwner = tokenOwnerOpt.get();
-        } else {
-            // 아직 QR 토큰이 없다면 현재 QR 진입 조건을 만족한 Post의 활성 MeetVerification 전체에 발급
-            tokenOwner = meetQrSupport.issuePostQrTokenIfNeeded(postId, now)
-                    .orElseThrow(() -> new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED));
-        }
+        // 기존 공통 QR 토큰이 있으면 재사용하고, 누락된 활성 MeetVerification에는 같은 토큰과 만료 시각을 채운다.
+        MeetVerification tokenOwner = meetQrSupport.issuePostQrTokenIfNeeded(postId, now)
+                .orElseThrow(() -> new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED));
 
         // 공통 QR 토큰의 만료 여부를 확인
         if (tokenOwner.isQrExpired()) {
