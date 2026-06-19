@@ -504,7 +504,7 @@ function ReviewWriteModal({
 }) {
   return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-        <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+        <div className="w-full max-w-lg rounded-2xl bg-white p-4 shadow-xl sm:p-6">
           <h2 className="text-xl font-bold text-[#212121]">리뷰 작성하기</h2>
           <p className="mt-1 text-sm text-[#757575]">{getDisplayParticipantNames(match).join(', ') || match.opponentNickname}님과의 만남 후기를 남겨주세요.</p>
 
@@ -538,7 +538,7 @@ function ReviewWriteModal({
 
           <p className="mt-4 text-xs text-[#9e9e9e]">좋았던 점과 아쉬웠던 점은 동시에 선택할 수 없습니다.</p>
 
-          <div className="mt-6 flex gap-3">
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <button
                 type="button"
                 onClick={onClose}
@@ -569,7 +569,7 @@ function ReviewViewModal({ review, onClose }: { review: WrittenReview; onClose: 
 
   return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-        <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-xl sm:p-6">
           <div className="mb-4 flex items-center gap-2">
             <Check className="text-[#2e7d32]" size={22} />
             <h2 className="text-xl font-bold text-[#212121]">내가 작성한 리뷰</h2>

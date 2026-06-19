@@ -188,14 +188,14 @@ export default function SignupPage() {
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-[#fff7ed] via-[#f7fbff] to-[#eaf7f1] p-4">
-      <div className="fixed left-8 top-8 z-[100]">
+      <div className="absolute left-4 top-4 z-[100] sm:fixed sm:left-8 sm:top-8">
         <Link to="/" className="flex items-center gap-2 rounded-xl border border-[#e0e0e0] bg-white/70 p-2 shadow-sm backdrop-blur-sm transition-all hover:bg-white">
           <span className="text-3xl">🍚</span>
           <span className="text-2xl font-bold text-[#d84315]">한끼팟</span>
         </Link>
       </div>
 
-      <div className="relative z-10 mt-16 w-full max-w-3xl rounded-lg bg-white p-8 shadow-sm sm:mt-0">
+      <div className="relative z-10 mt-20 w-full max-w-3xl rounded-lg bg-white p-4 shadow-sm sm:mt-0 sm:p-8">
         <StepIndicator step={step} />
 
         {step === 'email' && (
@@ -222,13 +222,13 @@ export default function SignupPage() {
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-[#424242]">학교 이메일</label>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <input
                     type="email"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     placeholder="hong@university.ac.kr"
-                    className="flex-1 rounded-lg border border-[#e0e0e0] px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#d84315]"
+                    className="min-w-0 flex-1 rounded-lg border border-[#e0e0e0] px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#d84315]"
                   />
                   <button
                     type="button"
@@ -252,7 +252,7 @@ export default function SignupPage() {
 
                   <div>
                     <label className="mb-2 block text-sm font-medium text-[#424242]">인증번호</label>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row">
                       <input
                         type="text"
                         value={otp}
@@ -264,7 +264,7 @@ export default function SignupPage() {
                           }
                         }}
                         placeholder="6자리 인증번호 입력"
-                        className="flex-1 rounded-lg border border-[#e0e0e0] px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#d84315]"
+                        className="min-w-0 flex-1 rounded-lg border border-[#e0e0e0] px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#d84315]"
                       />
                       <button
                         type="button"
@@ -292,11 +292,11 @@ export default function SignupPage() {
 
             {error && <ErrorNotice message={error} />}
 
-            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
               <SectionTitle>기본 정보</SectionTitle>
               <TextField label="이름" value={name} onChange={setName} placeholder="홍길동" />
               <TextField label="닉네임" value={nickname} onChange={setNickname} placeholder="길동이" />
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <TextField label="비밀번호" type="password" value={password} onChange={setPassword} placeholder="8~20자 영문, 숫자 조합" />
               </div>
 
@@ -346,7 +346,7 @@ export default function SignupPage() {
               <TextField label="전공" value={major} onChange={setMajor} placeholder="컴퓨터공학과" />
               <TextField label="학번 (입학연도)" value={studentNumber} onChange={setStudentNumber} placeholder="24" />
 
-              <div className="col-span-2 mt-6">
+              <div className="mt-6 sm:col-span-2">
                 <h3 className="mb-4 font-semibold text-[#212121]">약관 동의</h3>
                 <div className="space-y-3 rounded-xl border border-[#f0f0f0] bg-[#fafafa] p-4">
                   <label className="group flex cursor-pointer items-start gap-3 border-b border-[#eeeeee] pb-3">
@@ -416,11 +416,11 @@ export default function SignupPage() {
 
 function StepIndicator({ step }: { step: SignupStep }) {
   return (
-    <div className="mb-12 flex items-center justify-center gap-4">
+    <div className="mb-10 flex items-start justify-center gap-2 sm:mb-12 sm:items-center sm:gap-4">
       <StepDot active={step === 'email'} complete={step !== 'email'} label="이메일 인증" number="1" />
-      <div className="h-0.5 w-16 bg-[#e0e0e0] sm:w-24" />
+      <div className="mt-4 h-0.5 w-8 bg-[#e0e0e0] sm:mt-0 sm:w-24" />
       <StepDot active={step === 'info'} complete={step === 'complete'} label="정보 입력" number="2" muted={step === 'email'} />
-      <div className="h-0.5 w-16 bg-[#e0e0e0] sm:w-24" />
+      <div className="mt-4 h-0.5 w-8 bg-[#e0e0e0] sm:mt-0 sm:w-24" />
       <StepDot active={step === 'complete'} complete={false} label="가입 완료" number="3" muted={step !== 'complete'} />
     </div>
   );
@@ -428,11 +428,11 @@ function StepIndicator({ step }: { step: SignupStep }) {
 
 function StepDot({ active, complete, muted, label, number }: { active: boolean; complete: boolean; muted?: boolean; label: string; number: string }) {
   return (
-    <div className="flex items-center">
+    <div className="flex min-w-0 flex-col items-center text-center sm:flex-row sm:text-left">
       <div className={`flex h-8 w-8 items-center justify-center rounded-full ${active ? 'bg-[#d84315] text-white' : complete ? 'bg-[#4caf50] text-white' : 'bg-[#e0e0e0] text-[#9e9e9e]'}`}>
         {complete ? <Check size={18} /> : number}
       </div>
-      <span className={`ml-2 text-sm font-medium ${muted ? 'text-[#9e9e9e]' : 'text-[#424242]'}`}>{label}</span>
+      <span className={`mt-1 text-xs font-medium sm:ml-2 sm:mt-0 sm:text-sm ${muted ? 'text-[#9e9e9e]' : 'text-[#424242]'}`}>{label}</span>
     </div>
   );
 }
@@ -447,7 +447,7 @@ function ErrorNotice({ message }: { message: string }) {
 }
 
 function SectionTitle({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={`col-span-2 ${className}`}><h3 className="mb-2 font-semibold text-[#212121]">{children}</h3></div>;
+  return <div className={`sm:col-span-2 ${className}`}><h3 className="mb-2 font-semibold text-[#212121]">{children}</h3></div>;
 }
 
 function TextField({ label, type = 'text', value, onChange, placeholder }: { label: string; type?: string; value: string; onChange: (value: string) => void; placeholder: string }) {
@@ -481,7 +481,7 @@ function TermModal({ term, onClose }: { term: (typeof TERM_ITEMS)[number]; onClo
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white/35 p-4 backdrop-blur-sm">
       <div className="flex max-h-[82vh] w-full max-w-2xl flex-col rounded-2xl border border-[#eeeeee] bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-[#eeeeee] px-6 py-5">
+        <div className="flex items-start justify-between gap-4 border-b border-[#eeeeee] px-4 py-4 sm:px-6 sm:py-5">
           <div>
             <p className="text-xs font-bold text-[#d84315]">약관 확인</p>
             <h2 className="mt-1 text-xl font-bold text-[#212121]">{term.title}</h2>
@@ -490,12 +490,12 @@ function TermModal({ term, onClose }: { term: (typeof TERM_ITEMS)[number]; onClo
             <X size={20} />
           </button>
         </div>
-        <div className="overflow-y-auto px-6 py-5">
+        <div className="overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
           <div className="prose prose-sm max-w-none text-[#424242] prose-headings:text-[#212121] prose-strong:text-[#212121]">
             <ReactMarkdown>{term.content}</ReactMarkdown>
           </div>
         </div>
-        <div className="border-t border-[#eeeeee] px-6 py-4">
+        <div className="border-t border-[#eeeeee] px-4 py-4 sm:px-6">
           <button type="button" onClick={onClose} className="w-full rounded-lg bg-[#d84315] py-3 font-bold text-white transition-colors hover:bg-[#bf360c]">
             닫기
           </button>

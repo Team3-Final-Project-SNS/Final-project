@@ -283,7 +283,7 @@ export default function PostCreatePage() {
     }
 
     return (
-        <div className="max-w-2xl mx-auto">
+        <div className="mx-auto w-full max-w-2xl">
             <h1 className="text-3xl font-bold text-[#212121] mb-2 text-center">
                 {isEditMode ? '게시글 수정하기' : '밥 같이 먹을 사람 구하기 🍚'}
             </h1>
@@ -291,7 +291,7 @@ export default function PostCreatePage() {
                 {isEditMode ? '변경할 내용을 수정한 뒤 저장해주세요' : '간단한 정보만 입력하면 매칭이 시작됩니다'}
             </p>
 
-            <form onSubmit={handleSubmit} className="bg-white border border-[#e0e0e0] rounded-2xl p-8 shadow-sm">
+            <form onSubmit={handleSubmit} className="rounded-2xl border border-[#e0e0e0] bg-white p-4 shadow-sm sm:p-8">
                 {error && (
                     <div className="mb-6 bg-[#ffebee] border border-[#ef5350] rounded-lg px-4 py-3 flex items-start gap-2">
                         <AlertCircle size={18} className="text-[#c62828] mt-0.5" />
@@ -308,8 +308,8 @@ export default function PostCreatePage() {
                             <label className="block text-sm font-medium text-[#424242] mb-2">
                                 만남 장소
                             </label>
-                            <div className="flex gap-2">
-                                <div className="relative flex-1">
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                                <div className="relative min-w-0 flex-1">
                                     <input
                                         type="text"
                                         value={searchKeyword}
@@ -388,7 +388,7 @@ export default function PostCreatePage() {
                         </div>
 
                         {/* 날짜/시간 */}
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
                                 <label className="block text-sm font-medium text-[#424242] mb-2">날짜</label>
                                 <input
@@ -399,7 +399,7 @@ export default function PostCreatePage() {
                                     className="w-full px-4 py-3 border border-[#e0e0e0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#d84315] focus:border-transparent"
                                     required
                                 />
-                                <div className="mt-2 flex gap-2">
+                                <div className="mt-2 flex flex-wrap gap-2">
                                     {[
                                         { label: '오늘', offset: 0 },
                                         { label: '내일', offset: 1 },
@@ -522,7 +522,7 @@ export default function PostCreatePage() {
                             신청자가 있는 게시글은 책임비를 변경할 수 없습니다. 시간과 장소는 수정할 수 있습니다.
                         </p>
                     )}
-                    <div className="flex gap-2 flex-wrap mb-4">
+                    <div className="mb-4 flex flex-wrap gap-2">
                         {pointOptions.map((option) => (
                             <button
                                 key={option}
@@ -545,7 +545,7 @@ export default function PostCreatePage() {
                             value={points}
                             disabled={isDepositLocked}
                             onChange={(e) => handlePointInputChange(e.target.value)}
-                            className="px-4 py-3 border border-[#e0e0e0] rounded-lg w-32 focus:outline-none focus:ring-2 focus:ring-[#d84315]"
+                            className="w-full rounded-lg border border-[#e0e0e0] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#d84315] sm:w-32"
                         />
                         <div className="flex overflow-hidden rounded-lg border border-[#e0e0e0] bg-white">
                             <button

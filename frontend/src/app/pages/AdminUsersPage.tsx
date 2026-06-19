@@ -190,7 +190,8 @@ export default function AdminUsersPage() {
           유저 목록을 불러오는 중...
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-[#e0e0e0] bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-2xl border border-[#e0e0e0] bg-white shadow-sm">
+          <div className="min-w-[940px]">
           <div className="grid grid-cols-[0.35fr_1.2fr_1fr_1fr_0.8fr_0.8fr_0.8fr_0.9fr] gap-3 border-b border-[#eeeeee] bg-[#fafafa] px-5 py-3 text-xs font-bold text-[#757575]">
             <span className="text-center">번호</span>
             <span>유저</span>
@@ -254,6 +255,7 @@ export default function AdminUsersPage() {
               조건에 맞는 유저가 없습니다.
             </div>
           )}
+          </div>
         </div>
       )}
     </AdminPageShell>

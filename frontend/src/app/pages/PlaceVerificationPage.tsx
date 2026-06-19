@@ -285,7 +285,7 @@ export default function PlaceVerificationPage() {
   const canEnterQrStep = isVerified && isQrStepOpen;
 
   return (
-    <div className="mx-auto max-w-2xl p-4">
+    <div className="mx-auto w-full max-w-2xl p-0 sm:p-4">
       <button
         type="button"
         onClick={handleBackToChat}
@@ -295,7 +295,7 @@ export default function PlaceVerificationPage() {
         채팅방으로 돌아가기
       </button>
 
-      <div className="rounded-2xl bg-white p-8 shadow-lg">
+      <div className="rounded-2xl bg-white p-4 shadow-lg sm:p-8">
         <div className="mb-6 text-center">
           <div className="mb-3 flex items-center justify-center gap-2">
             <MapPin size={24} className="text-[#d84315]" />
@@ -312,13 +312,13 @@ export default function PlaceVerificationPage() {
         </div>
 
         {kakaoMapAvailable ? (
-          <div ref={mapContainerRef} className="mb-3 h-64 w-full overflow-hidden rounded-2xl border-2 border-[#e0e0e0]" />
+          <div ref={mapContainerRef} className="mb-3 h-56 w-full overflow-hidden rounded-2xl border-2 border-[#e0e0e0] sm:h-64" />
         ) : (
           <div className="relative mb-6 rounded-2xl border-2 border-[#e0e0e0] bg-[#fafafa] p-8">
             <div className="mb-4 rounded-lg border border-[#ff9800] bg-[#fff3e0] px-3 py-2 text-center">
               <p className="text-xs text-[#e65100]">지도를 불러오지 못했습니다. 거리 기반 인증은 정상 작동합니다.</p>
             </div>
-            <div className="flex h-48 items-center justify-center">
+            <div className="flex h-40 items-center justify-center sm:h-48">
               <div className="text-center">
                 <Navigation size={40} className="mx-auto mb-2 animate-pulse text-[#d84315]" />
                 <p className="text-xs text-[#9e9e9e]">실시간 위치 추적 중</p>
@@ -329,11 +329,11 @@ export default function PlaceVerificationPage() {
 
         {distance !== null && (
           <div className="mb-6">
-            <div className="mb-3 flex items-center justify-center gap-5 text-xs font-semibold text-[#616161]">
+            <div className="mb-3 flex flex-wrap items-center justify-center gap-3 text-xs font-semibold text-[#616161] sm:gap-5">
               <LegendDot color="#4f7df3" label="나" />
               <LegendDot color="#ff8a3d" label="상대방" />
             </div>
-            <div className="mb-2 flex items-center justify-between">
+            <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm text-[#616161]">현재 거리</span>
               <span className={`text-lg font-bold ${isWithinRange ? 'text-[#4caf50]' : 'text-[#ef5350]'}`}>
                 {distance.toFixed(1)}m / {USER_VISIBLE_RADIUS_METERS}m

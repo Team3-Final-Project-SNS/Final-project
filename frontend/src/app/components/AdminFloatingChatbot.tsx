@@ -284,7 +284,7 @@ export default function AdminFloatingChatbot({
                 ))}
               </div>
 
-              <form onSubmit={handleSubmit} className="mt-5 flex gap-3">
+              <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-3 sm:flex-row">
                 <input
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
@@ -295,7 +295,7 @@ export default function AdminFloatingChatbot({
                 <button
                   type="submit"
                   disabled={isSending}
-                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#ff7043] text-white transition-colors hover:bg-[#d84315]"
+                  className="flex h-14 w-full shrink-0 items-center justify-center rounded-2xl bg-[#ff7043] text-white transition-colors hover:bg-[#d84315] sm:w-14"
                   aria-label="메시지 전송"
                 >
                   {isSending ? <Loader2 className="animate-spin" size={24} /> : <Send size={24} />}

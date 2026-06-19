@@ -302,7 +302,7 @@ function DetailItem({
   value: string;
 }) {
   return (
-      <div className="flex gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#fff3e0]">
           <Icon size={17} className="text-[#d84315]" />
         </div>

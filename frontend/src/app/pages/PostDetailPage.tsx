@@ -189,10 +189,10 @@ export default function PostDetailPage() {
             </div>
         )}
 
-        <div className="bg-white border border-[#e0e0e0] rounded-2xl p-8 shadow-sm">
+        <div className="bg-white border border-[#e0e0e0] rounded-2xl p-4 shadow-sm sm:p-8">
           <p className="mb-2 text-sm font-semibold text-[#757575]">게시글 #{post.postId}</p>
 
-          <div className="flex items-start justify-between mb-4">
+          <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-start sm:justify-between">
           <span
               className={`px-3 py-1 rounded text-xs font-semibold ${
                   post.status === 'OPEN'
@@ -290,7 +290,7 @@ export default function PostDetailPage() {
           )}
 
           {post.isMine && post.status === 'OPEN' && (
-              <div className="flex gap-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
                   <button 
                     onClick={() => navigate(`/posts/${id}/edit`)}
                     className="flex-1 py-3 border border-[#e0e0e0] rounded-xl font-semibold text-[#616161] hover:bg-[#f5f5f5]"
@@ -322,7 +322,7 @@ export default function PostDetailPage() {
                   정말 신청하시겠습니까? {post.authorDeposit.toLocaleString()}P가 예치되며, 만남 완료 시 반환됩니다.
                 </p>
 
-                <div className="flex gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row">
                   <button
                       onClick={() => setShowMatchModal(false)}
                       disabled={matchLoading}
@@ -378,7 +378,7 @@ export default function PostDetailPage() {
                   <p className="mt-1 text-right text-xs text-[#9e9e9e]">{reportDetail.length}/500</p>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row">
                   <button
                       type="button"
                       onClick={() => setShowReportModal(false)}

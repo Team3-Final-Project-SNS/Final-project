@@ -210,8 +210,8 @@ export default function PaymentPage() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <section className="rounded-2xl border border-[#e0e0e0] bg-white p-8 shadow-sm">
+    <div className="mx-auto w-full max-w-5xl space-y-6">
+      <section className="rounded-2xl border border-[#e0e0e0] bg-white p-4 shadow-sm sm:p-8">
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#fff3e0]">
@@ -225,7 +225,7 @@ export default function PaymentPage() {
           <button
             type="button"
             onClick={loadPayments}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#e0e0e0] bg-white px-4 text-sm font-bold text-[#424242] transition hover:border-[#d84315] hover:text-[#d84315]"
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-[#e0e0e0] bg-white px-4 text-sm font-bold text-[#424242] transition hover:border-[#d84315] hover:text-[#d84315] sm:w-auto"
           >
             <RotateCcw size={17} />
             내역 새로고침
@@ -271,7 +271,7 @@ export default function PaymentPage() {
 
             <div className="mt-5">
               <p className="text-sm font-bold text-[#424242]">결제 수단</p>
-              <div className="mt-2 grid grid-cols-2 gap-3">
+              <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {payMethods.map((method) => {
                   const isSelected = payMethod === method.value;
 
@@ -425,7 +425,7 @@ function PaymentHistoryItem({
         </p>
       </div>
 
-      <div className="flex items-center gap-3 sm:justify-end">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
         <div className="text-left sm:text-right">
           <p className="text-lg font-extrabold text-[#d84315]">{payment.amount.toLocaleString()}원</p>
           <p className="mt-1 text-xs font-semibold text-[#9e9e9e]">
@@ -448,9 +448,9 @@ function PaymentHistoryItem({
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between gap-4 py-1">
+    <div className="flex flex-col gap-1 py-1 sm:flex-row sm:justify-between sm:gap-4">
       <span className="font-bold text-[#757575]">{label}</span>
-      <span className="break-all text-right font-semibold text-[#212121]">{value}</span>
+      <span className="break-all font-semibold text-[#212121] sm:text-right">{value}</span>
     </div>
   );
 }

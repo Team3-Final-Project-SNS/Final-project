@@ -419,8 +419,8 @@ export default function QRVerificationPage() {
 
   if (role === 'applicant') {
     return (
-      <div className="mx-auto max-w-2xl">
-        <div className="rounded-2xl bg-white p-8 shadow-lg">
+      <div className="mx-auto w-full max-w-2xl">
+        <div className="rounded-2xl bg-white p-4 shadow-lg sm:p-8">
           {step === 'scan' && (
             <>
               <h1 className="mb-2 text-center text-2xl font-bold text-[#212121]">QR 코드 인증</h1>
@@ -447,13 +447,13 @@ export default function QRVerificationPage() {
 
               <div className="mb-6 text-center">
                 <p className="mb-3 text-sm text-[#9e9e9e]">인증번호 직접 입력</p>
-                <div className="mx-auto flex max-w-md gap-2">
+                <div className="mx-auto flex max-w-md flex-col gap-2 sm:flex-row">
                   <input
                     type="text"
                     value={qrInput}
                     onChange={(event) => setQrInput(event.target.value)}
                     placeholder="hp_qr_..."
-                    className="flex-1 rounded-lg border border-[#e0e0e0] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#d84315]"
+                    className="min-w-0 flex-1 rounded-lg border border-[#e0e0e0] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#d84315]"
                   />
                   <button
                     type="button"
@@ -496,7 +496,7 @@ export default function QRVerificationPage() {
                     verificationParticipants.map((participant) => {
                       const badge = getParticipantBadge(participant);
                       return (
-                        <div key={participant.matchId} className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+                        <div key={participant.matchId} className="flex flex-col gap-2 rounded-lg bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
                           <div>
                             <p className="text-sm font-semibold text-[#212121]">{participant.nickname || '알 수 없음'}</p>
                             <p className="text-xs text-[#9e9e9e]">신청자 · matchId {participant.matchId}</p>
@@ -536,8 +536,8 @@ export default function QRVerificationPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <div className="rounded-2xl bg-white p-8 shadow-lg">
+    <div className="mx-auto w-full max-w-2xl">
+      <div className="rounded-2xl bg-white p-4 shadow-lg sm:p-8">
         <h1 className="mb-2 text-center text-2xl font-bold text-[#212121]">QR 코드 표시</h1>
         <p className="mb-8 text-center text-[#616161]">
           신청자에게 QR 코드를 보여주세요.
@@ -554,7 +554,7 @@ export default function QRVerificationPage() {
           <>
             <div className="mb-6 flex justify-center">
               {qrImageUrl ? (
-                <img src={qrImageUrl} alt="만남 인증 QR 코드" className="rounded-xl border border-[#e0e0e0]" />
+                <img src={qrImageUrl} alt="만남 인증 QR 코드" className="w-full max-w-64 rounded-xl border border-[#e0e0e0]" />
               ) : (
                 <div className="flex h-64 w-64 items-center justify-center rounded-xl bg-[#f5f5f5]">
                   <p className="text-sm text-[#9e9e9e]">QR 생성 중...</p>
@@ -577,7 +577,7 @@ export default function QRVerificationPage() {
                   verificationParticipants.filter(isQrParticipant).map((participant) => {
                     const badge = getParticipantBadge(participant);
                     return (
-                      <div key={participant.matchId} className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+                      <div key={participant.matchId} className="flex flex-col gap-2 rounded-lg bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <p className="text-sm font-semibold text-[#212121]">{participant.nickname || '알 수 없음'}</p>
                           <p className="text-xs text-[#9e9e9e]">신청자 · matchId {participant.matchId}</p>
