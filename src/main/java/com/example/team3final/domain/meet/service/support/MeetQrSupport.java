@@ -20,23 +20,20 @@ public class MeetQrSupport {
     private final MatchInternalService matchInternalService;
 
     // QR 토큰 발급 — 중복 발급 방지 포함
-    // 레거시 호출용: 별도 만료 시각이 없으면 현재 시각 기준 10분 뒤를 사용
+    // 호출자가 별도 발급 시각을 넘기지 않으면 현재 시각을 기준으로 만료 시각을 계산
     public void issueQrTokenIfNeeded(MeetVerification meetVerification, Long postId) {
-        issuePostQrTokenIfNeeded(
-                postId,
-                LocalDateTime.now().plusMinutes(MeetVerificationPolicy.QR_TOKEN_VALIDITY_MINUTES)
-        );
+        issuePostQrTokenIfNeeded(postId, LocalDateTime.now());
     }
 
-    // QR 토큰 발급 — 만료 시각 지정 가능
+    // QR 토큰 발급 — 발급 시각 지정 가능
     // 같은 Post에 속한 모든 신청자는 하나의 QR을 공유하므로, 이미 발급된 토큰이 있으면 재사용
-    public void issueQrTokenIfNeeded(MeetVerification meetVerification, Long postId, LocalDateTime qrExpiresAt) {
-        issuePostQrTokenIfNeeded(postId, qrExpiresAt);
+    public void issueQrTokenIfNeeded(MeetVerification meetVerification, Long postId, LocalDateTime issuedAt) {
+        issuePostQrTokenIfNeeded(postId, issuedAt);
     }
 
     // Post 공통 QR 토큰 발급
     // QR 자체는 하나만 공유하지만, QR 노쇼 판정을 위해 활성 MeetVerification 전체에 만료 시각을 기록한다.
-    public Optional<MeetVerification> issuePostQrTokenIfNeeded(Long postId, LocalDateTime qrExpiresAt) {
+    public Optional<MeetVerification> issuePostQrTokenIfNeeded(Long postId, LocalDateTime issuedAt) {
         List<Long> allMatchIds = matchInternalService.getMatchIdsByPostId(postId);
         if (allMatchIds.isEmpty()) {
             return Optional.empty();
@@ -52,7 +49,7 @@ public class MeetQrSupport {
 
         LocalDateTime expiresAt = existingOwner
                 .map(MeetVerification::getQrExpiresAt)
-                .orElse(qrExpiresAt);
+                .orElseGet(() -> issuedAt.plusMinutes(MeetVerificationPolicy.QR_TOKEN_VALIDITY_MINUTES));
 
         List<Long> activeMatchIds = matchInternalService.getActiveMatchIdsByPostId(postId);
 
