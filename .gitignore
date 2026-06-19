@@ -54,4 +54,4 @@ outputs/
 logs/
 
 # 프론트엔드 빌드 결과물
-frontend/dist/
+frontend/dist/src/main/resources/application-prod.yml
