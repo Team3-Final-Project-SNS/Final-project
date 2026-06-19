@@ -12,6 +12,7 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @Slf4j
@@ -73,6 +74,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(ErrorResponseDto.of("COMMON_004", "요청 본문을 읽을 수 없습니다. JSON 형식을 확인하세요."));
+    }
+
+    // SSE 연결 타임아웃은 정상 종료 흐름이므로 500 응답으로 처리하지 않는다.
+    @ExceptionHandler(AsyncRequestTimeoutException.class)
+    public void handleAsyncRequestTimeoutException(AsyncRequestTimeoutException e) {
+        log.debug("[SSE] 비동기 요청 타임아웃 - 정상 종료");
     }
 
     // 예상치 못한 서버 에러
