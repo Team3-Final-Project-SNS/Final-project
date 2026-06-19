@@ -1,4 +1,8 @@
 spring:
+  mvc:
+    async:
+      request-timeout: -1
+
   autoconfigure:
     exclude: org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreAutoConfiguration
 
