@@ -177,7 +177,10 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
             return;
         }
 
-        meetQrSupport.issuePostQrTokenIfNeeded(postId, now);
+        LocalDateTime qrExpiresAt = effectiveMeetAt.plusMinutes(
+                MeetVerificationPolicy.NO_SHOW_JUDGE_MINUTES
+        );
+        meetQrSupport.issuePostQrTokenIfNeeded(postId, qrExpiresAt);
     }
 
     // QR 스캔 (신청자 전용)

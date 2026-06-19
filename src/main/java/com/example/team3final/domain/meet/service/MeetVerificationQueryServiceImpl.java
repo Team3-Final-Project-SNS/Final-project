@@ -84,8 +84,12 @@ public class MeetVerificationQueryServiceImpl implements MeetVerificationQuerySe
             throw new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED);
         }
 
+        LocalDateTime qrExpiresAt = effectiveMeetAt.plusMinutes(
+                MeetVerificationPolicy.NO_SHOW_JUDGE_MINUTES
+        );
+
         // 기존 공통 QR 토큰이 있으면 재사용하고, 누락된 활성 MeetVerification에는 같은 토큰과 만료 시각을 채운다.
-        MeetVerification tokenOwner = meetQrSupport.issuePostQrTokenIfNeeded(postId, now)
+        MeetVerification tokenOwner = meetQrSupport.issuePostQrTokenIfNeeded(postId, qrExpiresAt)
                 .orElseThrow(() -> new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED));
 
         // 공통 QR 토큰의 만료 여부를 확인
