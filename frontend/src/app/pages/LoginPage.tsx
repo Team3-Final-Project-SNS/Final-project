@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Coffee, MessageCircle, Utensils, Users } from 'lucide-react';
 import { login } from '@/api/authApi';
 import { getUserMe } from '@/api/userApi';
 import { clearAccessToken, markLoginRestoreHint, setAccessToken } from '@/api/axiosInstance';
@@ -59,16 +59,30 @@ export default function LoginPage() {
             className="absolute inset-0 hidden h-full w-full object-cover object-center lg:block"
         />
         <div className="absolute inset-0 hidden bg-[linear-gradient(90deg,rgba(255,255,255,0.02)_0%,rgba(255,255,255,0.08)_44%,rgba(255,255,255,0.38)_58%,rgba(255,255,255,0.76)_100%)] lg:block" />
+        <div className="pointer-events-none absolute inset-0 hidden lg:block" aria-hidden="true">
+          <div className="hankki-floating-badge left-[7%] top-[22%] delay-0">
+            <Utensils size={22} />
+          </div>
+          <div className="hankki-floating-badge left-[27%] top-[45%] delay-700">
+            <Users size={22} />
+          </div>
+          <div className="hankki-floating-badge left-[44%] top-[68%] delay-300">
+            <Coffee size={22} />
+          </div>
+          <div className="hankki-floating-badge left-[51%] top-[32%] delay-1000">
+            <MessageCircle size={22} />
+          </div>
+        </div>
 
         <div className="absolute right-[calc(40%+1.5rem)] top-[clamp(1.25rem,5.2vh,4.75rem)] z-10 hidden w-[min(24vw,330px)] flex-col items-end text-right lg:flex">
-          <h1 className="mb-2 text-[clamp(2.25rem,3.2vw,3.8rem)] font-bold leading-none text-[#d84315] drop-shadow-[0_2px_8px_rgba(255,255,255,0.9)]">한끼팟</h1>
+          <h1 className="mb-2 text-[clamp(2.25rem,3.2vw,3.8rem)] font-[850] leading-none tracking-normal text-[#b84319] drop-shadow-[0_2px_14px_rgba(255,255,255,0.8)]">한끼팟</h1>
           <p className="whitespace-nowrap text-[clamp(0.78rem,0.9vw,1rem)] font-bold leading-tight text-[#212121] drop-shadow-[0_2px_8px_rgba(255,255,255,0.92)]">학교 친구와 함께하는 한 끼 식사 매칭 서비스</p>
         </div>
 
         <div className="relative z-10 ml-auto flex w-full items-center justify-center bg-white px-5 py-8 sm:px-8 lg:min-h-[100dvh] lg:w-[40%] lg:border-l lg:border-white/70 lg:bg-white/92 lg:p-12 lg:shadow-[-24px_0_70px_rgba(74,49,30,0.13)] lg:backdrop-blur-md">
           <div className="w-full max-w-[420px]">
             <div className="mb-8 rounded-2xl bg-[#212121] px-5 py-6 text-center shadow-sm lg:hidden">
-              <h1 className="mb-2 text-3xl font-bold text-[#d84315]">한끼팟</h1>
+              <h1 className="mb-2 text-3xl font-[850] tracking-normal text-[#b84319]">한끼팟</h1>
               <p className="text-sm font-semibold text-[#eeeeee]">학교 친구와 함께하는 한 끼 식사 매칭 서비스</p>
             </div>
 

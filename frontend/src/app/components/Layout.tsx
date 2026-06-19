@@ -291,18 +291,23 @@ export default function Layout() {
             onSuspendedMenuClick={() => toast.warning(suspendedToastMessage)}
         />
 
-        <header className="sticky top-0 z-50 hidden border-b border-[#e0e0e0] bg-white md:block">
-          <div className="mx-auto flex h-16 max-w-screen-xl items-center justify-between gap-4 px-4 lg:px-6">
-            <Link to="/" className="text-2xl font-bold text-[#d84315]">
-              한끼팟
+        <header className="sticky top-0 z-50 hidden border-b border-white/25 bg-white/88 shadow-sm shadow-[#f97316]/5 md:block">
+          <div className="mx-auto grid h-20 max-w-screen-xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-5 px-4 lg:px-6">
+            <Link to="/" className="hankki-logo shrink-0">
+              <span className="hankki-logo-mark" aria-hidden="true">
+                <span className="hankki-logo-steam hankki-logo-steam-one" />
+                <span className="hankki-logo-steam hankki-logo-steam-two" />
+                <span className="hankki-logo-bowl" />
+              </span>
+              <span className="hankki-logo-text">한끼팟</span>
             </Link>
 
-            <nav className="flex min-w-0 items-center gap-4 lg:gap-8">
+            <nav className="hankki-nav-pill flex min-w-0 items-center justify-self-center">
               <Link
                   to="/posts"
                   onClick={isSuspendedLinkDisabled('/posts') ? handleSuspendedMenuClick : undefined}
                   aria-disabled={isSuspendedLinkDisabled('/posts')}
-                  className={`text-sm ${isActive('/posts') ? 'text-[#d84315] font-semibold' : 'text-[#424242]'} ${getSuspendedLinkClass('/posts')}`}
+                  className={`hankki-nav-link text-sm ${isActive('/posts') ? 'bg-[#fff7ed]/70 text-[#ba4318] shadow-[0_8px_18px_rgba(194,65,24,0.12)]' : ''} ${getSuspendedLinkClass('/posts')}`}
               >
                 게시글
               </Link>
@@ -310,7 +315,7 @@ export default function Layout() {
                   to="/matches"
                   onClick={isSuspendedLinkDisabled('/matches') ? handleSuspendedMenuClick : undefined}
                   aria-disabled={isSuspendedLinkDisabled('/matches')}
-                  className={`text-sm ${isActive('/matches') ? 'text-[#d84315] font-semibold' : 'text-[#424242]'} ${getSuspendedLinkClass('/matches')}`}
+                  className={`hankki-nav-link text-sm ${isActive('/matches') ? 'bg-[#fff7ed]/70 text-[#ba4318] shadow-[0_8px_18px_rgba(194,65,24,0.12)]' : ''} ${getSuspendedLinkClass('/matches')}`}
               >
                 매칭
               </Link>
@@ -318,13 +323,13 @@ export default function Layout() {
                   to="/payments"
                   onClick={isSuspendedLinkDisabled('/payments') ? handleSuspendedMenuClick : undefined}
                   aria-disabled={isSuspendedLinkDisabled('/payments')}
-                  className={`text-sm ${isActive('/payments') ? 'text-[#d84315] font-semibold' : 'text-[#424242]'} ${getSuspendedLinkClass('/payments')}`}
+                  className={`hankki-nav-link text-sm ${isActive('/payments') ? 'bg-[#fff7ed]/70 text-[#ba4318] shadow-[0_8px_18px_rgba(194,65,24,0.12)]' : ''} ${getSuspendedLinkClass('/payments')}`}
               >
                 결제
               </Link>
               <Link
                   to="/me/support"
-                  className={`text-sm ${isActive('/me/support') || isActive('/me/inquiries') ? 'text-[#d84315] font-semibold' : 'text-[#424242]'}`}
+                  className={`hankki-nav-link text-sm ${isActive('/me/support') || isActive('/me/inquiries') || isActive('/faq') ? 'bg-[#fff7ed]/70 text-[#ba4318] shadow-[0_8px_18px_rgba(194,65,24,0.12)]' : ''}`}
               >
                 고객센터
               </Link>
@@ -332,7 +337,7 @@ export default function Layout() {
                   to="/ai/matching"
                   onClick={isSuspendedLinkDisabled('/ai/matching') ? handleSuspendedMenuClick : undefined}
                   aria-disabled={isSuspendedLinkDisabled('/ai/matching')}
-                  className={`flex items-center gap-1 text-sm ${isActive('/ai/matching') ? 'text-[#d84315] font-semibold' : 'text-[#424242]'} ${getSuspendedLinkClass('/ai/matching')}`}
+                  className={`hankki-nav-link flex items-center gap-1 text-sm ${isActive('/ai/matching') ? 'bg-[#fff7ed]/70 text-[#ba4318] shadow-[0_8px_18px_rgba(194,65,24,0.12)]' : ''} ${getSuspendedLinkClass('/ai/matching')}`}
               >
                 <Sparkles size={15} />
                 AI 추천
@@ -340,7 +345,7 @@ export default function Layout() {
             </nav>
 
             <div className="flex shrink-0 items-center gap-3 lg:gap-4">
-              <div className="flex items-center gap-1 bg-[#fff3e0] px-3 py-1.5 rounded-full">
+              <div className="hankki-point-chip flex items-center gap-1 rounded-full px-3 py-1.5">
                 <span className="text-[#ef6c00] text-sm">💰</span>
                 <span className="text-[#ef6c00] text-sm font-semibold">
                   {point === null ? '-' : `${point.toLocaleString()}P`}
@@ -433,14 +438,14 @@ export default function Layout() {
                   to="/me"
                   title="내 정보 보기"
                   aria-label="내 정보 보기"
-                  className="w-8 h-8 bg-[#e0e0e0] rounded-full flex items-center justify-center"
+                  className="hankki-profile-button flex h-8 w-8 items-center justify-center rounded-full"
               >
                 <User size={18} className="text-[#616161]" />
               </Link>
               <button
                   type="button"
                   onClick={handleLogout}
-                  className="text-xs text-[#9e9e9e] hover:text-[#d84315]"
+                  className="hankki-login-link px-3 py-2 text-xs font-semibold transition-colors"
               >
                 로그아웃
               </button>

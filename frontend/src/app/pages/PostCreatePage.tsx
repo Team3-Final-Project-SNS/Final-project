@@ -285,7 +285,7 @@ export default function PostCreatePage() {
     return (
         <div className="mx-auto w-full max-w-2xl">
             <h1 className="text-3xl font-bold text-[#212121] mb-2 text-center">
-                {isEditMode ? '게시글 수정하기' : '밥 같이 먹을 사람 구하기 🍚'}
+                {isEditMode ? '게시글 수정하기' : '밥 같이 먹을 사람 구하기'}
             </h1>
             <p className="text-center text-[#616161] mb-8">
                 {isEditMode ? '변경할 내용을 수정한 뒤 저장해주세요' : '간단한 정보만 입력하면 매칭이 시작됩니다'}

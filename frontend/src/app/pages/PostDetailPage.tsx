@@ -192,9 +192,9 @@ export default function PostDetailPage() {
         <div className="bg-white border border-[#e0e0e0] rounded-2xl p-4 shadow-sm sm:p-8">
           <p className="mb-2 text-sm font-semibold text-[#757575]">게시글 #{post.postId}</p>
 
-          <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <span
-              className={`px-3 py-1 rounded text-xs font-semibold ${
+              className={`inline-flex w-fit shrink-0 items-center rounded px-3 py-1 text-xs font-semibold ${
                   post.status === 'OPEN'
                       ? 'bg-[#4caf50] text-white'
                       : 'bg-[#ff9800] text-white'
