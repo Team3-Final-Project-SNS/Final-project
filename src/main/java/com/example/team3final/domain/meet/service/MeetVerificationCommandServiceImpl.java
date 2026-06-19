@@ -177,10 +177,7 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
             return;
         }
 
-        siblingMvList.stream()
-                .filter(MeetVerification::isAuthorPlaceVerified)
-                .findFirst()
-                .ifPresent(mv -> meetQrSupport.issueQrTokenIfNeeded(mv, postId, now));
+        meetQrSupport.issuePostQrTokenIfNeeded(postId, now);
     }
 
     // QR 스캔 (신청자 전용)
