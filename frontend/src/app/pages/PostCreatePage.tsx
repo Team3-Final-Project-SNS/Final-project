@@ -44,6 +44,7 @@ const hourOptions = Array.from({ length: 24 }, (_, index) => String(index).padSt
 const minuteOptions = ['00', '10', '20', '30', '40', '50'];
 const MIN_DEPOSIT = 200;
 const DEPOSIT_STEP = 100;
+const PLACE_SEARCH_TIMEOUT_MS = 8000;
 
 export default function PostCreatePage() {
     const navigate = useNavigate();
@@ -139,12 +140,25 @@ export default function PostCreatePage() {
             return;
         }
 
+        if (!window.kakao.maps?.services?.Places) {
+            setError('장소 검색 서비스를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+            return;
+        }
+
         setSearchLoading(true);
         setSearchResults([]);
 
         // autoload=true라서 load() 없이 바로 services 사용 가능
         const places = new window.kakao.maps.services.Places();
-        places.keywordSearch(searchKeyword, (result: KakaoPlace[], status: string) => {
+        const searchTimeoutId = window.setTimeout(() => {
+            setSearchLoading(false);
+            setSearchResults([]);
+            setShowResults(true);
+            setError('장소 검색 요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.');
+        }, PLACE_SEARCH_TIMEOUT_MS);
+
+        places.keywordSearch(searchKeyword.trim(), (result: KakaoPlace[], status: string) => {
+            window.clearTimeout(searchTimeoutId);
             setSearchLoading(false);
             if (status === window.kakao.maps.services.Status.OK) {
                 setSearchResults(result.slice(0, 5));
