@@ -57,6 +57,7 @@ export default function PlaceVerificationPage() {
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
+  const radiusCircleRef = useRef<any>(null);
   const myMarkerRef = useRef<any>(null);
   const opponentMarkerRefs = useRef<any[]>([]);
 
@@ -121,29 +122,84 @@ export default function PlaceVerificationPage() {
   useEffect(() => {
     if (!meetingPlace || !mapContainerRef.current) return;
 
-    if (!window.kakao?.maps) {
-      setKakaoMapAvailable(false);
-      return;
-    }
+    let isCancelled = false;
+    let retryCount = 0;
+    let retryTimerId: number | undefined;
+    const maxRetryCount = 30;
+
+    const initializeMap = () => {
+      if (isCancelled || !mapContainerRef.current || !window.kakao?.maps) return;
+
+      try {
+        const center = new window.kakao.maps.LatLng(meetingPlace.latitude, meetingPlace.longitude);
+        const map = new window.kakao.maps.Map(mapContainerRef.current, { center, level: 3 });
+        mapRef.current = map;
+        setKakaoMapAvailable(true);
+
+        radiusCircleRef.current?.setMap(null);
+        radiusCircleRef.current = new window.kakao.maps.Circle({
+          map,
+          center,
+          radius: USER_VISIBLE_RADIUS_METERS,
+          strokeWeight: 3,
+          strokeColor: '#d84315',
+          strokeOpacity: 0.95,
+          fillColor: '#ff7043',
+          fillOpacity: 0.2,
+        });
+
+        window.setTimeout(() => {
+          map.relayout?.();
+          map.setCenter(center);
+        }, 0);
+      } catch (err) {
+        console.error('Failed to initialize Kakao map', err);
+        setKakaoMapAvailable(false);
+      }
+    };
+
+    const initializeWhenSdkReady = () => {
+      if (isCancelled) return;
+
+      if (!window.kakao?.maps) {
+        retryCount += 1;
+        if (retryCount > maxRetryCount) {
+          setKakaoMapAvailable(false);
+          return;
+        }
+        retryTimerId = window.setTimeout(initializeWhenSdkReady, 100);
+        return;
+      }
+
+      setKakaoMapAvailable(true);
+
+      if (typeof window.kakao.maps.load === 'function') {
+        window.kakao.maps.load(initializeMap);
+      } else {
+        initializeMap();
+      }
+    };
 
     try {
-      const center = new window.kakao.maps.LatLng(meetingPlace.latitude, meetingPlace.longitude);
-      const map = new window.kakao.maps.Map(mapContainerRef.current, { center, level: 3 });
-      mapRef.current = map;
-      new window.kakao.maps.Circle({
-        map,
-        center,
-        radius: USER_VISIBLE_RADIUS_METERS,
-        strokeWeight: 2,
-        strokeColor: '#d84315',
-        strokeOpacity: 0.8,
-        fillColor: '#ff7043',
-        fillOpacity: 0.15,
-      });
+      initializeWhenSdkReady();
     } catch (err) {
       console.error('Failed to initialize Kakao map', err);
       setKakaoMapAvailable(false);
     }
+
+    return () => {
+      isCancelled = true;
+      if (retryTimerId !== undefined) {
+        window.clearTimeout(retryTimerId);
+      }
+      radiusCircleRef.current?.setMap(null);
+      radiusCircleRef.current = null;
+      mapRef.current = null;
+      myMarkerRef.current?.setMap(null);
+      myMarkerRef.current = null;
+      opponentMarkerRefs.current.forEach((marker) => marker.setMap(null));
+      opponentMarkerRefs.current = [];
+    };
   }, [meetingPlace]);
 
   useEffect(() => {
