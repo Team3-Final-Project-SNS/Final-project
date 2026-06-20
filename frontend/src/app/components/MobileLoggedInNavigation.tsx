@@ -19,6 +19,7 @@ interface MobileLoggedInNavigationProps {
   onLogout: () => void;
   isSuspended?: boolean;
   onSuspendedMenuClick?: () => void;
+  hideAt?: 'md' | 'lg';
 }
 
 const menuItems = [
@@ -53,9 +54,11 @@ export default function MobileLoggedInNavigation({
   onLogout,
   isSuspended = false,
   onSuspendedMenuClick,
+  hideAt = 'md',
 }: MobileLoggedInNavigationProps) {
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const responsiveHiddenClass = hideAt === 'lg' ? 'lg:hidden' : 'md:hidden';
 
   useEffect(() => {
     setMenuOpen(false);
@@ -92,7 +95,7 @@ export default function MobileLoggedInNavigation({
 
   return (
       <>
-        <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-white/30 bg-white/90 px-4 shadow-sm shadow-[#f97316]/5 md:hidden">
+        <header className={`sticky top-0 z-50 flex h-16 items-center justify-between border-b border-white/30 bg-white/90 px-4 shadow-sm shadow-[#f97316]/5 ${responsiveHiddenClass}`}>
           <Link to="/" className="hankki-logo scale-[0.88] origin-left">
             <span className="hankki-logo-mark" aria-hidden="true">
               <span className="hankki-logo-steam hankki-logo-steam-one" />
@@ -222,9 +225,9 @@ export default function MobileLoggedInNavigation({
                   type="button"
                   aria-label="전체 메뉴 닫기"
                   onClick={() => setMenuOpen(false)}
-                  className="fixed inset-0 z-40 bg-transparent md:hidden"
+                  className={`fixed inset-0 z-40 bg-transparent ${responsiveHiddenClass}`}
               />
-              <nav className="fixed right-0 top-16 z-[60] w-[52%] max-w-[220px] bg-white px-4 pb-3 shadow-[-10px_12px_24px_rgba(0,0,0,0.14)] md:hidden">
+              <nav className={`fixed right-0 top-16 z-[60] w-[52%] max-w-[220px] bg-white px-4 pb-3 shadow-[-10px_12px_24px_rgba(0,0,0,0.14)] ${responsiveHiddenClass}`}>
                 <div className="py-2">
                   {menuItems.map((item) => (
                       <Link
@@ -251,7 +254,7 @@ export default function MobileLoggedInNavigation({
             </>
         )}
 
-        <nav className="fixed bottom-0 left-0 right-0 z-50 grid h-[68px] grid-cols-5 border-t border-[#dedede] bg-white px-1 pb-1 pt-1.5 shadow-[0_-5px_16px_rgba(0,0,0,0.06)] md:hidden">
+        <nav className={`fixed bottom-0 left-0 right-0 z-50 grid h-[68px] grid-cols-5 border-t border-[#dedede] bg-white px-1 pb-1 pt-1.5 shadow-[0_-5px_16px_rgba(0,0,0,0.06)] ${responsiveHiddenClass}`}>
           {bottomItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.to);
