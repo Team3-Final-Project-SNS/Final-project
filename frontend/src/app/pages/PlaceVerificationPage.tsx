@@ -127,30 +127,39 @@ export default function PlaceVerificationPage() {
     let retryTimerId: number | undefined;
     const maxRetryCount = 30;
 
+    const isKakaoMapReady = () =>
+      Boolean(
+        window.kakao?.maps?.LatLng &&
+        window.kakao?.maps?.Map &&
+        window.kakao?.maps?.Circle,
+      );
+
     const initializeMap = () => {
-      if (isCancelled || !mapContainerRef.current || !window.kakao?.maps) return;
+      if (isCancelled || !mapContainerRef.current || !isKakaoMapReady()) return;
 
       try {
         const center = new window.kakao.maps.LatLng(meetingPlace.latitude, meetingPlace.longitude);
         const map = new window.kakao.maps.Map(mapContainerRef.current, { center, level: 3 });
         mapRef.current = map;
-        setKakaoMapAvailable(true);
 
         radiusCircleRef.current?.setMap(null);
         radiusCircleRef.current = new window.kakao.maps.Circle({
-          map,
           center,
           radius: USER_VISIBLE_RADIUS_METERS,
           strokeWeight: 3,
           strokeColor: '#d84315',
           strokeOpacity: 0.95,
+          strokeStyle: 'solid',
           fillColor: '#ff7043',
-          fillOpacity: 0.2,
+          fillOpacity: 0.25,
         });
+        radiusCircleRef.current.setMap(map);
+        setKakaoMapAvailable(true);
 
         window.setTimeout(() => {
           map.relayout?.();
           map.setCenter(center);
+          radiusCircleRef.current?.setMap(map);
         }, 0);
       } catch (err) {
         console.error('Failed to initialize Kakao map', err);
@@ -161,7 +170,7 @@ export default function PlaceVerificationPage() {
     const initializeWhenSdkReady = () => {
       if (isCancelled) return;
 
-      if (!window.kakao?.maps) {
+      if (!isKakaoMapReady()) {
         retryCount += 1;
         if (retryCount > maxRetryCount) {
           setKakaoMapAvailable(false);
@@ -171,13 +180,7 @@ export default function PlaceVerificationPage() {
         return;
       }
 
-      setKakaoMapAvailable(true);
-
-      if (typeof window.kakao.maps.load === 'function') {
-        window.kakao.maps.load(initializeMap);
-      } else {
-        initializeMap();
-      }
+      initializeMap();
     };
 
     try {
