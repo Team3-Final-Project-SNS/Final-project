@@ -10,7 +10,7 @@ import com.example.team3final.domain.match.dto.response.MatchParticipantDto;
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.repository.MatchRepository;
-import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
+import com.example.team3final.domain.meet.service.MeetVerificationInternalService;
 import com.example.team3final.domain.post.dto.response.PostMatchInfoDto;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.service.PostInternalService;
@@ -41,7 +41,7 @@ public class MatchQueryServiceImpl implements MatchQueryService {
     private final PostInternalService postInternalService;
     private final ChatInternalService chatInternalService;
     private final UserInternalService userInternalService;
-    private final MeetVerificationRepository meetVerificationRepository;
+    private final MeetVerificationInternalService meetVerificationInternalService;
 
     @Override
     public GetMatchResponseDto getMatch(Long matchId, Long currentUserId) {
@@ -73,7 +73,7 @@ public class MatchQueryServiceImpl implements MatchQueryService {
                 postMatches,
                 participantUserInfoMap
         );
-        LocalDateTime meetAt = meetVerificationRepository.findEffectiveExtendedMeetAtByMatchId(matchId)
+        LocalDateTime meetAt = meetVerificationInternalService.findEffectiveExtendedMeetAtByMatchId(matchId)
                 .orElse(post.getMeetAt());
 
         return GetMatchResponseDto.of(
@@ -128,12 +128,7 @@ public class MatchQueryServiceImpl implements MatchQueryService {
         List<Long> matchIds = matches.stream().map(Match::getId).toList();
         Map<Long, LocalDateTime> extendedMeetAtMap = matchIds.isEmpty()
                 ? Collections.emptyMap()
-                : meetVerificationRepository.findExtendedMeetAtRowsByMatchIds(matchIds).stream()
-                .collect(Collectors.toMap(
-                        row -> (Long) row[0],
-                        row -> (LocalDateTime) row[1],
-                        (first, second) -> second
-                ));
+                : meetVerificationInternalService.findExtendedMeetAtMapByMatchIds(matchIds);
 
         Map<Long, List<MatchParticipantDto>> participantsByPostId = new HashMap<>();
         // postId별 작성자 1명 + 취소되지 않은 신청자 목록 변환
@@ -188,6 +183,7 @@ public class MatchQueryServiceImpl implements MatchQueryService {
                     myDeposit,
                     isAuthor,
                     participants,
+                    postInfo != null ? postInfo.status() : null,
                     chatRoomId
             );
         });

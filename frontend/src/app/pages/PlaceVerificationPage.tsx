@@ -134,6 +134,8 @@ export default function PlaceVerificationPage() {
         window.kakao?.maps?.Circle,
       );
 
+    const isKakaoLoaderReady = () => typeof window.kakao?.maps?.load === 'function';
+
     const initializeMap = () => {
       if (isCancelled || !mapContainerRef.current || !isKakaoMapReady()) return;
 
@@ -170,7 +172,7 @@ export default function PlaceVerificationPage() {
     const initializeWhenSdkReady = () => {
       if (isCancelled) return;
 
-      if (!isKakaoMapReady()) {
+      if (!isKakaoLoaderReady()) {
         retryCount += 1;
         if (retryCount > maxRetryCount) {
           setKakaoMapAvailable(false);
@@ -180,7 +182,9 @@ export default function PlaceVerificationPage() {
         return;
       }
 
-      initializeMap();
+      window.kakao.maps.load(() => {
+        initializeMap();
+      });
     };
 
     try {

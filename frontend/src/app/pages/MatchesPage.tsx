@@ -481,37 +481,60 @@ function groupMatchesByPost(matches: GetMatchesItemResponse[]): DisplayMatch[] {
   const grouped = new Map<number, DisplayMatch>();
 
   matches.forEach((match) => {
+    const displayMatch = normalizeAuthorCompletedMatch(match);
+
     // 등록자 화면에서는 1:N 매칭이 신청자 수만큼 내려오므로 같은 postId를 하나의 카드로 묶습니다.
-    if (!match.isAuthor) {
-      grouped.set(match.matchId, {
-        ...match,
-        opponentNicknames: getDisplayParticipantNames(match),
+    if (!displayMatch.isAuthor) {
+      grouped.set(displayMatch.matchId, {
+        ...displayMatch,
+        opponentNicknames: getDisplayParticipantNames(displayMatch),
       });
       return;
     }
 
-    const existing = grouped.get(match.postId);
+    const existing = grouped.get(displayMatch.postId);
     if (!existing) {
-      grouped.set(match.postId, {
-        ...match,
-        opponentNicknames: getDisplayParticipantNames(match),
+      grouped.set(displayMatch.postId, {
+        ...displayMatch,
+        opponentNicknames: getDisplayParticipantNames(displayMatch),
       });
       return;
     }
 
-    const shouldUseCurrentAsRepresentative =
-        activeMatchStatuses.includes(match.status) && !activeMatchStatuses.includes(existing.status);
+    const shouldUseCurrentAsRepresentative = shouldPreferGroupRepresentative(existing, displayMatch);
 
-    grouped.set(match.postId, {
-      ...(shouldUseCurrentAsRepresentative ? match : existing),
+    grouped.set(displayMatch.postId, {
+      ...(shouldUseCurrentAsRepresentative ? displayMatch : existing),
       opponentNicknames: uniqueNames([
         ...existing.opponentNicknames,
-        ...getDisplayParticipantNames(match),
+        ...getDisplayParticipantNames(displayMatch),
       ]),
     });
   });
 
   return Array.from(grouped.values());
+}
+
+function normalizeAuthorCompletedMatch(match: GetMatchesItemResponse): GetMatchesItemResponse {
+  if (match.isAuthor && match.postStatus === 'COMPLETED') {
+    return { ...match, status: 'COMPLETED' };
+  }
+
+  return match;
+}
+
+function shouldPreferGroupRepresentative(existing: DisplayMatch, current: GetMatchesItemResponse) {
+  if (existing.status !== 'COMPLETED' && current.status === 'COMPLETED') {
+    return true;
+  }
+
+  if (existing.status === 'COMPLETED') {
+    return !existing.completedAt
+        && current.status === 'COMPLETED'
+        && !!current.completedAt;
+  }
+
+  return activeMatchStatuses.includes(current.status) && !activeMatchStatuses.includes(existing.status);
 }
 
 function formatOpponentNames(match: DisplayMatch) {

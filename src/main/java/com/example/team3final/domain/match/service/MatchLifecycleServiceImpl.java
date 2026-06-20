@@ -7,6 +7,7 @@ import com.example.team3final.domain.location.service.UserLocationCleanupService
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.repository.MatchRepository;
+import com.example.team3final.domain.meet.service.MeetVerificationInternalService;
 import com.example.team3final.domain.meet.util.MeetRedisZSetKeys;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
@@ -24,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Set;
 
 // Match 도메인의 생명주기 전환을 담당하는 서비스
 // QR 인증 완료, 시스템 취소, Post 완료 처리처럼 매칭 진행 상태와 게시글 완료 상태가 함께 전환되는 흐름을 처리
@@ -41,6 +43,7 @@ public class MatchLifecycleServiceImpl implements MatchLifecycleService {
     private final ApplicationEventPublisher applicationEventPublisher;
     private final StringRedisTemplate redisTemplate;
     private final RedisPostService redisPostService;
+    private final MeetVerificationInternalService meetVerificationInternalService;
 
     // 시스템 취소 — QR 만료 시점까지 양측 모두 현장에 있었으나 QR 인증 미완료
     @Override
@@ -129,11 +132,8 @@ public class MatchLifecycleServiceImpl implements MatchLifecycleService {
                 reviewDeadlineReminderAt.toEpochSecond(ZoneOffset.ofHours(9))
         );
 
-        // 아직 진행 중인 MATCHED가 남아 있으면 Post는 아직 완료하면 안 됨
-        long remainingMatchedCount = matchRepository.countByPostIdAndStatus(match.getPostId(), MatchStatus.MATCHED);
-
-        // 남은 MATCHED Match가 0개라면 이번 스캔이 해당 Post의 마지막 스캔
-        return remainingMatchedCount == 0;
+        // 남은 QR 대상자가 없고, GUEST_NO_SHOW 예정자만 남았다면 이번 스캔이 마지막 정상 완료다.
+        return !hasPostCompletionBlockingActiveMatch(match.getPostId());
     }
 
     // 모든 활성 매칭이 종료된 뒤 Post 전체 COMPLETED 처리
@@ -144,13 +144,9 @@ public class MatchLifecycleServiceImpl implements MatchLifecycleService {
         // Post 락을 먼저 잡아 정상 완료와 노쇼/이의제기 완료가 동시에 등록자 책임비를 정산하지 않게 한다.
         Post post = postInternalService.getPostByIdWithLock(postId);
 
-        long remainingActiveCount = matchRepository.countByPostIdAndStatusIn(
-                postId,
-                List.of(MatchStatus.MATCHED, MatchStatus.DISPUTED)
-        );
-
-        // DISPUTED도 아직 결론이 나지 않은 활성 Match이므로 Post 완료를 보류한다.
-        if (remainingActiveCount > 0) {
+        // DISPUTED, QR 미완료, 등록자/양측 노쇼 예정은 완료 보류 대상이다.
+        // 신청자 GUEST_NO_SHOW 예정만 현장 참여자 완료 판단에서 제외한다.
+        if (hasPostCompletionBlockingActiveMatch(postId)) {
             return;
         }
 
@@ -203,6 +199,33 @@ public class MatchLifecycleServiceImpl implements MatchLifecycleService {
         redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_15_GUEST, matchIdStr);
         redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_IMMINENT_GUEST, matchIdStr);
         redisTemplate.opsForZSet().remove(MeetRedisZSetKeys.REMINDER_OVERDUE_GUEST, matchIdStr);
+    }
+
+    private boolean hasPostCompletionBlockingActiveMatch(Long postId) {
+        List<Match> activeMatches = matchRepository.findAllByPostIdAndStatusInOrderByIdAsc(
+                postId,
+                List.of(MatchStatus.MATCHED, MatchStatus.DISPUTED)
+        );
+        if (activeMatches.isEmpty()) {
+            return false;
+        }
+
+        List<Long> activeMatchIds = activeMatches.stream()
+                .map(Match::getId)
+                .toList();
+        Set<Long> guestNoShowMatchIds =
+                meetVerificationInternalService.getGuestNoShowMatchIds(activeMatchIds);
+
+        return activeMatches.stream()
+                .anyMatch(match -> isPostCompletionBlockingMatch(match, guestNoShowMatchIds));
+    }
+
+    private boolean isPostCompletionBlockingMatch(Match match, Set<Long> guestNoShowMatchIds) {
+        if (match.getStatus() == MatchStatus.DISPUTED) {
+            return true;
+        }
+
+        return !guestNoShowMatchIds.contains(match.getId());
     }
 
     private void removeHostMeetReminderReservations(Long postId) {
