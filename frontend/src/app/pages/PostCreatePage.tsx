@@ -133,8 +133,7 @@ export default function PostCreatePage() {
     const handleSearchPlace = () => {
         if (!searchKeyword.trim()) return;
 
-        // kakao 객체 자체만 체크 (autoload=true라서 바로 사용 가능)
-        if (!window.kakao) {
+        if (typeof window.kakao?.maps?.load !== 'function') {
             setError('카카오맵 SDK가 로드되지 않았습니다. 새로고침 해주세요.');
             return;
         }
@@ -142,17 +141,18 @@ export default function PostCreatePage() {
         setSearchLoading(true);
         setSearchResults([]);
 
-        // autoload=true라서 load() 없이 바로 services 사용 가능
-        const places = new window.kakao.maps.services.Places();
-        places.keywordSearch(searchKeyword, (result: KakaoPlace[], status: string) => {
-            setSearchLoading(false);
-            if (status === window.kakao.maps.services.Status.OK) {
-                setSearchResults(result.slice(0, 5));
-                setShowResults(true);
-            } else {
-                setSearchResults([]);
-                setShowResults(true);
-            }
+        window.kakao.maps.load(() => {
+            const places = new window.kakao.maps.services.Places();
+            places.keywordSearch(searchKeyword, (result: KakaoPlace[], status: string) => {
+                setSearchLoading(false);
+                if (status === window.kakao.maps.services.Status.OK) {
+                    setSearchResults(result.slice(0, 5));
+                    setShowResults(true);
+                } else {
+                    setSearchResults([]);
+                    setShowResults(true);
+                }
+            });
         });
     };
 
