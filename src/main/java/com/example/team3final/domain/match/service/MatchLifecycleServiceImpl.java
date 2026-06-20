@@ -7,9 +7,7 @@ import com.example.team3final.domain.location.service.UserLocationCleanupService
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.repository.MatchRepository;
-import com.example.team3final.domain.meet.entity.MeetVerification;
-import com.example.team3final.domain.meet.enums.VerificationStatus;
-import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
+import com.example.team3final.domain.meet.service.MeetVerificationInternalService;
 import com.example.team3final.domain.meet.util.MeetRedisZSetKeys;
 import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
@@ -27,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Set;
 
 // Match 도메인의 생명주기 전환을 담당하는 서비스
 // QR 인증 완료, 시스템 취소, Post 완료 처리처럼 매칭 진행 상태와 게시글 완료 상태가 함께 전환되는 흐름을 처리
@@ -44,7 +43,7 @@ public class MatchLifecycleServiceImpl implements MatchLifecycleService {
     private final ApplicationEventPublisher applicationEventPublisher;
     private final StringRedisTemplate redisTemplate;
     private final RedisPostService redisPostService;
-    private final MeetVerificationRepository meetVerificationRepository;
+    private final MeetVerificationInternalService meetVerificationInternalService;
 
     // 시스템 취소 — QR 만료 시점까지 양측 모두 현장에 있었으나 QR 인증 미완료
     @Override
@@ -214,23 +213,19 @@ public class MatchLifecycleServiceImpl implements MatchLifecycleService {
         List<Long> activeMatchIds = activeMatches.stream()
                 .map(Match::getId)
                 .toList();
-        List<MeetVerification> meetVerifications =
-                meetVerificationRepository.findAllByMatchIdIn(activeMatchIds);
+        Set<Long> guestNoShowMatchIds =
+                meetVerificationInternalService.getGuestNoShowMatchIds(activeMatchIds);
 
         return activeMatches.stream()
-                .anyMatch(match -> isPostCompletionBlockingMatch(match, meetVerifications));
+                .anyMatch(match -> isPostCompletionBlockingMatch(match, guestNoShowMatchIds));
     }
 
-    private boolean isPostCompletionBlockingMatch(Match match, List<MeetVerification> meetVerifications) {
+    private boolean isPostCompletionBlockingMatch(Match match, Set<Long> guestNoShowMatchIds) {
         if (match.getStatus() == MatchStatus.DISPUTED) {
             return true;
         }
 
-        return meetVerifications.stream()
-                .filter(mv -> mv.getMatchId().equals(match.getId()))
-                .findFirst()
-                .map(mv -> mv.getStatus() != VerificationStatus.GUEST_NO_SHOW)
-                .orElse(true);
+        return !guestNoShowMatchIds.contains(match.getId());
     }
 
     private void removeHostMeetReminderReservations(Long postId) {
