@@ -188,6 +188,7 @@ public class MatchQueryServiceImpl implements MatchQueryService {
                     myDeposit,
                     isAuthor,
                     participants,
+                    postInfo != null ? postInfo.status() : null,
                     chatRoomId
             );
         });
