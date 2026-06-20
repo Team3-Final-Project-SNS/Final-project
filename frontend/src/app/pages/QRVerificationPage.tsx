@@ -499,7 +499,7 @@ export default function QRVerificationPage() {
                         <div key={participant.matchId} className="flex flex-col gap-2 rounded-lg bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
                           <div>
                             <p className="text-sm font-semibold text-[#212121]">{participant.nickname || '알 수 없음'}</p>
-                            <p className="text-xs text-[#9e9e9e]">신청자 · matchId {participant.matchId}</p>
+                            <p className="text-xs text-[#9e9e9e]">신청자</p>
                           </div>
                           <span className={`rounded-full px-3 py-1 text-xs font-bold ${badge.className}`}>
                             {badge.label}
@@ -580,7 +580,7 @@ export default function QRVerificationPage() {
                       <div key={participant.matchId} className="flex flex-col gap-2 rounded-lg bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <p className="text-sm font-semibold text-[#212121]">{participant.nickname || '알 수 없음'}</p>
-                          <p className="text-xs text-[#9e9e9e]">신청자 · matchId {participant.matchId}</p>
+                          <p className="text-xs text-[#9e9e9e]">신청자</p>
                         </div>
                         <span className={`rounded-full px-3 py-1 text-xs font-bold ${badge.className}`}>
                           {badge.label}
