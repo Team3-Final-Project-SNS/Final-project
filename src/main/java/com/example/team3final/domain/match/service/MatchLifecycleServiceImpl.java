@@ -12,6 +12,7 @@ import com.example.team3final.domain.post.entity.Post;
 import com.example.team3final.domain.post.enums.PostStatus;
 import com.example.team3final.domain.post.event.PostVectorDeleteEvent;
 import com.example.team3final.domain.post.service.PostInternalService;
+import com.example.team3final.domain.post.service.RedisPostService;
 import com.example.team3final.domain.review.util.ReviewRedisZSetKeys;
 import com.example.team3final.domain.user.service.UserPointService;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +40,7 @@ public class MatchLifecycleServiceImpl implements MatchLifecycleService {
     private final ChatInternalService chatInternalService;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final StringRedisTemplate redisTemplate;
+    private final RedisPostService redisPostService;
 
     // 시스템 취소 — QR 만료 시점까지 양측 모두 현장에 있었으나 QR 인증 미완료
     @Override
@@ -174,6 +176,25 @@ public class MatchLifecycleServiceImpl implements MatchLifecycleService {
         }
 
         removeHostMeetReminderReservations(postId);
+    }
+
+    // QR 단계에 진입했다는 것은 현재 현장 참여자 기준으로 모임이 성립했다는 뜻이므로
+    // 정원 미달 그룹이라도 더 이상 모집 중(OPEN)으로 두지 않는다.
+    @Override
+    public void confirmPostMatchedForQrStage(Long postId) {
+        long activeMatchCount = matchRepository.countByPostIdAndStatus(postId, MatchStatus.MATCHED);
+        if (activeMatchCount <= 0) {
+            return;
+        }
+
+        Post post = postInternalService.getPostByIdWithLock(postId);
+        if (post.getStatus() != PostStatus.OPEN) {
+            return;
+        }
+
+        post.match();
+        redisPostService.evictPostLists();
+        publishPostVectorDeleteEvent(post.getId());
     }
 
     private void removeGuestMeetReminderReservations(Long matchId) {

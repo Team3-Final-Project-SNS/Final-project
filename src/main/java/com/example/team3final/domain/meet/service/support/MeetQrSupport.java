@@ -1,6 +1,7 @@
 package com.example.team3final.domain.meet.service.support;
 
 import com.example.team3final.domain.match.service.MatchInternalService;
+import com.example.team3final.domain.match.service.MatchLifecycleService;
 import com.example.team3final.domain.meet.entity.MeetVerification;
 import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ public class MeetQrSupport {
 
     private final MeetVerificationRepository meetVerificationRepository;
     private final MatchInternalService matchInternalService;
+    private final MatchLifecycleService matchLifecycleService;
 
     // QR 토큰 발급 — 중복 발급 방지 포함
     // 호출자가 별도 발급 시각을 넘기지 않으면 현재 시각을 기준으로 만료 시각을 계산
@@ -52,6 +54,9 @@ public class MeetQrSupport {
                 .orElseGet(() -> issuedAt.plusMinutes(MeetVerificationPolicy.QR_TOKEN_VALIDITY_MINUTES));
 
         List<Long> activeMatchIds = matchInternalService.getActiveMatchIdsByPostId(postId);
+        if (!activeMatchIds.isEmpty()) {
+            matchLifecycleService.confirmPostMatchedForQrStage(postId);
+        }
 
         allMvList.stream()
                 .filter(mv -> activeMatchIds.contains(mv.getMatchId()))
