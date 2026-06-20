@@ -1,15 +1,10 @@
 package com.example.team3final.domain.meet.service.support;
 
 import com.example.team3final.domain.match.service.MatchInternalService;
+import com.example.team3final.domain.match.service.MatchLifecycleService;
 import com.example.team3final.domain.meet.entity.MeetVerification;
 import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
-import com.example.team3final.domain.post.entity.Post;
-import com.example.team3final.domain.post.enums.PostStatus;
-import com.example.team3final.domain.post.event.PostVectorDeleteEvent;
-import com.example.team3final.domain.post.service.PostInternalService;
-import com.example.team3final.domain.post.service.RedisPostService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -24,9 +19,7 @@ public class MeetQrSupport {
 
     private final MeetVerificationRepository meetVerificationRepository;
     private final MatchInternalService matchInternalService;
-    private final PostInternalService postInternalService;
-    private final RedisPostService redisPostService;
-    private final ApplicationEventPublisher applicationEventPublisher;
+    private final MatchLifecycleService matchLifecycleService;
 
     // QR 토큰 발급 — 중복 발급 방지 포함
     // 호출자가 별도 발급 시각을 넘기지 않으면 현재 시각을 기준으로 만료 시각을 계산
@@ -61,7 +54,9 @@ public class MeetQrSupport {
                 .orElseGet(() -> issuedAt.plusMinutes(MeetVerificationPolicy.QR_TOKEN_VALIDITY_MINUTES));
 
         List<Long> activeMatchIds = matchInternalService.getActiveMatchIdsByPostId(postId);
-        confirmPostMatchedForQrStage(postId, activeMatchIds);
+        if (!activeMatchIds.isEmpty()) {
+            matchLifecycleService.confirmPostMatchedForQrStage(postId);
+        }
 
         allMvList.stream()
                 .filter(mv -> activeMatchIds.contains(mv.getMatchId()))
@@ -70,23 +65,6 @@ public class MeetQrSupport {
                 .forEach(mv -> mv.issueQrToken(sharedToken, expiresAt));
 
         return findPostQrTokenOwner(allMvList);
-    }
-
-    // QR 단계에 진입했다는 것은 현재 현장 참여자 기준으로 모임이 성립했다는 뜻이므로
-    // 정원 미달 그룹이라도 더 이상 모집 중(OPEN)으로 두지 않는다.
-    private void confirmPostMatchedForQrStage(Long postId, List<Long> activeMatchIds) {
-        if (activeMatchIds.isEmpty()) {
-            return;
-        }
-
-        Post post = postInternalService.getPostByIdWithLock(postId);
-        if (post.getStatus() != PostStatus.OPEN) {
-            return;
-        }
-
-        post.match();
-        redisPostService.evictPostLists();
-        applicationEventPublisher.publishEvent(new PostVectorDeleteEvent(post.getId()));
     }
 
     // postId 기준으로 이미 발급된 공통 QR 토큰 Owner를 조회

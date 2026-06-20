@@ -18,4 +18,7 @@ public interface MatchLifecycleService {
     // 모든 활성 매칭이 종료된 뒤 Post 전체 종결 처리
     // 등록자 책임비 환급, 중복 호출되어도 한 번만 처리되도록 멱등성 보장
     void completePostIfAllMatchesCompleted(Long postId);
+
+    // QR 단계 진입 시점에 정원 미달 OPEN 게시글을 MATCHED로 확정
+    void confirmPostMatchedForQrStage(Long postId);
 }
