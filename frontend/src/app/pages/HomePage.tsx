@@ -253,7 +253,7 @@ export default function HomePage() {
 
   return (
       <div className={`hankki-home relative isolate min-h-screen overflow-x-hidden bg-[#fff8f0] ${
-          isLoggedIn ? 'pb-[68px] md:pb-0' : ''
+          isLoggedIn ? 'pb-[68px] lg:pb-0' : ''
       }`}>
         <div className="hankki-fixed-scene" aria-hidden="true">
           <div
@@ -318,12 +318,13 @@ export default function HomePage() {
                 onLogout={handleLogout}
                 isSuspended={isSuspended}
                 onSuspendedMenuClick={() => handleSuspendedMenuClick()}
+                hideAt="lg"
             />
         )}
 
         {/* Header */}
         <header className={`hankki-header sticky top-0 z-50 border-b border-white/25 shadow-sm shadow-[#f97316]/5 ${
-            isLoggedIn ? 'hidden md:block' : ''
+            isLoggedIn ? 'hidden lg:block' : ''
         }`}>
           <div className="max-w-screen-xl mx-auto px-6 h-20 flex items-center justify-between">
             {isLoggedIn ? (
