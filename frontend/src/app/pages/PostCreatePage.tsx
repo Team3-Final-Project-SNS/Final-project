@@ -44,6 +44,7 @@ const hourOptions = Array.from({ length: 24 }, (_, index) => String(index).padSt
 const minuteOptions = ['00', '10', '20', '30', '40', '50'];
 const MIN_DEPOSIT = 200;
 const DEPOSIT_STEP = 100;
+const PLACE_SEARCH_TIMEOUT_MS = 8000;
 
 export default function PostCreatePage() {
     const navigate = useNavigate();
@@ -133,26 +134,39 @@ export default function PostCreatePage() {
     const handleSearchPlace = () => {
         if (!searchKeyword.trim()) return;
 
-        if (typeof window.kakao?.maps?.load !== 'function') {
+        // kakao 객체 자체만 체크 (autoload=true라서 바로 사용 가능)
+        if (!window.kakao) {
             setError('카카오맵 SDK가 로드되지 않았습니다. 새로고침 해주세요.');
+            return;
+        }
+
+        if (!window.kakao.maps?.services?.Places) {
+            setError('장소 검색 서비스를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
             return;
         }
 
         setSearchLoading(true);
         setSearchResults([]);
 
-        window.kakao.maps.load(() => {
-            const places = new window.kakao.maps.services.Places();
-            places.keywordSearch(searchKeyword, (result: KakaoPlace[], status: string) => {
-                setSearchLoading(false);
-                if (status === window.kakao.maps.services.Status.OK) {
-                    setSearchResults(result.slice(0, 5));
-                    setShowResults(true);
-                } else {
-                    setSearchResults([]);
-                    setShowResults(true);
-                }
-            });
+        // autoload=true라서 load() 없이 바로 services 사용 가능
+        const places = new window.kakao.maps.services.Places();
+        const searchTimeoutId = window.setTimeout(() => {
+            setSearchLoading(false);
+            setSearchResults([]);
+            setShowResults(true);
+            setError('장소 검색 요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.');
+        }, PLACE_SEARCH_TIMEOUT_MS);
+
+        places.keywordSearch(searchKeyword.trim(), (result: KakaoPlace[], status: string) => {
+            window.clearTimeout(searchTimeoutId);
+            setSearchLoading(false);
+            if (status === window.kakao.maps.services.Status.OK) {
+                setSearchResults(result.slice(0, 5));
+                setShowResults(true);
+            } else {
+                setSearchResults([]);
+                setShowResults(true);
+            }
         });
     };
 
