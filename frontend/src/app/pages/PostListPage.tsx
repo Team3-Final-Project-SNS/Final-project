@@ -133,7 +133,7 @@ export default function PostListPage() {
       <div>
         <div className="mb-8">
           <h1 className="mb-3 text-3xl font-bold text-[#212121]">
-            {myPostsOnly ? '내가 작성한 게시물' : '밥 같이 먹을 사람 구해요 🍚'}
+            {myPostsOnly ? '내가 작성한 게시물' : '밥 같이 먹을 사람 구해요'}
           </h1>
           <p className="text-[#616161]">{myPostsOnly ? '내가 작성한 게시글 전체' : '모집중 게시글'}</p>
         </div>

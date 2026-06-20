@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import ReactMarkdown from 'react-markdown';
-import { AlertCircle, CalendarIcon, Check, X } from 'lucide-react';
+import { AlertCircle, CalendarIcon, Check, Coffee, MessageCircle, Utensils, Users, X } from 'lucide-react';
 import { sendEmailOtp, signup, verifyEmailOtp } from '../../api/authApi';
 import { getUniversities, UniversityResponse } from '../../api/univApi';
 import { Calendar } from '../components/ui/calendar';
@@ -11,6 +11,7 @@ import termsOfServiceContent from '../../assets/terms/terms-of-service.md?raw';
 import privacyPolicyContent from '../../assets/terms/privacy-policy.md?raw';
 import locationTermsContent from '../../assets/terms/location-terms.md?raw';
 import marketingConsentContent from '../../assets/terms/marketing-consent.md?raw';
+import signupBackground from '../../assets/images/signup-background.png';
 
 type SignupStep = 'email' | 'info' | 'complete';
 
@@ -187,15 +188,40 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-[#fff7ed] via-[#f7fbff] to-[#eaf7f1] p-4">
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#fffaf4] p-4">
+      <img
+        src={signupBackground}
+        alt=""
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full object-cover object-center brightness-[0.88] saturate-[0.9]"
+      />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(239,226,204,0.38)_0%,rgba(244,232,212,0.28)_32%,rgba(255,247,237,0.16)_58%,rgba(255,247,237,0.08)_100%)]" />
+      <div className="pointer-events-none absolute inset-0 hidden md:block" aria-hidden="true">
+        <div className="hankki-floating-badge left-[9%] top-[24%] delay-0">
+          <Utensils size={22} />
+        </div>
+        <div className="hankki-floating-badge right-[9%] top-[28%] delay-700">
+          <Users size={22} />
+        </div>
+        <div className="hankki-floating-badge left-[18%] bottom-[16%] delay-300">
+          <Coffee size={22} />
+        </div>
+        <div className="hankki-floating-badge right-[20%] bottom-[18%] delay-1000">
+          <MessageCircle size={22} />
+        </div>
+      </div>
       <div className="absolute left-4 top-4 z-[100] sm:fixed sm:left-8 sm:top-8">
-        <Link to="/" className="flex items-center gap-2 rounded-xl border border-[#e0e0e0] bg-white/70 p-2 shadow-sm backdrop-blur-sm transition-all hover:bg-white">
-          <span className="text-3xl">🍚</span>
-          <span className="text-2xl font-bold text-[#d84315]">한끼팟</span>
+        <Link to="/" className="hankki-logo rounded-xl border border-white/70 bg-white/70 px-3 py-2 shadow-sm backdrop-blur-sm transition-all hover:bg-white/90">
+          <span className="hankki-logo-mark" aria-hidden="true">
+            <span className="hankki-logo-steam hankki-logo-steam-one" />
+            <span className="hankki-logo-steam hankki-logo-steam-two" />
+            <span className="hankki-logo-bowl" />
+          </span>
+          <span className="hankki-logo-text">한끼팟</span>
         </Link>
       </div>
 
-      <div className="relative z-10 mt-20 w-full max-w-3xl rounded-lg bg-white p-4 shadow-sm sm:mt-0 sm:p-8">
+      <div className="relative z-10 mt-20 w-full max-w-3xl rounded-lg border border-white/70 bg-white/90 p-4 shadow-[0_20px_60px_rgba(86,59,36,0.14)] backdrop-blur-md sm:mt-0 sm:p-8">
         <StepIndicator step={step} />
 
         {step === 'email' && (

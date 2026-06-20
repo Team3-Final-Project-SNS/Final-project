@@ -92,13 +92,18 @@ export default function MobileLoggedInNavigation({
 
   return (
       <>
-        <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-[#e0e0e0] bg-white px-4 md:hidden">
-          <Link to="/" className="text-xl font-bold text-[#d84315]">
-            한끼팟
+        <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-white/30 bg-white/90 px-4 shadow-sm shadow-[#f97316]/5 md:hidden">
+          <Link to="/" className="hankki-logo scale-[0.88] origin-left">
+            <span className="hankki-logo-mark" aria-hidden="true">
+              <span className="hankki-logo-steam hankki-logo-steam-one" />
+              <span className="hankki-logo-steam hankki-logo-steam-two" />
+              <span className="hankki-logo-bowl" />
+            </span>
+            <span className="hankki-logo-text">한끼팟</span>
           </Link>
 
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 rounded-full bg-[#fff3e0] px-2.5 py-1.5">
+            <div className="hankki-point-chip flex items-center gap-1 rounded-full px-2.5 py-1.5">
               <span className="text-xs text-[#ef6c00]">💰</span>
               <span className="whitespace-nowrap text-xs font-semibold text-[#ef6c00]">
                 {point === null ? '-' : `${point.toLocaleString()}P`}
