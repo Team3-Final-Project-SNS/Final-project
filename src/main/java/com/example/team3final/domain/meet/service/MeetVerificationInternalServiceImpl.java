@@ -6,6 +6,7 @@ import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.service.MatchInternalService;
 import com.example.team3final.domain.meet.entity.MeetVerification;
 import com.example.team3final.domain.meet.enums.ExtensionStatus;
+import com.example.team3final.domain.meet.enums.VerificationStatus;
 import com.example.team3final.domain.meet.repository.MeetVerificationRepository;
 import com.example.team3final.domain.meet.service.support.MeetExtensionSupport;
 import com.example.team3final.domain.meet.service.support.MeetVerificationPolicy;
@@ -16,8 +17,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 // MeetVerification 도메인의 타 도메인/스케줄러 호출용 내부 기능을 제공하는 서비스
 @Slf4j
@@ -116,4 +121,37 @@ public class MeetVerificationInternalServiceImpl implements MeetVerificationInte
                 .orElseThrow(() -> new MeetException(ErrorCode.MEET_VERIFICATION_NOT_FOUND));
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Set<Long> getGuestNoShowMatchIds(List<Long> matchIds) {
+        if (matchIds == null || matchIds.isEmpty()) {
+            return Set.of();
+        }
+
+        return meetVerificationRepository.findAllByMatchIdIn(matchIds).stream()
+                .filter(mv -> mv.getStatus() == VerificationStatus.GUEST_NO_SHOW)
+                .map(MeetVerification::getMatchId)
+                .collect(Collectors.toSet());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<LocalDateTime> findEffectiveExtendedMeetAtByMatchId(Long matchId) {
+        return meetVerificationRepository.findEffectiveExtendedMeetAtByMatchId(matchId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<Long, LocalDateTime> findExtendedMeetAtMapByMatchIds(List<Long> matchIds) {
+        if (matchIds == null || matchIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        return meetVerificationRepository.findExtendedMeetAtRowsByMatchIds(matchIds).stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0],
+                        row -> (LocalDateTime) row[1],
+                        (first, second) -> second
+                ));
+    }
 }
