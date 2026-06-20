@@ -2,6 +2,7 @@ package com.example.team3final.domain.match.dto.response;
 
 import com.example.team3final.domain.match.entity.Match;
 import com.example.team3final.domain.match.enums.MatchStatus;
+import com.example.team3final.domain.post.enums.PostStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,6 +23,7 @@ public record GetMatchesResponseDto(
         boolean isAuthor,
         // 그룹 매칭 목록 화면용 전체 참여자 목록
         List<MatchParticipantDto> participants,
+        PostStatus postStatus,
         MatchStatus status,
         Long chatRoomId,
         LocalDateTime matchedAt,
@@ -40,6 +42,7 @@ public record GetMatchesResponseDto(
             int myDeposit,
             boolean isAuthor,
             List<MatchParticipantDto> participants,
+            PostStatus postStatus,
             Long chatRoomId
     ) {
         return new GetMatchesResponseDto(
@@ -56,6 +59,7 @@ public record GetMatchesResponseDto(
                 myDeposit,
                 isAuthor,
                 participants,
+                postStatus,
                 match.getStatus(),
                 chatRoomId,
                 match.getCreatedAt(),

@@ -1,6 +1,6 @@
 import axiosInstance from "./axiosInstance";
 import { ApiResponse } from "./authApi";
-import { PageResponse } from "./postApi";
+import { PageResponse, PostStatus } from "./postApi";
 
 export type MatchStatus = "MATCHED" | "COMPLETED" | "CANCELLED" | "HOST_NO_SHOW" | "GUEST_NO_SHOW" | "BOTH_NO_SHOW" | "DISPUTED";
 export type DisputeType = "FUNERAL_CEREMONY" | "MEDICAL_EMERGENCY" | "PHONE_MALFUNCTION" | "GPS_ERROR" | "QR_ERROR" | "ADMIN_OVERRIDE";
@@ -32,6 +32,7 @@ export interface GetMatchesItemResponse {
     myDeposit: number;
     isAuthor: boolean;
     participants: MatchParticipant[];
+    postStatus: PostStatus | null;
     status: MatchStatus;
     chatRoomId: number | null;
     matchedAt: string;
