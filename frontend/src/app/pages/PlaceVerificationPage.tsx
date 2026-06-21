@@ -10,6 +10,7 @@ import {
 } from '@/api/meetApi';
 import { getMatchDetail } from '@/api/matchApi';
 import { getUserMe } from '@/api/userApi';
+import { loadKakaoMaps } from '../utils/kakaoMapsLoader';
 
 declare global {
   interface Window {
@@ -125,27 +126,62 @@ export default function PlaceVerificationPage() {
     let isCancelled = false;
     let retryCount = 0;
     let retryTimerId: number | undefined;
+    let resizeObserver: ResizeObserver | undefined;
+    const relayoutTimerIds: number[] = [];
     const maxRetryCount = 30;
 
-    const isKakaoMapReady = () =>
-      Boolean(
-        window.kakao?.maps?.LatLng &&
-        window.kakao?.maps?.Map &&
-        window.kakao?.maps?.Circle,
-      );
+    const getMapContainer = () => mapContainerRef.current;
 
-    const isKakaoLoaderReady = () => typeof window.kakao?.maps?.load === 'function';
+    const hasUsableMapContainerSize = () => {
+      const container = getMapContainer();
+      if (!container) return false;
 
-    const initializeMap = () => {
-      if (isCancelled || !mapContainerRef.current || !isKakaoMapReady()) return;
+      const rect = container.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    };
+
+    const scheduleMapRelayout = (map: any, center: any) => {
+      [0, 120, 300].forEach((delay) => {
+        const timerId = window.setTimeout(() => {
+          if (isCancelled) return;
+          (map as any).relayout?.();
+          map.setCenter(center);
+          radiusCircleRef.current?.setMap(map);
+        }, delay);
+        relayoutTimerIds.push(timerId);
+      });
+    };
+
+    const initializeMap = (kakaoMaps: typeof kakao.maps) => {
+      if (isCancelled || !mapContainerRef.current) return;
+
+      if (!hasUsableMapContainerSize()) {
+        retryCount += 1;
+        if (retryCount > maxRetryCount) {
+          setKakaoMapAvailable(false);
+          return;
+        }
+        retryTimerId = window.setTimeout(() => initializeMap(kakaoMaps), 100);
+        return;
+      }
+
+      if (
+        !Number.isFinite(meetingPlace.latitude)
+        || !Number.isFinite(meetingPlace.longitude)
+      ) {
+        console.error('Invalid meeting place coordinates', meetingPlace);
+        setKakaoMapAvailable(false);
+        return;
+      }
 
       try {
-        const center = new window.kakao.maps.LatLng(meetingPlace.latitude, meetingPlace.longitude);
-        const map = new window.kakao.maps.Map(mapContainerRef.current, { center, level: 3 });
+        const container = mapContainerRef.current;
+        const center = new kakaoMaps.LatLng(meetingPlace.latitude, meetingPlace.longitude);
+        const map = new kakaoMaps.Map(container, { center, level: 3 });
         mapRef.current = map;
 
         radiusCircleRef.current?.setMap(null);
-        radiusCircleRef.current = new window.kakao.maps.Circle({
+        radiusCircleRef.current = new kakaoMaps.Circle({
           center,
           radius: USER_VISIBLE_RADIUS_METERS,
           strokeWeight: 3,
@@ -158,37 +194,32 @@ export default function PlaceVerificationPage() {
         radiusCircleRef.current.setMap(map);
         setKakaoMapAvailable(true);
 
-        window.setTimeout(() => {
-          map.relayout?.();
+        scheduleMapRelayout(map, center);
+        resizeObserver = new ResizeObserver(() => {
+          if (isCancelled) return;
+          (map as any).relayout?.();
           map.setCenter(center);
-          radiusCircleRef.current?.setMap(map);
-        }, 0);
+        });
+        resizeObserver.observe(container);
       } catch (err) {
         console.error('Failed to initialize Kakao map', err);
         setKakaoMapAvailable(false);
       }
     };
 
-    const initializeWhenSdkReady = () => {
-      if (isCancelled) return;
-
-      if (!isKakaoLoaderReady()) {
-        retryCount += 1;
-        if (retryCount > maxRetryCount) {
-          setKakaoMapAvailable(false);
-          return;
-        }
-        retryTimerId = window.setTimeout(initializeWhenSdkReady, 100);
-        return;
-      }
-
-      window.kakao.maps.load(() => {
-        initializeMap();
-      });
-    };
-
     try {
-      initializeWhenSdkReady();
+      loadKakaoMaps()
+        .then((kakaoMaps) => {
+          window.requestAnimationFrame(() => {
+            if (!isCancelled) {
+              initializeMap(kakaoMaps);
+            }
+          });
+        })
+        .catch((err) => {
+          console.error('Failed to load Kakao map SDK', err);
+          setKakaoMapAvailable(false);
+        });
     } catch (err) {
       console.error('Failed to initialize Kakao map', err);
       setKakaoMapAvailable(false);
@@ -199,6 +230,8 @@ export default function PlaceVerificationPage() {
       if (retryTimerId !== undefined) {
         window.clearTimeout(retryTimerId);
       }
+      relayoutTimerIds.forEach((timerId) => window.clearTimeout(timerId));
+      resizeObserver?.disconnect();
       radiusCircleRef.current?.setMap(null);
       radiusCircleRef.current = null;
       mapRef.current = null;
@@ -375,7 +408,7 @@ export default function PlaceVerificationPage() {
         </div>
 
         {kakaoMapAvailable ? (
-          <div ref={mapContainerRef} className="mb-3 h-56 w-full overflow-hidden rounded-2xl border-2 border-[#e0e0e0] sm:h-64" />
+          <div ref={mapContainerRef} className="hankki-kakao-map mb-3 h-56 w-full overflow-hidden rounded-2xl border-2 border-[#e0e0e0] sm:h-64" />
         ) : (
           <div className="relative mb-6 rounded-2xl border-2 border-[#e0e0e0] bg-[#fafafa] p-8">
             <div className="mb-4 rounded-lg border border-[#ff9800] bg-[#fff3e0] px-3 py-2 text-center">

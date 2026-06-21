@@ -170,6 +170,29 @@
     max-width: 100%;
   }
 
+  .hankki-kakao-map,
+  .hankki-kakao-map * {
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+  }
+
+  .hankki-kakao-map img,
+  .hankki-kakao-map canvas,
+  .hankki-kakao-map svg {
+    display: initial;
+    max-width: none !important;
+    max-height: none !important;
+  }
+
+  .hankki-status-badge {
+    display: inline-flex !important;
+    width: max-content !important;
+    max-width: 100%;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+  }
+
   input,
   select,
   textarea,

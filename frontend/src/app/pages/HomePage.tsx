@@ -16,7 +16,11 @@ import {
   subscribeNotifications,
 } from '@/api/notificationApi';
 import MobileLoggedInNavigation from '../components/MobileLoggedInNavigation';
-import { getNotificationTargetPath } from '../notificationNavigation';
+import {
+  formatNotificationText,
+  getNotificationContextLabel,
+  getNotificationTargetPath,
+} from '../notificationNavigation';
 
 const floatingBadges = [
   { Icon: Coffee, className: 'left-[8%] top-[22%] delay-0', label: 'coffee' },
@@ -397,14 +401,19 @@ export default function HomePage() {
                                           } hover:bg-[#fff8f2]`}
                                       >
                                         <div className="mb-1 flex items-start justify-between gap-2">
-                                          <p className="text-sm font-bold text-[#212121]">{notification.title}</p>
+                                          <p className="text-sm font-bold text-[#212121]">{formatNotificationText(notification.title)}</p>
                                           {!notification.isRead && (
                                               <span className="shrink-0 rounded-full bg-[#d84315] px-2 py-0.5 text-[10px] font-bold text-white">
                                                 NEW
                                               </span>
                                           )}
                                         </div>
-                                        <p className="line-clamp-2 text-xs text-[#616161]">{notification.content}</p>
+                                        <p className="line-clamp-2 text-xs text-[#616161]">{formatNotificationText(notification.content)}</p>
+                                        {getNotificationContextLabel(notification) && (
+                                            <p className="mt-1 text-[11px] font-bold text-[#d84315]">
+                                              {getNotificationContextLabel(notification)}
+                                            </p>
+                                        )}
                                         <p className="mt-2 text-[11px] font-semibold text-[#9e9e9e]">
                                           {new Date(notification.createdAt).toLocaleString('ko-KR', {
                                             month: 'numeric',

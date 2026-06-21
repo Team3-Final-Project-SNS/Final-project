@@ -1,25 +1,51 @@
 import { NotificationResponse } from '../api/notificationApi';
 
+const relatedDomainLabels: Record<string, string> = {
+  POST: '게시글',
+  MATCH: '매칭',
+  MEET: '매칭',
+  CHAT: '채팅방',
+  REVIEW: '리뷰',
+  REPORT: '신고',
+  DISPUTE: '이의제기',
+  INQUIRY: '문의',
+  PAYMENT: '결제',
+  POINT: '포인트',
+  USER: '사용자',
+  ACCOUNT: '계정',
+  NOTIFICATION: '알림',
+  SYSTEM: '시스템',
+};
+
+const idTokenLabels: Record<string, string> = {
+  postId: '게시글',
+  matchId: '매칭',
+  meetId: '매칭',
+  chatRoomId: '채팅방',
+  reviewId: '리뷰',
+  reportId: '신고',
+  disputeId: '이의제기',
+  inquiryId: '문의',
+  paymentId: '결제',
+  pointTransactionId: '포인트 거래',
+  userId: '사용자',
+  notificationId: '알림',
+};
+
+export const formatNotificationText = (value: string) => {
+  return Object.entries(idTokenLabels).reduce((text, [token, label]) => {
+    const pattern = new RegExp(`\\b${token}\\b\\s*#?\\s*(\\d+)`, 'gi');
+    return text.replace(pattern, `${label} #$1`);
+  }, value);
+};
+
 export const getNotificationContextLabel = (notification: NotificationResponse) => {
   if (!notification.relatedId) return null;
 
   if (notification.domain === 'CHAT') return null;
 
-  if (notification.type === 'NO_SHOW_WARNING') return null;
-
-  if (notification.domain === 'MATCH' || notification.domain === 'MEET') {
-    return `매칭 #${notification.relatedId}`;
-  }
-
-  if (notification.domain === 'POST') {
-    return `게시글 #${notification.relatedId}`;
-  }
-
-  if (notification.domain === 'DISPUTE') {
-    return `이의제기 #${notification.relatedId}`;
-  }
-
-  return `${notification.domain.toLowerCase()}Id ${notification.relatedId}`;
+  const label = relatedDomainLabels[notification.domain] || notification.domain;
+  return `${label} #${notification.relatedId}`;
 };
 
 export const getNotificationTargetPath = (notification: NotificationResponse) => {
