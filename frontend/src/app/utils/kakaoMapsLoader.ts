@@ -2,6 +2,7 @@ const KAKAO_MAP_SCRIPT_ID = 'kakao-map-sdk';
 const KAKAO_MAP_SCRIPT_URL = 'https://dapi.kakao.com/v2/maps/sdk.js';
 const KAKAO_MAP_SCRIPT_SELECTOR = 'script[src*="dapi.kakao.com/v2/maps/sdk.js"]';
 const DEFAULT_TIMEOUT_MS = 30000;
+const KAKAO_LOAD_CALLBACK_TIMEOUT_MS = 4000;
 const KAKAO_READY_POLL_INTERVAL_MS = 50;
 
 let kakaoMapsPromise: Promise<typeof kakao.maps> | null = null;
@@ -142,7 +143,7 @@ function loadKakaoMapsWithTimeout(timeoutMs: number) {
       if (isSettled) return;
       isSettled = true;
       reject(new Error('Kakao Maps SDK load callback timed out.'));
-    }, timeoutMs);
+    }, KAKAO_LOAD_CALLBACK_TIMEOUT_MS);
 
     window.kakao.maps.load(() => {
       if (isSettled) return;
