@@ -9,6 +9,7 @@ import { acceptMeetExtension, createMeetExtension, getMeetExtension, MeetExtensi
 import { getUserMe } from '@/api/userApi';
 import { getAccessToken } from '@/api/axiosInstance';
 import { setExtendedMeetAt } from '@/store/matchStore';
+import { loadKakaoMaps } from '../utils/kakaoMapsLoader';
 
 const toChronologicalMessages = (messages: ChatMessageResponse[]) => [...messages].reverse();
 
@@ -76,6 +77,10 @@ export default function ChatPage() {
     alert('접근할 수 없는 채팅방입니다.');
     navigate('/matches', { replace: true });
   };
+
+  useEffect(() => {
+    loadKakaoMaps().catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {

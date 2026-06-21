@@ -1,6 +1,6 @@
 const KAKAO_MAP_SCRIPT_ID = 'kakao-map-sdk';
 const KAKAO_MAP_SCRIPT_URL = 'https://dapi.kakao.com/v2/maps/sdk.js';
-const DEFAULT_TIMEOUT_MS = 8000;
+const DEFAULT_TIMEOUT_MS = 30000;
 const KAKAO_READY_POLL_INTERVAL_MS = 50;
 
 let kakaoMapsPromise: Promise<typeof kakao.maps> | null = null;
@@ -119,15 +119,9 @@ export function loadKakaoMaps(timeoutMs = DEFAULT_TIMEOUT_MS) {
 
   if (!kakaoMapsPromise) {
     kakaoMapsPromise = new Promise<typeof kakao.maps>((resolve, reject) => {
-      const timeoutId = window.setTimeout(() => {
-        kakaoMapsPromise = null;
-        reject(new Error('Kakao Maps SDK initialization timed out.'));
-      }, timeoutMs);
-
       ensureKakaoScript()
         .then(() => {
           if (isKakaoMapsReady()) {
-            window.clearTimeout(timeoutId);
             resolve(window.kakao!.maps);
             return;
           }
@@ -139,18 +133,15 @@ export function loadKakaoMaps(timeoutMs = DEFAULT_TIMEOUT_MS) {
           window.kakao.maps.load(() => {
             waitForKakaoMapsReady(timeoutMs)
               .then((kakaoMaps) => {
-                window.clearTimeout(timeoutId);
                 resolve(kakaoMaps);
               })
               .catch((error) => {
-                window.clearTimeout(timeoutId);
                 kakaoMapsPromise = null;
                 reject(error);
               });
           });
         })
         .catch((error) => {
-          window.clearTimeout(timeoutId);
           kakaoMapsPromise = null;
           reject(error);
         });
