@@ -132,7 +132,7 @@ export default function MobileLoggedInNavigation({
               </button>
 
               {notificationOpen && (
-                  <div className="absolute right-0 top-10 z-[70] w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[#e0e0e0] bg-white shadow-xl">
+                  <div className="hankki-notification-popover absolute right-0 top-10 z-[70] w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[#e0e0e0] bg-white shadow-xl">
                     <div className="flex items-center justify-between border-b border-[#eeeeee] px-4 py-3">
                       <h3 className="text-sm font-bold text-[#212121]">알림</h3>
                       <button

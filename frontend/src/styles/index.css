@@ -160,6 +160,23 @@ html {
   font-size: 0.96rem;
 }
 
+.hankki-home .hankki-notification-popover .text-xs {
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.hankki-home .hankki-notification-popover .text-sm {
+  font-size: 0.875rem;
+}
+
+.hankki-home .hankki-notification-popover .font-semibold {
+  font-weight: 600;
+}
+
+.hankki-home .hankki-notification-popover .font-bold {
+  font-weight: 700;
+}
+
 .hankki-home .text-lg {
   font-size: 1.2rem;
 }

@@ -40,12 +40,6 @@ public class CacheConfig {
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig.entryTtl(DEFAULT_TTL))
                 .withInitialCacheConfigurations(Map.of(
-                        // 알림 목록 캐시: 30초 TTL
-                        // @CacheEvict로 즉시 무효화하므로 30초면 충분
-                        NotificationCachePolicy.NOTIFICATION_LIST,
-                        NotificationCachePolicy.notificationCacheConfig(
-                                NotificationCachePolicy.NOTIFICATION_LIST_TTL
-                        ),
                         // 미확인 알림 카운트 캐시: 10초 TTL
                         // 벨 아이콘 숫자는 즉각 반영이 중요 → 매우 짧게
                         NotificationCachePolicy.NOTIFICATION_UNREAD,

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router';
 import { User, Bell, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
@@ -6,14 +6,8 @@ import { logout } from '@/api/authApi';
 import { getUserMe } from '@/api/userApi';
 import { clearAccessToken, getAccessToken } from '@/api/axiosInstance';
 import { isSuspendedAllowedPath, setUserStatus, useAuthStatus } from '@/store/authStatusStore';
-import {
-  getNotifications,
-  getUnreadNotificationCount,
-  markAllNotificationsRead,
-  markNotificationRead,
-  NotificationResponse,
-  subscribeNotifications,
-} from '@/api/notificationApi';
+import { NotificationResponse } from '@/api/notificationApi';
+import { useNotifications } from '@/store/notificationStore';
 import MobileLoggedInNavigation from './MobileLoggedInNavigation';
 import { formatNotificationText, getNotificationContextLabel, getNotificationTargetPath } from '../notificationNavigation';
 
@@ -21,16 +15,21 @@ export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [point, setPoint] = useState<number | null>(null);
-  const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [notificationOpen, setNotificationOpen] = useState(false);
-  const [notificationLoading, setNotificationLoading] = useState(false);
-  const [notificationLoadingMore, setNotificationLoadingMore] = useState(false);
-  const [notificationHasNext, setNotificationHasNext] = useState(false);
-  const [notificationNextCursor, setNotificationNextCursor] = useState<number | null>(null);
-  const notificationRef = useRef<HTMLDivElement>(null);
-  const notificationReadInFlightRef = useRef(new Set<number>());
   const { isSuspended } = useAuthStatus();
+  const {
+    notifications,
+    unreadCount,
+    notificationOpen,
+    notificationLoading,
+    notificationLoadingMore,
+    notificationHasNext,
+    toggleNotifications,
+    closeNotifications,
+    loadMoreNotifications,
+    markAllRead,
+    markRead,
+    clearNotifications,
+  } = useNotifications();
   const suspendedToastMessage = '정지된 계정입니다. 문의하기로 이의를 제기해 주세요.';
 
   const isActive = (path: string) => {
@@ -42,7 +41,7 @@ export default function Layout() {
       // sessionStorage → 메모리에서 토큰 확인
       if (!getAccessToken()) {
         setPoint(null);
-        setUnreadCount(0);
+        clearNotifications();
         return;
       }
 
@@ -55,16 +54,8 @@ export default function Layout() {
       } catch (err) {
         console.error('Failed to load user header data', err);
         setPoint(null);
-        setUnreadCount(0);
+        clearNotifications();
         return;
-      }
-
-      try {
-        const unreadRes = await getUnreadNotificationCount();
-        setUnreadCount(unreadRes.data.data.unreadCount);
-      } catch (err) {
-        console.error('Failed to load unread notification count', err);
-        setUnreadCount(0);
       }
     };
 
@@ -74,7 +65,7 @@ export default function Layout() {
     return () => {
       window.removeEventListener('focus', fetchMyPoint);
     };
-  }, [location.pathname]);
+  }, [clearNotifications, location.pathname]);
 
   useEffect(() => {
     if (!isSuspended || isSuspendedAllowedPath(location.pathname)) {
@@ -86,44 +77,8 @@ export default function Layout() {
   }, [isSuspended, location.pathname, navigate]);
 
   useEffect(() => {
-    if (!getAccessToken()) {
-      return;
-    }
-
-    const eventSource = subscribeNotifications();
-    if (!eventSource) {
-      return;
-    }
-
-    const handleNotification = (event: MessageEvent) => {
-      try {
-        const notification = JSON.parse(event.data) as NotificationResponse;
-        setUnreadCount((current) => current + (notification.isRead ? 0 : 1));
-        setNotifications((current) => {
-          if (current.some((item) => item.notificationId === notification.notificationId)) {
-            return current;
-          }
-          return [notification, ...current].slice(0, 10);
-        });
-      } catch (err) {
-        console.error('Failed to parse SSE notification', err);
-      }
-    };
-
-    eventSource.addEventListener('notification', handleNotification);
-    eventSource.onerror = (event) => {
-      console.error('Notification SSE connection failed', event);
-    };
-
-    return () => {
-      eventSource.removeEventListener('notification', handleNotification);
-      eventSource.close();
-    };
-  }, []);
-
-  useEffect(() => {
-    setNotificationOpen(false);
-  }, [location.pathname]);
+    closeNotifications();
+  }, [closeNotifications, location.pathname]);
 
   useEffect(() => {
     if (!notificationOpen) {
@@ -133,12 +88,12 @@ export default function Layout() {
     const handlePointerDown = (event: MouseEvent | TouchEvent) => {
       const target = event.target;
       if (!(target instanceof Element) || !target.closest('[data-notification-container]')) {
-        setNotificationOpen(false);
+        closeNotifications();
       }
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setNotificationOpen(false);
+        closeNotifications();
       }
     };
 
@@ -151,29 +106,7 @@ export default function Layout() {
       document.removeEventListener('touchstart', handlePointerDown);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [notificationOpen]);
-
-  const handleNotificationToggle = async () => {
-    const nextOpen = !notificationOpen;
-    setNotificationOpen(nextOpen);
-
-    if (!nextOpen || !getAccessToken()) {
-      return;
-    }
-
-    setNotificationLoading(true);
-    try {
-      const res = await getNotifications(null, 10);
-      const notificationPage = res.data.data;
-      setNotifications(notificationPage.content);
-      setNotificationHasNext(notificationPage.hasNext);
-      setNotificationNextCursor(notificationPage.nextCursor);
-    } catch (err) {
-      console.error('Failed to load notifications', err);
-    } finally {
-      setNotificationLoading(false);
-    }
-  };
+  }, [closeNotifications, notificationOpen]);
 
   const handleLogout = async () => {
     try {
@@ -182,73 +115,14 @@ export default function Layout() {
       console.error('Logout request failed', err);
     } finally {
       clearAccessToken();
+      clearNotifications();
       navigate('/');
     }
   };
 
-  const handleMarkAllNotificationsRead = async () => {
-    try {
-      await markAllNotificationsRead();
-      setUnreadCount(0);
-      setNotifications((current) =>
-          current.map((notification) => ({
-            ...notification,
-            isRead: true,
-            readAt: notification.readAt ?? new Date().toISOString(),
-          })),
-      );
-    } catch (err) {
-      console.error('Failed to mark notifications as read', err);
-    }
-  };
-
-  const handleLoadMoreNotifications = async () => {
-    if (notificationLoadingMore || !notificationHasNext || notificationNextCursor === null) {
-      return;
-    }
-
-    setNotificationLoadingMore(true);
-    try {
-      const res = await getNotifications(notificationNextCursor, 10);
-      const notificationPage = res.data.data;
-      setNotifications((current) => [...current, ...notificationPage.content]);
-      setNotificationHasNext(notificationPage.hasNext);
-      setNotificationNextCursor(notificationPage.nextCursor);
-    } catch (err) {
-      console.error('Failed to load more notifications', err);
-    } finally {
-      setNotificationLoadingMore(false);
-    }
-  };
-
   const handleNotificationClick = async (notification: NotificationResponse) => {
-    if (!notification.isRead && !notificationReadInFlightRef.current.has(notification.notificationId)) {
-      notificationReadInFlightRef.current.add(notification.notificationId);
-
-      try {
-        const res = await markNotificationRead(notification.notificationId);
-        const updatedNotification = res.data.data;
-
-        setNotifications((current) =>
-            current.map((item) =>
-                item.notificationId === notification.notificationId
-                    ? {
-                      ...item,
-                      isRead: updatedNotification.isRead,
-                      readAt: updatedNotification.readAt,
-                    }
-                    : item,
-            ),
-        );
-        setUnreadCount((current) => Math.max(0, current - 1));
-      } catch (err) {
-        console.error('Failed to mark notification as read', err);
-      } finally {
-        notificationReadInFlightRef.current.delete(notification.notificationId);
-      }
-    }
-
-    setNotificationOpen(false);
+    await markRead(notification);
+    closeNotifications();
     if (isSuspended) {
       return;
     }
@@ -282,10 +156,10 @@ export default function Layout() {
             notificationLoading={notificationLoading}
             notificationLoadingMore={notificationLoadingMore}
             notificationHasNext={notificationHasNext}
-            onNotificationToggle={handleNotificationToggle}
+            onNotificationToggle={toggleNotifications}
             onNotificationClick={handleNotificationClick}
-            onMarkAllRead={handleMarkAllNotificationsRead}
-            onLoadMore={handleLoadMoreNotifications}
+            onMarkAllRead={markAllRead}
+            onLoadMore={loadMoreNotifications}
             onLogout={handleLogout}
             isSuspended={isSuspended}
             onSuspendedMenuClick={() => toast.warning(suspendedToastMessage)}
@@ -352,10 +226,10 @@ export default function Layout() {
                   {point === null ? '-' : `${point.toLocaleString()}P`}
                 </span>
               </div>
-              <div ref={notificationRef} data-notification-container className="relative">
+              <div data-notification-container className="relative">
                 <button
                     type="button"
-                    onClick={handleNotificationToggle}
+                    onClick={toggleNotifications}
                     className="relative text-[#616161] hover:text-[#d84315]"
                     aria-label="알림 목록"
                 >
@@ -368,12 +242,12 @@ export default function Layout() {
                 </button>
 
                 {notificationOpen && (
-                    <div className="absolute right-0 top-9 z-50 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[#e0e0e0] bg-white shadow-xl">
+                    <div className="hankki-notification-popover absolute right-0 top-9 z-50 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[#e0e0e0] bg-white shadow-xl">
                       <div className="flex items-center justify-between border-b border-[#eeeeee] px-4 py-3">
                         <h3 className="text-sm font-bold text-[#212121]">알림</h3>
                         <button
                             type="button"
-                            onClick={handleMarkAllNotificationsRead}
+                            onClick={markAllRead}
                             disabled={unreadCount === 0}
                             className="text-xs font-semibold text-[#d84315] hover:text-[#bf360c] disabled:cursor-not-allowed disabled:text-[#bdbdbd]"
                         >
@@ -421,7 +295,7 @@ export default function Layout() {
                             {notificationHasNext && (
                                 <button
                                     type="button"
-                                    onClick={handleLoadMoreNotifications}
+                                    onClick={loadMoreNotifications}
                                     disabled={notificationLoadingMore}
                                     className="w-full border-t border-[#eeeeee] px-4 py-3 text-xs font-semibold text-[#d84315] hover:bg-[#fff8f2] disabled:cursor-not-allowed disabled:text-[#bdbdbd]"
                                 >
