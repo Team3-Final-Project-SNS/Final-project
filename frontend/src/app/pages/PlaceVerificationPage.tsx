@@ -26,6 +26,8 @@ interface Position {
 type KakaoMapStatus = 'loading' | 'ready' | 'error';
 
 const USER_VISIBLE_RADIUS_METERS = 50;
+const LOCATION_WATCH_TIMEOUT_MS = 15000;
+const LOCATION_MAXIMUM_AGE_MS = 5000;
 
 export default function PlaceVerificationPage() {
   const { id } = useParams();
@@ -267,8 +269,11 @@ export default function PlaceVerificationPage() {
         setLocationError(null);
         setCurrentPosition({ latitude: position.coords.latitude, longitude: position.coords.longitude });
       },
-      () => setLocationError('현재 위치를 가져오지 못했습니다. 위치 권한을 확인해주세요.'),
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 },
+      (error) => {
+        console.error(`Geolocation error (${error.code}): ${error.message}`, error);
+        setLocationError(getGeolocationErrorMessage(error));
+      },
+      { enableHighAccuracy: true, maximumAge: LOCATION_MAXIMUM_AGE_MS, timeout: LOCATION_WATCH_TIMEOUT_MS },
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
@@ -596,4 +601,17 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
   const a = Math.sin(deltaPhi / 2) ** 2 + Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) ** 2;
   return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function getGeolocationErrorMessage(error: GeolocationPositionError) {
+  switch (error.code) {
+    case error.PERMISSION_DENIED:
+      return '위치 권한이 차단되었습니다. 브라우저와 운영체제의 위치 권한을 모두 허용해주세요.';
+    case error.POSITION_UNAVAILABLE:
+      return '현재 위치를 계산할 수 없습니다. Wi-Fi 또는 네트워크 연결과 기기의 위치 서비스를 확인해주세요.';
+    case error.TIMEOUT:
+      return '현재 위치 확인 시간이 초과되었습니다. 잠시 후 다시 시도하거나 위치 서비스 상태를 확인해주세요.';
+    default:
+      return '현재 위치를 가져오지 못했습니다. 위치 서비스 상태를 확인해주세요.';
+  }
 }
