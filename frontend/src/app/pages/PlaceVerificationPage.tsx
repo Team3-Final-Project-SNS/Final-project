@@ -23,6 +23,8 @@ interface Position {
   longitude: number;
 }
 
+type KakaoMapStatus = 'loading' | 'ready' | 'error';
+
 const USER_VISIBLE_RADIUS_METERS = 50;
 
 export default function PlaceVerificationPage() {
@@ -50,7 +52,8 @@ export default function PlaceVerificationPage() {
   const [isVerified, setIsVerified] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [useSimulation, setUseSimulation] = useState(false);
-  const [kakaoMapAvailable, setKakaoMapAvailable] = useState(true);
+  const [kakaoMapStatus, setKakaoMapStatus] = useState<KakaoMapStatus>('loading');
+  const [mapRetryKey, setMapRetryKey] = useState(0);
   const [authorNickname, setAuthorNickname] = useState('등록자');
   const [authorVerified, setAuthorVerified] = useState(false);
   const [verificationParticipants, setVerificationParticipants] = useState<ParticipantVerification[]>([]);
@@ -61,6 +64,8 @@ export default function PlaceVerificationPage() {
   const radiusCircleRef = useRef<any>(null);
   const myMarkerRef = useRef<any>(null);
   const opponentMarkerRefs = useRef<any[]>([]);
+
+  const kakaoMapAvailable = kakaoMapStatus === 'ready';
 
   const applyVerificationData = (
     data: Awaited<ReturnType<typeof getMeetVerification>>['data']['data'],
@@ -123,6 +128,8 @@ export default function PlaceVerificationPage() {
   useEffect(() => {
     if (!meetingPlace || !mapContainerRef.current) return;
 
+    setKakaoMapStatus('loading');
+
     let isCancelled = false;
     let retryCount = 0;
     let retryTimerId: number | undefined;
@@ -158,7 +165,7 @@ export default function PlaceVerificationPage() {
       if (!hasUsableMapContainerSize()) {
         retryCount += 1;
         if (retryCount > maxRetryCount) {
-          setKakaoMapAvailable(false);
+          setKakaoMapStatus('error');
           return;
         }
         retryTimerId = window.setTimeout(() => initializeMap(kakaoMaps), 100);
@@ -170,7 +177,7 @@ export default function PlaceVerificationPage() {
         || !Number.isFinite(meetingPlace.longitude)
       ) {
         console.error('Invalid meeting place coordinates', meetingPlace);
-        setKakaoMapAvailable(false);
+        setKakaoMapStatus('error');
         return;
       }
 
@@ -192,7 +199,7 @@ export default function PlaceVerificationPage() {
           fillOpacity: 0.25,
         });
         radiusCircleRef.current.setMap(map);
-        setKakaoMapAvailable(true);
+        setKakaoMapStatus('ready');
 
         scheduleMapRelayout(map, center);
         resizeObserver = new ResizeObserver(() => {
@@ -203,7 +210,7 @@ export default function PlaceVerificationPage() {
         resizeObserver.observe(container);
       } catch (err) {
         console.error('Failed to initialize Kakao map', err);
-        setKakaoMapAvailable(false);
+        setKakaoMapStatus('error');
       }
     };
 
@@ -218,11 +225,11 @@ export default function PlaceVerificationPage() {
         })
         .catch((err) => {
           console.error('Failed to load Kakao map SDK', err);
-          setKakaoMapAvailable(false);
+          setKakaoMapStatus('error');
         });
     } catch (err) {
       console.error('Failed to initialize Kakao map', err);
-      setKakaoMapAvailable(false);
+      setKakaoMapStatus('error');
     }
 
     return () => {
@@ -240,7 +247,7 @@ export default function PlaceVerificationPage() {
       opponentMarkerRefs.current.forEach((marker) => marker.setMap(null));
       opponentMarkerRefs.current = [];
     };
-  }, [meetingPlace]);
+  }, [meetingPlace, mapRetryKey]);
 
   useEffect(() => {
     if (!meetingPlace) return;
@@ -407,10 +414,21 @@ export default function PlaceVerificationPage() {
           {locationError && <p className="mt-2 text-sm text-[#ef5350]">{locationError}</p>}
         </div>
 
-        {kakaoMapAvailable ? (
-          <div ref={mapContainerRef} className="hankki-kakao-map mb-3 h-56 w-full overflow-hidden rounded-2xl border-2 border-[#e0e0e0] sm:h-64" />
+        {kakaoMapStatus !== 'error' ? (
+          <div className="relative mb-3 h-56 w-full overflow-hidden rounded-2xl border-2 border-[#e0e0e0] bg-[#fafafa] sm:h-64">
+            <div ref={mapContainerRef} className="hankki-kakao-map h-full w-full" />
+            {kakaoMapStatus === 'loading' && (
+              <div className="absolute inset-0 flex items-center justify-center bg-[#fafafa]">
+                <div className="text-center">
+                  <Loader2 size={34} className="mx-auto mb-3 animate-spin text-[#d84315]" />
+                  <p className="text-xs font-semibold text-[#9e9e9e]">지도를 불러오는 중입니다.</p>
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
           <div className="relative mb-6 rounded-2xl border-2 border-[#e0e0e0] bg-[#fafafa] p-8">
+            <div ref={mapContainerRef} className="hidden h-56 w-full sm:h-64" />
             <div className="mb-4 rounded-lg border border-[#ff9800] bg-[#fff3e0] px-3 py-2 text-center">
               <p className="text-xs text-[#e65100]">지도를 불러오지 못했습니다. 거리 기반 인증은 정상 작동합니다.</p>
             </div>
@@ -420,6 +438,16 @@ export default function PlaceVerificationPage() {
                 <p className="text-xs text-[#9e9e9e]">실시간 위치 추적 중</p>
               </div>
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                setKakaoMapStatus('loading');
+                setMapRetryKey((nextRetryKey) => nextRetryKey + 1);
+              }}
+              className="mt-4 w-full rounded-lg border border-[#d84315] bg-white px-3 py-2 text-sm font-bold text-[#d84315] transition-colors hover:bg-[#fff3e0]"
+            >
+              지도 다시 불러오기
+            </button>
           </div>
         )}
 

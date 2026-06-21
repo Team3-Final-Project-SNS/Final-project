@@ -15,6 +15,7 @@ import {
 import { getMatchDetail, GetMatchResponse, MatchStatus } from '../../api/matchApi';
 import { getMeetVerification, MeetVerificationResponse } from '../../api/meetApi';
 import { getUserMe } from '../../api/userApi';
+import { loadKakaoMaps } from '../utils/kakaoMapsLoader';
 
 const statusPresentation: Record<MatchStatus, {
   label: string;
@@ -104,6 +105,10 @@ export default function MatchDetailPage() {
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    loadKakaoMaps().catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     const fetchMatch = async () => {

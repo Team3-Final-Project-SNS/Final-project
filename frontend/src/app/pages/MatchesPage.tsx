@@ -11,6 +11,7 @@ import {
   ReviewItem,
 } from '../../api/reviewApi';
 import { applyExtendedMeetAt } from '../../store/matchStore';
+import { loadKakaoMaps } from '../utils/kakaoMapsLoader';
 
 type FilterStatus = MatchStatus | '전체' | 'NO_SHOW';
 
@@ -83,6 +84,10 @@ export default function MatchesPage() {
   const [selectedBadTags, setSelectedBadTags] = useState<ReviewBadTag[]>([]);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const displayMatches = groupMatchesByPost(matches);
+
+  useEffect(() => {
+    loadKakaoMaps().catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     const fetchMatches = async () => {
