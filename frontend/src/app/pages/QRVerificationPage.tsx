@@ -8,6 +8,7 @@ import { getMatchDetail, getMyMatches } from '../../api/matchApi';
 import { getUserMe } from '../../api/userApi';
 
 type QrRole = 'author' | 'applicant';
+const CAMERA_REQUEST_TIMEOUT_MS = 15000;
 
 const getQrBaseUrl = () => {
   const configuredUrl = import.meta.env.VITE_QR_BASE_URL;
@@ -37,6 +38,32 @@ async function findMyMatchIdByPostId(postId: number) {
   return null;
 }
 
+async function getUserMediaWithTimeout(constraints: MediaStreamConstraints, timeoutMs: number) {
+  let timeoutId: number | undefined;
+  let didTimeout = false;
+
+  const mediaRequest = navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
+    if (didTimeout) {
+      stream.getTracks().forEach((track) => track.stop());
+      throw new Error('Camera request timed out.');
+    }
+    return stream;
+  });
+
+  const timeout = new Promise<MediaStream>((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      didTimeout = true;
+      reject(new Error('Camera request timed out.'));
+    }, timeoutMs);
+  });
+
+  return Promise.race([mediaRequest, timeout]).finally(() => {
+    if (timeoutId !== undefined) {
+      window.clearTimeout(timeoutId);
+    }
+  });
+}
+
 export default function QRVerificationPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -53,6 +80,8 @@ export default function QRVerificationPage() {
   const [step, setStep] = useState<'display' | 'scan' | 'success'>('display');
   const [qrToken, setQrToken] = useState('');
   const [qrImageUrl, setQrImageUrl] = useState('');
+  const [qrImageError, setQrImageError] = useState('');
+  const [qrImageRetryKey, setQrImageRetryKey] = useState(0);
   const [qrInput, setQrInput] = useState(tokenFromUrl || '');
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [scanError, setScanError] = useState('');
@@ -211,17 +240,24 @@ export default function QRVerificationPage() {
     if (!qrToken || !postId) return;
 
     const generateQrImage = async () => {
-      const qrUrl = `${getQrBaseUrl()}/matches/${resolvedMatchId}/qr?role=applicant&postId=${postId}&qrToken=${encodeURIComponent(qrToken)}`;
-      const imageUrl = await QRCode.toDataURL(qrUrl, {
-        width: 256,
-        margin: 2,
-        color: { dark: '#212121', light: '#ffffff' },
-      });
-      setQrImageUrl(imageUrl);
+      try {
+        setQrImageError('');
+        setQrImageUrl('');
+        const qrUrl = `${getQrBaseUrl()}/matches/${resolvedMatchId}/qr?role=applicant&postId=${postId}&qrToken=${encodeURIComponent(qrToken)}`;
+        const imageUrl = await QRCode.toDataURL(qrUrl, {
+          width: 256,
+          margin: 2,
+          color: { dark: '#212121', light: '#ffffff' },
+        });
+        setQrImageUrl(imageUrl);
+      } catch (err) {
+        console.error('QR image generation failed:', err);
+        setQrImageError('QR 이미지를 생성하지 못했습니다. 다시 시도해주세요.');
+      }
     };
 
     generateQrImage().catch((err) => console.error('QR 이미지 생성 실패:', err));
-  }, [postId, qrToken, resolvedMatchId]);
+  }, [postId, qrImageRetryKey, qrToken, resolvedMatchId]);
 
   useEffect(() => {
     if (timeRemaining <= 0) return;
@@ -322,10 +358,10 @@ export default function QRVerificationPage() {
           return;
         }
 
-        const stream = await navigator.mediaDevices.getUserMedia({
+        const stream = await getUserMediaWithTimeout({
           video: { facingMode: { ideal: 'environment' } },
           audio: false,
-        });
+        }, CAMERA_REQUEST_TIMEOUT_MS);
 
         if (stopped) {
           stream.getTracks().forEach((track) => track.stop());
@@ -555,6 +591,17 @@ export default function QRVerificationPage() {
             <div className="mb-6 flex justify-center">
               {qrImageUrl ? (
                 <img src={qrImageUrl} alt="만남 인증 QR 코드" className="w-full max-w-64 rounded-xl border border-[#e0e0e0]" />
+              ) : qrImageError ? (
+                <div className="flex h-64 w-64 flex-col items-center justify-center gap-3 rounded-xl border border-[#ff9800] bg-[#fff3e0] p-4 text-center">
+                  <p className="text-sm font-semibold text-[#e65100]">{qrImageError}</p>
+                  <button
+                    type="button"
+                    onClick={() => setQrImageRetryKey((nextRetryKey) => nextRetryKey + 1)}
+                    className="rounded-lg border border-[#d84315] bg-white px-3 py-2 text-sm font-bold text-[#d84315] transition-colors hover:bg-[#fff8f3]"
+                  >
+                    QR 다시 생성
+                  </button>
+                </div>
               ) : (
                 <div className="flex h-64 w-64 items-center justify-center rounded-xl bg-[#f5f5f5]">
                   <p className="text-sm text-[#9e9e9e]">QR 생성 중...</p>

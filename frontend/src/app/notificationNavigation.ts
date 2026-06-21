@@ -59,6 +59,10 @@ export const getNotificationTargetPath = (notification: NotificationResponse) =>
     return null;
   }
 
+  if (type === 'MANNER_TEMPERATURE_CHANGED') {
+    return '/me';
+  }
+
   if (type === 'POST_DELETED') {
     return notification.content.includes('환불') ? '/me/points' : relatedId ? `/posts/${relatedId}/delete-reason` : null;
   }
