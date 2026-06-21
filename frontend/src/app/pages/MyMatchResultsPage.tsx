@@ -215,7 +215,7 @@ export default function MyMatchResultsPage() {
           </Link>
         </div>
 
-        <div className="mb-5 flex gap-2 overflow-x-auto pb-2">
+        <div className="mb-5 flex gap-2 overflow-x-auto pb-2 [scrollbar-width:thin]">
           {filters.map((filter) => (
               <button
                   key={filter}
@@ -224,7 +224,7 @@ export default function MyMatchResultsPage() {
                     setActiveFilter(filter);
                     setPage(0);
                   }}
-                  className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                  className={`inline-flex h-11 min-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap rounded-full px-4 text-sm font-semibold transition-colors ${
                       activeFilter === filter
                           ? 'bg-[#d84315] text-white'
                           : 'border border-[#e0e0e0] bg-white text-[#616161] hover:border-[#d84315]'
@@ -420,14 +420,14 @@ function MatchResultCard({
 }) {
   return (
       <div className="rounded-2xl border border-[#e0e0e0] bg-white p-5 shadow-sm transition-all hover:border-[#d84315] hover:shadow-md">
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-center gap-2">
-            <span className={`rounded px-2.5 py-1 text-xs font-bold ${statusClasses[match.status]}`}>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-col items-start">
+            <span className={`hankki-status-badge rounded px-2.5 py-1 text-xs font-bold leading-none ${statusClasses[match.status]}`}>
               {statusLabels[match.status]}
             </span>
-            <span className="text-xs font-semibold text-[#9e9e9e]">{formatDateTime(match.matchedAt)} 매칭</span>
+            <span className="mt-2 block truncate text-xs font-semibold text-[#9e9e9e]">{formatDateTime(match.matchedAt)} 매칭</span>
           </div>
-          <span className="text-sm font-bold text-[#d84315]">{match.myDeposit.toLocaleString()}P</span>
+          <span className="shrink-0 text-sm font-bold text-[#d84315]">{match.myDeposit.toLocaleString()}P</span>
         </div>
 
         <h2 className="mb-3 text-lg font-bold text-[#212121]">{match.placeName} 만남</h2>

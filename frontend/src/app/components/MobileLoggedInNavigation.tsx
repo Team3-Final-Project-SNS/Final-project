@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Bell, FileText, Handshake, Home, Menu, Sparkles, User } from 'lucide-react';
 import { Link, useLocation } from 'react-router';
 import { NotificationResponse } from '../../api/notificationApi';
-import { getNotificationContextLabel } from '../notificationNavigation';
+import { formatNotificationText, getNotificationContextLabel } from '../notificationNavigation';
 
 interface MobileLoggedInNavigationProps {
   point: number | null;
@@ -161,14 +161,14 @@ export default function MobileLoggedInNavigation({
                                   } hover:bg-[#fff8f2]`}
                               >
                                 <div className="mb-1 flex items-start justify-between gap-2">
-                                  <p className="text-sm font-bold text-[#212121]">{notification.title}</p>
+                                  <p className="text-sm font-bold text-[#212121]">{formatNotificationText(notification.title)}</p>
                                   {!notification.isRead && (
                                       <span className="shrink-0 rounded-full bg-[#d84315] px-2 py-0.5 text-[10px] font-bold text-white">
                                         NEW
                                       </span>
                                   )}
                                 </div>
-                                <p className="line-clamp-2 text-xs text-[#616161]">{notification.content}</p>
+                                <p className="line-clamp-2 text-xs text-[#616161]">{formatNotificationText(notification.content)}</p>
                                 {getNotificationContextLabel(notification) && (
                                     <p className="mt-1 text-[11px] font-bold text-[#d84315]">
                                       {getNotificationContextLabel(notification)}

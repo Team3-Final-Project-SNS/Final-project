@@ -9,7 +9,11 @@ import {
   subscribeAdminNotifications,
 } from '../../api/adminNotificationApi';
 import { NotificationResponse } from '../../api/notificationApi';
-import { getNotificationTargetPath } from '../notificationNavigation';
+import {
+  formatNotificationText,
+  getNotificationContextLabel,
+  getNotificationTargetPath,
+} from '../notificationNavigation';
 
 export default function AdminNotificationBell() {
   const navigate = useNavigate();
@@ -188,14 +192,19 @@ export default function AdminNotificationBell() {
                     }`}
                   >
                     <div className="mb-1 flex items-start justify-between gap-2">
-                      <p className="text-sm font-bold text-[#212121]">{item.title}</p>
+                      <p className="text-sm font-bold text-[#212121]">{formatNotificationText(item.title)}</p>
                       {!item.isRead && (
                         <span className="shrink-0 rounded-full bg-[#d84315] px-2 py-0.5 text-[10px] font-bold text-white">
                           NEW
                         </span>
                       )}
                     </div>
-                    <p className="line-clamp-2 text-xs text-[#616161]">{item.content}</p>
+                    <p className="line-clamp-2 text-xs text-[#616161]">{formatNotificationText(item.content)}</p>
+                    {getNotificationContextLabel(item) && (
+                      <p className="mt-1 text-[11px] font-bold text-[#d84315]">
+                        {getNotificationContextLabel(item)}
+                      </p>
+                    )}
                     <p className="mt-2 text-[11px] font-semibold text-[#9e9e9e]">{formatDateTime(item.createdAt)}</p>
                   </button>
                 ))}

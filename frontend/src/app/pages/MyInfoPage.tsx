@@ -165,12 +165,12 @@ export default function MyInfoPage() {
                   />
                 </div>
 
-                <div className="flex flex-wrap justify-end gap-2 p-5">
+                <div className="grid grid-cols-1 gap-2 p-5 sm:grid-cols-3">
                   <Link
                       to="/me/points"
                       onClick={isSuspended ? handleSuspendedLinkClick : undefined}
                       aria-disabled={isSuspended}
-                      className="rounded-lg border border-[#d84315] bg-white px-5 py-2.5 text-sm font-semibold text-[#d84315] transition-colors hover:bg-[#fff3e0]"
+                      className="inline-flex h-11 items-center justify-center rounded-lg border border-[#d84315] bg-white px-4 text-center text-sm font-semibold text-[#d84315] transition-colors hover:bg-[#fff3e0]"
                   >
                     포인트 거래 내역 조회
                   </Link>
@@ -178,7 +178,7 @@ export default function MyInfoPage() {
                       to="/payments"
                       onClick={isSuspended ? handleSuspendedLinkClick : undefined}
                       aria-disabled={isSuspended}
-                      className="rounded-lg border border-[#d84315] bg-white px-5 py-2.5 text-sm font-semibold text-[#d84315] transition-colors hover:bg-[#fff3e0]"
+                      className="inline-flex h-11 items-center justify-center rounded-lg border border-[#d84315] bg-white px-4 text-center text-sm font-semibold text-[#d84315] transition-colors hover:bg-[#fff3e0]"
                   >
                     내 결제 보기
                   </Link>
@@ -186,17 +186,9 @@ export default function MyInfoPage() {
                       to="/me/matches"
                       onClick={isSuspended ? handleSuspendedLinkClick : undefined}
                       aria-disabled={isSuspended}
-                      className="rounded-lg border border-[#d84315] bg-white px-5 py-2.5 text-sm font-semibold text-[#d84315] transition-colors hover:bg-[#fff3e0]"
+                      className="inline-flex h-11 items-center justify-center rounded-lg border border-[#d84315] bg-white px-4 text-center text-sm font-semibold text-[#d84315] transition-colors hover:bg-[#fff3e0]"
                   >
                     내 매칭 결과 보기
-                  </Link>
-                  <Link
-                      to="/posts?mine=1"
-                      onClick={isSuspended ? handleSuspendedLinkClick : undefined}
-                      aria-disabled={isSuspended}
-                      className="rounded-lg bg-[#d84315] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#bf360c]"
-                  >
-                    내가 작성한 게시물 보기
                   </Link>
                 </div>
 

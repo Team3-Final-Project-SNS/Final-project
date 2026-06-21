@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router';
 import { createPost, getPost, updatePost } from '../../api/postApi';
 import axiosInstance from '../../api/axiosInstance';
 import { AlertCircle, ChevronDown, Loader2, MapPin, Search, X } from 'lucide-react';
+import { loadKakaoPlaceServices } from '../utils/kakaoMapsLoader';
 
 // 카카오 장소 검색 결과 타입
 interface KakaoPlace {
@@ -45,6 +46,47 @@ const minuteOptions = ['00', '10', '20', '30', '40', '50'];
 const MIN_DEPOSIT = 200;
 const DEPOSIT_STEP = 100;
 const PLACE_SEARCH_TIMEOUT_MS = 8000;
+const PLACE_SEARCH_RETRY_DELAY_MS = 300;
+
+function delay(ms: number) {
+    return new Promise<void>((resolve) => {
+        window.setTimeout(resolve, ms);
+    });
+}
+
+function searchKakaoPlaces(kakaoMaps: typeof kakao.maps, keyword: string) {
+    return new Promise<KakaoPlace[]>((resolve, reject) => {
+        const places = new kakaoMaps.services.Places();
+        const searchTimeoutId = window.setTimeout(() => {
+            reject(new Error('Place search timed out.'));
+        }, PLACE_SEARCH_TIMEOUT_MS);
+
+        places.keywordSearch(keyword, (result: KakaoPlace[], status: string) => {
+            window.clearTimeout(searchTimeoutId);
+
+            if (status === kakaoMaps.services.Status.OK) {
+                resolve(result.slice(0, 5));
+                return;
+            }
+
+            if (status === kakaoMaps.services.Status.ZERO_RESULTS) {
+                resolve([]);
+                return;
+            }
+
+            reject(new Error(`Kakao place search failed with status: ${status}`));
+        });
+    });
+}
+
+async function searchKakaoPlacesWithRetry(kakaoMaps: typeof kakao.maps, keyword: string) {
+    try {
+        return await searchKakaoPlaces(kakaoMaps, keyword);
+    } catch (error) {
+        await delay(PLACE_SEARCH_RETRY_DELAY_MS);
+        return searchKakaoPlaces(kakaoMaps, keyword);
+    }
+}
 
 export default function PostCreatePage() {
     const navigate = useNavigate();
@@ -96,6 +138,12 @@ export default function PostCreatePage() {
     }, []);
 
     useEffect(() => {
+        loadKakaoPlaceServices().catch((err) => {
+            console.error('Failed to preload Kakao Maps SDK', err);
+        });
+    }, []);
+
+    useEffect(() => {
         if (!id) {
             return;
         }
@@ -131,43 +179,32 @@ export default function PostCreatePage() {
     const afterPoints = userPoints - points;
 
     // ── 장소 검색 핸들러 ─────────────────────────────────
-    const handleSearchPlace = () => {
-        if (!searchKeyword.trim()) return;
-
-        // kakao 객체 자체만 체크 (autoload=true라서 바로 사용 가능)
-        if (!window.kakao) {
-            setError('카카오맵 SDK가 로드되지 않았습니다. 새로고침 해주세요.');
-            return;
-        }
-
-        if (!window.kakao.maps?.services?.Places) {
-            setError('장소 검색 서비스를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
-            return;
-        }
+    const handleSearchPlace = async () => {
+        const keyword = searchKeyword.trim();
+        if (!keyword) return;
 
         setSearchLoading(true);
         setSearchResults([]);
+        setError('');
 
-        // autoload=true라서 load() 없이 바로 services 사용 가능
-        const places = new window.kakao.maps.services.Places();
-        const searchTimeoutId = window.setTimeout(() => {
-            setSearchLoading(false);
-            setSearchResults([]);
-            setShowResults(true);
-            setError('장소 검색 요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.');
-        }, PLACE_SEARCH_TIMEOUT_MS);
+        try {
+            const kakaoMaps = await loadKakaoPlaceServices(PLACE_SEARCH_TIMEOUT_MS);
 
-        places.keywordSearch(searchKeyword.trim(), (result: KakaoPlace[], status: string) => {
-            window.clearTimeout(searchTimeoutId);
-            setSearchLoading(false);
-            if (status === window.kakao.maps.services.Status.OK) {
-                setSearchResults(result.slice(0, 5));
-                setShowResults(true);
-            } else {
-                setSearchResults([]);
-                setShowResults(true);
+            if (!kakaoMaps.services?.Places) {
+                throw new Error('Kakao Places service is unavailable.');
             }
-        });
+
+            const result = await searchKakaoPlacesWithRetry(kakaoMaps, keyword);
+            setSearchResults(result);
+            setShowResults(true);
+        } catch (err) {
+            console.error('Failed to search Kakao places', err);
+            setSearchResults([]);
+            setShowResults(false);
+            setError('장소 검색 서비스를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+        } finally {
+            setSearchLoading(false);
+        }
     };
 
     // ── 검색 결과에서 장소 선택 ──────────────────────────
