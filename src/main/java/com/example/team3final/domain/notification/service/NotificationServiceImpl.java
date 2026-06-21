@@ -35,10 +35,6 @@ public class NotificationServiceImpl implements NotificationService {
 
     // 알림 목록 조회 (커서 기반 페이징)
     @Override
-    @Cacheable(
-            cacheNames = NotificationCachePolicy.NOTIFICATION_LIST,
-            key = "#receiverType + ':' + #receiverId + ':' + #cursorId + ':' + #size"
-    )
     public CursorResponseDto<GetNotificationsResponseDto> getNotifications(
             NotificationReceiverType receiverType, Long receiverId, Long cursorId, int size) {
 
@@ -70,11 +66,6 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     @Caching(evict = {
-            // 알림 목록 캐시 전체 삭제
-            @CacheEvict(
-                    cacheNames = NotificationCachePolicy.NOTIFICATION_LIST,
-                    allEntries = true
-            ),
             // 미확인 카운트 캐시 삭제 - 전체 읽음 후 숫자 즉시 반영
             @CacheEvict(
                     cacheNames = NotificationCachePolicy.NOTIFICATION_UNREAD,
@@ -97,11 +88,6 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     @Caching(evict = {
-            // 알림 목록 캐시 전체 삭제 - isRead 상태 변경 반영
-            @CacheEvict(
-                    cacheNames = NotificationCachePolicy.NOTIFICATION_LIST,
-                    allEntries = true
-            ),
             // 미확인 카운트 캐시 삭제 - 읽음 처리 후 숫자 즉시 반영
             @CacheEvict(
                     cacheNames = NotificationCachePolicy.NOTIFICATION_UNREAD,

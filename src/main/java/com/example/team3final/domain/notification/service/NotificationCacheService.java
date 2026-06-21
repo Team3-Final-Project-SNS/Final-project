@@ -19,19 +19,11 @@ public class NotificationCacheService {
 
     /**
      * 알림 관련 캐시 전체 무효화
-     * - NOTIFICATION_LIST: 알림 목록 캐시
      * - NOTIFICATION_UNREAD: 미확인 카운트 캐시
      *
      * allEntries = true: 해당 캐시 이름의 모든 키 삭제
-     * (특정 유저 키만 삭제하려면 receiverId가 필요한데,
-     *  Kafka 이벤트에서 receiverId는 있지만 캐시 키 형식을
-     *  완전히 맞추기 어려워 전체 삭제로 처리)
      */
     @Caching(evict = {
-            @CacheEvict(
-                    cacheNames = NotificationCachePolicy.NOTIFICATION_LIST,
-                    allEntries = true   // 모든 유저의 알림 목록 캐시 삭제
-            ),
             @CacheEvict(
                     cacheNames = NotificationCachePolicy.NOTIFICATION_UNREAD,
                     allEntries = true   // 모든 유저의 미확인 카운트 캐시 삭제

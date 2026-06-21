@@ -29,6 +29,11 @@ const PUBLIC_ENDPOINTS = [
 // ─────────────────────────────────────────────
 let accessTokenMemory: string | null = null;
 const LOGIN_RESTORE_HINT_KEY = "hankkipot_login_session";
+export const ACCESS_TOKEN_CHANGED_EVENT = "hankkipot:access-token-changed";
+
+const emitAccessTokenChanged = () => {
+    window.dispatchEvent(new CustomEvent(ACCESS_TOKEN_CHANGED_EVENT));
+};
 
 export const markLoginRestoreHint = () => {
     localStorage.setItem(LOGIN_RESTORE_HINT_KEY, "true");
@@ -43,10 +48,12 @@ export const hasLoginRestoreHint = () =>
 
 export const setAccessToken = (token: string) => {
     accessTokenMemory = token;
+    emitAccessTokenChanged();
 };
 export const getAccessToken = () => accessTokenMemory;
 export const clearAccessToken = () => {
     accessTokenMemory = null;
+    emitAccessTokenChanged();
     clearLoginRestoreHint();
     clearAuthStatus();
 };

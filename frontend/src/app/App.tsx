@@ -4,6 +4,7 @@ import { refresh } from '@/api/authApi';
 import { clearAccessToken, hasLoginRestoreHint, setAccessToken } from '@/api/axiosInstance';
 import { getUserMe } from '@/api/userApi';
 import { setUserStatus } from '@/store/authStatusStore';
+import { NotificationProvider } from '@/store/notificationStore';
 import HankkiLoadingScreen from './components/HankkiLoadingScreen';
 import { Toaster } from './components/ui/sonner';
 import { router } from './routes';
@@ -66,7 +67,9 @@ export default function App() {
 
   return (
     <>
-      <RouterProvider router={router} />
+      <NotificationProvider>
+        <RouterProvider router={router} />
+      </NotificationProvider>
       <Toaster position="top-center" richColors />
     </>
   );
