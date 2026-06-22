@@ -473,7 +473,7 @@ AI는 보여주기용 기능이 아니라, 사용자가 실제로 더 쉽게 이
 
 | 문서 | 링크 |
 | --- | --- |
-| 서비스 기획서 | [`docs/sa.md`](./docs/sa.md) |
+| 서비스 기획서 | [`docs/reference/sa.md`](./docs/reference/sa.md) |
 | API 명세서 | [`docs/api-spec.md`](./docs/api-spec.md) |
 | ERD | [`docs/erd.md`](./docs/erd.md) |
 | 배포 고도화 | [`docs/deployment.md`](./docs/deployment.md) |
