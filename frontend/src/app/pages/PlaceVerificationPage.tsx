@@ -25,7 +25,9 @@ interface Position {
 
 type KakaoMapStatus = 'loading' | 'ready' | 'error';
 
-const USER_VISIBLE_RADIUS_METERS = 50;
+const USER_VISIBLE_RADIUS_METERS = 250000;
+// 발표회 시연을 위해 QR 단계 fallback 진입 기준 임시 조정
+const QR_FALLBACK_AFTER_MINUTES = 3;
 const LOCATION_WATCH_TIMEOUT_MS = 15000;
 const LOCATION_MAXIMUM_AGE_MS = 5000;
 
@@ -53,7 +55,6 @@ export default function PlaceVerificationPage() {
   const [isWithinRange, setIsWithinRange] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
-  const [useSimulation, setUseSimulation] = useState(false);
   const [kakaoMapStatus, setKakaoMapStatus] = useState<KakaoMapStatus>('loading');
   const [mapRetryKey, setMapRetryKey] = useState(0);
   const [authorNickname, setAuthorNickname] = useState('등록자');
@@ -254,11 +255,6 @@ export default function PlaceVerificationPage() {
   useEffect(() => {
     if (!meetingPlace) return;
 
-    if (useSimulation) {
-      setCurrentPosition({ latitude: meetingPlace.latitude, longitude: meetingPlace.longitude });
-      return;
-    }
-
     if (!navigator.geolocation) {
       setLocationError('브라우저에서 위치 정보를 사용할 수 없습니다.');
       return;
@@ -277,7 +273,7 @@ export default function PlaceVerificationPage() {
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [meetingPlace, useSimulation]);
+  }, [meetingPlace]);
 
   useEffect(() => {
     if (!meetingPlace || !currentPosition) return;
@@ -381,16 +377,25 @@ export default function PlaceVerificationPage() {
   }
 
   const isMeetAfterQrFallbackTime = meetingPlace
-    ? Date.now() >= new Date(meetingPlace.meetAt).getTime() + 10 * 60 * 1000
+    ? Date.now() >= new Date(meetingPlace.meetAt).getTime() + QR_FALLBACK_AFTER_MINUTES * 60 * 1000
     : false;
 
   const allPlaceVerified = authorVerified
     && verificationParticipants.length > 0
     && verificationParticipants.every((participant) => participant.verified);
 
-  // QR step opens only after author GPS and either all GPS completion or fallback time.
-  const isQrStepOpen = authorVerified && (allPlaceVerified || isMeetAfterQrFallbackTime);
-  const canEnterQrStep = isVerified && isQrStepOpen;
+  // 전원 GPS 완료 또는 만남 시간 +3분 이후 QR 단계 진입
+  const isQrStepOpen = allPlaceVerified || isMeetAfterQrFallbackTime;
+  const canShowQrStepButton = isQrStepOpen;
+
+  const handleEnterQrStep = () => {
+    if (!isVerified) {
+      alert('장소 인증이 선행되어야 합니다.');
+      return;
+    }
+
+    navigate(`/matches/${matchId}/qr`);
+  };
 
   return (
     <div className="mx-auto w-full max-w-2xl p-0 sm:p-4">
@@ -465,7 +470,7 @@ export default function PlaceVerificationPage() {
             <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm text-[#616161]">현재 거리</span>
               <span className={`text-lg font-bold ${isWithinRange ? 'text-[#4caf50]' : 'text-[#ef5350]'}`}>
-                {distance.toFixed(1)}m / {USER_VISIBLE_RADIUS_METERS}m
+                {formatDistance(distance)} / {formatDistance(USER_VISIBLE_RADIUS_METERS)}
               </span>
             </div>
             <div className="relative h-3 w-full overflow-hidden rounded-full bg-[#e0e0e0]">
@@ -498,40 +503,33 @@ export default function PlaceVerificationPage() {
           </div>
         </div>
 
-        {canEnterQrStep ? (
-          <button
-            onClick={() => navigate(`/matches/${matchId}/qr`)}
-            className="w-full rounded-xl bg-[#4caf50] py-4 text-lg font-bold text-white shadow-md transition-all hover:bg-[#43a047]"
-          >
-            QR 인증 단계로 이동
-          </button>
-        ) : !isVerified ? (
-          <button
-            onClick={handleVerify}
-            disabled={!isWithinRange}
-            className={`w-full rounded-xl py-4 text-lg font-bold shadow-md transition-all ${
-              isWithinRange ? 'bg-[#d84315] text-white hover:bg-[#bf360c]' : 'cursor-not-allowed bg-[#e0e0e0] text-[#9e9e9e]'
-            }`}
-          >
-            장소 인증하기
-          </button>
-        ) : (
-          <div className="rounded-xl border border-[#4caf50] bg-[#e8f5e9] px-4 py-4 text-center">
-            <p className="font-semibold text-[#2e7d32]">장소 인증 완료! 다른 참여자를 기다려주세요.</p>
-          </div>
-        )}
+        <div className="space-y-3">
+          {canShowQrStepButton && (
+            <button
+              onClick={handleEnterQrStep}
+              className="w-full rounded-xl bg-[#4caf50] py-4 text-lg font-bold text-white shadow-md transition-all hover:bg-[#43a047]"
+            >
+              QR 인증 단계로 이동
+            </button>
+          )}
 
-        <div className="mt-6 border-t border-[#e0e0e0] pt-4">
-          <label className="flex cursor-pointer items-center gap-2">
-            <input
-              type="checkbox"
-              checked={useSimulation}
-              onChange={(event) => setUseSimulation(event.target.checked)}
-              className="h-4 w-4"
-            />
-            <span className="text-xs text-[#ef6c00]">테스트 모드</span>
-          </label>
+          {!isVerified ? (
+            <button
+              onClick={handleVerify}
+              disabled={!isWithinRange}
+              className={`w-full rounded-xl py-4 text-lg font-bold shadow-md transition-all ${
+                isWithinRange ? 'bg-[#d84315] text-white hover:bg-[#bf360c]' : 'cursor-not-allowed bg-[#e0e0e0] text-[#9e9e9e]'
+              }`}
+            >
+              장소 인증하기
+            </button>
+          ) : (
+            <div className="rounded-xl border border-[#4caf50] bg-[#e8f5e9] px-4 py-4 text-center">
+              <p className="font-semibold text-[#2e7d32]">장소 인증 완료! 다른 참여자를 기다려주세요.</p>
+            </div>
+          )}
         </div>
+
       </div>
     </div>
   );
@@ -601,6 +599,14 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
   const a = Math.sin(deltaPhi / 2) ** 2 + Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) ** 2;
   return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function formatDistance(distanceMeters: number) {
+  if (distanceMeters >= 1000) {
+    return `${(distanceMeters / 1000).toFixed(1)}km`;
+  }
+
+  return `${distanceMeters.toFixed(1)}m`;
 }
 
 function getGeolocationErrorMessage(error: GeolocationPositionError) {

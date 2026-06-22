@@ -40,15 +40,16 @@ public class University extends BaseTimeEntity {
         this.isActive = isActive;
     }
 
-    // 학교를 활성화합니다.
+    // 학교 활성화
     public void activate() {
         this.isActive = true;
         this.deactivatedAt = null;
     }
 
-    // 학교를 비활성화하고 비활성화 시각을 기록합니다.
+    // 학교 비활성화 및 비활성화 시각 기록
     public void deactivate() {
         this.isActive = false;
         this.deactivatedAt = LocalDateTime.now();
     }
+
 }

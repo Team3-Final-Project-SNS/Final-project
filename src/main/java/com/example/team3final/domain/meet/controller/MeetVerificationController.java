@@ -75,15 +75,15 @@ public class MeetVerificationController {
     @Operation(
             summary = "GPS 장소 인증",
             description = """
-                    약속 장소 반경 50m 내에서 GPS 위치를 인증합니다.
+                    발표회 라이브 시연용 약속 장소 반경 250km 내에서 GPS 위치를 인증합니다.
                     
                     **인증 가능 시간:** 약속 시간 10분 전 ~ 약속 시간 후 10분
-                    (서버 검증 반경: GPS 오차 고려 60m)
+                    (서버 검증 반경: 발표회 라이브 시연용 250km)
                     
                     **인증 흐름:**
-                    1. 등록자 GPS 인증 완료 또는 약속 시간 10분 경과 → 등록자 QR 단계 진입 가능
-                    2. GPS 장소 인증을 완료한 신청자가 QR 스캔 → 만남 인증 완료 (DONE)
-                    3. GPS 장소 인증을 하지 않은 신청자는 QR 만남 인증 현황에서 제외
+                    1. 전원 GPS 인증 완료 또는 약속 시간 3분 경과 → QR 단계 진입 가능
+                    2. 신청자가 QR 스캔 → 만남 인증 완료 (DONE)
+                    3. GPS 장소 인증을 완료하지 않아도 약속 시간 3분 경과 후 QR 스캔 가능
                     
                     **단체 만남:** 등록자 GPS 인증 시 같은 게시글의 모든 매칭에 전파됩니다.
                     """
@@ -125,14 +125,14 @@ public class MeetVerificationController {
             ),
             @ApiResponse(
                     responseCode = "422",
-                    description = "인증 가능 시간 아님(VERIFY_003) / 반경 50m 초과(VERIFY_002)",
+                    description = "인증 가능 시간 아님(VERIFY_003) / 시연용 반경 250km 초과(VERIFY_002)",
                     content = @Content(
                             mediaType = "application/json",
                             examples = @ExampleObject(value = """
                                     {
                                       "success": false,
                                       "code": "VERIFY_002",
-                                      "message": "약속 장소 반경 50m 밖에 있습니다.",
+                                      "message": "약속 장소 시연용 반경 250km 밖에 있습니다.",
                                       "data": null
                                     }
                                     """)

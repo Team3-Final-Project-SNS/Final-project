@@ -115,10 +115,10 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
                 placeLat.doubleValue(), placeLng.doubleValue()
         );
 
-        // 현재 위치와 약속 장소 사이의 거리가 허용 반경을 넘었는지 확인,
-        // 실제 서버 검증 기준은 오차10m를 포함한 60m
+        // 현재 위치와 약속 장소 사이의 허용 반경 초과 여부 확인
+        // 발표회 라이브 시연을 위한 서버 검증 반경 250km 운영
         if (distanceMeters > MeetVerificationPolicy.PLACE_VERIFICATION_RADIUS_METERS) {
-            // 60m 밖이면 장소 인증을 처리하지 않고 예외 발생.
+            // 시연용 반경 250km 밖이면 장소 인증 미처리 및 예외 발생
             throw new MeetException(ErrorCode.GPS_OUT_OF_RANGE);
         }
 
@@ -134,7 +134,7 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
             meetVerification.verifyApplicantPlace();
         }
 
-        // QR은 등록자 GPS 선행 후, 전체 GPS 완료 또는 기준 시각 10분 경과 시 발급
+        // QR은 전체 GPS 완료 또는 만남 시간 기준 3분 경과 시 발급
         issueQrTokenIfEligible(matchInfo.postId(), effectiveMeetAt, now);
 
         // VERIFIED 여부 확인
@@ -170,7 +170,7 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
         boolean allPlaceVerified = siblingMvList.stream()
                 .allMatch(mv -> mv.isAuthorPlaceVerified() && mv.isApplicantPlaceVerified());
         boolean fallbackTimeReached = !now.isBefore(
-                effectiveMeetAt.plusMinutes(MeetVerificationPolicy.NO_SHOW_JUDGE_MINUTES)
+                effectiveMeetAt.plusMinutes(MeetVerificationPolicy.QR_FALLBACK_AFTER_MINUTES)
         );
 
         if (!allPlaceVerified && !fallbackTimeReached) {

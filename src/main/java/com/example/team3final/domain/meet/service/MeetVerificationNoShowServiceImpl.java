@@ -414,12 +414,8 @@ public class MeetVerificationNoShowServiceImpl implements MeetVerificationNoShow
     @Transactional(readOnly = true)
     public void judgeNoShowConfirmed() {
 
-//        LocalDateTime deadline =
-//                LocalDateTime.now().minusHours(NO_SHOW_CONFIRM_HOURS);
-
-        // ===== 변경 (테스트용 — 배포 전 원복 필요) =====
-        LocalDateTime deadline = LocalDateTime.now().minusMinutes(
-                MeetVerificationPolicy.NO_SHOW_CONFIRM_MINUTES);
+        LocalDateTime deadline = LocalDateTime.now().minusHours(
+                MeetVerificationPolicy.NO_SHOW_CONFIRM_HOURS);
 
         List<MeetVerification> noShowList =
                 meetVerificationRepository
