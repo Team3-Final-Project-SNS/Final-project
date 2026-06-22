@@ -1,0 +1,205 @@
+package com.example.team3final.common.exception;
+
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+
+@Getter
+@RequiredArgsConstructor
+public enum ErrorCode {
+
+    // Auth
+    AUTH_UNREGISTERED_UNIVERSITY(HttpStatus.BAD_REQUEST, "AUTH_001", "등록되지 않은 학교 도메인입니다."),
+    AUTH_ALREADY_REGISTERED_EMAIL(HttpStatus.CONFLICT, "AUTH_002", "이미 가입된 이메일입니다."),
+    AUTH_NICKNAME_DUPLICATED(HttpStatus.CONFLICT, "AUTH_003", "이미 사용 중인 닉네임입니다."),
+    AUTH_LOGIN_FAIL(HttpStatus.UNAUTHORIZED, "AUTH_004", "이메일 또는 비밀번호가 일치하지 않습니다."),
+    AUTH_INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH_005", "유효하지 않거나 만료된 토큰입니다."),
+
+    // OTP
+    OTP_SEND_TOO_MANY(HttpStatus.TOO_MANY_REQUESTS, "OTP_001", "OTP 발송 회수를 초과했습니다. 1시간 후에 다시 이용해주세요."),
+    OTP_CODE_MISMATCH(HttpStatus.BAD_REQUEST, "OTP_002", "OTP 코드가 일치하지 않습니다."),
+    OTP_EXPIRED(HttpStatus.BAD_REQUEST, "OTP_003", "OTP가 만료되었습니다."),
+    OTP_MAX_ATTEMPTS_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "OTP_004", "OTP 시도 횟수를 초과했습니다. 새 인증번호를 요청하세요."),
+
+    // Term
+    REQUIRED_TERM_NOT_AGREED(HttpStatus.BAD_REQUEST, "TERM_001", "필수 약관에 동의하지 않았습니다."),
+
+    // User
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_001", "존재하지 않는 유저입니다."),
+    USER_CURRENT_PASSWORD_MISMATCH(HttpStatus.UNAUTHORIZED, "USER_002", "현재 비밀번호가 일치하지 않습니다."),
+    USER_SAME_PASSWORD(HttpStatus.BAD_REQUEST, "USER_003", "새 비밀번호가 현재 비밀번호와 동일합니다."),
+    USER_WITHDRAWN(HttpStatus.FORBIDDEN, "USER_004", "탈퇴된 계정입니다."),
+    USER_SUSPENDED(HttpStatus.FORBIDDEN, "USER_005", "정지된 계정입니다."),
+    USER_NOT_SUSPENDED(HttpStatus.BAD_REQUEST, "USER_006", "정지 상태의 계정만 해제할 수 있습니다."),
+    USER_NO_FIELD_TO_UPDATE(HttpStatus.BAD_REQUEST, "USER_007", "수정할 필드가 한 개 이상 필요합니다."),
+    // 유저 포인트 금액이 음수 등 잘못된 값인 경우
+    USER_INVALID_POINT_AMOUNT(HttpStatus.BAD_REQUEST, "USER_008", "포인트 금액이 올바르지 않습니다."),
+    // 유료 포인트 환불 최소 금액 미달
+    USER_REFUND_MIN_AMOUNT(HttpStatus.BAD_REQUEST, "USER_009", "환불 포인트는 1,000P 이상이어야 합니다."),
+    // Suspended
+    SUSPENDED_ACCESS_DENIED(HttpStatus.FORBIDDEN, "SUSPENDED_001", "정지된 계정은 해당 기능을 이용할 수 없습니다."),
+    SUSPENDED_INQUIRY_TYPE_RESTRICTED(HttpStatus.FORBIDDEN, "SUSPENDED_002", "정지된 계정은 계정/인증 문의만 접수할 수 있습니다."),
+
+    // Post
+    POST_NOT_FOUND(HttpStatus.NOT_FOUND, "POST_001", "존재하지 않는 게시글입니다."),
+    POST_FORBIDDEN_UNIVERSITY(HttpStatus.FORBIDDEN, "POST_002", "다른 학교의 게시글은 조회할 수 없습니다."),
+    POST_INVALID_MEET_AT(HttpStatus.BAD_REQUEST, "POST_003", "만남 희망 시간은 현재 이후여야 합니다."),
+    POST_INVALID_DEPOSIT(HttpStatus.BAD_REQUEST, "POST_004", "책임비 포인트는 최소 200P 이상, 100P 단위여야 합니다."),
+    POST_NOT_AUTHOR(HttpStatus.FORBIDDEN, "POST_005", "본인 게시글만 수정/삭제할 수 있습니다."),
+    POST_NOT_OPEN(HttpStatus.UNPROCESSABLE_ENTITY, "POST_006", "OPEN 상태의 게시글만 수정/삭제할 수 있습니다."),
+    POST_INVALID_PAGE_SIZE(HttpStatus.BAD_REQUEST, "POST_007", "페이지 크기는 최대 50까지 요청할 수 있습니다."),
+    POST_NOT_MATCHED(HttpStatus.UNPROCESSABLE_ENTITY, "POST_008", "매칭된 게시글만 완료 처리할 수 있습니다."),
+    POST_INVALID_DEPOSIT_UNIT(HttpStatus.BAD_REQUEST, "POST_009", "책임비는 100P 단위로만 설정할 수 있습니다."),
+    POST_NOT_DELETED(HttpStatus.UNPROCESSABLE_ENTITY, "POST_010", "삭제된 게시글이 아닙니다."),
+    POST_CONDITION_LOCKED(HttpStatus.UNPROCESSABLE_ENTITY, "POST_011", "신청자가 있는 게시글은 책임비를 변경할 수 없습니다."),
+
+    // Match
+    MATCH_NOT_FOUND(HttpStatus.NOT_FOUND, "MATCH_001", "존재하지 않는 매칭입니다."),
+    MATCH_NOT_PARTICIPANT(HttpStatus.FORBIDDEN, "MATCH_002", "해당 매칭의 당사자가 아닙니다."),
+    MATCH_SELF_APPLY(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_003", "본인 게시글에는 신청할 수 없습니다."),
+    MATCH_ALREADY_MATCHED(HttpStatus.CONFLICT, "MATCH_004", "이미 매칭된 게시글입니다."),
+    MATCH_POST_CLOSED(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_005", "모집이 종료된 게시글입니다."),
+    MATCH_INVALID_STATUS(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_006", "현재 상태의 매칭은 취소할 수 없습니다."),
+    MATCH_AFTER_MEET_TIME(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_007", "약속 시간 이후에는 취소할 수 없습니다."),
+    MATCH_DUPLICATE_APPLY(HttpStatus.BAD_REQUEST, "MATCH_008", "재신청 할 수 없습니다."),
+    MATCH_AVOIDED_USER(HttpStatus.FORBIDDEN, "MATCH_009", "다시 만나고 싶지 않아요 관계의 게시글에는 신청할 수 없습니다."),
+    MATCH_POST_UNDER_REPORT(HttpStatus.UNPROCESSABLE_ENTITY, "MATCH_010", "신고 접수 중인 게시글에는 신청할 수 없습니다."),
+    // 노쇼 처리에 허용되지 않는 매칭 상태값
+    MATCH_NO_SHOW_INVALID_STATUS(HttpStatus.BAD_REQUEST, "MATCH_011", "노쇼 상태값이 올바르지 않습니다."),
+
+    // Review
+    REVIEW_NOT_COMPLETED_MATCH(HttpStatus.UNPROCESSABLE_ENTITY, "REVIEW_001", "만남 완료 상태의 매칭만 후기를 작성할 수 있습니다."),
+    REVIEW_ALREADY_EXISTS(HttpStatus.CONFLICT, "REVIEW_002", "이미 후기를 작성했습니다."),
+    REVIEW_INVALID_TAG(HttpStatus.BAD_REQUEST, "REVIEW_003", "후기 태그 선택이 올바르지 않습니다."),
+    REVIEW_PERIOD_EXPIRED(HttpStatus.UNPROCESSABLE_ENTITY, "REVIEW_004", "후기 작성 가능 기간(7일)이 초과되었습니다."),
+    REVIEW_AUTHOR_NOT_ALLOWED(HttpStatus.FORBIDDEN, "REVIEW_005", "등록자는 후기를 작성할 수 없습니다."),
+
+    // Verification
+    MEET_VERIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "VERIFY_001", "인증 정보를 찾을 수 없습니다"),
+    // MeetVerification - GPS 장소 인증 에러 코드
+    GPS_OUT_OF_RANGE(HttpStatus.UNPROCESSABLE_ENTITY, "VERIFY_002", "약속 장소 반경 50m를 벗어났습니다."),
+    GPS_NOT_VERIFICATION_TIME(HttpStatus.UNPROCESSABLE_ENTITY, "VERIFY_003", "현재는 장소 인증 가능 시간이 아닙니다."),
+    GPS_ALREADY_VERIFIED(HttpStatus.CONFLICT, "VERIFY_004", "이미 인증을 완료했습니다."),
+    // MeetVerification - QR 토큰 조회 에러 코드
+    QR_NOT_AUTHOR(HttpStatus.FORBIDDEN, "VERIFY_005", "등록자만 QR을 발급받을 수 있습니다."),
+    QR_PLACE_VERIFICATION_REQUIRED(HttpStatus.UNPROCESSABLE_ENTITY, "VERIFY_006", "장소 인증이 선행되어야 합니다."),
+    QR_EXPIRED(HttpStatus.UNPROCESSABLE_ENTITY, "VERIFY_007", "QR 토큰이 만료되었습니다."),
+    // MeetVerification - QR 스캔 에러 코드
+    SCAN_NOT_APPLICANT(HttpStatus.FORBIDDEN, "VERIFY_008", "신청자만 QR을 스캔할 수 있습니다."),
+    SCAN_INVALID_QR_TOKEN(HttpStatus.BAD_REQUEST, "VERIFY_009", "유효하지 않은 QR 토큰입니다."),
+    // MeetVerification - 만남 시간 연장
+    MEET_EXTEND_BEFORE_MEET_AT(HttpStatus.UNPROCESSABLE_ENTITY, "VERIFY_010", "연장은 약속 시간 5분 전까지만 가능합니다."),
+    MEET_EXTEND_ALREADY_ACCEPTED(HttpStatus.UNPROCESSABLE_ENTITY, "VERIFY_011", "이미 연장이 완료된 매칭입니다."),
+    MEET_EXTEND_MATCH_NOT_MATCHED(HttpStatus.UNPROCESSABLE_ENTITY, "VERIFY_012", "MATCHED 상태의 매칭만 연장할 수 있습니다."),
+    MEET_EXTEND_ALREADY_REQUESTED(HttpStatus.CONFLICT, "VERIFY_013", "이미 진행 중인 연장 요청이 있습니다."),
+    MEET_EXTEND_SELF_RESPONSE(HttpStatus.FORBIDDEN, "VERIFY_014", "본인이 요청한 연장은 본인이 응답할 수 없습니다."),
+    MEET_EXTEND_NO_ACTIVE_REQUEST(HttpStatus.UNPROCESSABLE_ENTITY, "VERIFY_015", "응답 가능한 연장 요청이 없습니다."),
+    MEET_EXTEND_EXPIRED(HttpStatus.GONE, "VERIFY_016", "연장 요청이 만료되었습니다."),
+    MEET_EXTEND_ONLY_APPLICANT(HttpStatus.FORBIDDEN, "VERIFY_017", "연장 요청은 신청자만 가능합니다."),
+    MEET_EXTEND_ONLY_AUTHOR(HttpStatus.FORBIDDEN, "VERIFY_018", "연장 수락/거절은 등록자만 가능합니다."),
+    MEET_EXTEND_ALREADY_REJECTED(HttpStatus.CONFLICT, "VERIFY_019", "이미 거절된 연장 요청입니다."),
+    // 만남 인증 이의제기 상태 전이 불가
+    MEET_DISPUTE_INVALID_STATUS(HttpStatus.UNPROCESSABLE_ENTITY, "VERIFY_020", "현재 인증 상태에서는 이의제기를 처리할 수 없습니다."),
+    // 이의제기 복원에 필요한 기존 노쇼 상태가 없는 경우
+    MEET_DISPUTE_BACKUP_NOT_FOUND(HttpStatus.INTERNAL_SERVER_ERROR, "VERIFY_021", "백업된 노쇼 상태가 없습니다."),
+
+    // Chat
+    CHAT_ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "CHAT_001", "존재하지 않는 채팅방입니다."),
+    CHAT_ROOM_READ_ONLY(HttpStatus.FORBIDDEN, "CHAT_002", "읽기 전용 채팅방입니다. 메시지 전송이 불가합니다."),
+    CHAT_ROOM_DEACTIVATED(HttpStatus.FORBIDDEN, "CHAT_003", "비활성화된 채팅방입니다. 접근이 불가합니다."),
+    CHAT_NOT_PARTICIPANT(HttpStatus.FORBIDDEN, "CHAT_004", "해당 채팅방의 참여자가 아닙니다."),
+    CHAT_INVALID_PAGE_SIZE(HttpStatus.BAD_REQUEST, "CHAT_005", "페이지 크기는 최대 50까지 요청할 수 있습니다."),
+    CHAT_INVALID_CURSOR(HttpStatus.BAD_REQUEST, "CHAT_006", "유효하지 않은 커서 ID입니다."),
+    CHAT_CANCELLED_PARTICIPANT(HttpStatus.FORBIDDEN, "CHAT_007", "매칭 취소자는 채팅방에 접근할 수 없습니다."),
+
+    // University
+    UNIVERSITY_NOT_FOUND(HttpStatus.NOT_FOUND, "UNIVERSITY_001", "조회 가능한 대학 목록이 없습니다."),
+
+    // PointTransaction
+    POINT_TRANSACTION_INVALID_PAGE(HttpStatus.BAD_REQUEST, "POINT_001", "페이지 요청 값이 올바르지 않습니다."),
+    POINT_NOT_ENOUGH(HttpStatus.UNPROCESSABLE_ENTITY, "POINT_002", "보유 포인트가 부족합니다."),
+    // 책임비 정산 타입이 서비스에서 지원하지 않는 값인 경우
+    POINT_INVALID_SETTLEMENT_TYPE(HttpStatus.INTERNAL_SERVER_ERROR, "POINT_003", "지원하지 않는 책임비 정산 타입입니다."),
+
+    // Payment (결제 / 포인트 충전)
+    PAY_MIN_CHARGE(HttpStatus.BAD_REQUEST, "PAY_001", "최소 충전 금액은 1,000P 입니다."),
+    PAY_NOT_FOUND(HttpStatus.NOT_FOUND, "PAY_002", "존재하지 않는 결제 건입니다."),
+    PAY_AMOUNT_MISMATCH(HttpStatus.UNPROCESSABLE_ENTITY, "PAY_003", "결제 금액이 일치하지 않습니다. (위변조 감지)"),
+    PAY_ALREADY_PROCESSED(HttpStatus.CONFLICT, "PAY_004", "이미 처리된 결제 건입니다."),
+    PAY_VERIFICATION_FAILED(HttpStatus.UNPROCESSABLE_ENTITY, "PAY_005", "PortOne 결제 검증에 실패했습니다."),
+    PAY_NOT_OWNER(HttpStatus.FORBIDDEN, "PAY_006", "본인의 결제 건만 취소할 수 있습니다."),
+    // 결제 상태 전이 불가
+    PAY_INVALID_STATUS(HttpStatus.CONFLICT, "PAY_007", "현재 상태에서는 결제를 처리할 수 없습니다."),
+
+    // Admin
+    // 인증
+    ADMIN_LOGIN_FAIL(HttpStatus.UNAUTHORIZED, "ADMIN_001", "이메일 또는 비밀번호가 일치하지 않습니다."),
+    ADMIN_ACCOUNT_INACTIVE(HttpStatus.FORBIDDEN, "ADMIN_002", "비활성화된 관리자 계정입니다."),
+    ADMIN_NOT_FOUND(HttpStatus.NOT_FOUND, "ADMIN_003", "존재하지 않는 관리자입니다."),
+    // 권한
+    ADMIN_SUPER_REQUIRED(HttpStatus.FORBIDDEN, "ADMIN_004", "SUPER_ADMIN 권한이 필요합니다."),
+    ADMIN_USER_ALREADY_SUSPENDED(HttpStatus.CONFLICT, "ADMIN_005", "이미 정지된 계정입니다."),
+    // Post 강제 삭제
+    ADMIN_POST_NOT_OPEN(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_006", "OPEN 상태의 게시글만 삭제할 수 있습니다."),
+    ADMIN_PENDING_REPORT_EXISTS(HttpStatus.CONFLICT, "ADMIN_007", "미처리된 신고가 있는 게시글입니다. 신고를 채택한 뒤 삭제해 주세요."),
+    // Post 복구
+    ADMIN_POST_NOT_DELETED(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_008", "삭제된 게시글만 복구할 수 있습니다."),
+    // Report
+    ADMIN_INVALID_REPORT_STATUS(HttpStatus.BAD_REQUEST, "ADMIN_009", "ACCEPTED 또는 REJECTED만 처리 가능합니다."),
+    ADMIN_NOT_ACCEPTED(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_010", "채택(ACCEPTED)된 신고만 게시글 삭제에 사용할 수 있습니다."),
+    ADMIN_POST_ID_MISMATCH(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_011", "신고 대상 게시글과 요청 게시글이 일치하지 않습니다."),
+    // Dispute
+    ADMIN_DISPUTE_ALREADY_PROCESSED(HttpStatus.CONFLICT, "ADMIN_012", "이미 판정이 완료된 이의제기입니다."),
+    ADMIN_DISPUTE_NOT_UNDER_REVIEW(HttpStatus.UNPROCESSABLE_ENTITY, "ADMIN_013", "UNDER_REVIEW 상태에서만 판정 가능합니다."),
+    ADMIN_DISPUTE_INVALID_STATUS(HttpStatus.BAD_REQUEST, "ADMIN_014", "유효하지 않은 판정 상태입니다."),
+
+    // Report
+    REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "REPORT_001", "존재하지 않는 신고입니다."),
+    REPORT_ALREADY_PROCESSED(HttpStatus.CONFLICT, "REPORT_002", "이미 처리된 신고입니다."),
+    REPORT_TOO_SOON(HttpStatus.CONFLICT, "REPORT_003", "3일 이내 동일 게시글 재신고는 불가합니다."),
+    REPORT_SELF_REPORT(HttpStatus.UNPROCESSABLE_ENTITY, "REPORT_004", "본인의 게시글은 신고할 수 없습니다."),
+    REPORT_ALREADY_REPORTED(HttpStatus.CONFLICT, "REPORT_005", "이미 신고한 게시글입니다."),
+    REPORT_FEATURE_BANNED(HttpStatus.FORBIDDEN, "REPORT_006", "신고 기능이 박탈된 상태입니다. 박탈 기간 동안 신고할 수 없습니다."),
+
+    // AI
+    AI_PROMPT_TEMPLATE_NOT_FOUND(HttpStatus.NOT_FOUND, "AI_001", "활성화된 AI 프롬프트 템플릿을 찾을 수 없습니다."),
+    AI_PROMPT_FILE_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AI_002", "AI 프롬프트 파일을 읽을 수 없습니다."),
+
+
+    // Dispute (노쇼 이의제기)
+    DISPUTE_NOT_NO_SHOW(HttpStatus.UNPROCESSABLE_ENTITY, "DISPUTE_001", "노쇼 예정 상태에서만 이의제기할 수 있습니다."),
+    DISPUTE_DEADLINE_EXCEEDED(HttpStatus.UNPROCESSABLE_ENTITY, "DISPUTE_002", "이의제기 가능 시간(24시간)이 초과되었습니다."),
+    DISPUTE_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "DISPUTE_003", "이미 이의제기를 제출했습니다."),
+    DISPUTE_NOT_FOUND(HttpStatus.NOT_FOUND, "DISPUTE_004",  "제출한 이의제기가 없습니다."),
+    DISPUTE_HOLD_NOT_FOUND(HttpStatus.NOT_FOUND, "DISPUTE_005", "HOLD 상태인 이의제기가 없습니다."),
+    DISPUTE_NOT_RESUBMITTABLE(HttpStatus.UNPROCESSABLE_ENTITY, "DISPUTE_006", "HOLD 상태의 이의제기만 재신청할 수 있습니다."),
+    DISPUTE_TYPE_MISMATCH(HttpStatus.UNPROCESSABLE_ENTITY, "DISPUTE_007", "같은 유형의 이의제기만 재신청할 수 있습니다."),
+    DISPUTE_HOLD_DEADLINE_EXCEEDED(HttpStatus.UNPROCESSABLE_ENTITY, "DISPUTE_008", "HOLD 판정 후 24시간이 초과되어 재신청이 불가합니다."),
+    // 이의제기 상태 전이 불가
+    DISPUTE_INVALID_STATUS(HttpStatus.UNPROCESSABLE_ENTITY, "DISPUTE_009", "현재 상태에서는 이의제기를 처리할 수 없습니다."),
+    // 이미 종결된 이의제기를 다시 처리하려는 경우
+    DISPUTE_ALREADY_PROCESSED(HttpStatus.CONFLICT, "DISPUTE_010", "이미 처리된 이의제기입니다."),
+
+
+    // Notification
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTI_001", "존재하지 않는 알림입니다."),
+    NOTIFICATION_INVALID_CURSOR(HttpStatus.BAD_REQUEST, "NOTI_002", "유효하지 않은 커서 ID입니다."),
+    NOTIFICATION_FORBIDDEN(HttpStatus.FORBIDDEN, "NOTI_003", "본인의 알림만 읽음 처리할 수 있습니다."),
+
+    // Inquiry (고객문의)
+    INQUIRY_NOT_FOUND(HttpStatus.NOT_FOUND, "INQUIRY_001", "존재하지 않는 문의입니다."),
+    INQUIRY_DUPLICATE_TYPE(HttpStatus.CONFLICT, "INQUIRY_002", "해당 카테고리에 처리 중인 문의가 이미 존재합니다."),
+    INQUIRY_ACCESS_DENIED(HttpStatus.FORBIDDEN, "INQUIRY_003", "본인의 문의만 조회할 수 있습니다."),
+    INQUIRY_CANCEL_FORBIDDEN(HttpStatus.CONFLICT, "INQUIRY_004", "처리가 시작된 문의는 취소할 수 없습니다."),
+    INQUIRY_DAILY_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "INQUIRY_005", "하루 최대 5개의 문의만 접수할 수 있습니다."),
+    INQUIRY_COOLDOWN(HttpStatus.TOO_MANY_REQUESTS, "INQUIRY_006", "문의 접수 후 1분 뒤에 다시 접수할 수 있습니다."),
+    INQUIRY_ALREADY_ANSWERED(HttpStatus.CONFLICT, "INQUIRY_007", "이미 답변이 완료된 문의입니다."),
+
+
+    // Location
+    LOCATION_NOT_TRACKABLE(HttpStatus.UNPROCESSABLE_ENTITY, "LOCATION_001", "MATCHED 상태의 매칭에서만 위치를 공유할 수 있습니다.");
+
+    private final HttpStatus httpStatus;
+    private final String code;
+    private final String message;
+}

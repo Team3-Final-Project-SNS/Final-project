@@ -1,0 +1,128 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.5.14'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+description = 'Team3-final'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    set('springAiVersion', "1.1.2")
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    implementation 'io.github.cdimascio:java-dotenv:5.2.2'
+    // 이메일 발송을 위한 Spring Mail 의존성
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
+
+    // Redis 연동을 위한 의존성 (OTP 임시 저장 + 발송 제한 + 채팅 Pub/Sub 메시지 브로커)
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
+    // Spring Cache 추상화 (@Cacheable, @CacheEvict 등 사용)
+    // Redis를 캐시 저장소로 사용하기 위한 의존성
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
+
+    // Redisson: Redis 분산 락 라이브러리
+    // Spring Boot 자동 설정 지원 버전 사용
+    implementation 'org.redisson:redisson-spring-boot-starter:3.27.2'
+
+    // Kafka 메시지 브로커 (채팅 메시지 분배 + 알림 이벤트 발행/구독)
+    implementation 'org.springframework.kafka:spring-kafka'
+
+    // 입력값 유효성 검증을 위한 의존성 (@Email, @NotBlank 등 사용)
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    // AOP 지원 (공통 관심사 분리)
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+    // 날짜/시간 타입을 Jackson이 JSON으로 직렬화/역직렬화할 수 있게 해주는 모듈 의존성 추가
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+
+    // JWT 토큰 생성/검증 라이브러리
+    // jjwt-api: JWT 관련 인터페이스 정의
+    // jjwt-impl: 실제 구현체 (런타임에만 필요)
+    // jjwt-jackson: JSON 직렬화를 Jackson으로 처리
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.3'
+
+    compileOnly 'org.projectlombok:lombok'
+    runtimeOnly 'com.h2database:h2'
+    runtimeOnly 'com.mysql:mysql-connector-j'
+    annotationProcessor 'org.projectlombok:lombok'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testCompileOnly 'org.projectlombok:lombok'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+
+    // Spring Ai
+    implementation 'org.springframework.ai:spring-ai-openai'
+    implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+
+    // RAG 기능 구현을 위한 의존성들.
+    // PDF/Tika 문서 리더로 문서를 읽고, pgvector 기반 Vector Store에 임베딩을 저장한 뒤,
+    // Vector Store Advisor/RAG 모듈을 통해 사용자 질문과 관련된 문서를 검색하여 답변 생성에 활용한다.
+    implementation 'org.springframework.ai:spring-ai-starter-vector-store-pgvector'
+    implementation 'org.springframework.ai:spring-ai-advisors-vector-store'
+    implementation 'org.springframework.ai:spring-ai-rag'
+    implementation 'org.springframework.ai:spring-ai-pdf-document-reader'
+    implementation 'org.springframework.ai:spring-ai-tika-document-reader'
+    runtimeOnly 'org.postgresql:postgresql'
+
+    // 포트원 V2 서버 SDK (JVM) — 결제 조회/취소/웹훅 검증
+    // (작성 시점 0.12.0. 의존성 충돌 시 :all classifier 의 shading 버전 사용)
+    implementation 'io.portone:server-sdk:0.12.0'
+    // 충돌 날 경우 대안:
+    // implementation 'io.portone:server-sdk:0.12.0:all'
+
+    // ✅ QueryDSL 추가 (Spring Boot 3.x → Jakarta 기반이므로 jakarta classifier 사용)
+    // querydsl-jpa: QueryDSL이 JPA와 통신하는 핵심 라이브러리
+    implementation 'com.querydsl:querydsl-jpa:5.1.0:jakarta'
+
+    // querydsl-apt: 빌드 시 Q클래스(QMatch, QPost 등)를 자동 생성하는 어노테이션 프로세서
+    // annotationProcessor로 등록해야 Gradle이 컴파일 전에 Q클래스를 먼저 만들어 줌
+    annotationProcessor 'com.querydsl:querydsl-apt:5.1.0:jakarta'
+
+    // jakarta.annotation-api: Q클래스 생성 시 필요한 Jakarta 어노테이션 제공
+    annotationProcessor 'jakarta.annotation:jakarta.annotation-api'
+
+    // jakarta.persistence-api: @Entity 등 JPA 어노테이션 인식에 필요
+    annotationProcessor 'jakarta.persistence:jakarta.persistence-api'
+
+    // Swagger
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6'
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
+    }
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+jar {
+    enabled = false
+}

@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # [1단계] 이전 빌드 잔여물 정리
+      # set -e 추가: rm 실패 시 즉시 중단 (일관성 확보)
+      - name: Clean old build artifacts on EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            rm -rf /home/ec2-user/app/src
+            rm -rf /home/ec2-user/app/build
+
+      # [2단계] 변경된 코드를 EC2로 전송
+      # .git, .github, node_modules는 불필요하므로 제외
+      - name: Copy project files to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: ".,!.git,!.github,!frontend/node_modules"
+          target: "/home/ec2-user/app"
+
+      # [3단계] Blue-Green 배포 + 인프라 서비스 기동
+      - name: Deploy with Blue-Green script on EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            cd /home/ec2-user/app
+
+            # 필수 환경변수 파일 존재 확인
+            if [ ! -f .env ]; then
+              echo "ERROR: .env가 EC2에 없습니다 (/home/ec2-user/app/.env)"
+              exit 1
+            fi
+            if [ ! -f frontend/.env.local ]; then
+              echo "ERROR: frontend/.env.local이 EC2에 없습니다"
+              exit 1
+            fi
+
+            # Blue-Green 배포 실행 (app-blue 또는 app-green 컨테이너만 처리)
+            chmod +x deploy-blue-green.sh
+            ./deploy-blue-green.sh
+
+            # 인프라/모니터링 서비스 기동
+            # (deploy-blue-green.sh는 앱 컨테이너만 다루므로 여기서 별도 기동)
+            docker-compose -f docker-compose.prod.yml up --build -d \
+              frontend prometheus loki alloy grafana n8n
+
+            # 전체 컨테이너 상태 출력
+            docker-compose -f docker-compose.prod.yml ps

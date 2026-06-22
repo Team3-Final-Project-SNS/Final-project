@@ -1,0 +1,33 @@
+package com.example.team3final.domain.notification.service;
+
+import com.example.team3final.common.dto.response.CursorResponseDto;
+import com.example.team3final.domain.notification.dto.response.GetNotificationsResponseDto;
+import com.example.team3final.domain.notification.dto.response.GetUnreadCountResponseDto;
+import com.example.team3final.domain.notification.dto.response.UpdateAllNotificationsReadResponseDto;
+import com.example.team3final.domain.notification.dto.response.UpdateNotificationReadResponseDto;
+import com.example.team3final.domain.notification.enums.NotificationReceiverType;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+public interface NotificationService {
+
+    // 알림 목록 조회 (커서 기반 페이징)
+    // cursorId: 마지막으로 받은 알림 ID (처음 요청 시 Long.MAX_VALUE)
+    CursorResponseDto<GetNotificationsResponseDto> getNotifications(
+            NotificationReceiverType receiverType, Long receiverId, Long cursorId, int size);
+
+   // 전체 읽음 처리
+    UpdateAllNotificationsReadResponseDto updateAllNotificationsRead(
+            NotificationReceiverType receiverType, Long receiverId);
+
+    // 단건 읽음 처리
+    // userId: 요청자 ID (본인 알림만 처리 가능)
+    // notificationId: 읽음 처리할 알림 ID
+    UpdateNotificationReadResponseDto updateNotificationRead(
+            NotificationReceiverType receiverType, Long receiverId, Long notificationId);
+
+    // 미확인 알림 카운트
+    GetUnreadCountResponseDto getUnreadCount(NotificationReceiverType receiverType, Long receiverId);
+
+    // SSE 연결
+    SseEmitter subscribe(NotificationReceiverType receiverType, Long receiverId);
+}

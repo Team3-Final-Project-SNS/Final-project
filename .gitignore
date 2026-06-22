@@ -1,0 +1,61 @@
+HELP.md
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+.env
+hankkipot-key.pem
+
+application-local.yml
+application-docker.yml
+application-test.yml
+
+# 프론트엔드 의존성
+frontend/node_modules/
+frontend/.env
+frontend/.env.local
+frontend/.env*.local
+.codex-tmp/
+outputs/
+.pen
+logs/
+
+# 프론트엔드 빌드 결과물
+frontend/dist/
+
+# 임시 AI 리포트 산출물
+output/images/*.png
+tmp/pdfs/*
