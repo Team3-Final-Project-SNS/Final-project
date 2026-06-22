@@ -169,12 +169,40 @@ html {
   font-size: 0.875rem;
 }
 
+.hankki-home .hankki-notification-popover p {
+  font-weight: 400;
+}
+
+.hankki-home .hankki-notification-popover .text-\[11px\] {
+  font-size: 11px;
+}
+
 .hankki-home .hankki-notification-popover .font-semibold {
   font-weight: 600;
 }
 
 .hankki-home .hankki-notification-popover .font-bold {
   font-weight: 700;
+}
+
+.hankki-home .hankki-notification-popover .text-\[\#212121\] {
+  color: #212121;
+}
+
+.hankki-home .hankki-notification-popover .text-\[\#616161\] {
+  color: #616161;
+}
+
+.hankki-home .hankki-notification-popover .text-\[\#9e9e9e\] {
+  color: #9e9e9e;
+}
+
+.hankki-home .hankki-notification-popover .text-\[\#d84315\] {
+  color: #d84315;
+}
+
+.hankki-home .hankki-notification-popover .disabled\:text-\[\#bdbdbd\]:disabled {
+  color: #bdbdbd;
 }
 
 .hankki-home .text-lg {

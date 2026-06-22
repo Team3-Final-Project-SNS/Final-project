@@ -50,11 +50,9 @@ import java.util.stream.Collectors;
 public class ReviewServiceImpl implements ReviewService {
 
     /**
-     * 후기 작성 가능 기간: 매칭 완료 시점으로부터 7분 이내
-     * TODO 임시 테스트용 설정입니다. 추후 기존 정책인 7일로 되돌릴 예정입니다.
+     * 후기 작성 가능 기간: 매칭 완료 시점으로부터 7일 이내
      */
-    private static final int REVIEW_WRITE_DEADLINE_MINUTES = 7;
-    // private static final int REVIEW_WRITE_DEADLINE_DAYS = 7;
+    private static final int REVIEW_WRITE_DEADLINE_DAYS = 7;
 
     /**
      * 태그 점수 → 매너온도 변환 가중치
@@ -268,7 +266,7 @@ public class ReviewServiceImpl implements ReviewService {
         }
 
         if (match.getCompletedAt() == null
-                || LocalDateTime.now().isAfter(match.getCompletedAt().plusMinutes(REVIEW_WRITE_DEADLINE_MINUTES))) {
+                || LocalDateTime.now().isAfter(match.getCompletedAt().plusDays(REVIEW_WRITE_DEADLINE_DAYS))) {
             throw new ReviewException(ErrorCode.REVIEW_PERIOD_EXPIRED);
         }
 

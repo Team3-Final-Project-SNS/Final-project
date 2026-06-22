@@ -5,14 +5,12 @@ import { useSearchParams } from 'react-router';
 import {
   cancelPayment,
   createPayment,
-  CreatePaymentResponse,
   failPayment,
   getMyPayments,
   GetPaymentResponse,
   PayMethod,
   PaymentStatus,
   verifyPayment,
-  VerifyPaymentResponse,
 } from '../../api/paymentApi';
 
 const chargeOptions = [3000, 5000, 10000, 20000];
@@ -76,10 +74,7 @@ export default function PaymentPage() {
   const requestedPaymentId = Number(searchParams.get('paymentId'));
   const [selectedPoint, setSelectedPoint] = useState(5000);
   const [payMethod, setPayMethod] = useState<PayMethod>('CARD');
-  const [preparedPayment, setPreparedPayment] = useState<CreatePaymentResponse | null>(null);
-  const [verifiedPayment, setVerifiedPayment] = useState<VerifyPaymentResponse | null>(null);
   const [payments, setPayments] = useState<GetPaymentResponse[]>([]);
-  const [impUid, setImpUid] = useState('');
   const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [message, setMessage] = useState('');
@@ -105,12 +100,10 @@ export default function PaymentPage() {
     setLoading(true);
     setMessage('');
     setError('');
-    setVerifiedPayment(null);
 
     try {
       const response = await createPayment(selectedPoint, payMethod);
       const payment = response.data.data;
-      setPreparedPayment(payment);
 
       if (!portOneStoreId || !portOneChannelKey) {
         setMessage('결제 준비가 완료되었습니다. PortOne 환경변수 설정 후 결제창을 호출할 수 있습니다.');
@@ -146,42 +139,12 @@ export default function PaymentPage() {
       }
 
       // PortOne v2 응답의 paymentId를 백엔드 verify API의 impUid 필드로 전달합니다.
-      const verifyResponse = await verifyPayment(payment.paymentId, paymentResponse.paymentId);
-      setVerifiedPayment(verifyResponse.data.data);
+      await verifyPayment(payment.paymentId, paymentResponse.paymentId);
       setMessage('결제가 완료되어 포인트가 지급되었습니다.');
       await loadPayments();
     } catch (err) {
       console.error('Payment process failed', err);
       setError(getErrorMessage(err, '결제 처리에 실패했습니다.'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyPayment = async () => {
-    if (!preparedPayment) {
-      setError('먼저 결제 준비를 진행해 주세요.');
-      return;
-    }
-
-    if (!impUid.trim()) {
-      setError('PortOne impUid를 입력해 주세요.');
-      return;
-    }
-
-    setLoading(true);
-    setMessage('');
-    setError('');
-
-    try {
-      const response = await verifyPayment(preparedPayment.paymentId, impUid.trim());
-      setVerifiedPayment(response.data.data);
-      setMessage('결제 검증이 완료되어 포인트가 지급되었습니다.');
-      setImpUid('');
-      await loadPayments();
-    } catch (err) {
-      console.error('Payment verification failed', err);
-      setError(getErrorMessage(err, '결제 검증에 실패했습니다.'));
     } finally {
       setLoading(false);
     }
@@ -246,7 +209,7 @@ export default function PaymentPage() {
           </div>
         )}
 
-        <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="grid gap-5">
           <div className="rounded-xl border border-[#eeeeee] p-5">
             <h2 className="text-xl font-bold text-[#212121]">포인트 충전</h2>
             <p className="mt-1 text-sm font-semibold text-[#757575]">충전할 포인트와 결제 수단을 선택하세요.</p>
@@ -317,53 +280,6 @@ export default function PaymentPage() {
             </button>
           </div>
 
-          <div className="rounded-xl border border-[#eeeeee] p-5">
-            <h2 className="text-xl font-bold text-[#212121]">결제 검증</h2>
-            <p className="mt-1 text-sm font-semibold text-[#757575]">
-              결제창 성공 후 자동 검증됩니다. 필요하면 결제 ID를 직접 입력해 재검증할 수 있습니다.
-            </p>
-
-            {preparedPayment ? (
-              <div className="mt-5 rounded-lg bg-[#fafafa] p-4 text-sm">
-                <InfoRow label="paymentId" value={String(preparedPayment.paymentId)} />
-                <InfoRow label="merchantUid" value={preparedPayment.merchantUid} />
-                <InfoRow label="충전 포인트" value={`${preparedPayment.chargePoint.toLocaleString()}P`} />
-                <InfoRow label="상태" value={statusLabels[preparedPayment.status]} />
-              </div>
-            ) : (
-              <div className="mt-5 rounded-lg border border-dashed border-[#e0e0e0] p-5 text-center text-sm font-semibold text-[#9e9e9e]">
-                결제 준비를 먼저 진행해 주세요.
-              </div>
-            )}
-
-            <label className="mt-5 block text-sm font-bold text-[#424242]">
-              결제 ID
-              <input
-                value={impUid}
-                onChange={(event) => setImpUid(event.target.value)}
-                placeholder="PortOne paymentId 또는 merchantUid"
-                className="mt-2 h-12 w-full rounded-lg border border-[#e0e0e0] px-3 text-sm font-semibold outline-none transition focus:border-[#d84315]"
-              />
-            </label>
-
-            <button
-              type="button"
-              onClick={handleVerifyPayment}
-              disabled={loading || !preparedPayment}
-              className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-[#d84315] bg-white px-4 text-sm font-bold text-[#d84315] transition hover:bg-[#fff3e0] disabled:cursor-not-allowed disabled:border-[#bdbdbd] disabled:text-[#9e9e9e]"
-            >
-              {loading ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle2 size={18} />}
-              결제 검증
-            </button>
-
-            {verifiedPayment && (
-              <div className="mt-5 rounded-lg bg-[#e8f5e9] p-4 text-sm">
-                <InfoRow label="지급 포인트" value={`${verifiedPayment.chargePoint.toLocaleString()}P`} />
-                <InfoRow label="거래 후 잔액" value={`${verifiedPayment.balanceAfter.toLocaleString()}P`} />
-                <InfoRow label="완료 시각" value={formatDateTime(verifiedPayment.completedAt)} />
-              </div>
-            )}
-          </div>
         </div>
       </section>
 
@@ -442,15 +358,6 @@ function PaymentHistoryItem({
           </button>
         )}
       </div>
-    </div>
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-1 py-1 sm:flex-row sm:justify-between sm:gap-4">
-      <span className="font-bold text-[#757575]">{label}</span>
-      <span className="break-all font-semibold text-[#212121] sm:text-right">{value}</span>
     </div>
   );
 }

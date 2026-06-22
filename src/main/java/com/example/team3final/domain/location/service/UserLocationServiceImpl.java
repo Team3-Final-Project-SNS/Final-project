@@ -13,6 +13,7 @@ import com.example.team3final.domain.location.repository.UserLocationRepository;
 import com.example.team3final.domain.match.dto.response.MatchInfoDto;
 import com.example.team3final.domain.match.enums.MatchStatus;
 import com.example.team3final.domain.match.service.MatchInternalService;
+import com.example.team3final.domain.meet.service.support.MeetVerificationPolicy;
 import com.example.team3final.domain.post.dto.response.PostInfoDto;
 import com.example.team3final.domain.post.service.PostInternalService;
 import lombok.RequiredArgsConstructor;
@@ -38,8 +39,8 @@ public class UserLocationServiceImpl implements UserLocationService {
     private final PostInternalService postInternalService;
 
     // 위치 업데이트 시 반경 안/밖 여부를 계산할 때 사용할 기준 반경
-    // 정책상 사용자 안내 반경은 50m지만, GPS 오차 10m를 고려해 서버 판정은 60m로 처리
-    private static final double LOCATION_TRACKING_RADIUS_METERS = 60.0;
+    // 발표회 라이브 시연을 위해 만남 장소 반경을 250km로 확장
+    private static final double LOCATION_TRACKING_RADIUS_METERS = MeetVerificationPolicy.MEETING_RADIUS_METERS;
 
     // 내 위치 업데이트
     @Override
@@ -66,7 +67,7 @@ public class UserLocationServiceImpl implements UserLocationService {
 
         if (isAuthor) {
             // 단체 매칭 등록자는 같은 게시글의 모든 활성 matchId에 위치를 동기화해,
-            // 각 신청자 화면에서도 등록자 위치가 보이도록 합니다.
+            // 각 신청자 화면에서도 등록자 위치 노출
             for (Long activeMatchId : activeMatchIds) {
 
                 UserLocation savedLocation = upsertLocation(
@@ -133,7 +134,7 @@ public class UserLocationServiceImpl implements UserLocationService {
             throw new LocationException(ErrorCode.MATCH_NOT_PARTICIPANT);
         }
 
-        // 같은 게시글의 활성 matchId 전체를 조회해 단체 매칭 참여자 위치를 한 번에 구성합니다.
+        // 같은 게시글의 활성 matchId 전체 조회 및 단체 매칭 참여자 위치 구성
         List<UserLocation> locations = userLocationRepository.findAllByMatchIdIn(activeMatchIds);
 
         // 내 위치 — role은 내가 누구냐에 따라 결정
@@ -144,10 +145,11 @@ public class UserLocationServiceImpl implements UserLocationService {
                 .map(loc -> LocationDto.from(loc, isAuthor ? LocationRole.AUTHOR : LocationRole.APPLICANT))
                 .orElse(null);
 
-        // 상대방 위치는 반경 조건으로 숨기지 않고, 같은 게시글의 활성 참여자 위치를 모두 노출합니다.
+        // 개인정보 보호를 위해 시연용 반경 250km 안에 들어온 상대방 위치만 노출
         List<LocationDto> opponentLocations = locations.stream()
                 .filter(loc -> !loc.getUserId().equals(userId))
                 .filter(loc -> loc.getUserId().equals(postInfo.authorId()) || activeApplicantIds.contains(loc.getUserId()))
+                .filter(UserLocation::isInRange)
                 .collect(Collectors.toMap(
                         UserLocation::getUserId,
                         Function.identity(),

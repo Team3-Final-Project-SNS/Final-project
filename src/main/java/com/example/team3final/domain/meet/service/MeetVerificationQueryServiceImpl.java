@@ -71,14 +71,13 @@ public class MeetVerificationQueryServiceImpl implements MeetVerificationQuerySe
         LocalDateTime effectiveMeetAt = meetVerificationRepository.findEffectiveExtendedMeetAtByPostId(postId)
                 .orElse(postInfoDto.meetAt());
 
-        // QR은 전체 GPS 완료 또는 기준 시각 10분 경과 시 열림
+        // QR은 전체 GPS 완료 또는 만남 시간 기준 3분 경과 시 열림
         boolean allPlaceVerified = siblingMvList.stream()
                 .allMatch(mv -> mv.isAuthorPlaceVerified() && mv.isApplicantPlaceVerified());
         boolean isQrFallbackTime = !now.isBefore(
-                effectiveMeetAt.plusMinutes(MeetVerificationPolicy.NO_SHOW_JUDGE_MINUTES)
+                effectiveMeetAt.plusMinutes(MeetVerificationPolicy.QR_FALLBACK_AFTER_MINUTES)
         );
 
-        // QR 화면은 등록자도 GPS 인증을 먼저 완료한 경우에만 진입 가능
         boolean authorVerified = siblingMvList.stream().anyMatch(MeetVerification::isAuthorPlaceVerified);
         if (!authorVerified || (!allPlaceVerified && !isQrFallbackTime)) {
             throw new MeetException(ErrorCode.QR_PLACE_VERIFICATION_REQUIRED);

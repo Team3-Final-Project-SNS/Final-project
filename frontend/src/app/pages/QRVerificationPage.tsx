@@ -9,10 +9,18 @@ import { getUserMe } from '../../api/userApi';
 
 type QrRole = 'author' | 'applicant';
 const CAMERA_REQUEST_TIMEOUT_MS = 15000;
+// 발표회 시연을 위해 QR 단계 fallback 진입 기준 임시 조정
+const QR_FALLBACK_AFTER_MINUTES = 3;
 
 const getQrBaseUrl = () => {
   const configuredUrl = import.meta.env.VITE_QR_BASE_URL;
   return configuredUrl ? configuredUrl.replace(/\/$/, '') : window.location.origin;
+};
+
+const isQrFallbackAvailable = (meetAt: string) => {
+  const meetAtTime = new Date(meetAt).getTime();
+  return Number.isFinite(meetAtTime)
+    && Date.now() >= meetAtTime + QR_FALLBACK_AFTER_MINUTES * 60 * 1000;
 };
 
 const isMeetVerified = (participant: ParticipantVerification) =>
@@ -118,9 +126,9 @@ export default function QRVerificationPage() {
     const participants = verificationRes.data.data.participants || [];
     const myParticipant = participants.find((participant) => participant.matchId === targetMatchId);
 
-    // 신청자는 GPS 장소 인증을 먼저 완료해야 QR 스캔 화면으로 진입할 수 있다.
+    // QR 단계가 열려도 개인 GPS 장소 인증은 선행 필요
     if (!myParticipant?.verified) {
-      alert('GPS 장소 인증을 먼저 완료해야 QR 인증을 진행할 수 있습니다.');
+      alert('장소 인증이 선행되어야 합니다.');
       navigate(`/matches/${targetMatchId}/place-verification`, { replace: true });
       return false;
     }
@@ -128,12 +136,22 @@ export default function QRVerificationPage() {
     return true;
   };
 
-  const ensureAuthorPlaceVerified = async (targetMatchId: number) => {
+  const ensureAuthorPlaceVerified = async (targetMatchId: number, meetAt: string) => {
     const verificationRes = await getMeetVerification(targetMatchId);
+    const participants = verificationRes.data.data.participants || [];
+    const allPlaceVerified = verificationRes.data.data.authorPlaceVerifiedAt
+      && participants.length > 0
+      && participants.every((participant) => participant.verified);
 
-    // 등록자도 GPS 장소 인증을 먼저 완료해야 QR 표시 화면으로 진입할 수 있다.
+    // QR 단계가 열려도 등록자 GPS 장소 인증은 선행 필요
     if (!verificationRes.data.data.authorPlaceVerifiedAt) {
-      alert('GPS 장소 인증을 먼저 완료해야 QR 인증을 진행할 수 있습니다.');
+      alert('장소 인증이 선행되어야 합니다.');
+      navigate(`/matches/${targetMatchId}/place-verification`, { replace: true });
+      return false;
+    }
+
+    if (!allPlaceVerified && !isQrFallbackAvailable(meetAt)) {
+      alert('전원 GPS 인증 완료 또는 약속 시간 3분 후 QR 인증을 진행할 수 있습니다.');
       navigate(`/matches/${targetMatchId}/place-verification`, { replace: true });
       return false;
     }
@@ -177,7 +195,7 @@ export default function QRVerificationPage() {
             const canScanQr = await ensureApplicantPlaceVerified(routeMatchId);
             if (!canScanQr) return;
           } else {
-            const canShowQr = await ensureAuthorPlaceVerified(routeMatchId);
+            const canShowQr = await ensureAuthorPlaceVerified(routeMatchId, match.meetAt);
             if (!canShowQr) return;
           }
 
@@ -189,7 +207,7 @@ export default function QRVerificationPage() {
             const canScanQr = await ensureApplicantPlaceVerified(routeMatchId);
             if (!canScanQr) return;
           } else {
-            const canShowQr = await ensureAuthorPlaceVerified(routeMatchId);
+            const canShowQr = await ensureAuthorPlaceVerified(routeMatchId, match.meetAt);
             if (!canShowQr) return;
           }
 
