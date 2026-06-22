@@ -459,13 +459,13 @@ AI는 보여주기용 기능이 아니라, 사용자가 실제로 더 쉽게 이
 
 ## 👥 Team
 
-| 이름 | 담당 도메인                            |
-| --- |-----------------------------------|
-| 정호진 | 만남 인증, 위치, 관리자, 부하 테스트, 캐싱        |
-| 박수지 | 채팅, 알림, 신고, WebSocket, Kafka, SSE |
-| 문혜린 | 인증/인가, 유저, 고객문의, 약관, CI/CD, 배포    |
-| 최형민 | 대학, 포인트, AI, 리뷰, 모니터링             |
-| 류호정 | 게시글, 매칭, 결제, 동시성 제어, QueryDSL     |
+| 이름 | GitHub | 담당 도메인 |
+| --- | --- | --- |
+| 정호진 | [Ho-jin98](https://github.com/Ho-jin98/k-server-project.git) | 만남 인증, 위치, 관리자, 부하 테스트, 캐싱 |
+| 박수지 | [e0321e-sudo](https://github.com/e0321e-sudo/plan.git) | 채팅, 알림, 신고, WebSocket, Kafka, SSE |
+| 문혜린 | [munhyerin22](https://github.com/munhyerin22) | 인증/인가, 유저, 고객문의, 약관, CI/CD, 배포 |
+| 최형민 | [godchm](https://github.com/godchm/) | 대학, 포인트, AI, 리뷰, 모니터링 |
+| 류호정 | [ghwjd6767-gif](https://github.com/ghwjd6767-gif) | 게시글, 매칭, 결제, 동시성 제어, QueryDSL |
 
 <br />
 
@@ -478,7 +478,7 @@ AI는 보여주기용 기능이 아니라, 사용자가 실제로 더 쉽게 이
 | ERD | [`docs/erd.md`](./docs/erd.md) |
 | 배포 고도화 | [`docs/deployment.md`](./docs/deployment.md) |
 | 기술 의사결정 기록 | [`docs/tdr.md`](./docs/tdr.md) |
-| 트러블슈팅 | [`docs/troubleshooting.md`](./docs/troubleshooting.md) |
+| 트러블슈팅 | [`docs/troubleshooting/README.md`](./docs/troubleshooting/README.md) |
 
 <br />
 
