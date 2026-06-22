@@ -1,5 +1,7 @@
 package com.example.team3final.domain.payment;
 
+import com.example.team3final.common.exception.ErrorCode;
+import com.example.team3final.common.exception.PaymentException;
 import com.example.team3final.domain.payment.entity.Payment;
 import com.example.team3final.domain.payment.enums.ChargePackage;
 import com.example.team3final.domain.payment.enums.PaymentStatus;
@@ -70,25 +72,23 @@ class PaymentDuplicateTest {
     }
 
     // ====================================================================
-    // 테스트 2: 1차 방어 — 이미 PAID된 결제에 verifyPayment 중복 호출
+    // 테스트 2: 엔티티 방어 — 이미 PAID된 결제에 markPaid() 중복 호출
     // ====================================================================
     //
-    // 방어 위치: PaymentCommandServiceImpl.verifyPayment()
-    //   if (payment.getStatus().isFinalized()) {
-    //       throw new PaymentException(ErrorCode.PAY_ALREADY_PROCESSED);
-    //   }
+    // 방어 위치: Payment.markPaid()
+    //   READY가 아닌 상태에서 호출하면 PaymentException(PAY_INVALID_STATUS)을 던진다.
     //
-    // 시나리오: 프론트에서 네트워크 오류로 verifyPayment를 2번 호출
+    // 시나리오: 이미 PAID 처리된 Payment에 markPaid()를 다시 호출
     //   1번째 호출 → PAID 처리 성공
-    //   2번째 호출 → isFinalized() = true → PAY_ALREADY_PROCESSED 예외
+    //   2번째 호출 → READY가 아니므로 PAY_INVALID_STATUS 예외
     //
-    // 이 테스트는 서비스 레이어 방어를 엔티티 도메인 메서드로 검증
+    // 이 테스트는 엔티티 도메인 메서드의 상태 전이 방어를 검증
     // (실제 PortOne API 호출 없이 markPaid() 상태 전이 로직만 검증)
     // ====================================================================
 
     @Test
     @Order(2)
-    @DisplayName("1차 방어: 이미 PAID된 결제에 markPaid() 재호출 → IllegalStateException 발생해야 한다")
+    @DisplayName("엔티티 방어: 이미 PAID된 결제에 markPaid() 재호출 시 PAY_INVALID_STATUS가 발생해야 한다")
     void alreadyPaidPayment_markPaidAgain_shouldThrowException() {
         // given - READY 상태 Payment 저장 후 PAID로 전환
         Payment payment = buildPayment(TEST_MERCHANT_UID);
@@ -98,9 +98,13 @@ class PaymentDuplicateTest {
 
         // when & then
         // 2번째 markPaid() 시도 → READY가 아니므로 예외
-        assertThatThrownBy(() -> payment.markPaid())
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("READY 상태에서만 결제 완료 처리할 수 있습니다");
+        PaymentException exception = catchThrowableOfType(
+                () -> payment.markPaid(),
+                PaymentException.class
+        );
+
+        assertThat(exception).isNotNull();
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PAY_INVALID_STATUS);
 
         // PAID 상태 그대로 유지됐는지 확인 (변경되지 않아야 함)
         Payment checked = paymentRepository.findById(payment.getId()).orElseThrow();
