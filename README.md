@@ -7,7 +7,7 @@
 <br />
 
 <p align="center">
-  <img src="./docs/assets/readme/main-banner.png" alt="한끼팟 메인 배너" width="900" />
+  <img src="./docs/assets/readme/main-banner.png" alt="한끼팟 로고" width="150" />
 </p>
 
 <p align="center">
@@ -116,10 +116,6 @@ sequenceDiagram
 ## 🧩 ERD
 
 > 상세 ERD는 아래 이미지와 문서에서 확인할 수 있습니다.
-
-<p align="center">
-  <img src="./docs/assets/readme/erd-core.png" alt="한끼팟 핵심 ERD" width="900" />
-</p>
 
 <p align="center">
   <img src="./docs/assets/readme/erd-service.png" alt="한끼팟 서비스 ERD" width="900" />
@@ -364,8 +360,8 @@ AI는 보여주기용 기능이 아니라, 사용자가 실제로 더 쉽게 이
 | PATCH | `/api/v1/admin/notifications/{notificationId}/read` | 관리자 알림 개별 읽음 처리 |
 | GET | `/api/v1/admin/notifications/unread-count` | 관리자 미확인 알림 개수 조회 |
 | GET | `/api/v1/admin/notifications/subscribe` | 관리자 실시간 알림 구독 |
-| POST | `/api/v1/admin/ai/reports/chat/stream` | 관리자 신고 AI 상담 |
-| POST | `/api/v1/admin/ai/console/chat/stream` | 관리자 운영 AI 상담 |
+| POST | `/api/v1/admin/ai/reports/chat/stream` | 관리자 신고·이의제기·고위험 사용자 검토 AI 상담 |
+| POST | `/api/v1/admin/ai/console/chat/stream` | 관리자 운영 현황·정책 안내 AI 상담 |
 
 </details>
 
