@@ -2,8 +2,9 @@
 name: Deploy to EC2
 
 on:
+  workflow_dispatch:  # 수동 실행도 유지
   push:
-    branches: [ "main" ]
+    branches: [ main ] # main 머지 시 자동 실행
 
 jobs:
   deploy:
