@@ -28,8 +28,10 @@ type KakaoMapStatus = 'loading' | 'ready' | 'error';
 const USER_VISIBLE_RADIUS_METERS = 250000;
 // 발표회 시연을 위해 QR 단계 fallback 진입 기준 임시 조정
 const QR_FALLBACK_AFTER_MINUTES = 3;
-const LOCATION_WATCH_TIMEOUT_MS = 15000;
-const LOCATION_MAXIMUM_AGE_MS = 5000;
+const LOCATION_INITIAL_TIMEOUT_MS = 8000;
+const LOCATION_WATCH_TIMEOUT_MS = 20000;
+const LOCATION_INITIAL_MAXIMUM_AGE_MS = 30000;
+const LOCATION_WATCH_MAXIMUM_AGE_MS = 10000;
 
 export default function PlaceVerificationPage() {
   const { id } = useParams();
@@ -55,6 +57,8 @@ export default function PlaceVerificationPage() {
   const [isWithinRange, setIsWithinRange] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationRetryKey, setLocationRetryKey] = useState(0);
   const [kakaoMapStatus, setKakaoMapStatus] = useState<KakaoMapStatus>('loading');
   const [mapRetryKey, setMapRetryKey] = useState(0);
   const [authorNickname, setAuthorNickname] = useState('등록자');
@@ -257,23 +261,56 @@ export default function PlaceVerificationPage() {
 
     if (!navigator.geolocation) {
       setLocationError('브라우저에서 위치 정보를 사용할 수 없습니다.');
+      setIsLocating(false);
       return;
     }
 
-    const watchId = navigator.geolocation.watchPosition(
-      (position) => {
-        setLocationError(null);
-        setCurrentPosition({ latitude: position.coords.latitude, longitude: position.coords.longitude });
-      },
+    let isCancelled = false;
+    setIsLocating(true);
+    setLocationError(null);
+
+    const applyCurrentPosition = (position: GeolocationPosition) => {
+      if (isCancelled) return;
+      setLocationError(null);
+      setIsLocating(false);
+      setCurrentPosition({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      applyCurrentPosition,
       (error) => {
-        console.error(`Geolocation error (${error.code}): ${error.message}`, error);
-        setLocationError(getGeolocationErrorMessage(error));
+        // Mac Chrome can fail the quick lookup while the high accuracy watcher still succeeds.
+        console.warn(`Initial geolocation lookup failed (${error.code}): ${error.message}`, error);
       },
-      { enableHighAccuracy: true, maximumAge: LOCATION_MAXIMUM_AGE_MS, timeout: LOCATION_WATCH_TIMEOUT_MS },
+      {
+        enableHighAccuracy: false,
+        maximumAge: LOCATION_INITIAL_MAXIMUM_AGE_MS,
+        timeout: LOCATION_INITIAL_TIMEOUT_MS,
+      },
     );
 
-    return () => navigator.geolocation.clearWatch(watchId);
-  }, [meetingPlace]);
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        applyCurrentPosition(position);
+      },
+      (error) => {
+        if (isCancelled) return;
+        console.error(`Geolocation error (${error.code}): ${error.message}`, error);
+        setLocationError(getGeolocationErrorMessage(error));
+        setIsLocating(false);
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: LOCATION_WATCH_MAXIMUM_AGE_MS,
+        timeout: LOCATION_WATCH_TIMEOUT_MS,
+      },
+    );
+
+    return () => {
+      isCancelled = true;
+      navigator.geolocation.clearWatch(watchId);
+    };
+  }, [meetingPlace, locationRetryKey]);
 
   useEffect(() => {
     if (!meetingPlace || !currentPosition) return;
@@ -367,6 +404,12 @@ export default function PlaceVerificationPage() {
     navigate(`/matches/${matchId}`);
   };
 
+  const handleRetryLocation = () => {
+    setLocationError(null);
+    setIsLocating(true);
+    setLocationRetryKey((nextRetryKey) => nextRetryKey + 1);
+  };
+
   if (loading || !meetingPlace) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
@@ -387,6 +430,20 @@ export default function PlaceVerificationPage() {
   // 전원 GPS 완료 또는 만남 시간 +3분 이후 QR 단계 진입
   const isQrStepOpen = allPlaceVerified || isMeetAfterQrFallbackTime;
   const canShowQrStepButton = isQrStepOpen;
+  const locationStatusLabel = currentPosition
+    ? isWithinRange
+      ? '범위 이내'
+      : '범위 밖'
+    : locationError
+      ? '위치 확인 실패'
+      : '위치 확인 중';
+  const locationStatusColor = currentPosition
+    ? isWithinRange
+      ? 'text-[#4caf50]'
+      : 'text-[#ef5350]'
+    : locationError
+      ? 'text-[#ef5350]'
+      : 'text-[#616161]';
 
   const handleEnterQrStep = () => {
     if (!isVerified) {
@@ -414,14 +471,26 @@ export default function PlaceVerificationPage() {
             <MapPin size={24} className="text-[#d84315]" />
             <h1 className="text-2xl font-bold text-[#212121]">장소 인증</h1>
           </div>
-          <p className={`text-lg font-semibold ${isWithinRange ? 'text-[#4caf50]' : 'text-[#ef5350]'}`}>
-            {isWithinRange ? '범위 이내' : '범위 밖'}
+          <p className={`text-lg font-semibold ${locationStatusColor}`}>
+            {locationStatusLabel}
           </p>
           <div className="mt-3 text-[#616161]">
             <p className="font-semibold text-[#212121]">{meetingPlace.name}</p>
             <p className="text-sm">약속 시간: {meetingPlace.time}</p>
           </div>
-          {locationError && <p className="mt-2 text-sm text-[#ef5350]">{locationError}</p>}
+          {locationError && (
+            <div className="mt-3">
+              <p className="text-sm text-[#ef5350]">{locationError}</p>
+              <button
+                type="button"
+                onClick={handleRetryLocation}
+                disabled={isLocating}
+                className="mt-2 inline-flex items-center justify-center rounded-lg border border-[#d84315] bg-white px-3 py-1.5 text-xs font-bold text-[#d84315] transition-colors hover:bg-[#fff3e0] disabled:cursor-wait disabled:border-[#bdbdbd] disabled:text-[#9e9e9e] disabled:hover:bg-white"
+              >
+                {isLocating ? '현재 위치 확인 중' : '현재 위치 다시 확인'}
+              </button>
+            </div>
+          )}
         </div>
 
         {kakaoMapStatus !== 'error' ? (
@@ -584,7 +653,7 @@ function VerificationRow({ name, role, verified }: { name: string; role: string;
         <p className="truncate text-sm font-semibold text-[#212121]">{name || '알 수 없음'}</p>
         <p className="text-xs font-semibold text-[#9e9e9e]">{role}</p>
       </div>
-      <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${verified ? 'bg-[#e8f5e9] text-[#2e7d32]' : 'bg-[#f5f5f5] text-[#757575]'}`}>
+      <span className={`hankki-status-badge shrink-0 rounded-full px-3 py-1 text-xs font-bold ${verified ? 'bg-[#e8f5e9] text-[#2e7d32]' : 'bg-[#f5f5f5] text-[#757575]'}`}>
         {verified ? '완료' : '대기'}
       </span>
     </div>

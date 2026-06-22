@@ -192,7 +192,7 @@ export default function AdminDisputesPage() {
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="rounded bg-[#fff3e0] px-2 py-1 text-xs font-bold text-[#e65100]">
+                        <span className="hankki-status-badge rounded bg-[#fff3e0] px-2 py-1 text-xs font-bold text-[#e65100]">
                           {statusLabels[item.status]}
                         </span>
                         <span className="text-xs text-[#9e9e9e]">#{item.disputeId}</span>
@@ -220,10 +220,10 @@ export default function AdminDisputesPage() {
                   {noShowCandidates.map((candidate) => (
                     <div key={candidate.matchId} className="rounded-xl border border-[#eeeeee] p-4">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="rounded bg-[#ffebee] px-2 py-1 text-xs font-bold text-[#c62828]">
+                        <span className="hankki-status-badge rounded bg-[#ffebee] px-2 py-1 text-xs font-bold text-[#c62828]">
                           {formatVerificationStatus(candidate.verificationStatus)}
                         </span>
-                        <span className={`rounded px-2 py-1 text-xs font-bold ${candidate.hasDispute ? 'bg-[#fff3e0] text-[#e65100]' : 'bg-[#f5f5f5] text-[#757575]'}`}>
+                        <span className={`hankki-status-badge rounded px-2 py-1 text-xs font-bold ${candidate.hasDispute ? 'bg-[#fff3e0] text-[#e65100]' : 'bg-[#f5f5f5] text-[#757575]'}`}>
                           {candidate.hasDispute ? '이의제기 접수' : '이의제기 없음'}
                         </span>
                       </div>

@@ -327,7 +327,7 @@ export default function AdminPaymentsPage() {
                     <span className="font-bold text-[#212121]">{payment.amount.toLocaleString()}원</span>
                     <span className="font-bold text-[#424242]">{payment.chargePoint.toLocaleString()}P</span>
                     <span className="text-[#616161]">{payment.payMethod ? methodLabels[payment.payMethod] || payment.payMethod : '-'}</span>
-                    <span><span className={`rounded px-2.5 py-1 text-xs font-bold ${statusClasses[payment.status]}`}>{statusLabels[payment.status]}</span></span>
+                    <span><span className={`hankki-status-badge rounded px-2.5 py-1 text-xs font-bold ${statusClasses[payment.status]}`}>{statusLabels[payment.status]}</span></span>
                     <span className="font-semibold text-[#616161]">{formatDateTime(payment.createdAt)}</span>
                   </div>
                 )) : (
@@ -382,7 +382,7 @@ function PaymentDetailModal({ payment, onClose }: { payment: AdminPaymentItem; o
           <DetailRow label="결제 금액" value={`${payment.amount.toLocaleString()}원`} />
           <DetailRow label="충전 포인트" value={`${payment.chargePoint.toLocaleString()}P`} />
           <DetailRow label="결제 수단" value={payment.payMethod ? methodLabels[payment.payMethod] || payment.payMethod : '-'} />
-          <DetailRow label="상태" value={<span className={`inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-bold ${statusClasses[payment.status]}`}>{payment.status === 'PAID' ? <CheckCircle2 size={13} /> : payment.status === 'READY' ? <Clock size={13} /> : <XCircle size={13} />}{statusLabels[payment.status]}</span>} />
+          <DetailRow label="상태" value={<span className={`hankki-status-badge inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-bold ${statusClasses[payment.status]}`}>{payment.status === 'PAID' ? <CheckCircle2 size={13} /> : payment.status === 'READY' ? <Clock size={13} /> : <XCircle size={13} />}{statusLabels[payment.status]}</span>} />
           <DetailRow label="요청 시각" value={formatDateTime(payment.createdAt)} />
           <DetailRow label="완료 시각" value={payment.completedAt ? formatDateTime(payment.completedAt) : '-'} />
           <DetailRow label="취소 시각" value={payment.cancelledAt ? formatDateTime(payment.cancelledAt) : '-'} />

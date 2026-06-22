@@ -555,7 +555,7 @@ export default function QRVerificationPage() {
                             <p className="text-sm font-semibold text-[#212121]">{participant.nickname || '알 수 없음'}</p>
                             <p className="text-xs text-[#9e9e9e]">신청자</p>
                           </div>
-                          <span className={`rounded-full px-3 py-1 text-xs font-bold ${badge.className}`}>
+                          <span className={`hankki-status-badge rounded-full px-3 py-1 text-xs font-bold ${badge.className}`}>
                             {badge.label}
                           </span>
                         </div>
@@ -634,7 +634,7 @@ export default function QRVerificationPage() {
                   <p className="text-sm font-semibold text-[#212121]">{authorNickname}</p>
                   <p className="text-xs text-[#9e9e9e]">등록자</p>
                 </div>
-                <span className="rounded-full bg-[#e8f5e9] px-3 py-1 text-xs font-bold text-[#2e7d32]">QR 표시 중</span>
+                <span className="hankki-status-badge rounded-full bg-[#e8f5e9] px-3 py-1 text-xs font-bold text-[#2e7d32]">QR 표시 중</span>
               </div>
 
               <div className="space-y-2">
@@ -647,7 +647,7 @@ export default function QRVerificationPage() {
                           <p className="text-sm font-semibold text-[#212121]">{participant.nickname || '알 수 없음'}</p>
                           <p className="text-xs text-[#9e9e9e]">신청자</p>
                         </div>
-                        <span className={`rounded-full px-3 py-1 text-xs font-bold ${badge.className}`}>
+                        <span className={`hankki-status-badge rounded-full px-3 py-1 text-xs font-bold ${badge.className}`}>
                           {badge.label}
                         </span>
                       </div>

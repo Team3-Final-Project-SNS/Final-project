@@ -219,7 +219,7 @@ export default function AdminUsersPage() {
                 <span className="font-bold text-[#212121]">{user.point.toLocaleString()}P</span>
                 <span className="font-bold text-[#2e7d32]">{Number(user.mannerTemperature).toFixed(1)}°C</span>
                 <span>
-                  <span className={`rounded px-2.5 py-1 text-xs font-bold ${statusClasses[user.status]}`}>
+                  <span className={`hankki-status-badge rounded px-2.5 py-1 text-xs font-bold ${statusClasses[user.status]}`}>
                     {statusLabels[user.status]}
                   </span>
                 </span>

@@ -422,7 +422,7 @@ function MatchResultCard({
       <div className="rounded-2xl border border-[#e0e0e0] bg-white p-5 shadow-sm transition-all hover:border-[#d84315] hover:shadow-md">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-col items-start">
-            <span className={`hankki-status-badge rounded px-2.5 py-1 text-xs font-bold leading-none ${statusClasses[match.status]}`}>
+            <span className={`hankki-status-badge self-start rounded px-2.5 py-1 text-xs font-bold leading-none ${statusClasses[match.status]}`}>
               {statusLabels[match.status]}
             </span>
             <span className="mt-2 block truncate text-xs font-semibold text-[#9e9e9e]">{formatDateTime(match.matchedAt)} 매칭</span>

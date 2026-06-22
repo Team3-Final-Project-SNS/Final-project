@@ -313,7 +313,7 @@ export default function MatchesPage() {
                             className="bg-white border border-[#e0e0e0] rounded-xl p-4 hover:shadow-lg transition-all hover:border-[#d84315] sm:p-6"
                         >
                           <div className="flex flex-col gap-2 mb-4 sm:flex-row sm:items-start sm:justify-between">
-                        <span className={`px-3 py-1 rounded text-xs font-semibold ${badge.color}`}>
+                        <span className={`hankki-status-badge self-start rounded px-3 py-1 text-xs font-semibold ${badge.color}`}>
                           {badge.text}
                         </span>
                             <span className="text-sm text-[#9e9e9e]">{getTimeAgo(match.matchedAt)}</span>

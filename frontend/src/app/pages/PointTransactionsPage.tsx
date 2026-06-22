@@ -122,7 +122,7 @@ function PointTransactionItem({ transaction }: { transaction: PointTransactionRe
     <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-md bg-[#fff3e0] px-2 py-1 text-xs font-bold text-[#d84315]">
+          <span className="hankki-status-badge rounded-md bg-[#fff3e0] px-2 py-1 text-xs font-bold text-[#d84315]">
             {typeLabel}
           </span>
           <span className="text-xs font-semibold text-[#9e9e9e]">
