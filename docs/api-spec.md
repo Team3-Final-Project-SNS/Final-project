@@ -42,6 +42,8 @@
 <details>
 <summary><code>POST /api/v1/auth/email/otp</code> - 이메일 OTP 발송</summary>
 
+학교 이메일로 6자리 OTP를 발송합니다. 등록된 `.ac.kr` 학교 도메인만 허용하며, 재발송은 1분 쿨다운·24시간 최대 5회 제한이 적용됩니다.
+
 **Request Body**
 
 ```json
@@ -49,6 +51,10 @@
   "email": "student@university.ac.kr"
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `email` | string | Y | 등록된 대학의 학교 이메일 |
 
 **Response Body**
 
@@ -58,7 +64,7 @@
   "code": "SUCCESS",
   "message": "요청이 성공했습니다.",
   "data": {
-    "expireSeconds": 1
+    "expireSeconds": 300
   }
 }
 ```
@@ -68,6 +74,8 @@
 <details>
 <summary><code>POST /api/v1/auth/email/otp/verify</code> - 이메일 OTP 검증</summary>
 
+OTP를 검증하고 회원가입 전용 `signup_token` HttpOnly 쿠키를 발급합니다. 토큰은 15분간 유효하고 `/api/v1/auth/signup` 요청에만 전송됩니다. OTP는 최대 5회까지 검증할 수 있습니다.
+
 **Request Body**
 
 ```json
@@ -76,6 +84,11 @@
   "otpCode": "123456"
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `email` | string | Y | OTP를 발송한 학교 이메일 |
+| `otpCode` | string | Y | 6자리 숫자 인증 코드 |
 
 **Response Body**
 
@@ -95,6 +108,8 @@
 
 <details>
 <summary><code>POST /api/v1/auth/signup</code> - 회원가입</summary>
+
+OTP 검증으로 발급된 `signup_token` 쿠키를 포함해 회원가입을 완료합니다. 가입 시 10,000P가 지급되고, 응답에는 Access Token, 쿠키에는 `refresh_token`과 `device_id`가 발급됩니다.
 
 **Request Body**
 
@@ -116,6 +131,17 @@
 }
 ```
 
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `password` | string | Y | 비밀번호. 8~20자 |
+| `name` | string | Y | 이름. 최대 50자 |
+| `nickname` | string | Y | 닉네임. 2~30자 |
+| `major` | string | Y | 학과. 최대 100자 |
+| `studentNumber` | string | Y | 학번. 최대 20자 |
+| `birthDate` | date | Y | 생년월일 |
+| `gender` | string | Y | `MALE` 또는 `FEMALE` |
+| `termAgreements` | array | Y | 약관 버전과 동의 여부 목록. 필수 약관은 모두 동의해야 함 |
+
 **Response Body**
 
 ```json
@@ -126,7 +152,7 @@
   "data": {
     "userId": 1,
     "nickname": "한끼친구",
-    "point": 1000,
+    "point": 10000,
     "accessToken": "sample-token"
   }
 }
@@ -137,6 +163,8 @@
 <details>
 <summary><code>POST /api/v1/auth/login</code> - 로그인</summary>
 
+이메일과 비밀번호로 로그인합니다. Access Token은 응답 본문에, `refresh_token`과 `device_id`는 HttpOnly 쿠키로 발급됩니다. 정지·탈퇴 계정은 로그인할 수 없습니다.
+
 **Request Body**
 
 ```json
@@ -145,6 +173,11 @@
   "password": "Password123!"
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `email` | string | Y | 가입한 이메일 |
+| `password` | string | Y | 비밀번호 |
 
 **Response Body**
 
@@ -165,6 +198,8 @@
 
 <details>
 <summary><code>POST /api/v1/auth/refresh</code> - 토큰 재발급</summary>
+
+`refresh_token`과 `device_id` 쿠키를 사용해 Access Token을 재발급합니다. 성공 시 Refresh Token도 함께 교체됩니다.
 
 **Request Body**
 
@@ -188,6 +223,8 @@
 <details>
 <summary><code>POST /api/v1/auth/logout</code> - 로그아웃</summary>
 
+`refresh_token`과 `device_id` 쿠키를 기준으로 서버의 Refresh Token을 삭제하고 두 쿠키를 만료시킵니다.
+
 **Request Body**
 
 요청 바디 없음
@@ -207,6 +244,8 @@
 
 <details>
 <summary><code>GET /api/v1/users/me</code> - 내 정보 조회</summary>
+
+로그인 사용자의 프로필, 포인트 잔액, 매너온도와 학교 정보를 조회합니다. 정지(`SUSPENDED`) 계정도 이 API는 사용할 수 있습니다.
 
 **Request Body**
 
@@ -242,6 +281,8 @@
 <details>
 <summary><code>PATCH /api/v1/users/me</code> - 내 정보 수정</summary>
 
+닉네임·학과·비밀번호를 부분 수정합니다. 세 필드 중 하나 이상은 포함해야 하며, 비밀번호를 바꾸는 경우에만 `currentPassword`가 필요합니다.
+
 **Request Body**
 
 ```json
@@ -252,6 +293,13 @@
   "major": "컴퓨터공학과"
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `currentPassword` | string | 조건부 | `newPassword` 변경 시 현재 비밀번호 |
+| `newPassword` | string | N | 새 비밀번호. 8~20자, 기존 비밀번호와 달라야 함 |
+| `nickname` | string | N | 2~30자. 한글·영문·숫자만 사용, 중복 불가 |
+| `major` | string | N | 최대 100자. 한글·영문·숫자·공백만 사용 |
 
 **Response Body**
 
@@ -275,6 +323,8 @@
 <details>
 <summary><code>DELETE /api/v1/users/me</code> - 회원 탈퇴</summary>
 
+현재 비밀번호를 확인한 뒤 계정을 `WITHDRAWN` 상태로 변경합니다. 탈퇴 처리 과정에서 Refresh Token이 삭제되고 관련 쿠키가 만료됩니다. 정지 기간이 남아 있는 계정과 이미 탈퇴한 계정은 탈퇴할 수 없습니다.
+
 **Request Body**
 
 ```json
@@ -282,6 +332,10 @@
   "password": "Password123!"
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `password` | string | Y | 현재 비밀번호 |
 
 **Response Body**
 
@@ -1108,6 +1162,8 @@ GPS 인증 화면에서 본인과 상대방의 최근 위치를 조회합니다.
 <details>
 <summary><code>POST /api/v1/matches/{matchId}/reviews</code> - 후기 작성</summary>
 
+`COMPLETED` 매칭의 신청자만 만남 완료 후 7일 이내에 등록자 후기를 한 번 작성할 수 있습니다. 후기는 수정·삭제할 수 없고, 작성하면 50P가 지급됩니다.
+
 **Request Body**
 
 ```json
@@ -1115,11 +1171,16 @@ GPS 인증 화면에서 본인과 상대방의 최근 위치를 조회합니다.
   "goodTags": [
     "ON_TIME"
   ],
-  "badTags": [
-    "LATE"
-  ]
+  "badTags": []
 }
 ```
+
+`goodTags`와 `badTags`는 각각 최대 5개까지 선택할 수 있지만, 두 목록을 동시에 선택하거나 둘 다 비워둘 수는 없습니다. `DO_NOT_WANT_TO_MEET_AGAIN`을 선택하면 서로 다시 매칭되지 않도록 양방향 관계가 생성됩니다.
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `goodTags` | array | 조건부 | `ON_TIME`, `KIND`, `GOOD_COMMUNICATION`, `CLEAN_MANNER`, `WANT_MEET_AGAIN` |
+| `badTags` | array | 조건부 | `LATE`, `NO_REPLY`, `UNCOMFORTABLE`, `BAD_MANNER`, `DO_NOT_WANT_TO_MEET_AGAIN` |
 
 **Response Body**
 
@@ -1136,12 +1197,10 @@ GPS 인증 화면에서 본인과 상대방의 최근 위치를 조회합니다.
     "goodTags": [
       "ON_TIME"
     ],
-    "badTags": [
-      "LATE"
-    ],
+    "badTags": [],
     "tagScoreDelta": 1,
-    "doNotWantToMeetAgainSelected": true,
-    "rewardPoint": 1000,
+    "doNotWantToMeetAgainSelected": false,
+    "rewardPoint": 50,
     "createdAt": "2026-06-22T12:30:00"
   }
 }
@@ -1151,6 +1210,8 @@ GPS 인증 화면에서 본인과 상대방의 최근 위치를 조회합니다.
 
 <details>
 <summary><code>GET /api/v1/me/reviews</code> - 작성 후기 조회</summary>
+
+로그인 사용자가 직접 작성한 후기만 최신순으로 조회합니다. 받은 후기는 조회할 수 없으며, 탈퇴한 상대방 정보는 `알 수 없음`으로 표시될 수 있습니다.
 
 **Request Body**
 
@@ -1175,11 +1236,9 @@ GPS 인증 화면에서 본인과 상대방의 최근 위치를 조회합니다.
         "goodTags": [
           "ON_TIME"
         ],
-        "badTags": [
-          "LATE"
-        ],
+        "badTags": [],
         "tagScoreDelta": 1,
-        "doNotWantToMeetAgainSelected": true,
+        "doNotWantToMeetAgainSelected": false,
         "createdAt": "2026-06-22T12:30:00"
       }
     ]
@@ -2014,6 +2073,8 @@ data: 매칭 취소 시 포인트 반환 정책을 안내해드릴게요.
 <details>
 <summary><code>POST /api/v1/admin/auth/login</code> - 관리자 로그인</summary>
 
+관리자 이메일과 비밀번호로 로그인해 관리자 API에 사용하는 `adminAccessToken`을 발급받습니다.
+
 **Request Body**
 
 ```json
@@ -2022,6 +2083,11 @@ data: 매칭 취소 시 포인트 반환 정책을 안내해드릴게요.
   "password": "Password123!"
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `email` | string | Y | 관리자 이메일 |
+| `password` | string | Y | 관리자 비밀번호 |
 
 **Response Body**
 
@@ -2044,9 +2110,16 @@ data: 매칭 취소 시 포인트 반환 정책을 안내해드릴게요.
 <details>
 <summary><code>GET /api/v1/admin/users</code> - 회원 목록 조회</summary>
 
+관리자가 회원 목록을 가입일 최신순으로 조회합니다. 상태와 키워드로 필터링할 수 있습니다.
+
 **Query Parameters**
 
-`status`, `keyword`, `page=0`, `size=20`
+| 파라미터 | 필수 | 기본값 | 설명 |
+| --- | --- | --- | --- |
+| `status` | N | - | `ACTIVE`, `SUSPENDED`, `WITHDRAWN` 중 하나 |
+| `keyword` | N | - | 회원 검색어 |
+| `page` | N | `0` | 0부터 시작하는 페이지 번호 |
+| `size` | N | `20` | 페이지 크기 |
 
 **Request Body**
 
@@ -2087,6 +2160,8 @@ data: 매칭 취소 시 포인트 반환 정책을 안내해드릴게요.
 <details>
 <summary><code>PATCH /api/v1/admin/users/{userId}/suspend</code> - 회원 정지</summary>
 
+활성 `SUPER_ADMIN`이 사용자를 영구 정지합니다. 정지된 사용자에게 계정 정지 알림이 발송됩니다.
+
 **Request Body**
 
 ```json
@@ -2094,6 +2169,10 @@ data: 매칭 취소 시 포인트 반환 정책을 안내해드릴게요.
   "reason": "상세 사유입니다"
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `reason` | string | Y | 정지 사유. 최대 500자, 한글·영문·숫자·공백만 사용 |
 
 **Response Body**
 
@@ -2116,6 +2195,8 @@ data: 매칭 취소 시 포인트 반환 정책을 안내해드릴게요.
 <details>
 <summary><code>PATCH /api/v1/admin/users/{userId}/reinstate</code> - 회원 정지 해제</summary>
 
+활성 `SUPER_ADMIN`이 `SUSPENDED` 사용자를 `ACTIVE`로 복구합니다. 정지 상태가 아닌 사용자는 해제할 수 없으며, 사용자에게 해제 알림이 발송됩니다.
+
 **Request Body**
 
 ```json
@@ -2123,6 +2204,10 @@ data: 매칭 취소 시 포인트 반환 정책을 안내해드릴게요.
   "reason": "상세 사유입니다"
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `reason` | string | Y | 정지 해제 사유. 최대 500자, 한글·영문·숫자·공백만 사용 |
 
 **Response Body**
 
@@ -2145,6 +2230,8 @@ data: 매칭 취소 시 포인트 반환 정책을 안내해드릴게요.
 <details>
 <summary><code>DELETE /api/v1/admin/posts/{postId}</code> - 게시글 강제 삭제</summary>
 
+활성 `SUPER_ADMIN`이 `OPEN` 게시글을 강제 삭제하고 등록자의 예치 포인트를 환불합니다. `reportId`를 전달하면 해당 신고가 대상 게시글과 일치해야 하며, `PENDING` 신고는 채택 처리 후 삭제됩니다. `reportId` 없이 직권 삭제할 때는 대기 중인 신고가 없어야 합니다.
+
 **Request Body**
 
 ```json
@@ -2153,6 +2240,11 @@ data: 매칭 취소 시 포인트 반환 정책을 안내해드릴게요.
   "reason": "상세 사유입니다"
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `reportId` | number | N | 삭제 근거가 되는 신고 ID |
+| `reason` | string | Y | 강제 삭제 사유 |
 
 **Response Body**
 
@@ -2176,9 +2268,19 @@ data: 매칭 취소 시 포인트 반환 정책을 안내해드릴게요.
 <details>
 <summary><code>GET /api/v1/admin/posts</code> - 게시글 목록 조회</summary>
 
+관리자가 게시글을 대학·작성자·상태·삭제 여부·키워드로 필터링해 조회합니다.
+
 **Query Parameters**
 
-`universityId`, `authorNickname`, `status`, `deleted`, `keyword`, `page=0`, `size=20`
+| 파라미터 | 필수 | 기본값 | 설명 |
+| --- | --- | --- | --- |
+| `universityId` | N | - | 작성자 대학 ID |
+| `authorNickname` | N | - | 작성자 닉네임 |
+| `status` | N | - | `OPEN`, `MATCHED`, `COMPLETED`, `CANCELLED`, `EXPIRED` 중 하나 |
+| `deleted` | N | - | 강제 삭제 여부 |
+| `keyword` | N | - | 게시글 내용 검색어 |
+| `page` | N | `0` | 0부터 시작하는 페이지 번호 |
+| `size` | N | `20` | 페이지 크기 |
 
 **Request Body**
 
@@ -2199,11 +2301,11 @@ data: 매칭 취소 시 포인트 반환 정책을 안내해드릴게요.
         "placeName": "홍길동",
         "content": "요청 내용입니다",
         "meetAt": "2026-06-22T12:30:00",
-        "authorDeposit": 1,
+        "authorDeposit": 1000,
         "status": "OPEN",
         "createdAt": "2026-06-22T12:30:00",
-        "deleted": true,
-        "deletedAt": "2026-06-22T12:30:00"
+        "deleted": false,
+        "deletedAt": null
       }
     ],
     "page": 0,
@@ -2220,6 +2322,8 @@ data: 매칭 취소 시 포인트 반환 정책을 안내해드릴게요.
 <details>
 <summary><code>GET /api/v1/admin/posts/{postId}</code> - 게시글 상세 조회</summary>
 
+관리자가 삭제된 게시글을 포함해 게시글 상세를 조회합니다.
+
 **Request Body**
 
 요청 바디 없음
@@ -2234,14 +2338,14 @@ data: 매칭 취소 시 포인트 반환 정책을 안내해드릴게요.
   "data": {
     "postId": 1,
     "status": "OPEN",
-    "authorDeposit": 1,
+    "authorDeposit": 1000,
     "content": "요청 내용입니다",
     "placeName": "홍길동",
     "meetAt": "2026-06-22T12:30:00",
     "authorNickname": "한끼친구",
     "createdAt": "2026-06-22T12:30:00",
-    "deleted": true,
-    "deletedAt": "2026-06-22T12:30:00"
+    "deleted": false,
+    "deletedAt": null
   }
 }
 ```
@@ -2250,6 +2354,8 @@ data: 매칭 취소 시 포인트 반환 정책을 안내해드릴게요.
 
 <details>
 <summary><code>POST /api/v1/admin/posts/{postId}/restore</code> - 게시글 복구</summary>
+
+활성 `SUPER_ADMIN`이 강제 삭제된 게시글을 복구합니다. 복구 과정에서 책임비가 다시 예치되며, 삭제되지 않은 게시글은 복구할 수 없습니다.
 
 **Request Body**
 
@@ -2664,9 +2770,16 @@ data: 매칭 취소 시 포인트 반환 정책을 안내해드릴게요.
 <details>
 <summary><code>GET /api/v1/admin/payments</code> - 결제 목록 조회</summary>
 
+관리자가 전체 결제 내역을 조회합니다. 특정 `userId` 또는 결제 상태로 필터링할 수 있습니다.
+
 **Query Parameters**
 
-`userId`, `status`, `page=0`, `size=20`
+| 파라미터 | 필수 | 기본값 | 설명 |
+| --- | --- | --- | --- |
+| `userId` | N | - | 특정 사용자 결제 내역 필터 |
+| `status` | N | - | `READY`, `PAID`, `CANCELLED`, `FAILED` 중 하나 |
+| `page` | N | `0` | 0부터 시작하는 페이지 번호 |
+| `size` | N | `20` | 페이지 크기. 최대 `50` |
 
 **Request Body**
 
@@ -2686,15 +2799,15 @@ data: 매칭 취소 시 포인트 반환 정책을 안내해드릴게요.
         "userId": 1,
         "merchantUid": "merchant_20260622123000",
         "chargePackage": "P_3000",
-        "chargePoint": 1000,
-        "amount": 1000,
-        "payMethod": "string",
-        "status": "READY",
-        "cancelReason": "상세 사유입니다",
-        "failReason": "상세 사유입니다",
+        "chargePoint": 3000,
+        "amount": 3000,
+        "payMethod": "CARD",
+        "status": "PAID",
+        "cancelReason": null,
+        "failReason": null,
         "createdAt": "2026-06-22T12:30:00",
         "completedAt": "2026-06-22T12:30:00",
-        "cancelledAt": "2026-06-22T12:30:00"
+        "cancelledAt": null
       }
     ],
     "page": 0,
@@ -2711,9 +2824,14 @@ data: 매칭 취소 시 포인트 반환 정책을 안내해드릴게요.
 <details>
 <summary><code>GET /api/v1/admin/no-show-candidates</code> - 노쇼 후보 조회</summary>
 
+관리자가 노쇼 상태의 만남 인증 건을 최신순으로 조회합니다. 이의제기 제출 여부와, 제출 가능한 마감 시각(`disputeDeadline`)을 함께 확인할 수 있습니다.
+
 **Query Parameters**
 
-`page=0`, `size=20`
+| 파라미터 | 필수 | 기본값 | 설명 |
+| --- | --- | --- | --- |
+| `page` | N | `0` | 0부터 시작하는 페이지 번호 |
+| `size` | N | `20` | 페이지 크기 |
 
 **Request Body**
 
@@ -2730,11 +2848,11 @@ data: 매칭 취소 시 포인트 반환 정책을 안내해드릴게요.
     "content": [
       {
         "matchId": 1,
-        "verificationStatus": "PENDING",
+        "verificationStatus": "GUEST_NO_SHOW",
         "hostNickname": "한끼친구",
         "guestNickname": "한끼친구",
         "meetAt": "2026-06-22T12:30:00",
-        "hasDispute": true,
+        "hasDispute": false,
         "disputeDeadline": "2026-06-22T12:30:00"
       }
     ],
