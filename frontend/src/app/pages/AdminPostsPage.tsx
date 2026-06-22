@@ -225,7 +225,7 @@ export default function AdminPostsPage() {
                   <span className={`whitespace-pre-wrap break-words leading-6 ${post.content ? 'text-[#424242]' : 'text-[#9e9e9e]'}`}>{post.content || '한마디 없음'}</span>
                   <span className="text-xs font-semibold text-[#616161]">{formatDateTime(post.meetAt)}</span>
                   <span className="font-bold text-[#212121]">{post.authorDeposit.toLocaleString()}P</span>
-                  <span><span className={`rounded px-2.5 py-1 text-xs font-bold ${className}`}>{label}</span></span>
+                  <span><span className={`hankki-status-badge rounded px-2.5 py-1 text-xs font-bold ${className}`}>{label}</span></span>
                   <div className="flex flex-wrap gap-2">
                     <button type="button" disabled={detailLoadingId === post.postId} onClick={() => handleOpenDetail(post.postId)} className="inline-flex items-center justify-center gap-1 rounded-lg border border-[#e0e0e0] px-3 py-2 text-xs font-bold text-[#616161] transition-colors hover:border-[#d84315] hover:text-[#d84315] disabled:opacity-60">
                       {detailLoadingId === post.postId ? <Loader2 className="animate-spin" size={14} /> : <Eye size={14} />}

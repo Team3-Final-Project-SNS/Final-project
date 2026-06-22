@@ -199,7 +199,7 @@ export default function ReportCenterPage() {
                 >
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className={`rounded px-2.5 py-1 text-xs font-bold ${statusClasses[report.status]}`}>
+                      <span className={`hankki-status-badge rounded px-2.5 py-1 text-xs font-bold ${statusClasses[report.status]}`}>
                         {statusLabels[report.status]}
                       </span>
                       <span className="text-xs font-semibold text-[#757575]">{reasonLabel(report.reason)}</span>

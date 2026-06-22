@@ -556,7 +556,7 @@ export default function InquiryCenterPage() {
                       className="w-full rounded-xl border border-[#eeeeee] p-4 text-left transition-colors hover:border-[#d84315] hover:bg-[#fffaf7]"
                     >
                       <div className="mb-2 flex items-center justify-between gap-3">
-                        <span className="rounded bg-[#fff3e0] px-2.5 py-1 text-xs font-bold text-[#ef6c00]">
+                        <span className="hankki-status-badge rounded bg-[#fff3e0] px-2.5 py-1 text-xs font-bold text-[#ef6c00]">
                           {disputeStatusLabel(item.status)}
                         </span>
                         <span className="text-xs text-[#9e9e9e]">{formatDateTime(item.submittedAt)}</span>
@@ -581,7 +581,7 @@ export default function InquiryCenterPage() {
                     className="w-full rounded-xl border border-[#eeeeee] p-4 text-left transition-colors hover:border-[#d84315] hover:bg-[#fffaf7]"
                   >
                     <div className="mb-2 flex items-center justify-between gap-3">
-                      <span className={`rounded px-2.5 py-1 text-xs font-bold ${getInquiryStatusClass(item.answerStatus)}`}>
+                      <span className={`hankki-status-badge rounded px-2.5 py-1 text-xs font-bold ${getInquiryStatusClass(item.answerStatus)}`}>
                         {getInquiryStatusLabel(item.answerStatus)}
                       </span>
                       <span className="text-xs text-[#9e9e9e]">{formatDateTime(item.createdAt)}</span>
@@ -610,7 +610,7 @@ export default function InquiryCenterPage() {
               <div className="space-y-4">
                 <div>
                   <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <span className="rounded bg-[#fff3e0] px-2.5 py-1 text-xs font-bold text-[#ef6c00]">
+                    <span className="hankki-status-badge rounded bg-[#fff3e0] px-2.5 py-1 text-xs font-bold text-[#ef6c00]">
                       {disputeStatusLabel(selectedDispute.status)}
                     </span>
                     <span className="text-xs font-semibold text-[#757575]">매칭 #{selectedDispute.matchId}</span>
@@ -636,7 +636,7 @@ export default function InquiryCenterPage() {
               <div className="space-y-4">
                 <div>
                   <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <span className={`rounded px-2.5 py-1 text-xs font-bold ${getInquiryStatusClass(selected.answerStatus)}`}>
+                    <span className={`hankki-status-badge rounded px-2.5 py-1 text-xs font-bold ${getInquiryStatusClass(selected.answerStatus)}`}>
                       {getInquiryStatusLabel(selected.answerStatus)}
                     </span>
                     <span className="text-xs font-semibold text-[#757575]">{typeLabel(selected.type)}</span>

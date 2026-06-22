@@ -330,7 +330,7 @@ function PaymentHistoryItem({
     >
       <div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className={`rounded-md px-2 py-1 text-xs font-bold ${statusClassNames[payment.status]}`}>
+          <span className={`hankki-status-badge rounded-md px-2 py-1 text-xs font-bold ${statusClassNames[payment.status]}`}>
             {statusLabels[payment.status]}
           </span>
           <span className="text-xs font-semibold text-[#9e9e9e]">{formatDateTime(payment.createdAt)}</span>

@@ -177,7 +177,7 @@ export default function AdminInquiriesPage() {
                     className="w-full rounded-xl border border-[#eeeeee] p-4 text-left hover:border-[#d84315] hover:bg-[#fffaf7]"
                   >
                     <div className="mb-2 flex items-center justify-between gap-2">
-                      <span className={`rounded px-2.5 py-1 text-xs font-bold ${getInquiryStatusClass(item.answerStatus)}`}>
+                      <span className={`hankki-status-badge rounded px-2.5 py-1 text-xs font-bold ${getInquiryStatusClass(item.answerStatus)}`}>
                         {getInquiryStatusLabel(item.answerStatus)}
                       </span>
                       <span className="text-xs text-[#9e9e9e]">{typeLabels[item.type]}</span>
@@ -203,10 +203,10 @@ export default function AdminInquiriesPage() {
                     {selected.userNickname} · {selected.userEmail} · {selected.universityName}
                   </p>
                   <div className="mb-3 flex flex-wrap gap-2">
-                    <span className={`rounded px-2.5 py-1 text-xs font-bold ${getInquiryStatusClass(selected.answerStatus)}`}>
+                    <span className={`hankki-status-badge rounded px-2.5 py-1 text-xs font-bold ${getInquiryStatusClass(selected.answerStatus)}`}>
                       {getInquiryStatusLabel(selected.answerStatus)}
                     </span>
-                    <span className="rounded bg-[#f5f5f5] px-2.5 py-1 text-xs font-bold text-[#616161]">
+                    <span className="hankki-status-badge rounded bg-[#f5f5f5] px-2.5 py-1 text-xs font-bold text-[#616161]">
                       {typeLabels[selected.type]}
                     </span>
                   </div>

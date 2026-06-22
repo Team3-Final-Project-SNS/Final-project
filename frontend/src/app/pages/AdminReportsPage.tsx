@@ -118,7 +118,7 @@ export default function AdminReportsPage() {
             <div key={report.reportId} className="rounded-2xl border border-[#e0e0e0] bg-white p-5 shadow-sm">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="rounded bg-[#fff3e0] px-2.5 py-1 text-xs font-bold text-[#ef6c00]">
+                  <span className="hankki-status-badge rounded bg-[#fff3e0] px-2.5 py-1 text-xs font-bold text-[#ef6c00]">
                     {statusLabels[report.status]}
                   </span>
                   <span className="text-sm font-bold text-[#212121]">{reasonLabels[report.reason] || report.reason}</span>
