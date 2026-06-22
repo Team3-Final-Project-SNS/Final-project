@@ -44,6 +44,8 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
+          # GitHub Secrets에 등록한 ARN 값들을 EC2 환경변수로 주입
+          envs: API_RULE_ARN,BLUE_TG_ARN,GREEN_TG_ARN,HEALTH_URL_BLUE,HEALTH_URL_GREEN
           script: |
             set -e
             cd /home/ec2-user/app
@@ -69,3 +71,10 @@ jobs:
 
             # 전체 컨테이너 상태 출력
             docker-compose -f docker-compose.prod.yml ps
+        env:
+          # secrets 값을 envs로 넘기기 위한 매핑
+          API_RULE_ARN: ${{ secrets.API_RULE_ARN }}
+          BLUE_TG_ARN: ${{ secrets.BLUE_TG_ARN }}
+          GREEN_TG_ARN: ${{ secrets.GREEN_TG_ARN }}
+          HEALTH_URL_BLUE: ${{ secrets.HEALTH_URL_BLUE }}
+          HEALTH_URL_GREEN: ${{ secrets.HEALTH_URL_GREEN }}
