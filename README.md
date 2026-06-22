@@ -1,2 +1,413 @@
-# Final-project
-Final-project
+# 🍱 한끼팟
+
+> **혼밥은 줄이고, 연결은 늘리다**  
+> 같은 학교 학생끼리 밥약을 만들고, 채팅으로 약속을 잡고, 실제 만남까지 안전하게 인증하는  
+> **대학생 식사 매칭 플랫폼**
+
+<br />
+
+<p align="center">
+  <img src="./docs/assets/readme/main-banner.png" alt="한끼팟 메인 배너" width="900" />
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Java-17-007396?style=for-the-badge&logo=openjdk&logoColor=white" />
+  <img src="https://img.shields.io/badge/Spring%20Boot-3.5.14-6DB33F?style=for-the-badge&logo=springboot&logoColor=white" />
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=111111" />
+  <img src="https://img.shields.io/badge/Vite-6.3.5-646CFF?style=for-the-badge&logo=vite&logoColor=white" />
+  <img src="https://img.shields.io/badge/MySQL-8.0-4479A1?style=for-the-badge&logo=mysql&logoColor=white" />
+  <img src="https://img.shields.io/badge/Redis-7-DC382D?style=for-the-badge&logo=redis&logoColor=white" />
+  <img src="https://img.shields.io/badge/Kafka-7.4-231F20?style=for-the-badge&logo=apachekafka&logoColor=white" />
+</p>
+
+<br />
+
+## ✨ 한끼팟이 해결하는 문제
+
+“오늘 점심 누구랑 먹지?”  
+에브리타임에 글을 올리고, 댓글을 기다리고, 카톡방을 새로 파고, 결국 약속이 흐지부지되는 경험.
+
+한끼팟은 이 과정을 하나의 흐름으로 묶었습니다.
+
+- **학교 이메일 인증**으로 같은 학교 학생끼리만 만나요.
+- **책임비 포인트 예치**로 노쇼를 줄여요.
+- **실시간 채팅**으로 메뉴와 장소를 빠르게 정해요.
+- **GPS + QR 인증**으로 실제 만남을 확인해요.
+- **AI 추천/고객센터/운영 보조**로 더 똑똑하게 운영해요.
+
+<br />
+
+## 🍚 3초 만에 이해하는 한끼팟
+
+```mermaid
+flowchart LR
+    A["학교 이메일 인증"] --> B["밥약 게시글 작성"]
+    B --> C["책임비 포인트 예치"]
+    C --> D["선착순 매칭"]
+    D --> E["채팅방 자동 생성"]
+    E --> F["GPS 장소 인증"]
+    F --> G["QR 만남 인증"]
+    G --> H["포인트 전액 반환"]
+```
+
+### 1. “밥 먹을 사람?”
+
+24학번 신입생이 “1시 반에 수업 끝나는데 정문 앞 보쌈집 가실 분?”이라는 글을 올립니다.  
+노쇼 방지를 위해 책임비 `500P`를 예치합니다.
+
+### 2. “저요!”
+
+같은 학교 학생이 신청하면 동일한 책임비를 예치하고, 선착순으로 매칭됩니다.  
+매칭이 확정되는 순간 채팅방이 자동으로 열립니다.
+
+### 3. “진짜 만났네?”
+
+약속 장소 반경 50m 안에서 GPS 장소 인증을 하고, 만나서 QR을 스캔하면 만남이 완료됩니다.  
+정상 완료 시 양쪽의 예치 포인트는 전액 반환됩니다.
+
+<br />
+
+## ⭐ 핵심 기능
+
+| 기능 | 설명 |
+| --- | --- |
+| 🏫 학교 이메일 인증 | `.ac.kr` 기반 OTP 인증으로 같은 학교 커뮤니티 형성 |
+| 📝 밥약 게시글 | 시간, 장소, 모집 인원, 책임비를 설정해 식사팟 생성 |
+| ⚡ 선착순 매칭 | 1:1 또는 그룹 매칭을 정원에 맞춰 자동 확정 |
+| 💬 실시간 채팅 | WebSocket/STOMP 기반 채팅방 자동 생성 |
+| 📍 GPS 장소 인증 | 약속 장소 반경 50m 안에 도착했는지 확인 |
+| 🔳 QR 만남 인증 | 실제 대면 후 QR 스캔으로 만남 완료 처리 |
+| 💰 포인트 예치 | 노쇼 방지를 위한 책임비 예치/반환/차감 |
+| 🔔 실시간 알림 | 매칭, 채팅, 인증, 노쇼, 문의 이벤트 알림 |
+| 🤖 AI 기능 | 식사팟 추천, 고객센터 상담, 관리자 운영 보조 |
+| 🛡️ 관리자 콘솔 | 신고, 이의제기, 문의, 회원, 게시글 관리 |
+
+<br />
+
+## 🧭 서비스 플로우
+
+```mermaid
+sequenceDiagram
+    participant UserA as 등록자
+    participant UserB as 신청자
+    participant Server as 한끼팟 서버
+    participant Chat as 채팅
+    participant Verify as 만남 인증
+
+    UserA->>Server: 게시글 작성 + 책임비 예치
+    Server-->>UserA: 게시글 OPEN
+    UserB->>Server: 매칭 신청 + 동일 책임비 예치
+    Server->>Server: 선착순 매칭 확정
+    Server->>Chat: 채팅방 자동 생성
+    Chat-->>UserA: 채팅 시작
+    Chat-->>UserB: 채팅 시작
+    UserA->>Verify: GPS 장소 인증
+    UserB->>Verify: GPS 장소 인증
+    Verify-->>Server: 양측 장소 인증 완료
+    UserA->>Verify: QR 표시
+    UserB->>Verify: QR 스캔
+    Verify-->>Server: 만남 완료
+    Server-->>UserA: 예치 포인트 반환
+    Server-->>UserB: 예치 포인트 반환
+```
+
+<br />
+
+## 🧩 ERD
+
+> 상세 ERD는 아래 이미지와 문서에서 확인할 수 있습니다.
+
+<p align="center">
+  <img src="./docs/assets/readme/erd-core.png" alt="한끼팟 핵심 ERD" width="900" />
+</p>
+
+<p align="center">
+  <img src="./docs/assets/readme/erd-service.png" alt="한끼팟 서비스 ERD" width="900" />
+</p>
+
+<p align="center">
+  <img src="./docs/assets/readme/erd-ai.png" alt="한끼팟 AI ERD" width="900" />
+</p>
+
+<br />
+
+## 🏗️ 시스템 아키텍처
+
+```mermaid
+flowchart TB
+    Client["React / Vite Client"] --> API["Spring Boot API Server"]
+
+    API --> MySQL["MySQL 8.0"]
+    API --> Redis["Redis"]
+    API --> Kafka["Kafka"]
+    API --> PgVector["PostgreSQL + pgvector"]
+
+    API --> PortOne["PortOne Payment"]
+    API --> OpenAI["OpenAI / Spring AI"]
+
+    API --> Prometheus["Prometheus"]
+    Prometheus --> Grafana["Grafana"]
+    API --> Loki["Loki / Alloy"]
+    Grafana --> N8N["n8n Alert Workflow"]
+```
+
+### 배포 구조
+
+```mermaid
+flowchart LR
+    User["사용자"] --> Domain["Domain / HTTPS"]
+    Domain --> ALB["ALB"]
+    ALB --> Nginx["Nginx Reverse Proxy"]
+    Nginx --> Blue["Blue App"]
+    Nginx -.전환.-> Green["Green App"]
+    Blue --> Infra["MySQL / Redis / Kafka / Monitoring"]
+    Green --> Infra
+```
+
+- 단일 EC2 + Docker Compose 기반 운영 환경에서 시작
+- HTTPS 도입으로 GPS, WebSocket 보안 연결, 브라우저 보안 API 사용 가능
+- Blue-Green 배포로 배포 중 다운타임 최소화
+- Prometheus, Grafana, Loki, n8n으로 로그/메트릭/알림 관측
+
+<br />
+
+## 🛠️ 기술 스택
+
+| 영역 | 기술 |
+| --- | --- |
+| Frontend | React, TypeScript, Vite, Tailwind CSS, MUI, Radix UI, Lucide React |
+| Backend | Java 17, Spring Boot 3.5.14, Spring Security, Spring Data JPA, QueryDSL |
+| Realtime | WebSocket, STOMP, SSE, Kafka |
+| Database | MySQL 8.0, PostgreSQL, pgvector, H2 |
+| Cache / Lock | Redis, Redisson Distributed Lock |
+| AI | Spring AI, OpenAI API, RAG, Tool Calling, pgvector |
+| Payment | PortOne Browser SDK, PortOne Server SDK |
+| Infra | Docker, Docker Compose, AWS EC2, AWS RDS, ALB, GitHub Actions |
+| Monitoring | Prometheus, Grafana, Loki, Alloy, n8n, Actuator, Micrometer |
+| Test / Docs | JUnit5, Mockito, Spring Security Test, Swagger, Postman, k6 |
+
+<br />
+
+## 🔥 우리가 집중한 설계 포인트
+
+### 1. 노쇼를 “기분”이 아니라 “시스템”으로 줄이기
+
+한끼팟은 단순히 사람을 이어주는 서비스가 아니라, 실제 오프라인 만남까지 이어지도록 설계했습니다.
+
+- 게시글 작성자와 신청자 모두 책임비 포인트 예치
+- GPS 반경 50m 기반 장소 인증
+- QR 스캔 기반 최종 만남 인증
+- 미인증 시 노쇼 예정 상태 전환
+- 억울한 노쇼를 막기 위한 이의제기 플로우 제공
+
+### 2. 인기 밥약에 동시에 몰려도 정확하게 매칭하기
+
+점심시간 직전 인기 게시글에는 여러 사용자가 동시에 신청할 수 있습니다.  
+한끼팟은 중복 매칭과 포인트 중복 차감을 막기 위해 매칭 흐름을 원자적으로 처리합니다.
+
+- Redisson 분산락 기반 선착순 신청 제어
+- DB 제약 조건으로 2차 방어
+- 포인트 차감, 매칭 생성, 게시글 상태 변경, 채팅방 생성의 트랜잭션 처리
+
+### 3. AI를 서비스 안쪽에 자연스럽게 녹이기
+
+AI는 보여주기용 기능이 아니라, 사용자가 실제로 더 쉽게 이용하고 운영자가 더 빠르게 판단하도록 돕는 도구로 사용했습니다.
+
+- 자연어 조건 기반 식사팟 추천
+- 고객센터 문의 자동 응답 보조
+- 관리자 신고/운영 판단 보조
+- RAG 기반 정책 문서 검색
+- 토큰 사용량과 지연 시간 로깅
+
+<br />
+
+## 📌 주요 API 엔드포인트
+
+> 상세 API 명세는 [`docs/api-spec.md`](./docs/api-spec.md)에서 관리합니다.  
+> README에는 전체 흐름을 파악할 수 있도록 엔드포인트만 정리합니다.
+
+<details>
+<summary><b>인증 / 유저 / 대학</b></summary>
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| POST | `/api/v1/auth/email/otp` | 이메일 OTP 발송 |
+| POST | `/api/v1/auth/email/otp/verify` | 이메일 OTP 검증 |
+| POST | `/api/v1/auth/signup` | 회원가입 |
+| POST | `/api/v1/auth/login` | 로그인 |
+| POST | `/api/v1/auth/logout` | 로그아웃 |
+| POST | `/api/v1/auth/refresh` | 토큰 재발급 |
+| GET | `/api/v1/users/me` | 내 정보 조회 |
+| PATCH | `/api/v1/users/me` | 내 정보 수정 |
+| DELETE | `/api/v1/users/me` | 회원 탈퇴 |
+| GET | `/api/v1/universities` | 대학 목록 조회 |
+
+</details>
+
+<details>
+<summary><b>게시글 / 매칭</b></summary>
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| POST | `/api/v1/posts` | 게시글 작성 |
+| GET | `/api/v1/posts` | 게시글 목록 조회 |
+| GET | `/api/v1/posts/{postId}` | 게시글 상세 조회 |
+| PATCH | `/api/v1/posts/{postId}` | 게시글 수정 |
+| DELETE | `/api/v1/posts/{postId}` | 게시글 삭제 |
+| GET | `/api/v1/posts/{postId}/delete-reason` | 삭제된 게시글 사유 조회 |
+| POST | `/api/v1/posts/{postId}/matches` | 매칭 신청 |
+| GET | `/api/v1/matches/{matchId}` | 매칭 상세 조회 |
+| GET | `/api/v1/matches/me` | 내 매칭 목록 조회 |
+| PATCH | `/api/v1/matches/{matchId}/cancel` | 매칭 취소 |
+
+</details>
+
+<details>
+<summary><b>위치 / 만남 인증 / 시간 연장</b></summary>
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| PUT | `/api/v1/matches/{matchId}/location` | 내 위치 업데이트 |
+| GET | `/api/v1/matches/{matchId}/location` | 양측 위치 조회 |
+| POST | `/api/v1/matches/{matchId}/place-verification` | GPS 장소 인증 |
+| GET | `/api/v1/posts/{postId}/qr` | 등록자 QR 토큰 조회 |
+| POST | `/api/v1/matches/{matchId}/qr/scan` | 신청자 QR 스캔 |
+| GET | `/api/v1/matches/{matchId}/verification` | 만남 인증 상태 조회 |
+| POST | `/api/v1/matches/{matchId}/extension/request` | 만남 시간 연장 요청 |
+| PATCH | `/api/v1/matches/{matchId}/extension/accept` | 만남 시간 연장 수락 |
+| PATCH | `/api/v1/matches/{matchId}/extension/reject` | 만남 시간 연장 거절 |
+| GET | `/api/v1/matches/{matchId}/extension` | 만남 시간 연장 상태 조회 |
+
+</details>
+
+<details>
+<summary><b>채팅 / 알림</b></summary>
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| GET | `/api/v1/chat-rooms/{chatRoomId}/messages` | 채팅 메시지 목록 조회 |
+| GET | `/api/v1/chat-rooms/{chatRoomId}/members` | 채팅방 참여자 목록 조회 |
+| SockJS | `/ws/chat?token={accessToken}` | WebSocket 연결 |
+| STOMP SEND | `/pub/chat/rooms/{chatRoomId}` | 채팅 메시지 전송 |
+| STOMP SUBSCRIBE | `/sub/chat/rooms/{chatRoomId}` | 채팅방 구독 |
+| GET | `/api/v1/notifications` | 알림 목록 조회 |
+| PATCH | `/api/v1/notifications/read-all` | 알림 전체 읽음 처리 |
+| PATCH | `/api/v1/notifications/{notificationId}/read` | 알림 단건 읽음 처리 |
+| GET | `/api/v1/notifications/unread-count` | 미확인 알림 개수 조회 |
+| GET | `/api/v1/notifications/subscribe` | 실시간 알림 SSE 구독 |
+
+</details>
+
+<details>
+<summary><b>포인트 / 결제 / 리뷰</b></summary>
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| GET | `/api/v1/me/points/transactions` | 내 포인트 거래 내역 조회 |
+| POST | `/api/v1/payments` | 결제 준비 |
+| POST | `/api/v1/payments/{paymentId}/verify` | 결제 완료 검증 |
+| GET | `/api/v1/payments/me` | 내 결제 내역 조회 |
+| PATCH | `/api/v1/payments/{paymentId}/cancel` | 결제 취소 및 환불 |
+| PATCH | `/api/v1/payments/{paymentId}/fail` | 결제 실패 처리 |
+| POST | `/api/v1/matches/{matchId}/reviews` | 후기 작성 |
+| GET | `/api/v1/me/reviews` | 내가 작성한 후기 목록 조회 |
+
+</details>
+
+<details>
+<summary><b>신고 / 이의제기 / 고객문의 / AI</b></summary>
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| POST | `/api/v1/reports` | 게시글 신고 접수 |
+| POST | `/api/v1/matches/{matchId}/disputes` | 이의제기 제출 |
+| GET | `/api/v1/matches/{matchId}/disputes/me` | 내 이의제기 상세 조회 |
+| GET | `/api/v1/disputes/me` | 내 이의제기 전체 목록 조회 |
+| POST | `/api/v1/matches/{matchId}/disputes/resubmit` | 보류 이의제기 재신청 |
+| POST | `/api/v1/inquiries` | 고객문의 접수 |
+| GET | `/api/v1/inquiries/{inquiryId}` | 내 문의 상세 조회 |
+| GET | `/api/v1/inquiries/me` | 내 문의 목록 조회 |
+| PATCH | `/api/v1/inquiries/{inquiryId}/cancel` | 고객 문의 취소 |
+| POST | `/api/v1/ai/matching/chat/stream` | AI 식사팟 매칭 추천 |
+| DELETE | `/api/v1/ai/matching/chat/{conversationId}` | AI 식사팟 매칭 대화 세션 삭제 |
+| POST | `/api/v1/ai/support/chat/stream` | AI 고객센터 상담 |
+
+</details>
+
+<details>
+<summary><b>관리자</b></summary>
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| POST | `/api/v1/admin/auth/login` | 관리자 로그인 |
+| GET | `/api/v1/admin/users` | 회원 목록 조회 |
+| PATCH | `/api/v1/admin/users/{userId}/suspend` | 회원 계정 정지 |
+| PATCH | `/api/v1/admin/users/{userId}/reinstate` | 회원 정지 해제 |
+| GET | `/api/v1/admin/posts` | 관리자 게시글 목록 조회 |
+| GET | `/api/v1/admin/posts/{postId}` | 관리자 게시글 상세 조회 |
+| DELETE | `/api/v1/admin/posts/{postId}` | 게시글 강제 삭제 |
+| POST | `/api/v1/admin/posts/{postId}/restore` | 강제 삭제 게시글 복구 |
+| GET | `/api/v1/admin/reports` | 관리자 신고 목록 조회 |
+| GET | `/api/v1/admin/reports/{reportId}` | 관리자 신고 상세 조회 |
+| PATCH | `/api/v1/admin/reports/{reportId}/process` | 관리자 신고 처리 |
+| GET | `/api/v1/admin/payments` | 관리자 결제 내역 조회 |
+| GET | `/api/v1/admin/no-show-candidates` | 노쇼 후보군 조회 |
+| GET | `/api/v1/admin/disputes` | 관리자 이의제기 목록 조회 |
+| GET | `/api/v1/admin/disputes/{disputeId}` | 관리자 이의제기 상세 조회 |
+| PATCH | `/api/v1/admin/disputes/{disputeId}/judge` | 관리자 이의제기 판정 |
+| PATCH | `/api/v1/admin/disputes/{disputeId}/override` | 이의제기 상태 강제 변경 |
+| GET | `/api/v1/admin/inquiries` | 관리자 문의 목록 조회 |
+| GET | `/api/v1/admin/inquiries/{inquiryId}` | 관리자 문의 상세 조회 |
+| POST | `/api/v1/admin/inquiries/{inquiryId}/answers` | 관리자 문의 답변 등록 |
+| GET | `/api/v1/admin/notifications` | 관리자 알림 목록 조회 |
+| PATCH | `/api/v1/admin/notifications/read-all` | 관리자 알림 전체 읽음 처리 |
+| PATCH | `/api/v1/admin/notifications/{notificationId}/read` | 관리자 알림 개별 읽음 처리 |
+| GET | `/api/v1/admin/notifications/unread-count` | 관리자 미확인 알림 개수 조회 |
+| GET | `/api/v1/admin/notifications/subscribe` | 관리자 실시간 알림 구독 |
+| POST | `/api/v1/admin/ai/reports/chat/stream` | 관리자 신고 AI 상담 |
+| POST | `/api/v1/admin/ai/console/chat/stream` | 관리자 운영 AI 상담 |
+
+</details>
+
+<br />
+
+## 👥 Team
+
+| 이름 | 담당 도메인 |
+| --- | --- |
+| 정호진 | 만남 인증, 위치, 관리자, 부하 테스트, 캐싱 |
+| 박수지 | 채팅, 알림, WebSocket, Kafka, SSE |
+| 문혜린 | 인증/인가, 유저, 고객문의, 약관, CI/CD, 배포 |
+| 최형민 | 대학, 포인트, AI, 리뷰, 모니터링 |
+| 류호정 | 게시글, 매칭, 결제, 동시성 제어, QueryDSL |
+
+<br />
+
+## 📚 Documents
+
+| 문서 | 링크 |
+| --- | --- |
+| 서비스 기획서 | [`docs/reference/sa.md`](./docs/reference/sa.md) |
+| API 명세서 | [`docs/api-spec.md`](./docs/api-spec.md) |
+| ERD | [`docs/erd.md`](./docs/erd.md) |
+| 배포 고도화 | [`docs/deployment.md`](./docs/deployment.md) |
+| 기술 의사결정 기록 | [`docs/tdr.md`](./docs/tdr.md) |
+| 트러블슈팅 | [`docs/troubleshooting.md`](./docs/troubleshooting.md) |
+
+<br />
+
+## 🎬 Demo
+
+> 시연 영상 또는 배포 링크가 준비되면 추가 예정입니다.
+
+- 서비스 URL: `https://...`
+- 시연 영상: `https://...`
+
+<br />
+
+---
+
+<p align="center">
+  <b>한 끼가 어색한 시작을 자연스러운 연결로 바꾸는 순간</b><br />
+  🍱 한끼팟
+</p>
