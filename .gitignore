@@ -55,3 +55,7 @@ logs/
 
 # 프론트엔드 빌드 결과물
 frontend/dist/
+
+# 임시 AI 리포트 산출물
+output/images/*.png
+tmp/pdfs/*
