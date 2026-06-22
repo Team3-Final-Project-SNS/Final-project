@@ -8,17 +8,42 @@
 
 <p align="center">
   <img src="./docs/assets/readme/main-banner.png" alt="한끼팟 로고" width="150" />
+  <br />
+  <b>한끼팟 로고</b>
 </p>
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Java-17-007396?style=for-the-badge&logo=openjdk&logoColor=white" />
-  <img src="https://img.shields.io/badge/Spring%20Boot-3.5.14-6DB33F?style=for-the-badge&logo=springboot&logoColor=white" />
-  <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=111111" />
-  <img src="https://img.shields.io/badge/Vite-6.3.5-646CFF?style=for-the-badge&logo=vite&logoColor=white" />
-  <img src="https://img.shields.io/badge/MySQL-8.0-4479A1?style=for-the-badge&logo=mysql&logoColor=white" />
-  <img src="https://img.shields.io/badge/Redis-7-DC382D?style=for-the-badge&logo=redis&logoColor=white" />
-  <img src="https://img.shields.io/badge/Kafka-7.4-231F20?style=for-the-badge&logo=apachekafka&logoColor=white" />
-</p>
+<table align="center">
+  <tr>
+    <td align="center"><img src="https://img.shields.io/badge/Java-17-007396?style=for-the-badge&logo=openjdk&logoColor=white" /></td>
+    <td align="center"><img src="https://img.shields.io/badge/Spring%20Boot-3.5.14-6DB33F?style=for-the-badge&logo=springboot&logoColor=white" /></td>
+    <td align="center"><img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=111111" /></td>
+    <td align="center"><img src="https://img.shields.io/badge/Vite-6.3.5-646CFF?style=for-the-badge&logo=vite&logoColor=white" /></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="https://img.shields.io/badge/MySQL-8.0-4479A1?style=for-the-badge&logo=mysql&logoColor=white" /></td>
+    <td align="center"><img src="https://img.shields.io/badge/Redis-7-DC382D?style=for-the-badge&logo=redis&logoColor=white" /></td>
+    <td align="center"><img src="https://img.shields.io/badge/Kafka-7.4.0-231F20?style=for-the-badge&logo=apachekafka&logoColor=white" /></td>
+    <td align="center"><img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" /></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="https://img.shields.io/badge/Spring%20AI-1.1.2-6DB33F?style=for-the-badge&logo=spring&logoColor=white" /></td>
+    <td align="center"><img src="https://img.shields.io/badge/Loki-3.4.2-F46800?style=for-the-badge&logo=grafana&logoColor=white" /></td>
+    <td align="center"><img src="https://img.shields.io/badge/Grafana%20Alloy-1.7.5-F46800?style=for-the-badge&logo=grafana&logoColor=white" /></td>
+    <td align="center"><img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" /></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="https://img.shields.io/badge/n8n-1.118.2-EA4B71?style=for-the-badge&logo=n8n&logoColor=white" /></td>
+    <td align="center"><img src="https://img.shields.io/badge/Redisson-3.27.2-DC382D?style=for-the-badge&logo=redis&logoColor=white" /></td>
+    <td align="center"><img src="https://img.shields.io/badge/Swagger%20%2F%20OpenAPI-2.8.6-85EA2D?style=for-the-badge&logo=swagger&logoColor=black" /></td>
+    <td align="center"><img src="https://img.shields.io/badge/PortOne-0.12.0-5B5BD6?style=for-the-badge&logoColor=white" /></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="https://img.shields.io/badge/STOMP%20%2B%20SockJS-7.3.0%20%2F%201.6.1-5C2D91?style=for-the-badge&logo=websocket&logoColor=white" /></td>
+    <td></td>
+    <td></td>
+    <td></td>
+  </tr>
+</table>
 
 <br />
 
@@ -311,7 +336,7 @@ AI는 보여주기용 기능이 아니라, 사용자가 실제로 더 쉽게 이
 </details>
 
 <details>
-<summary><b>신고 / 이의제기 / 고객문의 / AI</b></summary>
+<summary><b>신고 / 이의제기 / 고객문의</b></summary>
 
 | Method | Endpoint | Description |
 | --- | --- | --- |
@@ -324,9 +349,19 @@ AI는 보여주기용 기능이 아니라, 사용자가 실제로 더 쉽게 이
 | GET | `/api/v1/inquiries/{inquiryId}` | 내 문의 상세 조회 |
 | GET | `/api/v1/inquiries/me` | 내 문의 목록 조회 |
 | PATCH | `/api/v1/inquiries/{inquiryId}/cancel` | 고객 문의 취소 |
+
+</details>
+
+<details>
+<summary><b>AI</b></summary>
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
 | POST | `/api/v1/ai/matching/chat/stream` | AI 식사팟 매칭 추천 |
 | DELETE | `/api/v1/ai/matching/chat/{conversationId}` | AI 식사팟 매칭 대화 세션 삭제 |
 | POST | `/api/v1/ai/support/chat/stream` | AI 고객센터 상담 |
+| POST | `/api/v1/admin/ai/reports/chat/stream` | 관리자 신고·이의제기 검토 AI 상담 |
+| POST | `/api/v1/admin/ai/console/chat/stream` | 관리자 운영 현황·정책 안내 AI 상담 |
 
 </details>
 
@@ -360,8 +395,6 @@ AI는 보여주기용 기능이 아니라, 사용자가 실제로 더 쉽게 이
 | PATCH | `/api/v1/admin/notifications/{notificationId}/read` | 관리자 알림 개별 읽음 처리 |
 | GET | `/api/v1/admin/notifications/unread-count` | 관리자 미확인 알림 개수 조회 |
 | GET | `/api/v1/admin/notifications/subscribe` | 관리자 실시간 알림 구독 |
-| POST | `/api/v1/admin/ai/reports/chat/stream` | 관리자 신고·이의제기·고위험 사용자 검토 AI 상담 |
-| POST | `/api/v1/admin/ai/console/chat/stream` | 관리자 운영 현황·정책 안내 AI 상담 |
 
 </details>
 
