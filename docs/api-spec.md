@@ -328,6 +328,8 @@
 <details>
 <summary><code>POST /api/v1/posts</code> - 게시글 작성</summary>
 
+새 식사팟 게시글을 작성합니다. 작성 시 책임비가 포인트 잔액에서 예치되며, 책임비는 최소 200P·100P 단위여야 합니다. 만남 시간은 현재 이후여야 하고 최대 참여 인원은 등록자를 포함해 2~10명입니다.
+
 **Request Body**
 
 ```json
@@ -337,10 +339,20 @@
   "placeLat": 37.5665,
   "placeLng": 126.978,
   "content": "요청 내용입니다",
-  "authorDeposit": 1,
-  "maxApplicants": 1
+  "authorDeposit": 1000,
+  "maxApplicants": 2
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `meetAt` | datetime | Y | 현재 이후의 만남 희망 시간 |
+| `placeName` | string | Y | 장소명. 최대 200자 |
+| `placeLat` | number | Y | 위도. -90~90 |
+| `placeLng` | number | Y | 경도. -180~180 |
+| `content` | string | N | 게시글 내용. 최대 500자 |
+| `authorDeposit` | number | Y | 책임비. 최소 200P, 100P 단위 |
+| `maxApplicants` | number | Y | 등록자 포함 최대 참여 인원. 2~10 |
 
 **Response Body**
 
@@ -358,7 +370,7 @@
     "placeLat": 37.5665,
     "placeLng": 126.978,
     "content": "요청 내용입니다",
-    "authorDeposit": 1,
+    "authorDeposit": 1000,
     "status": "OPEN",
     "createdAt": "2026-06-22T12:30:00"
   }
@@ -370,9 +382,16 @@
 <details>
 <summary><code>GET /api/v1/posts</code> - 게시글 목록 조회</summary>
 
+로그인 사용자의 같은 학교 게시글을 조회합니다. 기본적으로 모집 중인 `OPEN` 게시글을 책임비 높은 순으로 반환합니다.
+
 **Query Parameters**
 
-`status=OPEN`, `page=0`, `size=20`, `sort=DEPOSIT_DESC`
+| 파라미터 | 필수 | 기본값 | 설명 |
+| --- | --- | --- | --- |
+| `status` | N | `OPEN` | `OPEN`, `MATCHED`, `COMPLETED`, `CANCELLED`, `EXPIRED` 중 하나 |
+| `page` | N | `0` | 0부터 시작하는 페이지 번호 |
+| `size` | N | `20` | 페이지 크기. 최대 `50` |
+| `sort` | N | `DEPOSIT_DESC` | `DEPOSIT_DESC`(책임비 높은 순), `LATEST`(최신순), `MEET_AT_ASC`(만남 시간 빠른 순) |
 
 **Request Body**
 
@@ -396,9 +415,9 @@
         "authorMannerTemperature": 36.5,
         "meetAt": "2026-06-22T12:30:00",
         "placeName": "홍길동",
-        "authorDeposit": 1,
+        "authorDeposit": 1000,
         "currentApplicants": 1,
-        "maxApplicants": 1,
+        "maxApplicants": 2,
         "status": "OPEN",
         "createAt": "2026-06-22T12:30:00"
       }
@@ -416,6 +435,8 @@
 
 <details>
 <summary><code>GET /api/v1/posts/{postId}</code> - 게시글 상세 조회</summary>
+
+같은 학교 게시글의 상세를 조회합니다. `isMine`은 현재 로그인 사용자가 작성자인지 여부입니다.
 
 **Request Body**
 
@@ -440,9 +461,9 @@
     "placeLat": 37.5665,
     "placeLng": 126.978,
     "content": "요청 내용입니다",
-    "authorDeposit": 1,
+    "authorDeposit": 1000,
     "currentApplicants": 1,
-    "maxApplicants": 1,
+    "maxApplicants": 2,
     "status": "OPEN",
     "isMine": true,
     "createAt": "2026-06-22T12:30:00",
@@ -456,6 +477,8 @@
 <details>
 <summary><code>PATCH /api/v1/posts/{postId}</code> - 게시글 수정</summary>
 
+작성자만 `OPEN` 상태 게시글을 부분 수정할 수 있습니다. 변경하지 않을 필드는 생략할 수 있으며, 책임비를 올리면 차액이 추가 예치되고 내리면 차액이 반환됩니다.
+
 **Request Body**
 
 ```json
@@ -465,9 +488,18 @@
   "placeLat": 37.5665,
   "placeLng": 126.978,
   "content": "요청 내용입니다",
-  "authorDeposit": 1
+  "authorDeposit": 1200
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `meetAt` | datetime | N | 현재 이후의 만남 희망 시간 |
+| `placeName` | string | N | 장소명. 최대 200자 |
+| `placeLat` | number | N | 위도. -90~90 |
+| `placeLng` | number | N | 경도. -180~180 |
+| `content` | string | N | 게시글 내용. 최대 500자 |
+| `authorDeposit` | number | N | 변경할 책임비. 최소 200P, 100P 단위 |
 
 **Response Body**
 
@@ -480,7 +512,7 @@
     "postId": 1,
     "meetAt": "2026-06-22T12:30:00",
     "placeName": "홍길동",
-    "authorDeposit": 1,
+    "authorDeposit": 1200,
     "status": "OPEN",
     "updatedAt": "2026-06-22T12:30:00"
   }
@@ -491,6 +523,8 @@
 
 <details>
 <summary><code>DELETE /api/v1/posts/{postId}</code> - 게시글 삭제</summary>
+
+작성자만 `OPEN` 상태 게시글을 삭제할 수 있습니다. 삭제하면 예치된 책임비가 전액 반환되고 게시글 상태는 `CANCELLED`로 변경됩니다.
 
 **Request Body**
 
@@ -514,6 +548,8 @@
 
 <details>
 <summary><code>GET /api/v1/posts/{postId}/delete-reason</code> - 삭제 사유 조회</summary>
+
+관리자가 강제 삭제한 본인 게시글의 삭제 사유를 조회합니다.
 
 **Request Body**
 
@@ -540,6 +576,8 @@
 <details>
 <summary><code>POST /api/v1/posts/{postId}/matches</code> - 매칭 신청</summary>
 
+로그인 사용자가 모집 중인 게시글에 선착순으로 신청합니다. 본인 게시글·모집 종료 게시글·이미 신청한 게시글에는 신청할 수 없으며, 신청자도 게시글 등록자와 같은 예치 포인트를 보유해야 합니다. 신청이 완료되면 매칭이 생성되고 채팅방이 자동 생성됩니다.
+
 **Request Body**
 
 요청 바디 없음
@@ -558,8 +596,8 @@
     "authorNickname": "한끼친구",
     "applicantId": 1,
     "applicantNickname": "한끼친구",
-    "authorDeposit": 1,
-    "applicantDeposit": 1,
+    "authorDeposit": 1000,
+    "applicantDeposit": 1000,
     "status": "MATCHED",
     "chatRoomId": 1,
     "matchedAt": "2026-06-22T12:30:00"
@@ -571,6 +609,8 @@
 
 <details>
 <summary><code>GET /api/v1/matches/{matchId}</code> - 매칭 상세 조회</summary>
+
+매칭 등록자 또는 신청자만 조회할 수 있습니다. `status`는 `MATCHED`, `COMPLETED`, `CANCELLED`, `HOST_NO_SHOW`, `GUEST_NO_SHOW`, `BOTH_NO_SHOW`, `DISPUTED` 중 하나입니다.
 
 **Request Body**
 
@@ -598,8 +638,8 @@
     "placeName": "홍길동",
     "placeLat": 37.5665,
     "placeLng": 126.978,
-    "authorDeposit": 1,
-    "applicantDeposit": 1,
+    "authorDeposit": 1000,
+    "applicantDeposit": 1000,
     "currentApplicants": 1,
     "maxApplicants": 1,
     "authorMannerTemperature": 36.5,
@@ -610,7 +650,7 @@
         "nickname": "한끼친구",
         "major": "컴퓨터공학과",
         "studentNumber": "20241234",
-        "role": "string",
+        "role": "APPLICANT",
         "status": "MATCHED",
         "matchedAt": "2026-06-22T12:30:00",
         "completedAt": "2026-06-22T12:30:00"
@@ -629,9 +669,15 @@
 <details>
 <summary><code>GET /api/v1/matches/me</code> - 내 매칭 목록 조회</summary>
 
+로그인 사용자가 등록자 또는 신청자로 참여한 매칭을 생성일 최신순으로 조회합니다. `status`를 생략하면 전체 상태를 조회합니다.
+
 **Query Parameters**
 
-`status`, `page=0`, `size=20`
+| 파라미터 | 필수 | 기본값 | 설명 |
+| --- | --- | --- | --- |
+| `status` | N | - | `MATCHED`, `COMPLETED`, `CANCELLED`, `HOST_NO_SHOW`, `GUEST_NO_SHOW`, `BOTH_NO_SHOW`, `DISPUTED` 중 하나 |
+| `page` | N | `0` | 0부터 시작하는 페이지 번호 |
+| `size` | N | `20` | 페이지 크기. 최대 `50` |
 
 **Request Body**
 
@@ -657,7 +703,7 @@
         "placeName": "홍길동",
         "currentApplicants": 1,
         "maxApplicants": 1,
-        "myDeposit": 1,
+        "myDeposit": 1000,
         "isAuthor": true,
         "participants": [
           {
@@ -666,7 +712,7 @@
             "nickname": "한끼친구",
             "major": "컴퓨터공학과",
             "studentNumber": "20241234",
-            "role": "string",
+            "role": "APPLICANT",
             "status": "MATCHED",
             "matchedAt": "2026-06-22T12:30:00",
             "completedAt": "2026-06-22T12:30:00"
@@ -693,6 +739,8 @@
 <details>
 <summary><code>PATCH /api/v1/matches/{matchId}/cancel</code> - 매칭 취소</summary>
 
+매칭 당사자가 약속 시간 전 `MATCHED` 상태의 매칭을 취소합니다. 취소자는 자신의 예치 포인트 중 50%만 반환되고 나머지 50%는 몰수되며, 상대방 예치 포인트는 전액 반환됩니다. 취소 후 매칭 상태는 `CANCELLED`가 됩니다.
+
 **Request Body**
 
 ```json
@@ -700,6 +748,10 @@
   "reason": "상세 사유입니다"
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `reason` | string | N | 취소 사유. 최대 200자 |
 
 **Response Body**
 
@@ -710,9 +762,9 @@
   "message": "요청이 성공했습니다.",
   "data": {
     "matchId": 1,
-    "status": "MATCHED",
-    "refundedPoint": 1000,
-    "forfeitedPoint": 1000
+    "status": "CANCELLED",
+    "refundedPoint": 500,
+    "forfeitedPoint": 500
   }
 }
 ```
@@ -722,14 +774,21 @@
 <details>
 <summary><code>PUT /api/v1/matches/{matchId}/location</code> - 위치 업데이트</summary>
 
+GPS 인증 화면에서 매칭 당사자의 현재 위치를 갱신합니다. 프론트엔드는 5초 주기로 호출하며, 위치 정보는 Redis에 30초간 유지됩니다.
+
 **Request Body**
 
 ```json
 {
   "latitude": 37.5665,
-  "longitude": 36.5
+  "longitude": 126.978
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `latitude` | number | Y | 현재 위도 |
+| `longitude` | number | Y | 현재 경도 |
 
 **Response Body**
 
@@ -742,7 +801,7 @@
     "matchId": 1,
     "userId": 1,
     "latitude": 37.5665,
-    "longitude": 36.5,
+    "longitude": 126.978,
     "updatedAt": "2026-06-22T12:30:00"
   }
 }
@@ -752,6 +811,8 @@
 
 <details>
 <summary><code>GET /api/v1/matches/{matchId}/location</code> - 위치 조회</summary>
+
+GPS 인증 화면에서 본인과 상대방의 최근 위치를 조회합니다. 상대방이 위치를 아직 전송하지 않았거나 마지막 갱신 후 30초가 지나면 해당 위치는 `null`일 수 있습니다.
 
 **Request Body**
 
@@ -767,22 +828,22 @@
   "data": {
     "myLocation": {
       "latitude": 37.5665,
-      "longitude": 36.5,
+      "longitude": 126.978,
       "updatedAt": "2026-06-22T12:30:00",
       "role": "AUTHOR"
     },
     "opponentLocation": {
       "latitude": 37.5665,
-      "longitude": 36.5,
+      "longitude": 126.978,
       "updatedAt": "2026-06-22T12:30:00",
-      "role": "AUTHOR"
+      "role": "APPLICANT"
     },
     "opponentLocations": [
       {
         "latitude": 37.5665,
-        "longitude": 36.5,
+        "longitude": 126.978,
         "updatedAt": "2026-06-22T12:30:00",
-        "role": "AUTHOR"
+        "role": "APPLICANT"
       }
     ]
   }
@@ -794,6 +855,8 @@
 <details>
 <summary><code>POST /api/v1/matches/{matchId}/place-verification</code> - GPS 장소 인증</summary>
 
+약속 시간 10분 전부터 10분 후까지 약속 장소 반경 250km 내에서 GPS 인증을 수행합니다. 양측 인증이 완료되면 상태가 `VERIFIED`가 되어 QR 인증 단계로 진행할 수 있습니다.
+
 **Request Body**
 
 ```json
@@ -802,6 +865,11 @@
   "currentLng": 126.978
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `currentLat` | number | Y | 현재 위도. -90~90 |
+| `currentLng` | number | Y | 현재 경도. -180~180 |
 
 **Response Body**
 
@@ -812,7 +880,7 @@
   "message": "요청이 성공했습니다.",
   "data": {
     "matchId": 1,
-    "verificationStatus": "PENDING",
+    "verificationStatus": "VERIFIED",
     "distanceMeters": 36.5,
     "authorPlaceVerifiedAt": "2026-06-22T12:30:00",
     "applicantPlaceVerifiedAt": "2026-06-22T12:30:00",
@@ -825,6 +893,8 @@
 
 <details>
 <summary><code>GET /api/v1/posts/{postId}/qr</code> - QR 조회</summary>
+
+게시글 등록자만 QR 토큰을 조회할 수 있습니다. 모든 참여자의 GPS 인증이 완료됐거나 약속 시간에서 3분이 지난 뒤에 발급할 수 있으며, QR 토큰은 발급 시점부터 10분간 유효합니다.
 
 **Request Body**
 
@@ -850,6 +920,8 @@
 <details>
 <summary><code>POST /api/v1/matches/{matchId}/qr/scan</code> - QR 스캔</summary>
 
+신청자가 등록자의 QR 토큰을 스캔해 만남 인증을 완료합니다. 성공 시 인증 상태는 `DONE`, 매칭 상태는 `COMPLETED`가 되며 예치 포인트가 반환됩니다.
+
 **Request Body**
 
 ```json
@@ -857,6 +929,10 @@
   "qrToken": "sample-token"
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `qrToken` | string | Y | 등록자가 발급받은 유효한 QR 토큰 |
 
 **Response Body**
 
@@ -867,8 +943,8 @@
   "message": "요청이 성공했습니다.",
   "data": {
     "matchId": 1,
-    "verificationStatus": "PENDING",
-    "matchStatus": "MATCHED",
+    "verificationStatus": "DONE",
+    "matchStatus": "COMPLETED",
     "completedAt": "2026-06-22T12:30:00",
     "refundedPoint": 1000
   }
@@ -879,6 +955,8 @@
 
 <details>
 <summary><code>GET /api/v1/matches/{matchId}/verification</code> - 만남 인증 상태 조회</summary>
+
+매칭 당사자가 GPS·QR 인증 진행 상태와 참여자별 인증 현황을 조회합니다. `verificationStatus`는 `PENDING`, `VERIFIED`, `DONE`, 노쇼·이의제기 관련 상태 중 하나입니다. QR이 아직 발급되지 않은 경우 `qrExpiresAt`은 `null`입니다.
 
 **Request Body**
 
@@ -912,6 +990,8 @@
 <details>
 <summary><code>POST /api/v1/matches/{matchId}/extension/request</code> - 시간 연장 요청</summary>
 
+신청자만 약속 시간 5분 전까지 10분 연장을 요청할 수 있습니다. 요청 상태는 `REQUESTED`이며, 등록자는 요청 후 5분 안에 응답해야 합니다.
+
 **Request Body**
 
 요청 바디 없음
@@ -925,7 +1005,7 @@
   "message": "요청이 성공했습니다.",
   "data": {
     "matchId": 1,
-    "extensionStatus": "NONE",
+    "extensionStatus": "REQUESTED",
     "requesterId": 1,
     "requesterNickname": "한끼친구",
     "originalMeetAt": "2026-06-22T12:30:00",
@@ -941,6 +1021,8 @@
 <details>
 <summary><code>PATCH /api/v1/matches/{matchId}/extension/accept</code> - 시간 연장 수락</summary>
 
+등록자만 대기 중인 연장 요청을 수락할 수 있습니다. 수락하면 상태가 `ACCEPTED`가 되고 약속 시간이 10분 연장됩니다.
+
 **Request Body**
 
 요청 바디 없음
@@ -954,7 +1036,7 @@
   "message": "요청이 성공했습니다.",
   "data": {
     "matchId": 1,
-    "extensionStatus": "NONE",
+    "extensionStatus": "ACCEPTED",
     "originalMeetAt": "2026-06-22T12:30:00",
     "extendedMeetAt": "2026-06-22T12:30:00",
     "isExtended": true,
@@ -968,6 +1050,8 @@
 <details>
 <summary><code>PATCH /api/v1/matches/{matchId}/extension/reject</code> - 시간 연장 거절</summary>
 
+등록자만 대기 중인 연장 요청을 거절할 수 있습니다. 거절 후 상태는 `REJECTED`가 되며 다시 요청할 수 있습니다.
+
 **Request Body**
 
 요청 바디 없음
@@ -981,7 +1065,7 @@
   "message": "요청이 성공했습니다.",
   "data": {
     "matchId": 1,
-    "extensionStatus": "NONE",
+    "extensionStatus": "REJECTED",
     "rejectedAt": "2026-06-22T12:30:00"
   }
 }
@@ -991,6 +1075,8 @@
 
 <details>
 <summary><code>GET /api/v1/matches/{matchId}/extension</code> - 시간 연장 상태 조회</summary>
+
+매칭 당사자가 현재 연장 요청 상태를 조회합니다. 요청이 없는 `NONE` 상태에서는 요청자·요청 시각·만료 시각이 `null`입니다.
 
 **Request Body**
 
@@ -1104,7 +1190,9 @@
 </details>
 
 <details>
-<summary><code>POST /api/v1/reports</code> - 신고 생성</summary>
+<summary><code>POST /api/v1/reports</code> - 게시글 신고 접수</summary>
+
+로그인 사용자가 다른 사용자의 게시글을 신고합니다. 본인 게시글은 신고할 수 없으며, 동일 게시글에 대한 `PENDING` 또는 `ACCEPTED` 신고가 있으면 중복 신고할 수 없습니다. 기각된 신고는 게시글이 수정되지 않은 경우 3일 이내 재신고가 제한됩니다.
 
 **Request Body**
 
@@ -1116,6 +1204,12 @@
 }
 ```
 
+| Field | Required | Description |
+| --- | --- | --- |
+| `targetId` | 필수 | 신고 대상 게시글 ID |
+| `reason` | 필수 | `SPAM`, `OBSCENE`, `FRAUD`, `ABUSE`, `OTHER` 중 하나 |
+| `detail` | 선택 | 신고 상세 내용, 최대 500자 |
+
 **Response Body**
 
 ```json
@@ -1126,7 +1220,7 @@
   "data": {
     "reportId": 1,
     "targetId": 1,
-    "status": "string",
+    "status": "PENDING",
     "createdAt": "2026-06-22T12:30:00"
   }
 }
@@ -1137,6 +1231,8 @@
 <details>
 <summary><code>POST /api/v1/matches/{matchId}/disputes</code> - 이의제기 생성</summary>
 
+노쇼 예정 상태(`HOST_NO_SHOW`, `GUEST_NO_SHOW`, `BOTH_NO_SHOW`)의 매칭 당사자가 노쇼 판정 시각부터 24시간 안에 이의제기를 제출합니다. 같은 매칭에는 한 번만 제출할 수 있으며, 제출 후 만남 인증 상태는 `DISPUTE`로 변경됩니다.
+
 **Request Body**
 
 ```json
@@ -1145,6 +1241,11 @@
   "reason": "상세 사유입니다"
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `disputeType` | string | Y | `FUNERAL_CEREMONY`, `MEDICAL_EMERGENCY`, `PHONE_MALFUNCTION`, `GPS_ERROR`, `QR_ERROR` 중 하나 |
+| `reason` | string | Y | 이의제기 상세 사유. 최대 1,000자 |
 
 **Response Body**
 
@@ -1168,6 +1269,8 @@
 <details>
 <summary><code>GET /api/v1/matches/{matchId}/disputes/me</code> - 내 이의제기 상세 조회</summary>
 
+해당 매칭에 본인이 제출한 이의제기 상세를 조회합니다. 상태는 `SUBMITTED`, `UNDER_REVIEW`, `ACCEPTED`, `PARTIALLY_ACCEPTED`, `REJECTED`, `HOLD` 중 하나이며, 판정 전에는 `adminComment`와 `processedAt`이 `null`입니다.
+
 **Request Body**
 
 요청 바디 없음
@@ -1185,10 +1288,10 @@
     "disputeType": "FUNERAL_CEREMONY",
     "reason": "상세 사유입니다",
     "status": "SUBMITTED",
-    "adminComment": "상세 사유입니다",
+    "adminComment": null,
     "submittedAt": "2026-06-22T12:30:00",
-    "processedAt": "2026-06-22T12:30:00",
-    "holdDeadlineAt": "2026-06-22T12:30:00"
+    "processedAt": null,
+    "holdDeadlineAt": null
   }
 }
 ```
@@ -1197,6 +1300,8 @@
 
 <details>
 <summary><code>GET /api/v1/disputes/me</code> - 내 이의제기 목록 조회</summary>
+
+로그인 사용자가 제출한 모든 이의제기를 최신 제출순으로 조회합니다. 이의제기가 없으면 빈 배열을 반환합니다.
 
 **Request Body**
 
@@ -1226,6 +1331,8 @@
 <details>
 <summary><code>POST /api/v1/matches/{matchId}/disputes/resubmit</code> - 이의제기 재제출</summary>
 
+관리자가 `HOLD`로 보류한 이의제기에만 추가 사유를 제출할 수 있습니다. 보류 판정 후 24시간 이내에 한 번만 재제출할 수 있으며, 최초 제출과 동일한 `disputeType`을 사용해야 합니다.
+
 **Request Body**
 
 ```json
@@ -1234,6 +1341,11 @@
   "reason": "상세 사유입니다"
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `disputeType` | string | Y | 최초 이의제기와 동일한 유형 |
+| `reason` | string | Y | 보완 사유. 최대 1,000자 |
 
 **Response Body**
 
@@ -1257,6 +1369,8 @@
 <details>
 <summary><code>POST /api/v1/inquiries</code> - 문의 생성</summary>
 
+로그인 사용자가 고객 문의를 접수합니다. 하루 최대 20회까지 가능하며, 직전 문의 접수 후 1분이 지나야 다시 접수할 수 있습니다. 정지 계정은 `ACCOUNT` 유형만 접수할 수 있습니다.
+
 **Request Body**
 
 ```json
@@ -1266,6 +1380,12 @@
   "type": "ACCOUNT"
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `title` | string | Y | 문의 제목. 최대 200자 |
+| `content` | string | Y | 문의 내용 |
+| `type` | string | Y | `ACCOUNT`, `PAYMENT`, `USAGE`, `HISTORY`, `MATCH`, `REPORT`, `OTHER` 중 하나 |
 
 **Response Body**
 
@@ -1287,6 +1407,8 @@
 <details>
 <summary><code>GET /api/v1/inquiries/{inquiryId}</code> - 문의 상세 조회</summary>
 
+본인이 접수한 문의의 내용과 관리자 답변을 조회합니다. 답변 전에는 `answer`가 `null`이며, `answerStatus`는 `PENDING`, `READ`, `ANSWERED`, `WITHDRAWN` 중 하나입니다.
+
 **Request Body**
 
 요청 바디 없음
@@ -1304,7 +1426,7 @@
     "content": "요청 내용입니다",
     "type": "ACCOUNT",
     "answerStatus": "PENDING",
-    "answer": {},
+    "answer": null,
     "createdAt": "2026-06-22T12:30:00"
   }
 }
@@ -1315,9 +1437,14 @@
 <details>
 <summary><code>GET /api/v1/inquiries/me</code> - 내 문의 목록 조회</summary>
 
+로그인 사용자가 접수한 문의를 최신순으로 조회합니다. 취소된 `WITHDRAWN` 문의도 목록에 포함됩니다.
+
 **Query Parameters**
 
-`page=0`, `size=20`
+| 파라미터 | 필수 | 기본값 | 설명 |
+| --- | --- | --- | --- |
+| `page` | N | `0` | 0부터 시작하는 페이지 번호 |
+| `size` | N | `20` | 페이지 크기 |
 
 **Request Body**
 
@@ -1354,6 +1481,8 @@
 <details>
 <summary><code>PATCH /api/v1/inquiries/{inquiryId}/cancel</code> - 문의 취소</summary>
 
+본인이 접수한 문의를 취소합니다. `PENDING` 또는 `READ` 상태에서만 취소할 수 있으며, 답변 완료(`ANSWERED`) 또는 이미 취소된 문의는 취소할 수 없습니다.
+
 **Request Body**
 
 요청 바디 없음
@@ -1377,14 +1506,21 @@
 <details>
 <summary><code>POST /api/v1/payments</code> - 결제 준비</summary>
 
+결제 금액과 포인트를 확정하고 PortOne 결제에 사용할 `merchantUid`를 발급합니다. 이 시점의 결제 상태는 `READY`입니다.
+
 **Request Body**
 
 ```json
 {
-  "chargePoint": 1000,
-  "payMethod": "string"
+  "chargePoint": 3000,
+  "payMethod": "CARD"
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `chargePoint` | number | Y | 충전 포인트. `3000`, `5000`, `10000`, `20000` 중 하나 |
+| `payMethod` | string | Y | 결제 수단 |
 
 **Response Body**
 
@@ -1396,8 +1532,8 @@
   "data": {
     "paymentId": 1,
     "merchantUid": "merchant_20260622123000",
-    "chargePoint": 1000,
-    "amount": 1000,
+    "chargePoint": 3000,
+    "amount": 3000,
     "status": "READY",
     "createdAt": "2026-06-22T12:30:00"
   }
@@ -1409,6 +1545,8 @@
 <details>
 <summary><code>POST /api/v1/payments/{paymentId}/verify</code> - 결제 검증</summary>
 
+PortOne 결제 식별자(`impUid`)로 실제 결제 금액을 검증합니다. 검증에 성공하면 결제 상태가 `PAID`로 변경되고 포인트가 충전됩니다.
+
 **Request Body**
 
 ```json
@@ -1416,6 +1554,10 @@
   "impUid": "imp_1234567890"
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `impUid` | string | Y | PortOne이 발급한 결제 식별자 |
 
 **Response Body**
 
@@ -1427,10 +1569,10 @@
   "data": {
     "paymentId": 1,
     "impUid": "imp_1234567890",
-    "chargePoint": 1000,
-    "amount": 1000,
-    "status": "READY",
-    "balanceAfter": 1,
+    "chargePoint": 3000,
+    "amount": 3000,
+    "status": "PAID",
+    "balanceAfter": 13000,
     "completedAt": "2026-06-22T12:30:00"
   }
 }
@@ -1443,7 +1585,12 @@
 
 **Query Parameters**
 
-`page=0`, `size=20`
+| 파라미터 | 필수 | 기본값 | 설명 |
+| --- | --- | --- | --- |
+| `page` | N | `0` | 0부터 시작하는 페이지 번호 |
+| `size` | N | `20` | 페이지 크기. 최대 `50` |
+
+결제 상태는 `READY`, `PAID`, `CANCELLED`, `FAILED` 중 하나이며, `completedAt`은 `PAID` 상태일 때만 설정됩니다.
 
 **Request Body**
 
@@ -1460,10 +1607,10 @@
     "content": [
       {
         "paymentId": 1,
-        "chargePoint": 1000,
-        "amount": 1000,
-        "payMethod": "string",
-        "status": "READY",
+        "chargePoint": 3000,
+        "amount": 3000,
+        "payMethod": "CARD",
+        "status": "PAID",
         "createdAt": "2026-06-22T12:30:00",
         "completedAt": "2026-06-22T12:30:00"
       }
@@ -1482,6 +1629,8 @@
 <details>
 <summary><code>PATCH /api/v1/payments/{paymentId}/cancel</code> - 결제 취소</summary>
 
+완료된(`PAID`) 본인 결제를 PortOne에 환불 요청합니다. 이미 충전 포인트를 사용한 결제는 취소할 수 없으며, 성공하면 상태가 `CANCELLED`로 변경됩니다.
+
 **Request Body**
 
 요청 바디 없음
@@ -1495,8 +1644,8 @@
   "message": "요청이 성공했습니다.",
   "data": {
     "paymentId": 1,
-    "status": "READY",
-    "refundedAmount": 1000,
+    "status": "CANCELLED",
+    "refundedAmount": 3000,
     "cancelledAt": "2026-06-22T12:30:00"
   }
 }
@@ -1506,6 +1655,8 @@
 
 <details>
 <summary><code>PATCH /api/v1/payments/{paymentId}/fail</code> - 결제 실패 처리</summary>
+
+클라이언트 결제창에서 취소 또는 실패했을 때 호출합니다. `READY` 결제를 `FAILED`로 변경하며, 이미 완료·취소·실패된 결제는 상태를 변경하지 않고 정상 응답합니다.
 
 **Request Body**
 
@@ -1527,9 +1678,17 @@
 <details>
 <summary><code>GET /api/v1/me/points/transactions</code> - 포인트 거래 내역 조회</summary>
 
+로그인 사용자의 포인트 변동 이력을 최신순으로 조회합니다. `type`을 생략하면 전체 내역을 반환하며, `amount`는 적립·반환이면 양수, 예치·차감이면 음수입니다.
+
 **Query Parameters**
 
-`type`, `page=0`, `size=20`
+| 파라미터 | 필수 | 기본값 | 설명 |
+| --- | --- | --- | --- |
+| `type` | N | - | 거래 유형 필터 |
+| `page` | N | `0` | 0부터 시작하는 페이지 번호 |
+| `size` | N | `20` | 페이지 크기. `1`~`50` |
+
+`type`에는 `JOIN_BONUS`, `CHARGE`, `CHARGE_CANCELLED`, `DEPOSIT`, `EDIT_DEPOSIT`, `REFUND`, `PARTIAL_REFUND`, `PENALTY`, `REPORT_REWARD`, `REVIEW_REWARD`를 사용할 수 있습니다.
 
 **Request Body**
 
@@ -1551,10 +1710,10 @@
         "referenceType": "MATCH",
         "referenceId": 1,
         "settlementReason": "APPLICANT_DEPOSIT",
-        "amount": 1000,
-        "transactionType": "JOIN_BONUS",
-        "balanceAfter": 1,
-        "description": "string",
+        "amount": -1000,
+        "transactionType": "DEPOSIT",
+        "balanceAfter": 9000,
+        "description": null,
         "createdAt": "2026-06-22T12:30:00"
       }
     ],
@@ -1572,9 +1731,14 @@
 <details>
 <summary><code>GET /api/v1/notifications</code> - 알림 목록 조회</summary>
 
+로그인 사용자의 알림을 최신 ID 순으로 커서 기반 조회합니다. `cursorId` 없이 요청하면 첫 페이지를 조회하고, 다음 페이지는 이전 응답의 `nextCursor`를 전달합니다.
+
 **Query Parameters**
 
-`cursorId`, `size=20`
+| 파라미터 | 필수 | 기본값 | 설명 |
+| --- | --- | --- | --- |
+| `cursorId` | N | - | 이전 응답의 `nextCursor`. 첫 요청에서는 생략 |
+| `size` | N | `20` | 조회 개수. 최대 `50` |
 
 **Request Body**
 
@@ -1592,12 +1756,12 @@
       {
         "notificationId": 1,
         "type": "MATCH_APPLIED",
-        "title": "문의 제목입니다",
-        "content": "요청 내용입니다",
+        "title": "새로운 신청자가 있습니다.",
+        "content": "게시글에 새로운 신청자가 있습니다. 신청 내용을 확인해 주세요.",
         "domain": "MATCH",
         "relatedId": 1,
-        "isRead": true,
-        "readAt": "2026-06-22T12:30:00",
+        "isRead": false,
+        "readAt": null,
         "createdAt": "2026-06-22T12:30:00"
       }
     ],
@@ -1611,6 +1775,8 @@
 
 <details>
 <summary><code>PATCH /api/v1/notifications/read-all</code> - 전체 알림 읽음</summary>
+
+로그인 사용자의 미확인 알림 전체를 읽음 처리합니다. 이미 읽은 알림은 변경하지 않으며, `updatedCount`는 실제로 변경된 알림 수입니다.
 
 **Request Body**
 
@@ -1633,6 +1799,8 @@
 
 <details>
 <summary><code>PATCH /api/v1/notifications/{notificationId}/read</code> - 단건 알림 읽음</summary>
+
+본인 알림 한 건을 읽음 처리합니다. 이미 읽은 알림을 다시 요청해도 현재 읽음 상태를 반환하며, 다른 사용자의 알림은 처리할 수 없습니다.
 
 **Request Body**
 
@@ -1658,27 +1826,28 @@
 <details>
 <summary><code>GET /api/v1/notifications/subscribe</code> - 알림 SSE 구독</summary>
 
+실시간 알림을 받기 위한 SSE 연결입니다. `Accept: text/event-stream`으로 연결하며, 연결 직후 `connect` 이벤트가 전송됩니다. 연결은 최대 30분 유지됩니다.
+
 **Request Body**
 
 요청 바디 없음
 
-**Response Body**
+**Response — `text/event-stream`**
 
-```json
-{
-  "event": "notification",
-  "data": {
-    "type": "MATCH_CREATED",
-    "title": "새 알림",
-    "content": "알림 내용입니다"
-  }
-}
+```text
+event: connect
+data: SSE 연결 완료
+
+event: notification
+data: {"notificationId":1,"type":"MATCH_APPLIED","title":"새로운 신청자가 있습니다.","content":"게시글에 새로운 신청자가 있습니다. 신청 내용을 확인해 주세요.","domain":"MATCH","relatedId":1,"isRead":false,"readAt":null,"createdAt":"2026-06-22T12:30:00"}
 ```
 
 </details>
 
 <details>
 <summary><code>GET /api/v1/notifications/unread-count</code> - 미확인 알림 수 조회</summary>
+
+로그인 사용자의 읽지 않은 알림 개수를 조회합니다.
 
 **Request Body**
 
@@ -1702,9 +1871,14 @@
 <details>
 <summary><code>GET /api/v1/chat-rooms/{chatRoomId}/messages</code> - 채팅 메시지 조회</summary>
 
+채팅방 참여자만 메시지를 최신순으로 커서 기반 조회할 수 있습니다. `READ_ONLY` 채팅방은 조회할 수 있지만, 매칭 취소로 `DEACTIVATED` 된 채팅방은 조회할 수 없습니다. 조회한 상대방 메시지는 읽음 처리됩니다.
+
 **Query Parameters**
 
-`cursorId=9999999999`, `size=20`
+| 파라미터 | 필수 | 기본값 | 설명 |
+| --- | --- | --- | --- |
+| `cursorId` | N | `9999999999` | 이보다 작은 메시지 ID를 조회하는 커서 |
+| `size` | N | `20` | 조회 개수. 최대 `50` |
 
 **Request Body**
 
@@ -1725,8 +1899,8 @@
         "senderId": 1,
         "senderNickname": "한끼친구",
         "content": "요청 내용입니다",
-        "systemMessage": true,
-        "isRead": true,
+        "systemMessage": false,
+        "isRead": false,
         "createdAt": "2026-06-22T12:30:00"
       }
     ],
@@ -1740,6 +1914,8 @@
 
 <details>
 <summary><code>GET /api/v1/chat-rooms/{chatRoomId}/members</code> - 채팅방 멤버 조회</summary>
+
+채팅방 참여자만 현재 참여 중인 멤버를 조회할 수 있습니다. 매칭 취소로 퇴장 처리된 `LEFT` 멤버는 반환하지 않으며, `DEACTIVATED` 채팅방은 조회할 수 없습니다.
 
 **Request Body**
 
@@ -1765,60 +1941,72 @@
 </details>
 
 <details>
-<summary><code>POST /api/v1/ai/matching/chat/stream</code> - AI 매칭 SSE</summary>
+<summary><code>POST /api/v1/ai/matching/chat/stream</code> - AI 식사팟 매칭 추천</summary>
+
+로그인 사용자의 자연어 식사 조건을 바탕으로 같은 학교의 모집 중인 식사팟을 추천합니다. 메뉴·시간·분위기·인원 조건을 반영하며, 정확 후보가 없으면 가까운 만남 시간의 후보를 대체 추천할 수 있습니다.
 
 **Request Body**
 
 ```json
 {
-  "conversationId": "string",
-  "message": "string"
+  "conversationId": null,
+  "message": "오늘 저녁 조용하게 밥 먹을 사람 찾아줘"
 }
 ```
 
-**Response Body**
+| Field | Required | Description |
+| --- | --- | --- |
+| `conversationId` | 선택 | 대화 세션 ID. 첫 요청은 `null` 또는 생략 가능 |
+| `message` | 필수 | 자연어 식사 조건 |
+
+**Response Body — `text/event-stream`**
 
 ```text
-data: AI 응답 토큰
+data: 요청 조건에 맞는 식사팟을 찾아볼게요.
 
-data: 다음 응답 토큰
-
+data: 오늘 18:30에 만나는 후보가 있습니다.
 ```
 
 </details>
 
 <details>
-<summary><code>DELETE /api/v1/ai/matching/chat/{conversationId}</code> - AI 매칭 대화 삭제</summary>
+<summary><code>DELETE /api/v1/ai/matching/chat/{conversationId}</code> - AI 매칭 대화 세션 삭제</summary>
+
+현재 로그인 사용자의 AI 매칭 대화 이력과 직전 추천 상태를 정리합니다.
 
 **Request Body**
 
 요청 바디 없음
 
-**Response Body**
+**Response**
 
-응답 바디 없음
+`204 No Content`
 
 </details>
 
 <details>
-<summary><code>POST /api/v1/ai/support/chat/stream</code> - AI 고객센터 SSE</summary>
+<summary><code>POST /api/v1/ai/support/chat/stream</code> - AI 고객센터 상담</summary>
+
+계정, 매칭, 포인트, 노쇼, 채팅, 신고, 후기 정책을 안내합니다. 개인 상태가 필요한 경우 로그인 사용자의 기본 정보와 보유 포인트를 조회해 안내합니다.
 
 **Request Body**
 
 ```json
 {
-  "conversationId": "string",
-  "message": "string"
+  "conversationId": null,
+  "message": "매칭 취소하면 포인트는 어떻게 되나요?"
 }
 ```
 
-**Response Body**
+| Field | Required | Description |
+| --- | --- | --- |
+| `conversationId` | 선택 | 대화 세션 ID. 첫 요청은 `null` 또는 생략 가능 |
+| `message` | 필수 | 고객센터 문의 내용 |
+
+**Response Body — `text/event-stream`**
 
 ```text
-data: AI 응답 토큰
-
-data: 다음 응답 토큰
-
+data: 매칭 취소 시 포인트 반환 정책을 안내해드릴게요.
 ```
 
 </details>
@@ -1916,7 +2104,7 @@ data: 다음 응답 토큰
   "message": "요청이 성공했습니다.",
   "data": {
     "userId": 1,
-    "status": "ACTIVE",
+    "status": "SUSPENDED",
     "reason": "상세 사유입니다",
     "suspendedAt": "2026-06-22T12:30:00"
   }
@@ -2087,9 +2275,15 @@ data: 다음 응답 토큰
 <details>
 <summary><code>GET /api/v1/admin/reports</code> - 신고 목록 조회</summary>
 
+관리자가 신고 처리 상태별 목록을 조회합니다.
+
 **Query Parameters**
 
-`status`, `page=0`, `size=20`
+| Parameter | Required | Default | Description |
+| --- | --- | --- | --- |
+| `status` | 선택 | - | `PENDING`, `ACCEPTED`, `REJECTED`, `WITHDRAWN` |
+| `page` | 선택 | `0` | 페이지 번호 |
+| `size` | 선택 | `20` | 페이지 크기 |
 
 **Request Body**
 
@@ -2128,6 +2322,8 @@ data: 다음 응답 토큰
 <details>
 <summary><code>GET /api/v1/admin/reports/{reportId}</code> - 신고 상세 조회</summary>
 
+처리 전 신고의 `processedAt`은 `null`입니다.
+
 **Request Body**
 
 요청 바디 없음
@@ -2145,7 +2341,7 @@ data: 다음 응답 토큰
     "reason": "SPAM",
     "detail": "string",
     "status": "PENDING",
-    "processedAt": "2026-06-22T12:30:00",
+    "processedAt": null,
     "createdAt": "2026-06-22T12:30:00"
   }
 }
@@ -2156,14 +2352,21 @@ data: 다음 응답 토큰
 <details>
 <summary><code>PATCH /api/v1/admin/reports/{reportId}/process</code> - 신고 처리</summary>
 
+관리자가 대기 중인 신고를 채택 또는 기각합니다. `reportStatus`에는 `ACCEPTED` 또는 `REJECTED`만 사용할 수 있으며, 이미 처리된 신고는 다시 처리할 수 없습니다. 채택된 신고는 월 포상 한도 내에서 신고자에게 50P를 지급합니다.
+
 **Request Body**
 
 ```json
 {
-  "reportStatus": "PENDING",
+  "reportStatus": "ACCEPTED",
   "comment": "상세 사유입니다"
 }
 ```
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `reportStatus` | 필수 | `ACCEPTED` 또는 `REJECTED` |
+| `comment` | 선택 | 처리 사유, 최대 1,000자 |
 
 **Response Body**
 
@@ -2174,9 +2377,9 @@ data: 다음 응답 토큰
   "message": "요청이 성공했습니다.",
   "data": {
     "reportId": 1,
-    "status": "PENDING",
+    "status": "ACCEPTED",
     "isRewarded": true,
-    "rewardPoint": 1000,
+    "rewardPoint": 50,
     "processedAt": "2026-06-22T12:30:00"
   }
 }
@@ -2186,6 +2389,8 @@ data: 다음 응답 토큰
 
 <details>
 <summary><code>GET /api/v1/admin/inquiries/{inquiryId}</code> - 문의 상세 조회</summary>
+
+관리자가 고객 문의 상세와 답변을 조회합니다. `PENDING` 문의를 처음 상세 조회하면 상태가 `READ`로 변경됩니다. 답변이 없는 경우 `answer`는 `null`입니다.
 
 **Request Body**
 
@@ -2206,8 +2411,8 @@ data: 다음 응답 토큰
     "title": "문의 제목입니다",
     "content": "요청 내용입니다",
     "type": "ACCOUNT",
-    "answerStatus": "PENDING",
-    "answer": {},
+    "answerStatus": "READ",
+    "answer": null,
     "createdAt": "2026-06-22T12:30:00"
   }
 }
@@ -2218,9 +2423,16 @@ data: 다음 응답 토큰
 <details>
 <summary><code>GET /api/v1/admin/inquiries</code> - 문의 목록 조회</summary>
 
+관리자가 고객 문의 목록을 상태·유형별로 조회합니다.
+
 **Query Parameters**
 
-`status`, `type`, `page=0`, `size=20`
+| 파라미터 | 필수 | 기본값 | 설명 |
+| --- | --- | --- | --- |
+| `status` | N | - | `PENDING`, `READ`, `ANSWERED`, `WITHDRAWN` 중 하나 |
+| `type` | N | - | `ACCOUNT`, `PAYMENT`, `USAGE`, `HISTORY`, `MATCH`, `REPORT`, `OTHER` 중 하나 |
+| `page` | N | `0` | 0부터 시작하는 페이지 번호 |
+| `size` | N | `20` | 페이지 크기 |
 
 **Request Body**
 
@@ -2258,6 +2470,8 @@ data: 다음 응답 토큰
 <details>
 <summary><code>POST /api/v1/admin/inquiries/{inquiryId}/answers</code> - 문의 답변 작성</summary>
 
+관리자가 문의에 답변을 등록합니다. 답변 등록 후 문의 상태는 `ANSWERED`가 되고, 문의 작성자에게 알림이 발송됩니다. 이미 답변이 등록된 문의에는 다시 답변을 작성할 수 없습니다.
+
 **Request Body**
 
 ```json
@@ -2265,6 +2479,10 @@ data: 다음 응답 토큰
   "content": "요청 내용입니다"
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `content` | string | Y | 답변 내용. 최대 2,000자 |
 
 **Response Body**
 
@@ -2288,6 +2506,8 @@ data: 다음 응답 토큰
 <details>
 <summary><code>GET /api/v1/admin/disputes/{disputeId}</code> - 이의제기 상세 조회</summary>
 
+관리자가 이의제기 상세, GPS 인증 시각, 관련 채팅 내역을 조회합니다. 상세 조회 시 `SUBMITTED` 상태는 자동으로 `UNDER_REVIEW`로 변경됩니다.
+
 **Request Body**
 
 요청 바디 없음
@@ -2305,14 +2525,12 @@ data: 다음 응답 토큰
     "applicantNickname": "한끼친구",
     "disputeType": "FUNERAL_CEREMONY",
     "reason": "상세 사유입니다",
-    "status": "SUBMITTED",
-    "verificationStatus": "PENDING",
-    "authorPlaceVerifiedAt": "2026-06-22T12:30:00",
-    "applicantPlaceVerifiedAt": "2026-06-22T12:30:00",
+    "status": "UNDER_REVIEW",
+    "verificationStatus": "DISPUTE",
+    "authorPlaceVerifiedAt": null,
+    "applicantPlaceVerifiedAt": null,
     "submittedAt": "2026-06-22T12:30:00",
-    "chatMessages": [
-      {}
-    ]
+    "chatMessages": []
   }
 }
 ```
@@ -2322,9 +2540,15 @@ data: 다음 응답 토큰
 <details>
 <summary><code>GET /api/v1/admin/disputes</code> - 이의제기 목록 조회</summary>
 
+관리자가 이의제기 목록을 상태별로 조회합니다.
+
 **Query Parameters**
 
-`status`, `page=0`, `size=20`
+| 파라미터 | 필수 | 기본값 | 설명 |
+| --- | --- | --- | --- |
+| `status` | N | - | `SUBMITTED`, `UNDER_REVIEW`, `ACCEPTED`, `PARTIALLY_ACCEPTED`, `REJECTED`, `HOLD` 중 하나 |
+| `page` | N | `0` | 0부터 시작하는 페이지 번호 |
+| `size` | N | `20` | 페이지 크기 |
 
 **Request Body**
 
@@ -2362,14 +2586,21 @@ data: 다음 응답 토큰
 <details>
 <summary><code>PATCH /api/v1/admin/disputes/{disputeId}/judge</code> - 이의제기 판정</summary>
 
+관리자가 `UNDER_REVIEW` 또는 `HOLD` 상태의 이의제기를 판정합니다. `ACCEPTED`는 노쇼 취소·포인트 정산, `PARTIALLY_ACCEPTED`는 일부 수용 정산, `REJECTED`는 노쇼 확정, `HOLD`는 추가 자료 제출 대기 처리입니다.
+
 **Request Body**
 
 ```json
 {
-  "status": "SUBMITTED",
+  "status": "ACCEPTED",
   "comment": "상세 사유입니다"
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `status` | string | Y | `ACCEPTED`, `PARTIALLY_ACCEPTED`, `REJECTED`, `HOLD` 중 하나 |
+| `comment` | string | Y | 판정 사유. 최대 1,000자 |
 
 **Response Body**
 
@@ -2381,7 +2612,7 @@ data: 다음 응답 토큰
   "data": {
     "disputeId": 1,
     "matchId": 1,
-    "status": "SUBMITTED",
+    "status": "ACCEPTED",
     "adminComment": "상세 사유입니다",
     "refundedPoint": 1000,
     "processedAt": "2026-06-22T12:30:00"
@@ -2394,14 +2625,21 @@ data: 다음 응답 토큰
 <details>
 <summary><code>PATCH /api/v1/admin/disputes/{disputeId}/override</code> - 이의제기 상태 변경</summary>
 
+관리자가 오판정을 정정하기 위해 상태를 강제로 변경합니다. 일반 판정 흐름과 달리 상태 전이 제약 없이 변경되며, 포인트를 추가 정산하지 않습니다.
+
 **Request Body**
 
 ```json
 {
-  "status": "SUBMITTED",
+  "status": "UNDER_REVIEW",
   "comment": "상세 사유입니다"
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `status` | string | Y | 변경할 이의제기 상태 |
+| `comment` | string | Y | 강제 변경 사유. 최대 1,000자 |
 
 **Response Body**
 
@@ -2413,7 +2651,7 @@ data: 다음 응답 토큰
   "data": {
     "disputeId": 1,
     "matchId": 1,
-    "status": "SUBMITTED",
+    "status": "UNDER_REVIEW",
     "adminComment": "상세 사유입니다",
     "refundedPoint": 1000,
     "processedAt": "2026-06-22T12:30:00"
@@ -2514,9 +2752,14 @@ data: 다음 응답 토큰
 <details>
 <summary><code>GET /api/v1/admin/notifications</code> - 관리자 알림 목록</summary>
 
+로그인한 관리자의 알림을 최신 ID 순으로 커서 기반 조회합니다. 일반 사용자 알림과 관리자의 알림은 분리되어 있으며, 다음 페이지는 이전 응답의 `nextCursor`를 전달해 조회합니다.
+
 **Query Parameters**
 
-`cursorId`, `size=20`
+| 파라미터 | 필수 | 기본값 | 설명 |
+| --- | --- | --- | --- |
+| `cursorId` | N | - | 이전 응답의 `nextCursor`. 첫 요청에서는 생략 |
+| `size` | N | `20` | 조회 개수. 최대 `50` |
 
 **Request Body**
 
@@ -2534,12 +2777,12 @@ data: 다음 응답 토큰
       {
         "notificationId": 1,
         "type": "MATCH_APPLIED",
-        "title": "문의 제목입니다",
-        "content": "요청 내용입니다",
-        "domain": "MATCH",
+        "title": "새로운 신고가 접수되었습니다.",
+        "content": "새로운 신고가 접수되었습니다. 검토해 주세요.",
+        "domain": "REPORT",
         "relatedId": 1,
-        "isRead": true,
-        "readAt": "2026-06-22T12:30:00",
+        "isRead": false,
+        "readAt": null,
         "createdAt": "2026-06-22T12:30:00"
       }
     ],
@@ -2553,6 +2796,8 @@ data: 다음 응답 토큰
 
 <details>
 <summary><code>PATCH /api/v1/admin/notifications/read-all</code> - 관리자 알림 전체 읽음</summary>
+
+로그인한 관리자의 미확인 알림 전체를 읽음 처리합니다. `updatedCount`는 실제 변경된 알림 수입니다.
 
 **Request Body**
 
@@ -2575,6 +2820,8 @@ data: 다음 응답 토큰
 
 <details>
 <summary><code>PATCH /api/v1/admin/notifications/{notificationId}/read</code> - 관리자 알림 단건 읽음</summary>
+
+본인 관리자 알림 한 건을 읽음 처리합니다. 이미 읽은 알림은 현재 상태를 반환하며, 다른 관리자의 알림은 처리할 수 없습니다.
 
 **Request Body**
 
@@ -2600,6 +2847,8 @@ data: 다음 응답 토큰
 <details>
 <summary><code>GET /api/v1/admin/notifications/unread-count</code> - 관리자 미확인 알림 수</summary>
 
+로그인한 관리자의 읽지 않은 알림 개수를 조회합니다.
+
 **Request Body**
 
 요청 바디 없음
@@ -2622,67 +2871,74 @@ data: 다음 응답 토큰
 <details>
 <summary><code>GET /api/v1/admin/notifications/subscribe</code> - 관리자 알림 SSE</summary>
 
+관리자 실시간 알림 SSE 연결입니다. `Accept: text/event-stream`으로 연결하면 먼저 `connect` 이벤트가 전송되고, 이후 알림이 발생할 때마다 `notification` 이벤트가 전송됩니다. 연결은 최대 30분 유지됩니다.
+
 **Request Body**
 
 요청 바디 없음
 
-**Response Body**
+**Response — `text/event-stream`**
 
-```json
-{
-  "event": "notification",
-  "data": {
-    "type": "MATCH_CREATED",
-    "title": "새 알림",
-    "content": "알림 내용입니다"
-  }
-}
+```text
+event: connect
+data: SSE 연결 완료
+
+event: notification
+data: {"notificationId":1,"type":"REPORT_SUBMITTED","title":"새로운 신고가 접수되었습니다.","content":"새로운 신고가 접수되었습니다. 검토해 주세요.","domain":"REPORT","relatedId":1,"isRead":false,"readAt":null,"createdAt":"2026-06-22T12:30:00"}
 ```
 
 </details>
 
 <details>
-<summary><code>POST /api/v1/admin/ai/reports/chat/stream</code> - 관리자 AI 신고 SSE</summary>
+<summary><code>POST /api/v1/admin/ai/reports/chat/stream</code> - 관리자 신고·이의제기 검토 AI 상담</summary>
+
+관리자가 신고 또는 이의제기 상세를 검토할 때 판단 근거와 운영 정책 안내를 받습니다. AI는 검토를 보조하며, 신고 처리나 이의제기 최종 판정을 직접 실행하지 않습니다.
 
 **Request Body**
 
 ```json
 {
-  "conversationId": "string",
-  "message": "string"
+  "conversationId": null,
+  "message": "신고 12번의 처리 판단 근거를 요약해줘"
 }
 ```
 
-**Response Body**
+| Field | Required | Description |
+| --- | --- | --- |
+| `conversationId` | 선택 | 관리자 AI 대화 세션 ID. 첫 요청은 `null` 또는 생략 가능 |
+| `message` | 필수 | 신고·이의제기 검토 요청 |
+
+**Response Body — `text/event-stream`**
 
 ```text
-data: AI 응답 토큰
-
-data: 다음 응답 토큰
-
+data: 신고 상세와 정책 기준을 바탕으로 검토 결과를 안내합니다.
 ```
 
 </details>
 
 <details>
-<summary><code>POST /api/v1/admin/ai/console/chat/stream</code> - 관리자 AI 콘솔 SSE</summary>
+<summary><code>POST /api/v1/admin/ai/console/chat/stream</code> - 관리자 운영 현황·정책 안내 AI 상담</summary>
+
+관리자가 대시보드 운영 현황, 처리 대기 건수, 운영 정책 또는 관리자 화면 사용 방법을 질문할 때 사용합니다. 이 경로는 신고 검토 경로와 같은 스트리밍 처리 로직을 사용하지만 운영 콘솔 진입 맥락을 나타냅니다.
 
 **Request Body**
 
 ```json
 {
-  "conversationId": "string",
-  "message": "string"
+  "conversationId": null,
+  "message": "오늘 관리자 화면에서 우선 확인할 운영 현황을 알려줘"
 }
 ```
 
-**Response Body**
+| Field | Required | Description |
+| --- | --- | --- |
+| `conversationId` | 선택 | 관리자 AI 대화 세션 ID. 첫 요청은 `null` 또는 생략 가능 |
+| `message` | 필수 | 운영 현황 또는 정책 안내 요청 |
+
+**Response Body — `text/event-stream`**
 
 ```text
-data: AI 응답 토큰
-
-data: 다음 응답 토큰
-
+data: 현재 운영 현황을 기준으로 우선 확인할 항목을 안내합니다.
 ```
 
 </details>
@@ -2691,10 +2947,35 @@ data: 다음 응답 토큰
 
 | Type | Destination | Body | 설명 |
 | --- | --- | --- | --- |
-| Handshake | `/ws/chat` | - | SockJS fallback 지원 |
+| Handshake | `/ws/chat?token=Bearer {accessToken}` | - | JWT 검증 후 연결. SockJS fallback 지원 |
 | Client publish | `/pub/chat/rooms/{chatRoomId}` | `ChatMessageRequestDto` | 채팅 메시지 전송 |
 | Server subscribe | `/user/sub/chat/rooms/{chatRoomId}` | `ChatMessageResponseDto` | 사용자별 채팅 메시지 수신 |
 | Server subscribe | `/user/queue/errors` | `String` | 채팅 오류 수신 |
+
+`/pub/chat/rooms/{chatRoomId}`로 전송하는 메시지 형식입니다. 발신자 ID는 Handshake JWT에서 식별하므로 클라이언트가 보내지 않습니다. 메시지는 욕설 필터링 후 저장·전송됩니다.
+
+```json
+{
+  "content": "안녕하세요! 어디에서 만날까요?"
+}
+```
+
+성공하면 채팅방의 활성 멤버가 각자의 `/user/sub/chat/rooms/{chatRoomId}`에서 다음 형식의 메시지를 수신합니다.
+
+```json
+{
+  "messageId": 1,
+  "chatRoomId": 1,
+  "senderId": 1,
+  "senderNickname": "한끼친구",
+  "content": "안녕하세요! 어디에서 만날까요?",
+  "systemMessage": false,
+  "isRead": false,
+  "createdAt": "2026-06-22T12:30:00"
+}
+```
+
+채팅방이 `READ_ONLY`이거나 `DEACTIVATED` 상태, 또는 발신자가 참여자가 아닌 경우에는 메시지가 전송되지 않고 `/user/queue/errors`로 오류 문자열이 전달됩니다.
 
 ## Enum 값
 
