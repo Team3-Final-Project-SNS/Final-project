@@ -532,7 +532,7 @@ function RecommendedPostMiniCard({
           <div className="min-w-0">
             <p className="truncate text-sm font-extrabold text-[#212121]">{post.placeName}</p>
           </div>
-          <span className="shrink-0 rounded-full bg-[#e8f5e9] px-2.5 py-1 text-[11px] font-bold text-[#2e7d32]">
+          <span className="hankki-status-badge shrink-0 rounded-full bg-[#e8f5e9] px-2.5 py-1 text-[11px] font-bold text-[#2e7d32]">
             모집중
           </span>
         </div>
@@ -574,7 +574,7 @@ function ParsedRecommendationCard({
               {post.placeName || `게시글 #${post.postId}`}
             </p>
           </div>
-          <span className="shrink-0 rounded-full bg-[#e8f5e9] px-2.5 py-1 text-[11px] font-bold text-[#2e7d32]">
+          <span className="hankki-status-badge shrink-0 rounded-full bg-[#e8f5e9] px-2.5 py-1 text-[11px] font-bold text-[#2e7d32]">
             모집중
           </span>
         </div>
@@ -784,7 +784,7 @@ function RecommendedPostCard({ post }: { post: RecommendedPost }) {
             <h3 className="truncate text-sm font-bold text-[#212121]">{post.placeName}</h3>
             <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#757575]">{post.reason}</p>
           </div>
-          <span className="shrink-0 rounded-full bg-[#fff3e0] px-2.5 py-1 text-xs font-bold text-[#d84315]">
+          <span className="hankki-status-badge shrink-0 rounded-full bg-[#fff3e0] px-2.5 py-1 text-xs font-bold text-[#d84315]">
             {post.deposit.toLocaleString()}P
           </span>
         </div>
@@ -812,7 +812,7 @@ function RecommendedPostCard({ post }: { post: RecommendedPost }) {
               inactiveLabel="포인트 부족"
           />
           {!canApply && (
-              <span className="rounded-full bg-[#ffebee] px-2.5 py-1 text-[11px] font-semibold text-[#c62828]">
+              <span className="hankki-status-badge rounded-full bg-[#ffebee] px-2.5 py-1 text-[11px] font-semibold text-[#c62828]">
                 확인 필요
               </span>
           )}
@@ -839,7 +839,7 @@ function StatusPill({
 }) {
   return (
       <span
-          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+          className={`hankki-status-badge inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
               active ? 'bg-[#e8f5e9] text-[#2e7d32]' : 'bg-[#f5f5f5] text-[#757575]'
           }`}
       >

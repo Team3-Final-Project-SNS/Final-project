@@ -193,7 +193,7 @@ export default function PostListPage() {
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-5">
                       <div className="min-w-0 flex-1">
                         <div className="mb-2 flex items-center gap-2">
-                    <span className={`rounded px-2.5 py-1 text-xs font-semibold ${statusClasses[post.status] || 'bg-[#f5f5f5] text-[#757575]'}`}>
+                    <span className={`hankki-status-badge rounded px-2.5 py-1 text-xs font-semibold ${statusClasses[post.status] || 'bg-[#f5f5f5] text-[#757575]'}`}>
                       {statusLabels[post.status] || post.status}
                     </span>
                           <span className="text-xs text-[#9e9e9e]">{getTimeAgo(post.createdAt || post.createAt)}</span>

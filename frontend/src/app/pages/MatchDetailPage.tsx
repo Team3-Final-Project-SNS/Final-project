@@ -202,7 +202,7 @@ export default function MatchDetailPage() {
                 <p className="mb-1 text-xs font-semibold text-[#9e9e9e]">매칭 #{match.matchId}</p>
                 <h1 className="text-2xl font-bold text-[#212121]">{match.placeName} 만남</h1>
               </div>
-              <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${status.className}`}>
+              <span className={`hankki-status-badge rounded-full px-3 py-1.5 text-xs font-bold ${status.className}`}>
                 {status.label}
               </span>
             </div>
