@@ -1,7 +1,9 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: Deploy to EC2
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [ "main" ]
 
 jobs:
   deploy:
@@ -11,8 +13,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 이전 빌드 잔여물(src, build) 정리
-      # compileJava 캐시 충돌 방지를 위해 파일 복사 전에 실행
+      # 이전 빌드 잔여물 정리 (compileJava 캐시 충돌 방지)
       - name: Clean old build artifacts on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -24,12 +25,12 @@ jobs:
             rm -rf /home/ec2-user/app/build
 
       - name: Copy project files to EC2
-        uses: appleboy/scp-action@master
+        uses: appleboy/scp-action@v0.1.7   # ✅ 버전 고정
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "."
+          source: ".,!.git,!.github,!frontend/node_modules"   # ✅ 불필요 폴더 제외
           target: "/home/ec2-user/app"
 
       - name: Deploy with Blue-Green script on EC2
@@ -53,16 +54,9 @@ jobs:
               exit 1
             fi
 
-            # ---- 1. app-blue / app-green 무중단 전환 배포 ----
-            # 현재 비활성 환경(blue/green)에 새 코드를 빌드하고,
-            # 헬스체크 통과 후 ALB 트래픽을 전환, 이전 환경을 종료함
             chmod +x deploy-blue-green.sh
             ./deploy-blue-green.sh
 
-            # ---- 2. 나머지 서비스(frontend, 모니터링 등) 갱신 ----
-            # app-blue/app-green은 위 스크립트가 이미 처리했으므로
-            # 여기서는 나머지 서비스만 재빌드/재시작
-            # (app-blue, app-green은 上記 스크립트가 상태를 관리하므로 제외)
             docker-compose -f docker-compose.prod.yml up --build -d \
               frontend prometheus loki alloy grafana n8n
 
