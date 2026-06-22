@@ -6,6 +6,21 @@
 
 <br />
 
+## 📚 목차
+
+- [한끼팟이 해결하는 문제](#-한끼팟이-해결하는-문제)
+- [3초 만에 이해하는 한끼팟](#-3초-만에-이해하는-한끼팟)
+- [핵심 기능](#-핵심-기능)
+- [서비스 플로우](#-서비스-플로우)
+- [ERD](#-erd)
+- [시스템 아키텍처](#️-시스템-아키텍처)
+- [기술 스택](#️-기술-스택)
+- [프로젝트 구조](#-프로젝트-구조)
+- [주요 API 엔드포인트](#-주요-api-엔드포인트)
+- [Documents](#-documents)
+
+<br />
+
 <p align="center">
   <img src="./docs/assets/readme/main-banner.png" alt="한끼팟 메인 배너" width="900" />
 </p>
@@ -185,6 +200,48 @@ flowchart LR
 | Infra | Docker, Docker Compose, AWS EC2, AWS RDS, ALB, GitHub Actions |
 | Monitoring | Prometheus, Grafana, Loki, Alloy, n8n, Actuator, Micrometer |
 | Test / Docs | JUnit5, Mockito, Spring Security Test, Swagger, Postman, k6 |
+
+<br />
+
+## 📁 프로젝트 구조
+
+```text
+Final-project
+├── src
+│   ├── main
+│   │   ├── java/com/example/team3final
+│   │   │   ├── common          # 공통 설정, 보안, 예외, 응답, 인프라 설정
+│   │   │   └── domain          # 도메인별 Controller, Service, Repository, DTO, Entity
+│   │   │       ├── admin       # 관리자 인증, 회원, 게시글, 신고, 문의, 결제, 이의제기 관리
+│   │   │       ├── ai          # AI 매칭, 고객센터, 관리자 운영 보조
+│   │   │       ├── auth        # 이메일 OTP, 회원가입, 로그인, 토큰 재발급
+│   │   │       ├── chat        # WebSocket/STOMP 채팅
+│   │   │       ├── dispute     # 노쇼 이의제기
+│   │   │       ├── inquiry     # 고객 문의
+│   │   │       ├── location    # 실시간 위치 공유
+│   │   │       ├── match       # 선착순 매칭
+│   │   │       ├── meet        # GPS/QR 만남 인증
+│   │   │       ├── notification # SSE 알림
+│   │   │       ├── payment     # PortOne 결제
+│   │   │       ├── pointTransaction # 포인트 거래 내역
+│   │   │       ├── post        # 밥약 게시글
+│   │   │       ├── report      # 신고
+│   │   │       ├── review      # 후기와 매너온도
+│   │   │       ├── university  # 대학 정보
+│   │   │       └── user        # 사용자 프로필과 상태
+│   │   └── resources
+│   │       ├── prompts         # AI 프롬프트 템플릿
+│   │       ├── rag-docs        # RAG 정책 문서
+│   │       └── yok             # 욕설 필터링 단어 사전
+│   └── test                    # 도메인별 단위/통합 테스트
+├── frontend                    # React, TypeScript, Vite 클라이언트
+├── docs                        # README 이미지와 문서, API 명세서
+├── monitoring                  # Prometheus, Grafana, Loki 등 관측 설정
+├── performance                 # 성능/부하 테스트 자료
+├── docker-compose.yml
+├── docker-compose.prod.yml
+└── build.gradle
+```
 
 <br />
 
@@ -373,13 +430,13 @@ AI는 보여주기용 기능이 아니라, 사용자가 실제로 더 쉽게 이
 
 ## 👥 Team
 
-| 이름 | 담당 도메인 |
-| --- | --- |
-| 정호진 | 만남 인증, 위치, 관리자, 부하 테스트, 캐싱 |
-| 박수지 | 채팅, 알림, WebSocket, Kafka, SSE |
-| 문혜린 | 인증/인가, 유저, 고객문의, 약관, CI/CD, 배포 |
-| 최형민 | 대학, 포인트, AI, 리뷰, 모니터링 |
-| 류호정 | 게시글, 매칭, 결제, 동시성 제어, QueryDSL |
+| 이름 | 담당 도메인                            |
+| --- |-----------------------------------|
+| 정호진 | 만남 인증, 위치, 관리자, 부하 테스트, 캐싱        |
+| 박수지 | 채팅, 알림, 신고, WebSocket, Kafka, SSE |
+| 문혜린 | 인증/인가, 유저, 고객문의, 약관, CI/CD, 배포    |
+| 최형민 | 대학, 포인트, AI, 리뷰, 모니터링             |
+| 류호정 | 게시글, 매칭, 결제, 동시성 제어, QueryDSL     |
 
 <br />
 
