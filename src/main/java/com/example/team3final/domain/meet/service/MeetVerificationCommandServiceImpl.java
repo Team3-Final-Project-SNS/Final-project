@@ -115,10 +115,9 @@ public class MeetVerificationCommandServiceImpl implements MeetVerificationComma
                 placeLat.doubleValue(), placeLng.doubleValue()
         );
 
-        // 현재 위치와 약속 장소 사이의 허용 반경 초과 여부 확인
-        // 발표회 라이브 시연을 위한 서버 검증 반경 250km 운영
+        // 정책 반경 50m에 GPS 오차 허용 범위 10m를 더한 서버 판정 반경 초과 여부 확인
         if (distanceMeters > MeetVerificationPolicy.PLACE_VERIFICATION_RADIUS_METERS) {
-            // 시연용 반경 250km 밖이면 장소 인증 미처리 및 예외 발생
+            // 서버 판정 반경 60m 밖이면 장소 인증 미처리 및 예외 발생
             throw new MeetException(ErrorCode.GPS_OUT_OF_RANGE);
         }
 

@@ -25,7 +25,8 @@ interface Position {
 
 type KakaoMapStatus = 'loading' | 'ready' | 'error';
 
-const USER_VISIBLE_RADIUS_METERS = 250000;
+// GPS 장소 인증 정책 반경 50m와 위치 오차 허용 범위 10m를 합한 판정 반경
+const USER_VISIBLE_RADIUS_METERS = 60;
 // 발표회 시연을 위해 QR 단계 fallback 진입 기준 임시 조정
 const QR_FALLBACK_AFTER_MINUTES = 3;
 const LOCATION_INITIAL_TIMEOUT_MS = 8000;

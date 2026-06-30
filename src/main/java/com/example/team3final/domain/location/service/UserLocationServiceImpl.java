@@ -38,8 +38,7 @@ public class UserLocationServiceImpl implements UserLocationService {
     private final MatchInternalService matchInternalService;
     private final PostInternalService postInternalService;
 
-    // 위치 업데이트 시 반경 안/밖 여부를 계산할 때 사용할 기준 반경
-    // 발표회 라이브 시연을 위해 만남 장소 반경을 250km로 확장
+    // 위치 업데이트 시 GPS 오차 허용 범위를 포함한 서버 판정 반경을 사용
     private static final double LOCATION_TRACKING_RADIUS_METERS = MeetVerificationPolicy.MEETING_RADIUS_METERS;
 
     // 내 위치 업데이트
@@ -137,31 +136,42 @@ public class UserLocationServiceImpl implements UserLocationService {
         // 같은 게시글의 활성 matchId 전체 조회 및 단체 매칭 참여자 위치 구성
         List<UserLocation> locations = userLocationRepository.findAllByMatchIdIn(activeMatchIds);
 
-        // 내 위치 — role은 내가 누구냐에 따라 결정
+        // 내 위치는 반경 밖이어도 본인 화면에 계속 표시
         boolean isAuthor = userId.equals(postInfo.authorId());
-        LocationDto myLocation = locations.stream()
+        UserLocation currentUserLocation = locations.stream()
                 .filter(loc -> loc.getUserId().equals(userId))
                 .findFirst()
-                .map(loc -> LocationDto.from(loc, isAuthor ? LocationRole.AUTHOR : LocationRole.APPLICANT))
                 .orElse(null);
+        LocationDto myLocation = currentUserLocation == null
+                ? null
+                : LocationDto.from(
+                        currentUserLocation,
+                        isAuthor ? LocationRole.AUTHOR : LocationRole.APPLICANT
+                );
 
-        // 개인정보 보호를 위해 시연용 반경 250km 안에 들어온 상대방 위치만 노출
-        List<LocationDto> opponentLocations = locations.stream()
-                .filter(loc -> !loc.getUserId().equals(userId))
-                .filter(loc -> loc.getUserId().equals(postInfo.authorId()) || activeApplicantIds.contains(loc.getUserId()))
-                .filter(UserLocation::isInRange)
-                .collect(Collectors.toMap(
-                        UserLocation::getUserId,
-                        Function.identity(),
-                        (first, second) -> first
-                ))
-                .values()
-                .stream()
-                .map(loc -> LocationDto.from(
-                        loc,
-                        loc.getUserId().equals(postInfo.authorId()) ? LocationRole.AUTHOR : LocationRole.APPLICANT
-                ))
-                .toList();
+        // 본인과 상대방이 모두 서버 판정 반경 60m 안에 있을 때만 상대방 위치를 노출
+        // 본인이 반경 밖이거나 위치를 아직 전송하지 않았다면 본인 위치 외에는 반환하지 않음
+        List<LocationDto> opponentLocations = currentUserLocation == null || !currentUserLocation.isInRange()
+                ? List.of()
+                : locations.stream()
+                        .filter(loc -> !loc.getUserId().equals(userId))
+                        .filter(loc -> loc.getUserId().equals(postInfo.authorId())
+                                || activeApplicantIds.contains(loc.getUserId()))
+                        .filter(UserLocation::isInRange)
+                        .collect(Collectors.toMap(
+                                UserLocation::getUserId,
+                                Function.identity(),
+                                (first, second) -> first
+                        ))
+                        .values()
+                        .stream()
+                        .map(loc -> LocationDto.from(
+                                loc,
+                                loc.getUserId().equals(postInfo.authorId())
+                                        ? LocationRole.AUTHOR
+                                        : LocationRole.APPLICANT
+                        ))
+                        .toList();
 
         return GetLocationResponseDto.of(myLocation, opponentLocations);
     }
