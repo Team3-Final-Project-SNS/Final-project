@@ -77,7 +77,7 @@ public enum ErrorCode {
     // Verification
     MEET_VERIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "VERIFY_001", "인증 정보를 찾을 수 없습니다"),
     // MeetVerification - GPS 장소 인증 에러 코드
-    GPS_OUT_OF_RANGE(HttpStatus.UNPROCESSABLE_ENTITY, "VERIFY_002", "약속 장소 반경 50m를 벗어났습니다."),
+    GPS_OUT_OF_RANGE(HttpStatus.UNPROCESSABLE_ENTITY, "VERIFY_002", "약속 장소 반경 50m와 GPS 오차 허용 범위 10m를 벗어났습니다."),
     GPS_NOT_VERIFICATION_TIME(HttpStatus.UNPROCESSABLE_ENTITY, "VERIFY_003", "현재는 장소 인증 가능 시간이 아닙니다."),
     GPS_ALREADY_VERIFIED(HttpStatus.CONFLICT, "VERIFY_004", "이미 인증을 완료했습니다."),
     // MeetVerification - QR 토큰 조회 에러 코드

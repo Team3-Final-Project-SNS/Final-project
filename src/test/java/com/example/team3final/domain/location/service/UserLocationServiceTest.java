@@ -14,6 +14,7 @@ import com.example.team3final.domain.post.service.PostInternalService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -28,6 +29,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -88,6 +90,43 @@ class UserLocationServiceTest {
 
         assertThat(result.myLocation()).isNotNull();
         assertThat(result.opponentLocations()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("본인이 60m 반경 밖이면 본인 위치만 반환한다")
+    void getLocations_shouldReturnOnlyMyLocationWhenRequesterIsOutOfRange() {
+        UserLocation authorLocation = userLocation(10L, 1L, "37.5665", "126.9780", true);
+        UserLocation applicantLocation = userLocation(10L, 2L, "37.5671", "126.9780", false);
+        when(matchInternalService.getMatchInfo(10L)).thenReturn(matchInfo(10L, 100L, 2L, MatchStatus.MATCHED));
+        when(postInternalService.getPostInfo(100L)).thenReturn(postInfo(100L, 1L));
+        when(matchInternalService.getMatchIdsByPostId(100L)).thenReturn(List.of(10L));
+        when(matchInternalService.getMatchInfos(List.of(10L))).thenReturn(Map.of(10L, matchInfo(10L, 100L, 2L, MatchStatus.MATCHED)));
+        when(userLocationRepository.findAllByMatchIdIn(List.of(10L))).thenReturn(List.of(authorLocation, applicantLocation));
+
+        GetLocationResponseDto result = userLocationService.getLocations(10L, 2L);
+
+        assertThat(result.myLocation()).isNotNull();
+        assertThat(result.opponentLocation()).isNull();
+        assertThat(result.opponentLocations()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("위치 업데이트는 약속 장소로부터 60m 이내 여부를 계산한다")
+    void updateMyLocation_shouldUseSixtyMeterTrackingRadius() {
+        when(matchInternalService.getMatchInfo(10L)).thenReturn(matchInfo(10L, 100L, 2L, MatchStatus.MATCHED));
+        when(postInternalService.getPostInfo(100L)).thenReturn(postInfo(100L, 1L));
+        when(matchInternalService.getMatchIdsByPostId(100L)).thenReturn(List.of(10L));
+        when(matchInternalService.getMatchInfos(List.of(10L))).thenReturn(Map.of(10L, matchInfo(10L, 100L, 2L, MatchStatus.MATCHED)));
+        when(userLocationRepository.findByMatchIdAndUserId(10L, 2L)).thenReturn(Optional.empty());
+        when(userLocationRepository.save(any(UserLocation.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        userLocationService.updateMyLocation(10L, 2L, locationRequest("37.5670", "126.9780"));
+        userLocationService.updateMyLocation(10L, 2L, locationRequest("37.5671", "126.9780"));
+
+        ArgumentCaptor<UserLocation> locationCaptor = ArgumentCaptor.forClass(UserLocation.class);
+        verify(userLocationRepository, times(2)).save(locationCaptor.capture());
+        assertThat(locationCaptor.getAllValues().get(0).isInRange()).isTrue();
+        assertThat(locationCaptor.getAllValues().get(1).isInRange()).isFalse();
     }
 
     @Test

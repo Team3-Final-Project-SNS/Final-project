@@ -28,11 +28,11 @@ public class MeetVerification {
     // updatable 한 번 연결된 매칭 ID는 변경 불가
     private Long matchId;
 
-    // 등록자 GPS 시연용 250km 반경 진입 시각
+    // 등록자 GPS 서버 판정 반경 60m 진입 시각
     @Column(name = "author_place_verified_at")
     private LocalDateTime authorPlaceVerifiedAt;
 
-    // 신청자 GPS 시연용 250km 반경 진입 시각
+    // 신청자 GPS 서버 판정 반경 60m 진입 시각
     @Column(name = "applicant_place_verified_at")
     private LocalDateTime applicantPlaceVerifiedAt;
 

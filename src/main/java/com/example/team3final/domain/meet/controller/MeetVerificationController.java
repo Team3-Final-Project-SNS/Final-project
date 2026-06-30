@@ -75,10 +75,10 @@ public class MeetVerificationController {
     @Operation(
             summary = "GPS 장소 인증",
             description = """
-                    발표회 라이브 시연용 약속 장소 반경 250km 내에서 GPS 위치를 인증합니다.
+                    약속 장소 기준 정책 반경은 50m이며, GPS 오차 10m를 허용해 서버에서는 60m 이내 위치를 인증합니다.
                     
                     **인증 가능 시간:** 약속 시간 10분 전 ~ 약속 시간 후 10분
-                    (서버 검증 반경: 발표회 라이브 시연용 250km)
+                    (서버 판정 반경: 60m)
                     
                     **인증 흐름:**
                     1. 전원 GPS 인증 완료 또는 약속 시간 3분 경과 → QR 단계 진입 가능
@@ -125,14 +125,14 @@ public class MeetVerificationController {
             ),
             @ApiResponse(
                     responseCode = "422",
-                    description = "인증 가능 시간 아님(VERIFY_003) / 시연용 반경 250km 초과(VERIFY_002)",
+                    description = "인증 가능 시간 아님(VERIFY_003) / 서버 판정 반경 60m 초과(VERIFY_002)",
                     content = @Content(
                             mediaType = "application/json",
                             examples = @ExampleObject(value = """
                                     {
                                       "success": false,
                                       "code": "VERIFY_002",
-                                      "message": "약속 장소 시연용 반경 250km 밖에 있습니다.",
+                                      "message": "약속 장소 반경 50m와 GPS 오차 허용 범위 10m를 벗어났습니다.",
                                       "data": null
                                     }
                                     """)

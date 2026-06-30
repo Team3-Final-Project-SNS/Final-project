@@ -32,9 +32,8 @@ public class MeetVerificationPolicy {
     // 위치 업데이트 5초 주기를 기준으로 둔 안전 여유 값
     public static final long LOCATION_FRESHNESS_SECONDS = 15;
 
-    // 발표회 라이브 시연용 약속 장소 반경: 250km
-    // 운영 정책으로 되돌릴 때 개인정보 보호 범위와 함께 재검토 필요
-    public static final double MEETING_RADIUS_METERS = 250_000.0;
+    // GPS 장소 인증 정책 반경 50m에 위치 오차 허용 범위 10m를 더한 서버 판정 반경
+    public static final double MEETING_RADIUS_METERS = 60.0;
     public static final double NO_SHOW_RADIUS_METERS = MEETING_RADIUS_METERS;
     public static final double PLACE_VERIFICATION_RADIUS_METERS = MEETING_RADIUS_METERS;
 

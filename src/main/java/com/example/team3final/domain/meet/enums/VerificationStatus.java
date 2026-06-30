@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
 public enum VerificationStatus {
 
     PENDING("대기"),                  // 초기 상태: 양측 GPS 인증 전
-    VERIFIED("장소 인증 완료"),       // 장소 인증 완료: 양측 모두 시연용 반경 250km 진입, QR 단계 활성화
+    VERIFIED("장소 인증 완료"),       // 장소 인증 완료: 양측 모두 서버 판정 반경 60m 진입, QR 단계 활성화
     DONE("만남 인증 완료"),           // 만남 인증 최종 완료: QR 스캔 성공
     HOST_NO_SHOW("등록자 노쇼"),      // 등록자 노쇼 예정
     GUEST_NO_SHOW("신청자 노쇼"),     // 신청자 노쇼 예정
