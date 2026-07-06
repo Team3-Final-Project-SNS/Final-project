@@ -22,7 +22,7 @@ public class MeetVerificationPolicy {
     // 노쇼 예정 판정 기준: 만남 시간 + 10분
     public static final long NO_SHOW_JUDGE_MINUTES = 10;
     // 발표회 시연을 위해 QR 단계 fallback 진입 기준 임시 조정
-    public static final long QR_FALLBACK_AFTER_MINUTES = 3;
+    public static final long QR_FALLBACK_AFTER_MINUTES = 10;
     // 연장 요청 타임아웃: 요청 시각 + 5분
     public static final long EXTENSION_TIMEOUT_MINUTES = 5;
     // 연장 시간: 1회 10분

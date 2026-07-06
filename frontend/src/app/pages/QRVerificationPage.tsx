@@ -10,7 +10,7 @@ import { getUserMe } from '../../api/userApi';
 type QrRole = 'author' | 'applicant';
 const CAMERA_REQUEST_TIMEOUT_MS = 15000;
 // 발표회 시연을 위해 QR 단계 fallback 진입 기준 임시 조정
-const QR_FALLBACK_AFTER_MINUTES = 3;
+const QR_FALLBACK_AFTER_MINUTES = 10;
 
 const getQrBaseUrl = () => {
   const configuredUrl = import.meta.env.VITE_QR_BASE_URL;
